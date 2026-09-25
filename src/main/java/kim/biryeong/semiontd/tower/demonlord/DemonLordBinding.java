@@ -3,9 +3,8 @@ package kim.biryeong.semiontd.tower.demonlord;
 /**
  * Where a demon lord skill sits on the keyboard.
  *
- * <p>Bindings are handed out in <b>build order</b>: the first altar raised takes {@code 1}, the next
- * {@code 2}, and so on. That way the skill a player leans on is always the one under their index
- * finger, instead of every skill owning a fixed far-away slot.
+ * <p>The player picks the binding: the [스킬 배정] window buys a skill straight into one of these
+ * seven slots, so the skill they lean on sits under whichever key they chose.
  *
  * <p>The first four are real hotbar slots, so pressing the number key selects them and fires. The
  * last two ride on keys that are otherwise dead weight in this game mode - {@code F} (swap with

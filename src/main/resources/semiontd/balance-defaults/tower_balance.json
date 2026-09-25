@@ -7139,7 +7139,8 @@
       "statCooldownHalvingPoints": 60.0,
       "statSkillRangePerPoint": 0.03,
       "statMoveSpeedPerPoint": 0.03,
-      "statMoveSpeedCap": 0.5
+      "statMoveSpeedCap": 0.5,
+      "autoIncomeThreshold": 0.7
     },
     "t1_wave_of_malice_tower": {
       "towerSlotCost": 3.0,

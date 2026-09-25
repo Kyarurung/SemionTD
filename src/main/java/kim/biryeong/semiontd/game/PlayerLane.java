@@ -996,7 +996,10 @@ public final class PlayerLane {
     }
 
     private void syncTowerStates() {
-        boolean allTowersDestroyed = !towers.isEmpty();
+        // 마왕 레인은 마왕 본인이 지킵니다. 증강으로 받은 타워가 전부 쓰러져도 레인이 무너진 것이
+        // 아닙니다 - 예전에는 무적 제단이 서 있어서 저절로 그렇게 됐습니다.
+        boolean allTowersDestroyed = !towers.isEmpty()
+                && kim.biryeong.semiontd.tower.demonlord.DemonLordStates.get(ownerPlayer) == null;
         for (Tower tower : towers) {
             if (!tower.countsForLaneDefense()) {
                 continue;

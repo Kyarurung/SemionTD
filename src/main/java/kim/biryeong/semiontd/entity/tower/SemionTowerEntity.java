@@ -176,7 +176,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         targetAcquireRange = Math.max(attackRange + 4.0, DEFAULT_TARGET_ACQUIRE_RANGE);
         moveSpeed = DEFAULT_MOVE_SPEED;
         setCustomName(Component.literal(tower.type().displayName()));
-        setCustomNameVisible(true);
+        setCustomNameVisible(!tower.isHiddenSkillCarrier());
         getAttribute(Attributes.MAX_HEALTH).setBaseValue(tower.currentMaxHealth());
         getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(attackDamage);
         getAttribute(Attributes.FOLLOW_RANGE).setBaseValue(targetAcquireRange);
@@ -1615,7 +1615,9 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     private void syncEndCoreFlightPhysics() {
-        boolean airborneEndCore = usesOneBlockEndCoreHitbox();
+        // 숨은 스킬 운반체도 떠 있어야 합니다. 레인 위 허공에 두므로 떨어지면 바닥에 드러납니다.
+        boolean airborneEndCore = usesOneBlockEndCoreHitbox()
+                || runtimeTower != null && runtimeTower.isHiddenSkillCarrier();
         setNoGravity(airborneEndCore);
         if (airborneEndCore) {
             Vec3 velocity = getDeltaMovement();

@@ -17,22 +17,18 @@ import net.minecraft.world.level.block.Blocks;
 /**
  * Tower types of the demon lord builder: ten skills, four tiers each.
  *
- * <p>Every one of these towers has zero damage, zero range and zero aggro. They are altars, not
- * guns - the whole point of the builder is that the player fights in person and the towers only
- * decide which skills are in the hotbar. Because they never fight, they are also invulnerable and
- * invisible to monster targeting (see {@link DemonLordSkillTower}).
+ * <p>These are not built in the lane any more. Each type is the stat sheet of one skill tier: the
+ * [스킬 배정] window prices a slot from its placement and upgrade costs, and the hidden carrier
+ * ({@link DemonLordSkillTower}) that casts the skill reads its abilities from the type id. The types
+ * keep zero damage, zero range and zero aggro because the player is the one who fights.
  *
- * <p>Only one tower per skill can exist at a time; the shop hides a skill once its altar is up.
- * Tiers raise skill power and shave one second off the cooldown each step.
+ * <p>Tiers raise skill power and shave one second off the cooldown each step.
  */
 public final class DemonLordTowers {
     public static final String GLOBAL_CONFIG_ID = "demon_lord_global";
 
     /** Must stay above the tower tables: the factory below fills them during class init. */
     private static final Map<String, Definition> DEFINITIONS = new HashMap<>();
-
-    private static final String NO_COMBAT_LINE =
-            "<red>이 타워는 공격도, 방어도, 어그로도 없습니다. 마왕 본인이 싸웁니다.</red>";
 
     /** 표기된 피해는 레벨 1 기준입니다. 실제 피해는 레벨 배율이 곱해집니다. */
     private static final String LEVEL_SCALING_LINE =
@@ -252,10 +248,8 @@ public final class DemonLordTowers {
             List<String> lines = new ArrayList<>();
             lines.add("<gray>마왕에게 <yellow>" + skill.displayName() + "</yellow> 스킬을 부여합니다.</gray>");
             lines.addAll(flavour);
-            lines.add("<green>쿨타임 <aqua>{ability.cooldownTicks:seconds}</aqua> "
-                    + "<dark_gray>|</dark_gray> 코스트 <aqua>" + skill.slotCost() + "</aqua></green>");
+            lines.add("<green>쿨타임 <aqua>{ability.cooldownTicks:seconds}</aqua></green>");
             lines.add(LEVEL_SCALING_LINE);
-            lines.add(NO_COMBAT_LINE);
 
             String id = skill.towerId(tier);
             TowerType type = ProductionTowerDefinitions.tower(

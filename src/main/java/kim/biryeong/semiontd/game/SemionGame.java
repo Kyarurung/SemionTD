@@ -1419,6 +1419,7 @@ public final class SemionGame {
             activeMatchTicks++;
             if (activeMatchTicks % 20 == 0) {
                 economyService.tickGas(players.values(), teams, currentRound);
+                kim.biryeong.semiontd.tower.demonlord.DemonLordIncome.tick(this);
             }
             if (TraitEffects.weeklyHolidayPayDue(activeMatchTicks)) {
                 awardWeeklyHolidayPay();

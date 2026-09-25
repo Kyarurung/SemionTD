@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
+import kim.biryeong.semiontd.entity.visual.BlockDisplayVisual;
+import kim.biryeong.semiontd.entity.visual.EntityVisual;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.TeamId;
@@ -12,13 +14,17 @@ import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.tower.ProductionTower;
 import kim.biryeong.semiontd.tower.TowerType;
+import net.minecraft.world.level.block.Blocks;
 
 /**
- * A demon lord altar. It grants its skill to the owning player and does nothing else.
+ * 마왕 스킬 하나의 운반체입니다. 레인에 설치하는 타워가 아닙니다.
  *
- * <p>All three combat hooks are switched off: it never chases, never draws aggro and never takes
- * damage. Leaving it killable would be a trap, because the builder has no defensive tower to
- * protect it with and losing an altar mid-round would silently delete a skill the player paid for.
+ * <p>스킬은 [스킬 배정] 창에서 키 슬롯에 사고, 이 객체는 그 슬롯마다 {@code DemonLordService}가
+ * 만들어 레인 위 허공에 보이지 않게 띄웁니다. 레인의 타워 목록에 들어가지 않으므로 칸도 타워 수도
+ * 차지하지 않습니다. 그래도 엔티티를 두는 이유는 공용 범위·피해·연출 경로가 전부 타워 엔티티를
+ * 출처로 받기 때문입니다 - 스킬 수치도 이 타워 id({@code t{티어}_{스킬}_tower})에서 읽습니다.
+ *
+ * <p>전투 훅은 모두 꺼져 있습니다. 쫓지도, 어그로를 끌지도, 피해를 받지도 않습니다.
  */
 public class DemonLordSkillTower extends ProductionTower {
     private DemonLordBinding binding;
@@ -59,12 +65,7 @@ public class DemonLordSkillTower extends ProductionTower {
                 : null;
     }
 
-    /**
-     * Key this altar answers to, refreshed by {@code DemonLordService} whenever the bar is rebuilt.
-     *
-     * <p>Cached on the tower purely so the tower info panel can show it - the binding itself is
-     * always derived from build order, never stored as the source of truth.
-     */
+    /** 이 운반체가 놓인 키 슬롯. 원본은 {@link DemonLordLoadout}이고 여기엔 표시용으로만 둡니다. */
     public DemonLordBinding binding() {
         return binding;
     }
@@ -77,6 +78,19 @@ public class DemonLordSkillTower extends ProductionTower {
     public boolean canChaseTargets() {
         return false;
     }
+
+    @Override
+    public boolean isHiddenSkillCarrier() {
+        return true;
+    }
+
+    /** 운반체는 보이면 안 됩니다. 공기 블록 디스플레이는 아무것도 그리지 않습니다. */
+    @Override
+    public EntityVisual visual() {
+        return INVISIBLE;
+    }
+
+    private static final EntityVisual INVISIBLE = BlockDisplayVisual.builder(Blocks.AIR.defaultBlockState()).build();
 
     @Override
     public boolean invulnerable() {
@@ -93,10 +107,7 @@ public class DemonLordSkillTower extends ProductionTower {
         return false;
     }
 
-    /**
-     * Placing or upgrading an altar changes which items belong in the hotbar, so the loadout is
-     * marked dirty and the next service tick rebuilds slots 3-7.
-     */
+    /** 운반체가 생기거나 사라지면 핫바에 놓일 스킬이 바뀌므로 다음 틱에 다시 깝니다. */
     @Override
     public void onPlaced(PlayerLane lane) {
         super.onPlaced(lane);
@@ -128,8 +139,7 @@ public class DemonLordSkillTower extends ProductionTower {
                 + (state == null || state.cooldownMultiplier() >= 1.0
                         ? ""
                         : " (기본 " + seconds(cooldownTicks()) + "초)"));
-        lines.add("코스트 " + skill.slotCost()
-                + (binding == null ? " · 키 없음" : " · [" + binding.label() + "] 키"));
+        lines.add(tier() + "티어" + (binding == null ? " · 키 없음" : " · [" + binding.label() + "] 키"));
         if (state == null) {
             return List.copyOf(lines);
         }

@@ -2070,6 +2070,7 @@ public record TowerBalanceConfig(
                 "maxHealthPerLevel", "experiencePerMaxHealth", "damagePerLevel", "bladeDamage");
         validateIntegral(global, false, "maxLevel", "bladeAttackIntervalTicks");
         validateAtLeast(global, 1.0, "experienceGrowth");
+        validateRange(global, "autoIncomeThreshold", 0.0, 1.0);
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier <= DemonLordSkill.MAX_TIER; tier++) {
@@ -4891,6 +4892,9 @@ public record TowerBalanceConfig(
         global.put("statSkillRangePerPoint", 0.03);
         global.put("statMoveSpeedPerPoint", 0.03);
         global.put("statMoveSpeedCap", 0.5);
+        // 에메랄드가 라운드 한도의 이 비율 이상이면 인컴을 자동으로 보냅니다. 플레이어가 막대로
+        // 따로 고르지 않았을 때의 기본값입니다.
+        global.put("autoIncomeThreshold", 0.7);
         putAbilities(abilities, DemonLordTowers.GLOBAL_CONFIG_ID, global);
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
