@@ -50,6 +50,10 @@ public final class DemonLordState {
     private int roundMetricsTick;
     private final DemonLordAugments augments = new DemonLordAugments();
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
+    private DemonLordLoadout loadout = new DemonLordLoadout();
+    private boolean autoIncomeEnabled = true;
+    /** 플레이어가 막대로 고른 값. 고르지 않았으면 {@code null}이고 설정 기본값을 씁니다. */
+    private Double autoIncomeThreshold;
 
     public void syncAugments(AugmentSnapshot snapshot) {
         if (augmentSnapshot == snapshot) return;
@@ -592,6 +596,49 @@ public final class DemonLordState {
         }
         return (int) Math.max(0L, ready - gameTime);
     }
+
+    // ------------------------------------------------------------- 스킬 배정
+
+    public DemonLordLoadout loadout() {
+        return loadout;
+    }
+
+    void restoreLoadout(DemonLordLoadout restored) {
+        loadout = restored == null ? new DemonLordLoadout() : restored;
+        loadoutDirty = true;
+    }
+
+    // --------------------------------------------------------- 자동 인컴 전송
+
+    public boolean autoIncomeEnabled() {
+        return autoIncomeEnabled;
+    }
+
+    public void setAutoIncomeEnabled(boolean enabled) {
+        autoIncomeEnabled = enabled;
+    }
+
+    /** 에메랄드가 한도의 이 비율 이상이면 자동으로 인컴을 보냅니다. */
+    public double autoIncomeThreshold() {
+        double value = autoIncomeThreshold != null ? autoIncomeThreshold
+                : global("autoIncomeThreshold", DEFAULT_AUTO_INCOME_THRESHOLD);
+        return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    public void setAutoIncomeThreshold(double ratio) {
+        autoIncomeThreshold = Math.max(0.0, Math.min(1.0, ratio));
+    }
+
+    Double autoIncomeThresholdOverride() {
+        return autoIncomeThreshold;
+    }
+
+    void restoreAutoIncome(boolean enabled, Double threshold) {
+        autoIncomeEnabled = enabled;
+        autoIncomeThreshold = threshold;
+    }
+
+    public static final double DEFAULT_AUTO_INCOME_THRESHOLD = 0.7;
 
     // ---------------------------------------------------------------- hotbar
 

@@ -7,14 +7,12 @@ import net.minecraft.world.item.Items;
 /**
  * The ten demon lord skills.
  *
- * <p>Unlike every other builder, a demon lord tower never fights. It exists only to hand its skill
- * to the owning player, who is the actual weapon. Each skill therefore owns a fixed hotbar slot:
- * slots 0-2 stay with the shared match tools, slots 3-7 hold whichever skills the player bought,
- * and slot {@link #BLADE_SLOT} always holds the 마검 the hand snaps back to after a cast.
+ * <p>Skills are bought straight into a key slot ({@link DemonLordBinding}) from the [스킬 배정]
+ * window. They do not occupy the tower limit; slot {@link #BLADE_SLOT} always holds the 마검 the
+ * hand snaps back to after a cast.
  *
- * <p>{@link #slotCost()} is the builder's "코스트" and feeds the existing
- * {@code towerSlotCost} capacity system, so the round tower limit decides how many skills can be
- * live at once. All ten together cost 32, which is far more than an early limit allows.
+ * <p>{@link #slotCost()} is the old altar 코스트. It only survives as the {@code towerSlotCost}
+ * value in the balance file so existing configs still load; nothing charges it any more.
  */
 public enum DemonLordSkill {
     WAVE_OF_MALICE("wave_of_malice", "악의 파동", 3, 8, Items.BREEZE_ROD),

@@ -6,6 +6,7 @@ import static net.minecraft.commands.Commands.literal;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -49,7 +50,12 @@ import kim.biryeong.semiontd.tower.atlantis.AtlantisVfx;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.tower.engineer.EngineerTrapTower;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordIncome;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordService;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordSkillGui;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordState;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordStates;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordStatGui;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordSkill;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordVfx;
 import kim.biryeong.semiontd.tower.futureagency.FutureAgencyTowers;
@@ -362,6 +368,27 @@ public final class SemionCommands {
                                                 gameManager,
                                                 StringArgumentType.getString(context, "role")
                                         )))))
+                .then(literal("demonlord")
+                        .then(literal("skills")
+                                .executes(context -> demonLordSkills(context.getSource(), gameManager)))
+                        .then(literal("stats")
+                                .executes(context -> demonLordStats(context.getSource(), gameManager)))
+                        .then(literal("income")
+                                .executes(context -> demonLordIncome(context.getSource(), gameManager, null, null))
+                                .then(literal("on")
+                                        .executes(context -> demonLordIncome(
+                                                context.getSource(), gameManager, true, null)))
+                                .then(literal("off")
+                                        .executes(context -> demonLordIncome(
+                                                context.getSource(), gameManager, false, null)))
+                                .then(literal("set")
+                                        .then(argument("percent", DoubleArgumentType.doubleArg(0.0, 100.0))
+                                                .executes(context -> demonLordIncome(
+                                                        context.getSource(),
+                                                        gameManager,
+                                                        null,
+                                                        DoubleArgumentType.getDouble(context, "percent")
+                                                ))))))
                 .then(literal("tower")
                         .then(literal("list")
                                 .executes(context -> listProductionTowers(context.getSource(), gameManager)))
@@ -1269,7 +1296,7 @@ public final class SemionCommands {
                 }
             }
         }
-        failure(source, "해당 스킬의 살아 있는 마왕 제단이 필요합니다.");
+        failure(source, "해당 스킬을 [스킬 배정]에서 슬롯에 넣어야 합니다.");
         return 0;
     }
 
@@ -3296,6 +3323,76 @@ public final class SemionCommands {
     private static int towerDialog(CommandSourceStack source, SemionGameManager gameManager)
             throws CommandSyntaxException {
         return towerDialog(source, gameManager, null);
+    }
+
+    /** 마왕의 [스킬 배정] 상자 창. 타워 관리 창의 버튼이 부릅니다. */
+    private static int demonLordSkills(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        SemionPlayer semionPlayer = demonLordParticipant(source, gameManager);
+        if (semionPlayer == null) {
+            return 0;
+        }
+        new DemonLordSkillGui(player, semionPlayer.economy()).open();
+        return 1;
+    }
+
+    /** 마왕의 [스탯 배정] 상자 창. 예전에는 핫바 도구를 우클릭해 열었습니다. */
+    private static int demonLordStats(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (demonLordParticipant(source, gameManager) == null) {
+            return 0;
+        }
+        new DemonLordStatGui(player).open();
+        return 1;
+    }
+
+    /**
+     * 마왕 인컴 자동 전송 설정. 인자가 없으면 설정 창을 엽니다.
+     *
+     * @param percent 막대에서 고른 0~100 값
+     */
+    private static int demonLordIncome(
+            CommandSourceStack source,
+            SemionGameManager gameManager,
+            Boolean enabled,
+            Double percent
+    ) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (demonLordParticipant(source, gameManager) == null) {
+            return 0;
+        }
+        DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
+        if (enabled != null) {
+            state.setAutoIncomeEnabled(enabled);
+            success(source, enabled ? "인컴 자동 전송을 켰습니다." : "인컴 자동 전송을 껐습니다.");
+        }
+        if (percent != null) {
+            state.setAutoIncomeThreshold(percent / 100.0);
+            state.setAutoIncomeEnabled(true);
+            success(source, "에메랄드가 한도의 " + Math.round(state.autoIncomeThreshold() * 100.0)
+                    + "% 이상이면 인컴을 자동으로 보냅니다.");
+        }
+        SemionGame game = playableGame(source, gameManager);
+        gameManager.dialogService().showDemonLordIncome(player, game);
+        return 1;
+    }
+
+    private static SemionPlayer demonLordParticipant(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        if (game == null) {
+            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
+            return null;
+        }
+        SemionPlayer semionPlayer = game.players().get(source.getPlayerOrException().getUUID());
+        if (!DemonLordIncome.isDemonLord(semionPlayer)) {
+            failure(source, "마왕 빌더만 쓸 수 있습니다.");
+            return null;
+        }
+        DemonLordStates.getOrCreate(semionPlayer.uuid());
+        return semionPlayer;
     }
 
     private static int towerDialog(CommandSourceStack source, SemionGameManager gameManager, String group)

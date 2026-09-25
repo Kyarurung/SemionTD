@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.tower.demonlord;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -12,6 +13,7 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
+import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.SemionGameManager;
 import kim.biryeong.semiontd.game.SemionPlayer;
@@ -90,11 +92,18 @@ public final class DemonLordService {
     /** 스스로 전투에서 물러나는 자리. 스킬 슬롯과 마검 사이의 마지막 빈칸입니다. */
     private static final int RETREAT_SLOT = 7;
 
-    /** 준비 단계에만 놓이는 스탯 분배 도구 자리. 기존 매치 도구(0~2) 바로 뒤입니다. */
-    private static final int STAT_TOOL_SLOT = 3;
+    /**
+     * 슬롯마다 하나씩 띄우는 스킬 운반체. 레인의 타워 목록에는 들어가지 않습니다.
+     *
+     * <p>어느 레인에 띄웠는지 함께 기억해, 레인이 바뀌면(새 경기) 옛 엔티티를 거기서 치웁니다.
+     */
+    private static final Map<UUID, CarrierSet> CARRIERS = new ConcurrentHashMap<>();
 
-    private static final Component STAT_TOOL_NAME =
-            Component.literal("스탯 포인트 분배").withStyle(ChatFormatting.LIGHT_PURPLE);
+    /** 운반체를 레인 바닥보다 이만큼 위 허공에 둡니다. 도약기로도 닿지 않는 높이입니다. */
+    private static final int CARRIER_HEIGHT = 12;
+
+    private record CarrierSet(PlayerLane lane, EnumMap<DemonLordBinding, DemonLordSkillTower> carriers) {
+    }
 
     private static final ResourceLocation MOVE_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
@@ -121,17 +130,6 @@ public final class DemonLordService {
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (world.isClientSide() || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer serverPlayer)) {
                 return InteractionResult.PASS;
-            }
-            // 준비 단계의 스탯 분배 도구.
-            if (isStatTool(serverPlayer.getMainHandItem())
-                    && DemonLordStates.get(serverPlayer.getUUID()) != null) {
-                SemionPlayer semionPlayer = gameManager.playableGame(serverPlayer.getUUID())
-                        .map(game -> game.players().get(serverPlayer.getUUID()))
-                        .orElse(null);
-                if (semionPlayer != null) {
-                    new DemonLordStatGui(serverPlayer).open();
-                    return InteractionResult.SUCCESS;
-                }
             }
             if (serverPlayer.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
                 // 스킬 카드는 들고 우클릭해도 아무 일도 일어나면 안 됩니다. 시전은 슬롯을 잡는
@@ -261,6 +259,8 @@ public final class DemonLordService {
         state.setLaneId(lane.laneId());
         long gameTime = lane.arenaWorld().getGameTime();
         state.augments().tickVisuals(gameTime);
+
+        syncCarriers(lane, state);
 
         // 초당 한 번 강제로 다시 깔아, 인벤토리에서 스킬이나 마검을 옮겨도 제자리로 돌아옵니다.
         if (gameTime % 20 == 0) {
@@ -431,6 +431,7 @@ public final class DemonLordService {
         }
         clearBossBar(playerId);
         PRE_COMBAT_HOTBAR.remove(playerId);
+        removeCarriers(playerId);
         DemonLordStates.clear(playerId);
     }
 
@@ -857,27 +858,91 @@ public final class DemonLordService {
         player.connection.send(new ClientboundSetHeldSlotPacket(slot));
     }
 
-    /**
-     * The player's altars in build order.
-     *
-     * <p>Build order is what decides the key binding, so the first altar raised answers to
-     * {@code 1}. {@code lane.towers()} keeps insertion order, and upgrading replaces a tower in
-     * place, so a tier-up never shuffles the bar under the player's fingers.
-     */
+    /** 이 플레이어의 스킬 운반체를 키 슬롯 순서(1 → Q)로. */
     public static List<DemonLordSkillTower> orderedAltars(PlayerLane lane, UUID owner) {
-        List<DemonLordSkillTower> altars = new ArrayList<>();
-        for (Tower tower : List.copyOf(lane.towers())) {
-            if (tower instanceof DemonLordSkillTower altar && owner.equals(altar.ownerPlayer())) {
-                altars.add(altar);
-            }
+        CarrierSet set = owner == null ? null : CARRIERS.get(owner);
+        if (set == null || set.lane() != lane) {
+            return List.of();
         }
-        return altars;
+        return List.copyOf(set.carriers().values());
     }
 
     private static DemonLordSkillTower altarFor(PlayerLane lane, UUID owner, DemonLordBinding binding) {
-        List<DemonLordSkillTower> altars = orderedAltars(lane, owner);
-        int index = binding.ordinal();
-        return index < altars.size() ? altars.get(index) : null;
+        CarrierSet set = owner == null ? null : CARRIERS.get(owner);
+        return set == null || set.lane() != lane ? null : set.carriers().get(binding);
+    }
+
+    /**
+     * 배정 결과({@link DemonLordLoadout})에 맞춰 운반체를 만들고 치웁니다.
+     *
+     * <p>슬롯의 스킬이나 티어가 바뀌었거나 엔티티가 사라졌으면 새로 띄웁니다. 운반체는
+     * {@code lane.addTower}를 거치지 않으므로 칸도 타워 수도 차지하지 않고, 몹의 표적이나 라인
+     * 방어 판정에도 끼지 않습니다.
+     */
+    static void syncCarriers(PlayerLane lane, DemonLordState state) {
+        UUID owner = state.playerId();
+        CarrierSet set = CARRIERS.get(owner);
+        if (set != null && set.lane() != lane) {
+            removeCarriers(owner);
+            set = null;
+        }
+        if (set == null) {
+            set = new CarrierSet(lane, new EnumMap<>(DemonLordBinding.class));
+            CARRIERS.put(owner, set);
+        }
+        EnumMap<DemonLordBinding, DemonLordSkillTower> carriers = set.carriers();
+        Map<DemonLordBinding, DemonLordLoadout.Slot> wanted = state.loadout().view();
+        for (DemonLordBinding binding : DemonLordBinding.values()) {
+            DemonLordLoadout.Slot slot = wanted.get(binding);
+            DemonLordSkillTower current = carriers.get(binding);
+            TowerType type = slot == null ? null : DemonLordSkillShop.resolved(slot.skill(), slot.tier());
+            boolean matches = current != null && type != null && current.type().id().equals(type.id())
+                    && current.runtimeEntity(lane).isPresent();
+            if (matches) {
+                continue;
+            }
+            if (current != null) {
+                dismiss(lane, current);
+                carriers.remove(binding);
+            }
+            if (type == null) {
+                continue;
+            }
+            DemonLordSkillTower carrier = spawnCarrier(lane, owner, type);
+            if (carrier != null) {
+                carrier.setBinding(binding);
+                carriers.put(binding, carrier);
+            }
+        }
+    }
+
+    private static DemonLordSkillTower spawnCarrier(PlayerLane lane, UUID owner, TowerType type) {
+        LaneRegionLayout layout = lane.laneLayout();
+        if (layout == null || lane.arenaWorld() == null) {
+            return null;
+        }
+        BlockBounds area = layout.laneArea();
+        GridPosition anchor = new GridPosition(
+                (area.min().getX() + area.max().getX()) / 2,
+                area.max().getY() + CARRIER_HEIGHT,
+                (area.min().getZ() + area.max().getZ()) / 2);
+        DemonLordSkillTower carrier = new DemonLordSkillTower(
+                type, owner, lane.teamId(), lane.laneId(), anchor, anchor);
+        carrier.attachToLane(lane, lane.traitLoadout());
+        carrier.onPlaced(lane);
+        return carrier;
+    }
+
+    private static void dismiss(PlayerLane lane, DemonLordSkillTower carrier) {
+        carrier.onRemoved(lane);
+        carrier.detachFromLane(lane);
+    }
+
+    private static void removeCarriers(UUID owner) {
+        CarrierSet set = owner == null ? null : CARRIERS.remove(owner);
+        if (set != null) {
+            set.carriers().values().forEach(carrier -> dismiss(set.lane(), carrier));
+        }
     }
 
     static DemonLordSkillTower altarFor(PlayerLane lane, UUID owner, TowerType type) {
@@ -901,7 +966,6 @@ public final class DemonLordService {
                 restoreHotbar(player);
                 state.setCombatKitGranted(false);
             }
-            ensureStatTool(player);
             return;
         }
 
@@ -910,21 +974,13 @@ public final class DemonLordService {
         }
         SemionHotbarService.clearMatchTools(player);
         clearCombatKit(player);
-        List<DemonLordSkillTower> altars = orderedAltars(lane, player.getUUID());
-        // 타워 정보창이 자기 키를 보여줄 수 있게 배정 결과를 되돌려 씁니다.
-        for (int i = 0; i < altars.size(); i++) {
-            altars.get(i).setBinding(DemonLordBinding.forIndex(i));
-        }
         for (DemonLordBinding binding : DemonLordBinding.values()) {
             if (!binding.isHotbarSlot()) {
                 continue;
             }
-            int index = binding.ordinal();
-            if (index >= altars.size()) {
-                player.getInventory().setItem(binding.hotbarSlot(), ItemStack.EMPTY);
-                continue;
-            }
-            player.getInventory().setItem(binding.hotbarSlot(), skillStack(altars.get(index), binding));
+            DemonLordSkillTower carrier = altarFor(lane, player.getUUID(), binding);
+            player.getInventory().setItem(binding.hotbarSlot(),
+                    carrier == null || carrier.skill() == null ? ItemStack.EMPTY : skillStack(carrier, binding));
         }
         ItemStack retreat = new ItemStack(Items.TOTEM_OF_UNDYING);
         retreat.set(DataComponents.CUSTOM_NAME, RETREAT_NAME);
@@ -947,21 +1003,6 @@ public final class DemonLordService {
 
     private static void clearCombatKit(ServerPlayer player) {
         DemonLordKitItems.clear(player.getInventory());
-    }
-
-    /**
-     * 준비 단계에만 놓이는 스탯 분배 도구입니다.
-     *
-     * <p>전투 중에는 핫바가 스킬로 꽉 차므로 자리가 없고, 어차피 분배는 다음 웨이브를 준비하며
-     * 하는 일입니다. 이미 올바른 아이템이 있으면 건드리지 않아 매 틱 인벤토리를 흔들지 않습니다.
-     */
-    private static void ensureStatTool(ServerPlayer player) {
-        if (isStatTool(player.getInventory().getItem(STAT_TOOL_SLOT))) {
-            return;
-        }
-        ItemStack tool = new ItemStack(Items.EXPERIENCE_BOTTLE);
-        tool.set(DataComponents.CUSTOM_NAME, STAT_TOOL_NAME);
-        player.getInventory().setItem(STAT_TOOL_SLOT, tool);
     }
 
     /**
@@ -992,14 +1033,6 @@ public final class DemonLordService {
                 player.getInventory().setItem(slot, saved.get(slot).copy());
             }
         }
-    }
-
-    private static boolean isStatTool(ItemStack stack) {
-        if (stack == null || !stack.is(Items.EXPERIENCE_BOTTLE)) {
-            return false;
-        }
-        Component name = stack.get(DataComponents.CUSTOM_NAME);
-        return name != null && name.getString().equals(STAT_TOOL_NAME.getString());
     }
 
     /** Shared damage entry point for the blade and every skill. */

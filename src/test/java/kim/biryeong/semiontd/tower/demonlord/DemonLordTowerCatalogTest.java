@@ -55,19 +55,25 @@ final class DemonLordTowerCatalogTest {
         DemonLordStates.clearAllForTesting();
     }
 
+    /**
+     * 스킬은 레인에 짓지 않고 [스킬 배정] 창에서 삽니다. 제단 타입은 설치할 수 없지만, 스킬 수치를
+     * 담고 있으므로 카탈로그 내보내기에서는 여전히 이 빌더 소속입니다.
+     */
     @Test
-    void jobExposesEveryDemonLordTowerAndNothingElse() {
+    void altarsAreNoLongerBuildableButStillBelongToTheBuilder() {
         DemonLordTowerJob job = new DemonLordTowerJob();
         assertEquals("semion-td:demon_lord_towers", job.id().toString());
         for (TowerType type : DemonLordTowers.all()) {
-            assertTrue(job.canUseTower(null, type), "Job should allow " + type.id());
+            assertFalse(job.canUseTower(null, type), "Altars must not be placeable: " + type.id());
+            assertTrue(job.includesTowerInCatalog(type), "Altars still belong to the builder: " + type.id());
         }
         String description = job.description().stream()
                 .map(component -> component.getString())
                 .reduce("", String::concat);
-        assertTrue(description.contains("무료"));
-        assertFalse(description.contains("다이아"));
-        assertFalse(job.canUseTower(null, ProductionTowerCatalog.all().stream()
+        assertTrue(description.contains("[스킬 배정]") && description.contains("[스탯 배정]"),
+                "The job description must point at the two dialog buttons: " + description);
+        assertTrue(description.contains("자동"), "The job description must mention automatic income.");
+        assertFalse(job.includesTowerInCatalog(ProductionTowerCatalog.all().stream()
                 .map(ProductionTowerCatalog.CatalogEntry::type)
                 .filter(type -> !DemonLordTowers.isDemonLordTower(type))
                 .findFirst()
@@ -81,7 +87,7 @@ final class DemonLordTowerCatalogTest {
                 .filter(ProductionTowerCatalog.CatalogEntry::starter)
                 .filter(entry -> DemonLordTowers.isDemonLordTower(entry.type()))
                 .count();
-        assertEquals(DemonLordSkill.values().length, starters, "Only tier 1 altars belong in the shop.");
+        assertEquals(DemonLordSkill.values().length, starters, "Tier 1 is what the [스킬 배정] purchase price comes from.");
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier < DemonLordSkill.MAX_TIER; tier++) {
@@ -109,17 +115,6 @@ final class DemonLordTowerCatalogTest {
                         skill + " T" + tier + " slot cost");
             }
         }
-    }
-
-    /** 전부 열면 코스트가 크게 넘칩니다. 초반 타워 한도로는 못 여는 값이어야 선택이 생깁니다. */
-    @Test
-    void openingEverySkillCostsMoreThanAnEarlyTowerLimit() {
-        int total = 0;
-        for (DemonLordSkill skill : DemonLordSkill.values()) {
-            total += skill.slotCost();
-            assertTrue(skill.slotCost() >= 2 && skill.slotCost() <= 4, skill + " 코스트는 2~4 범위여야 합니다");
-        }
-        assertTrue(total >= 24, "총 코스트 " + total + " 는 초반 한도로 감당할 수 없어야 합니다");
     }
 
     /** 업글마다 쿨타임 -1초. 4티어면 -3초입니다. */
