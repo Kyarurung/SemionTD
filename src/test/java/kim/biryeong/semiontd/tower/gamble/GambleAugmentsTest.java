@@ -29,7 +29,7 @@ class GambleAugmentsTest {
 
     @Test
     void insuranceAddsOnlyHalfOppositeCombatEffectsAndPreservesBadRoll() {
-        for (var type : List.of(GambleTowers.DICE_T1, GambleTowers.SPECTATOR_T1)) {
+        for (var type : List.of(GambleTowers.DICE_T1, GambleTowers.DICE_T2, GambleTowers.DICE_T3)) {
             for (int face = 1; face <= 2; face++) {
                 var original = GambleSupportRolls.roll(type, face, RandomSource.create(13));
                 var opposite = GambleSupportRolls.roll(type, 7 - face, RandomSource.create(13));
@@ -89,10 +89,11 @@ class GambleAugmentsTest {
             if (reversed) reversals++;
             assertEquals(-80, tower.gambleScore(), 1e-9);
             boolean increased = tower.state().damageDelta() > 0 || tower.state().maxHealthDelta() > 0
-                    || tower.state().rangeDelta() > 0;
+                    || tower.state().magicDamageDelta() > 0 || tower.state().rangeDelta() > 0;
             assertEquals(reversed, increased, "seed=" + seed);
             if (!reversed) assertTrue(tower.state().damageDelta() < 0 || tower.state().maxHealthDelta() < 0
-                    || tower.state().rangeDelta() < 0, "The remaining failures keep their stat loss");
+                    || tower.state().magicDamageDelta() < 0 || tower.state().rangeDelta() < 0,
+                    "The remaining failures keep their stat loss, including magic damage");
         }
         assertTrue(failures > 400 && reversals > failures * .15 && reversals < failures * .25);
         assertEquals(.2, AugmentConfig.defaults().parameter("job_gamble_g2", "statReversalChance", -1));
@@ -137,6 +138,28 @@ class GambleAugmentsTest {
         assertEquals(3, promoted.jackpotCharges());
         promoted.resetForRound(null);
         assertEquals(0, promoted.jackpotCharges());
+    }
+
+    @Test
+    void slotsIgnoreDiceAugmentsAndNeverChargeJackpotOrGrantInsurance() {
+        for (int seed = 0; seed < 216; seed++) {
+            GamblerTower normal = tower();
+            GamblerTower augmented = tower("job_gamble_p", "job_gamble_g2");
+            normal.resolvePurchase(GambleBet.SLOTS, RandomSource.create(seed));
+            assertEquals(1, augmented.resolvePurchase(GambleBet.SLOTS, RandomSource.create(seed)));
+            assertEquals(normal.state(), augmented.state());
+            assertEquals(0, augmented.jackpotCharges());
+            assertFalse(augmented.state().has(GambleAbility.LOSS_INSURANCE));
+        }
+    }
+
+    @Test
+    void scoreOnlyPenaltyPreservesMagicGrowthAndDoesNotCountAnotherBet() {
+        GambleState before = GambleState.EMPTY.recordStat(GambleStat.MAGIC_DAMAGE, 12, 5, 30, "magic");
+        GambleState after = before.adjustScore(-3, "penalty");
+        assertEquals(before.magicDamageDelta(), after.magicDamageDelta());
+        assertEquals(before.totalBets(), after.totalBets());
+        assertEquals(before.cumulativeScore() - 3, after.cumulativeScore());
     }
 
     private static GamblerTower tower(String... cards) {

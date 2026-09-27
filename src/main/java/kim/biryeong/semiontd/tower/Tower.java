@@ -777,9 +777,15 @@ public abstract class Tower {
         double builderOutgoing = resolveBuilderOutgoingDamage(source, target, baseDamage);
         double globalBonus = AugmentCombat.damageBonus(this, source);
         double outgoing = builderOutgoing * Math.max(0.0, 1.0 + globalBonus + AugmentCombat.primaryDamageBonus(this, target));
-        DamageResult result = damageResolvedTargetResult(source, target, outgoing, primaryDamageType());
+        DamageResult result = damageResolvedBasicAttackTargetResult(source, target, outgoing);
         return new DamageResult(result.killed(), result.dealtDamage(), result.outgoingDamage(),
                 result.healthDamageAttempted(), result.healthBeforeHit(), builderOutgoing * Math.max(0.0, 1.0 + globalBonus));
+    }
+
+    protected DamageResult damageResolvedBasicAttackTargetResult(
+            SemionTowerEntity source, SemionMonsterEntity target, double outgoingDamage
+    ) {
+        return damageResolvedTargetResult(source, target, outgoingDamage, primaryDamageType());
     }
 
     public double resolveOutgoingDamage(
@@ -1036,6 +1042,11 @@ public abstract class Tower {
 
     public double adjustAttackRange(double baseRange) {
         return baseRange;
+    }
+
+    /** Non-attacking towers remain unable to attack when allies grant flat range or damage. */
+    public boolean canUseBasicAttacks() {
+        return true;
     }
 
     public double adjustMovementSpeed(double baseSpeed) {return baseSpeed;}
