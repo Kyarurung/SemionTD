@@ -11,6 +11,7 @@ import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.TowerAreaEffectRequest;
 import kim.biryeong.semiontd.api.area.TowerAreaTargetMode;
+import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.visual.EntityVisual;
@@ -143,8 +144,11 @@ public final class GambleSupportTower extends ProductionTower {
             GambleRollLabels.showSymbols(lane, ownerPlayer(), this, sourceId, lastSymbols);
         } else {
             int minimum = GambleBalance.minimumRoll(type());
-            lastFace = minimum + source.getRandom().nextInt(7 - minimum);
-            activeEffects = GambleSupportRolls.roll(type(), lastFace, source.getRandom());
+            lastFace = GambleSupportRolls.rollFace(minimum, source.getRandom(),
+                    AugmentCombat.allowsTriggers() && augmentSnapshot().has("job_gamble_g1"));
+            double insurance = AugmentCombat.allowsTriggers() && augmentSnapshot().has("job_gamble_s")
+                    ? augmentSnapshot().parameter("job_gamble_s", "oppositeEffectRatio", .5) : 0.0;
+            activeEffects = GambleSupportRolls.roll(type(), lastFace, source.getRandom(), insurance);
             lastRollCounts[lastFace - 1] = 1;
             GambleRollLabels.show(lane, ownerPlayer(), this, sourceId, lastFace);
         }
