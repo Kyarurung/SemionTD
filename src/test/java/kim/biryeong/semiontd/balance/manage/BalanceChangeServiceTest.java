@@ -216,8 +216,7 @@ class BalanceChangeServiceTest {
             service.onBoundary(Boundary.TICK);
             assertEquals(0, runtime.applied);
             assertEquals(6, service.fields().stream().filter(field -> field.id().equals(DAMAGE)).findFirst().orElseThrow().scheduledValue());
-            assertEquals(409, assertThrows(BalanceException.class,
-                    () -> service.submit(key(), patch, hash, "operator", "web", SCOPE)).status());
+            assertEquals(scheduled, service.submit(key, patch, hash, "operator", "web", SCOPE));
             service.onBoundary(Boundary.BEFORE_MATCH);
             awaitTerminal(service, key);
             assertEquals(1, runtime.applied);
@@ -230,7 +229,7 @@ class BalanceChangeServiceTest {
     }
 
     @Test
-    void restartRequiresReviewAndCancellationReleasesSinglePendingSlot() {
+    void restartRequiresReviewAndCancellationRemovesOnlyItsReservation() {
         String key = key();
         try (var service = service(new FakeRuntime())) {submit(service, key, ApplyMode.NEXT_MATCH, 6);}
         FakeRuntime runtime = new FakeRuntime();
@@ -241,6 +240,189 @@ class BalanceChangeServiceTest {
             assertEquals(DeploymentState.CANCELLED, reloaded.cancel(key, "operator").state());
             assertNull(reloaded.state().pending());
             assertEquals(DeploymentState.SCHEDULED, submit(reloaded, key(), ApplyMode.NEXT_MATCH, 7).state());
+        }
+    }
+
+    @Test
+    void multipleReservationsApplyAtOneBoundaryAndLatestValueWinsWithoutLosingOtherFields() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        String first = key();
+        String second = key();
+        String third = key();
+        BalancePatch original;
+        String hash;
+        try (var service = service(runtime)) {
+            original = patch(service, ApplyMode.NEXT_MATCH, DAMAGE, 6);
+            hash = service.validate(original, "operator", SCOPE).validationHash();
+            service.submit(first, original, hash, "operator", "web", SCOPE);
+            var health = patch(service, ApplyMode.NEXT_MATCH, HEALTH, 123);
+            service.submit(second, health, service.validate(health, "operator", SCOPE).validationHash(), "operator", "web", SCOPE);
+            submit(service, third, ApplyMode.NEXT_MATCH, 9);
+            assertEquals(List.of(first, second, third), service.state().pendingDeployments().stream().map(BalanceDeployment::requestId).toList());
+            assertEquals(9, service.fields().stream().filter(field -> field.id().equals(DAMAGE)).findFirst().orElseThrow().scheduledValue());
+            assertEquals(123, service.fields().stream().filter(field -> field.id().equals(HEALTH)).findFirst().orElseThrow().scheduledValue());
+            service.onBoundary(Boundary.TICK);
+            assertEquals(0, runtime.applied);
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            // Every reservation must affect the very next match, not one reservation per match.
+            assertEquals(3, runtime.applied);
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(123, service.currentBundle().tower().towers().get("t1_pig_tower").maxHealth());
+            awaitTerminal(service, third);
+            assertTrue(service.state().pendingDeployments().isEmpty());
+            assertNull(service.state().pending());
+            assertEquals(6, service.deployment(third).changes().getFirst().expectedValue());
+            assertEquals(service.deployment(second).effectiveRevision(), service.deployment(third).previousRevision());
+        }
+        try (var reloaded = service(runtime)) {
+            assertNull(reloaded.state().writeBlocked());
+            assertEquals(defaults.revision(), reloaded.legacyRevision());
+            assertEquals(9, reloaded.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(DeploymentState.APPLIED, reloaded.submit(first, original, hash, "operator", "web", SCOPE).state());
+            assertEquals(3, runtime.applied);
+        }
+    }
+
+    @Test
+    void cancelMiddleReservationPreservesOthersAndRefreshesScheduledValues() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            String first = key(), middle = key(), last = key();
+            submit(service, first, ApplyMode.NEXT_MATCH, 6);
+            String firstVersion = service.state().fieldsVersion();
+            submit(service, middle, ApplyMode.NEXT_MATCH, 7);
+            submit(service, last, ApplyMode.NEXT_MATCH, 8);
+            String allVersion = service.state().fieldsVersion();
+            assertNotEquals(firstVersion, allVersion);
+            service.cancel(middle, "operator");
+            assertNotEquals(allVersion, service.state().fieldsVersion());
+            service.cancel(last, "operator");
+            assertEquals(firstVersion, service.state().fieldsVersion());
+            assertEquals(6, service.fields().stream().filter(field -> field.id().equals(DAMAGE)).findFirst().orElseThrow().scheduledValue());
+            assertEquals(DeploymentState.CANCELLED, service.cancel(middle, "operator").state());
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, first);
+            assertEquals(1, runtime.applied);
+        }
+    }
+
+    @Test
+    void restartRecoversEveryReservationWithoutApplyingAndAllowsIndependentCancellation() {
+        String first = key(), second = key();
+        try (var service = service(new FakeRuntime())) {
+            submit(service, first, ApplyMode.NEXT_MATCH, 6);
+            submit(service, second, ApplyMode.NEXT_MATCH, 7);
+        }
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(2, service.state().pendingDeployments().size());
+            assertTrue(service.state().pendingDeployments().stream().allMatch(d -> d.state() == DeploymentState.REQUIRES_REVIEW));
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            assertEquals(0, runtime.applied);
+            service.cancel(second, "operator");
+            assertEquals(first, service.state().pending().requestId());
+            assertEquals(DeploymentState.SCHEDULED, submit(service, key(), ApplyMode.NEXT_MATCH, 8).state());
+        }
+    }
+
+    @Test
+    void laterImmediateRequestDoesNotWaitForNextMatchAndJournalRecoversApplicationOrder() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            String later = key(), now = key();
+            submit(service, later, ApplyMode.NEXT_MATCH, 6);
+            var health = patch(service, ApplyMode.NEXT_PREPARE, HEALTH, 123);
+            service.submit(key(), health, service.validate(health, "operator", SCOPE).validationHash(), "operator", "web", SCOPE);
+            submit(service, now, ApplyMode.NOW, 7);
+            service.onBoundary(Boundary.TICK);
+            awaitTerminal(service, now);
+            assertEquals(1, runtime.applied);
+            assertEquals(DeploymentState.SCHEDULED, service.deployment(later).state());
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, later);
+            assertEquals(6, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+        }
+        try (var reloaded = service(runtime)) {
+            assertNull(reloaded.state().writeBlocked());
+            assertEquals(6, reloaded.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(defaults.revision(), reloaded.legacyRevision());
+        }
+    }
+
+    @Test
+    void identicalReservationsFinishWithoutRepeatingRuntimeApply() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            String first = key(), second = key();
+            submit(service, first, ApplyMode.NEXT_MATCH, 6);
+            submit(service, second, ApplyMode.NEXT_MATCH, 6);
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, second);
+            assertEquals(1, runtime.applied);
+            assertEquals(DeploymentState.APPLIED, service.deployment(second).state());
+            assertEquals(List.of(new BalanceChange(DAMAGE, 6, 6)), service.deployment(second).changes());
+        }
+    }
+
+    @Test
+    void expiredPrepareRequestDoesNotBlockNextMatchReservations() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            service.onBoundary(Boundary.TICK);
+            String expired = key(), next = key();
+            submit(service, expired, ApplyMode.NEXT_PREPARE, 6);
+            submit(service, next, ApplyMode.NEXT_MATCH, 7);
+            runtime.gameId = null;
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, next);
+            assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(expired).state());
+            assertEquals(DeploymentState.APPLIED, service.deployment(next).state());
+            assertEquals(1, runtime.applied);
+            assertEquals(List.of(expired), service.state().pendingDeployments().stream().map(BalanceDeployment::requestId).toList());
+        }
+    }
+
+    @Test
+    void laterReservationContinuesAfterRecoverableFailureWithoutLosingJournal() throws Exception {
+        FakeRuntime runtime = new FakeRuntime() {
+            @Override public String apply(BalanceBundle candidate, ApplyMode mode, String id, String revision) {
+                if (candidate.tower().towers().get("t1_pig_tower").damage() == 6) {throw new IllegalStateException("first request fails");}
+                return super.apply(candidate, mode, id, revision);
+            }
+        };
+        String first = key(), second = key();
+        try (var service = service(runtime)) {
+            submit(service, first, ApplyMode.NEXT_MATCH, 6);
+            submit(service, second, ApplyMode.NEXT_MATCH, 7);
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, second);
+            assertEquals(DeploymentState.FAILED, service.deployment(first).state());
+            assertEquals(DeploymentState.APPLIED, service.deployment(second).state());
+            assertEquals(1, runtime.applied);
+        }
+        try (var recovered = service(runtime)) {
+            assertNull(recovered.state().writeBlocked());
+            assertEquals(7, recovered.currentBundle().tower().towers().get("t1_pig_tower").damage());
+        }
+    }
+
+    @Test
+    void batchPersistenceFailureBlocksWritesAndMarksEveryResultForReview() throws Exception {
+        FailingStore store = new FailingStore(directory);
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = new BalanceChangeService(store, "test", defaults, registry(), runtime)) {
+            String first = key(), second = key();
+            submit(service, first, ApplyMode.NEXT_MATCH, 6);
+            submit(service, second, ApplyMode.NEXT_MATCH, 7);
+            store.fail = true;
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, second);
+            assertEquals(2, runtime.applied);
+            assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(first).state());
+            assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(second).state());
+            assertNotNull(service.state().writeBlocked());
+            assertEquals(503, assertThrows(BalanceException.class, () -> submit(service, key(), ApplyMode.NOW, 8)).status());
         }
     }
 

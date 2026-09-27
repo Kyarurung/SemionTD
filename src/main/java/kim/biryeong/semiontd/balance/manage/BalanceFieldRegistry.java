@@ -50,9 +50,12 @@ public final class BalanceFieldRegistry {
     }
 
     public List<BalanceField> fields(BalanceBundle active, BalanceBundle scheduled, boolean idle) {
+        return fieldsWithScheduledValues(active, scheduled == null ? Map.of() : flatten(scheduled.toJson()), idle);
+    }
+
+    public List<BalanceField> fieldsWithScheduledValues(BalanceBundle active, Map<String, Double> scheduledValues, boolean idle) {
         Map<String, Double> values = flatten(active.toJson());
         Map<String, Double> defaultValues = flatten(defaults);
-        Map<String, Double> scheduledValues = scheduled == null ? Map.of() : flatten(scheduled.toJson());
         List<BalanceField> fields = new ArrayList<>();
         values.forEach((id, value) -> {
             String domain = id.substring(0, id.indexOf(':'));

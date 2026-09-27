@@ -58,14 +58,13 @@ public final class BalanceChangeService implements AutoCloseable {
     private BalanceBundle active;
     private String activeRevision;
     private String legacyRevision;
-    private BalanceBundle pendingBundle;
-    private String pendingKey;
-    private boolean pendingReady;
+    private boolean persistenceBusy;
     private String writeBlocked;
     private Exception recoveryFailure;
     private String runtimeWriteBlocked;
     private RuntimeView view = new RuntimeView(null, 0, "UNKNOWN", null, false);
     private long updatedAt = System.currentTimeMillis();
+    private long lastAppliedAt;
 
     public BalanceChangeService(Path directory, String serverId, BalanceBundle initial,
                                 BalanceFieldRegistry registry, Runtime runtime) {
@@ -86,14 +85,12 @@ public final class BalanceChangeService implements AutoCloseable {
             active = store.readRevision(index.activeRevision());
             activeRevision = index.activeRevision();
             legacyRevision = index.receipts().isEmpty() ? activeRevision
-                    : index.receipts().getFirst().deployment().previousRevision();
+                    : index.receipts().getFirst().patch().baseRevision();
             writeBlocked = index.writeBlocked();
             boolean recovered = false;
             for (Receipt receipt : index.receipts()) {
+                if (receipt.deployment().appliedAt() != null) {lastAppliedAt = Math.max(lastAppliedAt, receipt.deployment().appliedAt());}
                 if (unfinished(receipt.deployment().state())) {
-                    if (pendingKey != null) {throw new IOException("Multiple unfinished balance requests.");}
-                    pendingKey = receipt.idempotencyKey();
-                    pendingBundle = store.readRevision(receipt.candidateRevision());
                     receipt = withDeployment(receipt, transition(receipt.deployment(), DeploymentState.REQUIRES_REVIEW,
                             null, "서버 재시작 후 예약을 다시 확인해야 합니다.", "PENDING"));
                     recovered = true;
@@ -101,7 +98,6 @@ public final class BalanceChangeService implements AutoCloseable {
                 receipts.put(receipt.idempotencyKey(), receipt);
             }
             if (recovered) {store.saveIndex(index());}
-            pendingReady = true;
         } catch (IOException | RuntimeException exception) {
             recoveryFailure = exception;
             writeBlocked = "밸런스 저장소 복구에 실패했습니다. 운영자 확인이 필요합니다.";
@@ -114,9 +110,26 @@ public final class BalanceChangeService implements AutoCloseable {
     Exception recoveryFailure() {return recoveryFailure;}
 
     public BalanceState state() {
-        return locked(() -> new BalanceState(serverId, true, activeRevision, view.catalogVersion(),
+        return locked(() -> {
+            List<BalanceDeployment> pending = pendingDeployments();
+            return new BalanceState(serverId, true, activeRevision, view.catalogVersion(),
                 view.gameId() == null ? null : new GameState(view.gameId(), view.round(), view.phase()),
-                pendingKey == null ? null : receipts.get(pendingKey).deployment(), updatedAt, blockedReason(), fieldsVersion()));
+                pending.isEmpty() ? null : pending.getFirst(), updatedAt, blockedReason(), fieldsVersion(), pending);
+        });
+    }
+
+    private List<BalanceDeployment> pendingDeployments() {
+        return receipts.values().stream().map(Receipt::deployment).filter(deployment -> unfinished(deployment.state())).toList();
+    }
+
+    private Map<String, Double> scheduledValues() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        for (BalanceDeployment deployment : pendingDeployments()) {
+            if (deployment.state() == DeploymentState.SCHEDULED || deployment.state() == DeploymentState.APPLYING) {
+                deployment.changes().forEach(change -> values.put(change.fieldId(), change.value()));
+            }
+        }
+        return Map.copyOf(values);
     }
 
     public List<BalanceField> fields() {
@@ -126,19 +139,19 @@ public final class BalanceChangeService implements AutoCloseable {
     public record FieldListing(String revision, String fieldsVersion, List<BalanceField> fields) {}
 
     public FieldListing fieldListing() {
-        FieldSnapshot snapshot = locked(() -> new FieldSnapshot(active, pendingBundle, isIdle(), activeRevision, fieldsVersion()));
+        FieldSnapshot snapshot = locked(() -> new FieldSnapshot(active, scheduledValues(), isIdle(), activeRevision, fieldsVersion()));
         FieldListing cached = cachedFields;
         if (cached != null && cached.fieldsVersion().equals(snapshot.version())) {return cached;}
         // Generate outside the game-state lock; retain only the latest complete list.
         FieldListing result = new FieldListing(snapshot.revision(), snapshot.version(),
-                registry.fields(snapshot.active(), snapshot.pending(), snapshot.idle()));
+                registry.fieldsWithScheduledValues(snapshot.active(), snapshot.pending(), snapshot.idle()));
         cachedFields = result;
         return result;
     }
 
     private String fieldsVersion() {
         // Restart invalidates metadata/defaults; ordinary ticks and rounds do not affect the fields.
-        return fingerprint("fields-v1", fieldsEpoch, activeRevision, pendingBundle == null ? null : pendingKey, isIdle());
+        return fingerprint("fields-v2", fieldsEpoch, activeRevision, pendingDeployments(), isIdle());
     }
     public BalanceBundle revision(String revision) {
         try {return store.readRevision(revision);}
@@ -202,10 +215,9 @@ public final class BalanceChangeService implements AutoCloseable {
         Cancellation cancellation = locked(() -> {
             requireWritable();
             Receipt receipt = findRequest(requestId);
-            if (receipt.deployment().state() == DeploymentState.CANCELLED && !receipt.idempotencyKey().equals(pendingKey)) {
+            if (receipt.deployment().state() == DeploymentState.CANCELLED) {
                 return new Cancellation(receipt, null);
             }
-            if (!pendingReady) {throw new BalanceException(409, "요청을 저장하고 있습니다. 잠시 후 다시 시도하세요.");}
             if (receipt.deployment().state() != DeploymentState.SCHEDULED
                     && receipt.deployment().state() != DeploymentState.REQUIRES_REVIEW) {
                 throw new BalanceException(409, "이미 적용을 시작한 요청은 취소할 수 없습니다.");
@@ -214,7 +226,7 @@ public final class BalanceChangeService implements AutoCloseable {
                     "취소 작업자: " + required(actor, "작업자"), "NOT_APPLIED");
             Receipt updated = withDeployment(receipt, result);
             receipts.put(receipt.idempotencyKey(), updated);
-            pendingReady = false;
+            persistenceBusy = true;
             return new Cancellation(updated, index());
         });
         Receipt cancelled = cancellation.receipt();
@@ -225,8 +237,7 @@ public final class BalanceChangeService implements AutoCloseable {
             throw new BalanceException(503, "예약 취소 이력을 저장하지 못했습니다.");
         }
         return locked(() -> {
-            if (cancelled.idempotencyKey().equals(pendingKey)) {pendingKey = null; pendingBundle = null;}
-            pendingReady = true;
+            persistenceBusy = false;
             return cancelled.deployment();
         });
     }
@@ -245,48 +256,71 @@ public final class BalanceChangeService implements AutoCloseable {
             view = runtime.view();
             updatedAt = System.currentTimeMillis();
             runtimeWriteBlocked = runtime.writeBlocked();
-            if (blockedReason() != null || pendingKey == null || !pendingReady) {return;}
-            Receipt receipt = receipts.get(pendingKey);
-            BalanceDeployment deployment = receipt.deployment();
-            if (deployment.state() != DeploymentState.SCHEDULED) {return;}
-            if (deployment.applyMode() == ApplyMode.NEXT_MATCH
-                    && (boundary != Boundary.BEFORE_MATCH || !view.nextMatchSafe())) {return;}
-            if (deployment.applyMode() == ApplyMode.NEXT_PREPARE && receipt.targetGameId() != null
-                    && (boundary == Boundary.BEFORE_MATCH || !receipt.targetGameId().equals(view.gameId()))) {
-                finishAsync(receipt, transition(deployment, DeploymentState.REQUIRES_REVIEW, null,
-                        "예약한 경기가 종료되어 다시 확인해야 합니다.", "NOT_APPLIED"), false);
-                return;
-            }
-            if (deployment.applyMode() == ApplyMode.NEXT_PREPARE && boundary != Boundary.BEFORE_PREPARE
-                    && !(receipt.targetGameId() == null && isIdle()
-                    && (boundary == Boundary.TICK || boundary == Boundary.BEFORE_MATCH))) {return;}
-            if (!deployment.previousRevision().equals(activeRevision)) {
-                finishAsync(receipt, transition(deployment, DeploymentState.REQUIRES_REVIEW, null,
-                        "예약 이후 실제 버전이 변경되었습니다.", "NOT_APPLIED"), false);
-                return;
-            }
-            if (deployment.applyMode() == ApplyMode.NOW) {
+            if (blockedReason() != null || persistenceBusy) {return;}
+            List<Receipt> results = new ArrayList<>();
+            List<BalanceBundle> revisions = new ArrayList<>();
+            // Process every eligible reservation at this boundary before the match takes its snapshot.
+            for (Receipt receipt : List.copyOf(receipts.values())) {
+                BalanceDeployment deployment = receipt.deployment();
+                if (deployment.state() != DeploymentState.SCHEDULED) {continue;}
+                if (deployment.applyMode() == ApplyMode.NEXT_MATCH
+                        && (boundary != Boundary.BEFORE_MATCH || !view.nextMatchSafe())) {continue;}
+                if (deployment.applyMode() == ApplyMode.NEXT_PREPARE && receipt.targetGameId() != null
+                        && (boundary == Boundary.BEFORE_MATCH || !receipt.targetGameId().equals(view.gameId()))) {
+                    results.add(withDeployment(receipt, transition(deployment, DeploymentState.REQUIRES_REVIEW, null,
+                            "예약한 경기가 종료되어 다시 확인해야 합니다.", "NOT_APPLIED")));
+                    continue;
+                }
+                if (deployment.applyMode() == ApplyMode.NEXT_PREPARE && boundary != Boundary.BEFORE_PREPARE
+                        && !(receipt.targetGameId() == null && isIdle()
+                        && (boundary == Boundary.TICK || boundary == Boundary.BEFORE_MATCH))) {continue;}
+                Candidate candidate;
                 try {
-                    validateCandidate(receipt.patch(), deployment.actor(), receipt.scope(), new Snapshot(active, activeRevision, isIdle()));
+                    candidate = rebase(receipt);
                 } catch (BalanceException changedState) {
-                    finishAsync(receipt, transition(deployment, DeploymentState.REQUIRES_REVIEW, null,
-                            "현재 경기 상태에서 즉시 적용할 수 없습니다. 적용 시점을 다시 확인하세요.", "NOT_APPLIED"), false);
-                    return;
+                    results.add(withDeployment(receipt, transition(deployment, DeploymentState.REQUIRES_REVIEW, null,
+                            "현재 설정이나 경기 상태에서 적용할 수 없습니다: " + changedState.getMessage(), "NOT_APPLIED")));
+                    continue;
+                }
+                // Keep the signed request intact; the deployment records the actual before/after values.
+                deployment = new BalanceDeployment(deployment.requestId(), deployment.state(), activeRevision, null,
+                        deployment.applyMode(), deployment.reason(), deployment.actor(), deployment.source(), deployment.createdAt(),
+                        null, deployment.scheduledFor(), "PENDING", null, candidate.normalized().changes());
+                receipt = new Receipt(receipt.idempotencyKey(), receipt.fingerprint(), receipt.patch(), candidate.bundle().revision(),
+                        receipt.validationHash(), receipt.scope(), receipt.targetGameId(), deployment);
+                revisions.add(candidate.bundle());
+                try {
+                    String sync = candidate.validation() == null ? "SYNCED"
+                            : runtime.apply(candidate.bundle(), deployment.applyMode(), deployment.requestId(), receipt.candidateRevision());
+                    active = candidate.bundle();
+                    activeRevision = receipt.candidateRevision();
+                    results.add(withDeployment(receipt, transition(deployment, DeploymentState.APPLIED, activeRevision, null, sync)));
+                } catch (RuntimeException exception) {
+                    if (exception instanceof FatalRollbackException) {writeBlocked = "게임 상태 복원이 실패하여 변경을 차단했습니다.";}
+                    results.add(withDeployment(receipt, transition(deployment, DeploymentState.FAILED, null,
+                            exception instanceof FatalRollbackException ? writeBlocked : "게임 적용이 실패했습니다. 이전 설정을 유지합니다.", "NOT_APPLIED")));
+                    if (writeBlocked != null) {break;}
                 }
             }
-            receipts.put(pendingKey, withDeployment(receipt, transition(deployment, DeploymentState.APPLYING, null, null, "PENDING")));
-            try {
-                String sync = runtime.apply(pendingBundle, deployment.applyMode(), deployment.requestId(), receipt.candidateRevision());
-                active = pendingBundle;
-                activeRevision = receipt.candidateRevision();
-                finishAsync(receipt, transition(deployment, DeploymentState.APPLIED, activeRevision, null, sync), true);
-            } catch (RuntimeException exception) {
-                if (exception instanceof FatalRollbackException) {writeBlocked = "게임 상태 복원이 실패하여 변경을 차단했습니다.";}
-                finishAsync(receipt, transition(deployment, DeploymentState.FAILED, null,
-                        exception instanceof FatalRollbackException ? writeBlocked : "게임 적용이 실패했습니다. 이전 설정을 유지합니다.",
-                        "NOT_APPLIED"), true);
-            }
+            if (!results.isEmpty()) {finishAsync(results, revisions);}
         } finally {lock.unlock();}
+    }
+
+    private Candidate rebase(Receipt receipt) {
+        BalancePatch original = receipt.patch();
+        Map<String, Double> values = BalanceFieldRegistry.flatten(active.toJson());
+        List<BalanceChange> changes = new ArrayList<>();
+        for (BalanceChange change : original.changes()) {
+            Double before = values.get(change.fieldId());
+            if (before == null) {throw new BalanceException(422, "필드가 없어졌습니다: " + change.fieldId());}
+            changes.add(new BalanceChange(change.fieldId(), before, change.value()));
+        }
+        BalancePatch patch = new BalancePatch(activeRevision, original.applyMode(), original.reason(), original.sourceReference(), changes, original.notifyPlayers());
+        List<BalanceChange> changed = changes.stream().filter(change -> Double.compare(change.expectedValue(), change.value()) != 0).toList();
+        if (changed.isEmpty()) {return new Candidate(active, patch, null);}
+        Candidate validated = validateCandidate(new BalancePatch(activeRevision, patch.applyMode(), patch.reason(), patch.sourceReference(),
+                changed, patch.notifyPlayers()), receipt.deployment().actor(), receipt.scope(), new Snapshot(active, activeRevision, isIdle()));
+        return new Candidate(validated.bundle(), patch, validated.validation());
     }
 
     private BalanceDeployment schedule(String key, Candidate candidate, String hash,
@@ -297,7 +331,6 @@ public final class BalanceChangeService implements AutoCloseable {
             if (replay != null) {return receipts.get(key);}
             requireWritable();
             required(source, "요청 출처");
-            if (pendingKey != null) {throw new BalanceException(409, "먼저 기존 예약을 적용하거나 취소해야 합니다.");}
             BalancePatch patch = candidate.normalized();
             if (!activeRevision.equals(patch.baseRevision())) {throw new BalanceException(409, "기준 버전이 변경되었습니다.");}
             BalanceDeployment deployment = new BalanceDeployment(key, DeploymentState.SCHEDULED, activeRevision, null,
@@ -305,18 +338,16 @@ public final class BalanceChangeService implements AutoCloseable {
                     patch.applyMode().name(), "PENDING", null, patch.changes());
             Receipt created = new Receipt(key, fingerprint, patch, candidateRevision, hash, scope, view.gameId(), deployment);
             receipts.put(key, created);
-            pendingKey = key;
-            pendingBundle = candidate.bundle();
-            pendingReady = false;
+            persistenceBusy = true;
             return created;
         });
-        if (receipt.deployment().state() != DeploymentState.SCHEDULED || locked(() -> pendingReady)) {return receipt.deployment();}
+        if (receipt.deployment().state() != DeploymentState.SCHEDULED || locked(() -> !persistenceBusy)) {return receipt.deployment();}
         Index snapshot = locked(this::index);
         try {
             store.readRevision(receipt.deployment().previousRevision());
             store.saveRevision(candidate.bundle());
             store.saveIndex(snapshot);
-            locked(() -> {pendingReady = true; return null;});
+            locked(() -> {persistenceBusy = false; return null;});
             return receipt.deployment();
         } catch (IOException exception) {
             locked(() -> {
@@ -379,40 +410,54 @@ public final class BalanceChangeService implements AutoCloseable {
                 List.copyOf(changes), List.copyOf(warnings), List.copyOf(modes)));
     }
 
-    private void finishAsync(Receipt receipt, BalanceDeployment result, boolean clearPending) {
-        // Keep APPLYING visible and hold the single pending slot until the result and pointer are durable.
-        receipts.put(receipt.idempotencyKey(), withDeployment(receipt, transition(result, DeploymentState.APPLYING,
-                result.effectiveRevision(), result.error(), result.catalogSyncStatus())));
+    private void finishAsync(List<Receipt> results, List<BalanceBundle> revisions) {
+        // Serialize writes, not reservations. No disk I/O holds the main-thread state lock.
+        persistenceBusy = true;
+        for (Receipt receipt : results) {
+            BalanceDeployment result = receipt.deployment();
+            receipts.put(receipt.idempotencyKey(), withDeployment(receipt, transition(result, DeploymentState.APPLYING,
+                    result.effectiveRevision(), result.error(), result.catalogSyncStatus())));
+        }
         persistence.execute(() -> {
-            BalanceDeployment terminal = result;
-            if (result.state() == DeploymentState.APPLIED && "PENDING".equals(result.catalogSyncStatus())) {
-                String sync;
-                try {sync = runtime.afterApplied();} catch (RuntimeException exception) {sync = "FAILED";}
-                terminal = transition(result, DeploymentState.APPLIED, result.effectiveRevision(), null, sync);
-            }
-            BalanceDeployment durableResult = terminal;
-            Index snapshot = locked(() -> {
-                List<Receipt> journal = new ArrayList<>(receipts.values());
-                journal.replaceAll(existing -> existing.idempotencyKey().equals(receipt.idempotencyKey())
-                        ? withDeployment(receipt, durableResult) : existing);
-                return new Index(1, activeRevision, journal, writeBlocked);
-            });
             try {
+                for (BalanceBundle revision : revisions) {store.saveRevision(revision);}
+                String sync = "SYNCED";
+                if (results.stream().anyMatch(receipt -> receipt.deployment().state() == DeploymentState.APPLIED
+                        && "PENDING".equals(receipt.deployment().catalogSyncStatus()))) {
+                    try {sync = runtime.afterApplied();} catch (RuntimeException exception) {sync = "FAILED";}
+                }
+                String catalogSync = sync;
+                List<Receipt> durable = results.stream().map(receipt -> {
+                    BalanceDeployment result = receipt.deployment();
+                    if (result.state() != DeploymentState.APPLIED || !"PENDING".equals(result.catalogSyncStatus())) {return receipt;}
+                    return withDeployment(receipt, new BalanceDeployment(result.requestId(), result.state(), result.previousRevision(),
+                            result.effectiveRevision(), result.applyMode(), result.reason(), result.actor(), result.source(), result.createdAt(),
+                            result.appliedAt(), result.scheduledFor(), catalogSync, result.error(), result.changes()));
+                }).toList();
+                Index snapshot = locked(() -> {
+                    Map<String, Receipt> journal = new LinkedHashMap<>(receipts);
+                    durable.forEach(receipt -> journal.put(receipt.idempotencyKey(), receipt));
+                    return new Index(1, activeRevision, List.copyOf(journal.values()), writeBlocked);
+                });
                 store.saveIndex(snapshot);
                 locked(() -> {
-                    receipts.put(receipt.idempotencyKey(), withDeployment(receipt, durableResult));
-                    if (durableResult.state() == DeploymentState.APPLIED && Boolean.TRUE.equals(receipt.patch().notifyPlayers())) {
-                        announcements.addLast(durableResult);
+                    for (Receipt receipt : durable) {
+                        receipts.put(receipt.idempotencyKey(), receipt);
+                        if (receipt.deployment().state() == DeploymentState.APPLIED && Boolean.TRUE.equals(receipt.patch().notifyPlayers())) {
+                            announcements.addLast(receipt.deployment());
+                        }
                     }
-                    if (clearPending) {pendingKey = null; pendingBundle = null;}
+                    persistenceBusy = false;
                     return null;
                 });
             } catch (IOException exception) {
                 locked(() -> {
                     writeBlocked = "게임 상태와 저장소의 일치 여부를 확인할 수 없어 변경을 차단했습니다.";
-                    receipts.put(receipt.idempotencyKey(), withDeployment(receipt, transition(durableResult,
-                            DeploymentState.REQUIRES_REVIEW, durableResult.effectiveRevision(), writeBlocked, durableResult.catalogSyncStatus())));
-                    pendingKey = receipt.idempotencyKey();
+                    for (Receipt receipt : results) {
+                        BalanceDeployment result = receipt.deployment();
+                        receipts.put(receipt.idempotencyKey(), withDeployment(receipt, transition(result,
+                                DeploymentState.REQUIRES_REVIEW, result.effectiveRevision(), writeBlocked, result.catalogSyncStatus())));
+                    }
                     return null;
                 });
             }
@@ -429,7 +474,7 @@ public final class BalanceChangeService implements AutoCloseable {
         Receipt receipt = receipts.get(key);
         if (receipt == null) {return null;}
         if (!receipt.fingerprint().equals(fingerprint)) {throw new BalanceException(409, "같은 요청 키에 다른 내용을 사용할 수 없습니다.");}
-        if (key.equals(pendingKey) && !pendingReady && receipt.deployment().state() == DeploymentState.SCHEDULED) {
+        if (persistenceBusy && receipt.deployment().state() == DeploymentState.SCHEDULED) {
             throw new BalanceException(409, "요청을 저장하고 있습니다. 잠시 후 다시 시도하세요.");
         }
         return receipt.deployment();
@@ -449,10 +494,11 @@ public final class BalanceChangeService implements AutoCloseable {
                 receipt.validationHash(), receipt.scope(), receipt.targetGameId(), deployment);
     }
 
-    private static BalanceDeployment transition(BalanceDeployment previous, DeploymentState state, String revision, String error, String sync) {
+    private BalanceDeployment transition(BalanceDeployment previous, DeploymentState state, String revision, String error, String sync) {
         return new BalanceDeployment(previous.requestId(), state, previous.previousRevision(), revision, previous.applyMode(),
                 previous.reason(), previous.actor(), previous.source(), previous.createdAt(),
-                state == DeploymentState.APPLIED ? Long.valueOf(System.currentTimeMillis()) : previous.appliedAt(), previous.scheduledFor(), sync, error, previous.changes());
+                state == DeploymentState.APPLIED ? Long.valueOf(lastAppliedAt = Math.max(System.currentTimeMillis(), lastAppliedAt + 1))
+                        : previous.appliedAt(), previous.scheduledFor(), sync, error, previous.changes());
     }
 
     private static String fingerprint(Object... parts) {
@@ -475,14 +521,17 @@ public final class BalanceChangeService implements AutoCloseable {
     }
     private String blockedReason() {return writeBlocked != null ? writeBlocked : runtimeWriteBlocked;}
     private boolean isIdle() {return view.gameId() == null && view.nextMatchSafe();}
-    private void requireWritable() {if (blockedReason() != null) {throw new BalanceException(503, blockedReason());}}
+    private void requireWritable() {
+        if (blockedReason() != null) {throw new BalanceException(503, blockedReason());}
+        if (persistenceBusy) {throw new BalanceException(409, "요청을 저장하고 있습니다. 잠시 후 다시 시도하세요.");}
+    }
     private <T> T locked(Supplier<T> operation) {
         lock.lock();
         try {return operation.get();} finally {lock.unlock();}
     }
     private record Candidate(BalanceBundle bundle, BalancePatch normalized, BalanceValidation validation) {}
     private record Snapshot(BalanceBundle bundle, String revision, boolean idle) {}
-    private record FieldSnapshot(BalanceBundle active, BalanceBundle pending, boolean idle, String revision, String version) {}
+    private record FieldSnapshot(BalanceBundle active, Map<String, Double> pending, boolean idle, String revision, String version) {}
     private record Cancellation(Receipt receipt, Index index) {}
     @Override public void close() {persistence.shutdown();}
 }

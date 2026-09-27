@@ -77,10 +77,28 @@ class BalanceHttpServerTest {
             assertEquals(200, scheduled.statusCode(), scheduled.body());
             assertEquals(id, json(scheduled).get("requestId").getAsString());
             assertEquals("SCHEDULED", json(send(client, server, "GET", "/deployments/" + id, "", SCOPES, null)).get("state").getAsString());
+            JsonObject secondPatch = patch.deepCopy();
+            secondPatch.remove("requestId");
+            secondPatch.remove("validationHash");
+            secondPatch.getAsJsonArray("changes").get(0).getAsJsonObject().addProperty("value", 7);
+            var secondValidation = send(client, server, "POST", "/validations", secondPatch.toString(), SCOPES, null);
+            assertEquals(200, secondValidation.statusCode(), secondValidation.body());
+            String secondId = UUID.randomUUID().toString();
+            secondPatch.addProperty("requestId", secondId);
+            secondPatch.addProperty("validationHash", json(secondValidation).get("validationHash").getAsString());
+            assertEquals(200, send(client, server, "POST", "/deployments", secondPatch.toString(), SCOPES, secondId).statusCode());
+            var pending = json(send(client, server, "GET", "/state", "", SCOPES, null)).getAsJsonArray("pendingDeployments");
+            assertEquals(List.of(id, secondId), java.util.stream.StreamSupport.stream(pending.spliterator(), false)
+                    .map(value -> value.getAsJsonObject().get("requestId").getAsString()).toList());
             List<String> waveScope = SCOPES.stream().map(scope -> scope.equals("domain:tower") ? "domain:wave" : scope).toList();
             assertEquals(403, send(client, server, "GET", "/deployments/" + id, "", waveScope, null).statusCode());
             assertTrue(json(send(client, server, "GET", "/history", "", waveScope, null)).getAsJsonArray("deployments").isEmpty());
-            assertNotNull(json(send(client, server, "GET", "/state", "", waveScope, null)).get("writeBlocked"));
+            var scopedState = json(send(client, server, "GET", "/state", "", waveScope, null));
+            assertTrue(scopedState.getAsJsonArray("pendingDeployments").isEmpty());
+            assertTrue(scopedState.get("pending").isJsonNull());
+            assertEquals(403, send(client, server, "DELETE", "/deployments/" + secondId, "", waveScope, null).statusCode());
+            assertEquals("CANCELLED", json(send(client, server, "DELETE", "/deployments/" + secondId, "", SCOPES, null)).get("state").getAsString());
+            assertEquals(1, json(send(client, server, "GET", "/state", "", SCOPES, null)).getAsJsonArray("pendingDeployments").size());
             service.onBoundary(BalanceChangeService.Boundary.TICK);
             assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
                 while (service.deployment(id).state() == BalanceDtos.DeploymentState.APPLYING) { Thread.sleep(5); }
@@ -88,7 +106,7 @@ class BalanceHttpServerTest {
             var replay = send(client, server, "POST", "/deployments", patch.toString(), SCOPES, id);
             assertEquals(200, replay.statusCode());
             assertEquals("APPLIED", json(replay).get("state").getAsString());
-            assertEquals(1, service.history().size());
+            assertEquals(2, service.history().size());
             service.onBoundary(BalanceChangeService.Boundary.TICK);
             service.onBoundary(BalanceChangeService.Boundary.TICK);
             assertEquals(1, announcements.get());

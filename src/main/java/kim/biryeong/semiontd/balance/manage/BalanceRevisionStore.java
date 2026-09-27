@@ -49,6 +49,7 @@ public class BalanceRevisionStore {
             java.util.HashSet<String> keys = new java.util.HashSet<>();
             java.util.HashSet<String> requests = new java.util.HashSet<>();
             String lastApplied = null;
+            long lastAppliedAt = Long.MIN_VALUE;
             for (Receipt receipt : loaded.receipts()) {
                 if (receipt == null || receipt.deployment() == null || receipt.patch() == null
                         || !keys.add(receipt.idempotencyKey()) || !requests.add(receipt.deployment().requestId())) {
@@ -60,16 +61,21 @@ public class BalanceRevisionStore {
                         || !receipt.fingerprint().matches("[a-f0-9]{64}") || receipt.validationHash() == null
                         || !receipt.validationHash().matches("[a-f0-9]{64}")
                         || !java.util.Objects.equals(receipt.idempotencyKey(), deployment.requestId())
-                        || !java.util.Objects.equals(receipt.patch().baseRevision(), deployment.previousRevision())) {
+                        || deployment.state() == kim.biryeong.semiontd.balance.manage.BalanceDtos.DeploymentState.SCHEDULED
+                        && !java.util.Objects.equals(receipt.patch().baseRevision(), deployment.previousRevision())) {
                     throw new IOException("Invalid balance request metadata.");
                 }
                 readRevision(receipt.candidateRevision());
                 readRevision(deployment.previousRevision());
+                readRevision(receipt.patch().baseRevision());
                 if (deployment.state() == kim.biryeong.semiontd.balance.manage.BalanceDtos.DeploymentState.APPLIED) {
                     if (!receipt.candidateRevision().equals(deployment.effectiveRevision()) || deployment.appliedAt() == null) {
                         throw new IOException("Applied request has no matching effective revision.");
                     }
-                    lastApplied = deployment.effectiveRevision();
+                    if (deployment.appliedAt() >= lastAppliedAt) {
+                        lastAppliedAt = deployment.appliedAt();
+                        lastApplied = deployment.effectiveRevision();
+                    }
                 }
             }
             if (lastApplied != null && !lastApplied.equals(loaded.activeRevision())) {
