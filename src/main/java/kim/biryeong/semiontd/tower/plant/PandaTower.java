@@ -48,6 +48,17 @@ public class PandaTower extends ProductionTower {
 
     /** 이번 돌진에 이미 치인 대상. 같은 몹을 매 틱 갈아 버리지 않게 합니다. */
     private final Set<UUID> dashHits = new HashSet<>();
+
+    @Override
+    public double modifyAttackDamage(SemionTowerEntity source, SemionMonsterEntity target, double damage) {
+        return super.modifyAttackDamage(source, target, damage) * (1.0 + PlantAugments.worldTreeBonus(this));
+    }
+
+    @Override
+    protected double builderCurrentMaxHealth() {
+        return super.builderCurrentMaxHealth() * (1.0 + PlantAugments.worldTreeBonus(this));
+    }
+
     public PandaTower(TowerType type, UUID ownerPlayer, TeamId teamId, int laneId, GridPosition position) {
         super(type, ownerPlayer, teamId, laneId, position);
     }
@@ -67,7 +78,7 @@ public class PandaTower extends ProductionTower {
      * 돌진 한 번. 여러 틱에 걸쳐 실제로 달립니다.
      *
      * <p>이 메서드는 돌진 중에는 매 틱, 평소에는 주기마다 불립니다 -
-     * {@link #cooldownTicksAfterExecute} 가 상태에 따라 1 틱과 재사용 주기를 오갑니다.
+     * {@link #cooldownTicksAfterExecute} 가 돌진 중에는 다음 틱에 바로 실행되도록 합니다.
      *
      * <p>한 번에 판정을 끝내고 끝점으로 순간이동시키지 않는 이유는, 그러면 화면에서 제자리
      * 폭발로만 보이기 때문입니다. 달리는 동안 스친 적만 맞아야 "치고 들어간다" 는 것이 보입니다.
@@ -105,8 +116,37 @@ public class PandaTower extends ProductionTower {
 
     @Override
     protected int cooldownTicksAfterExecute(PlayerLane lane) {
-        // 달리는 동안에는 매 틱 돌아와야 발이 움직입니다.
-        return dashTicksLeft > 0 ? 1 : Math.max(1, abilityTicks("chargeIntervalTicks"));
+        // Tower.tick skips a tick while decrementing a positive cooldown.
+        return dashTicksLeft > 0 ? 0 : Math.max(1, abilityTicks("chargeIntervalTicks"));
+    }
+
+    @Override
+    public boolean canChaseTargets() {
+        return !dashing();
+    }
+
+    @Override
+    public void resetForRound(PlayerLane lane) {
+        endDash();
+        super.resetForRound(lane);
+    }
+
+    @Override
+    public void onDeath(PlayerLane lane) {
+        endDash();
+        super.onDeath(lane);
+    }
+
+    @Override
+    public void onRemoved(PlayerLane lane) {
+        endDash();
+        super.onRemoved(lane);
+    }
+
+    @Override
+    public void moveToFinalDefense(PlayerLane lane, GridPosition position) {
+        endDash();
+        super.moveToFinalDefense(lane, position);
     }
 
     /** 지금 달리는 중인지. 정보창과 테스트가 봅니다. */
@@ -120,6 +160,9 @@ public class PandaTower extends ProductionTower {
         dashHits.clear();
         // 달리는 동안 경로 탐색이 끼어들면 방향이 꺾여 돌진이 아니라 추적이 됩니다.
         source.getNavigation().stop();
+        source.getMoveControl().setWantedPosition(source.getX(), source.getY(), source.getZ(), 0.0);
+        source.getMoveControl().tick();
+        source.setDeltaMovement(0.0, source.getDeltaMovement().y, 0.0);
         advanceDash(source);
     }
 
