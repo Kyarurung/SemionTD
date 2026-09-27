@@ -57,59 +57,59 @@ public record WaveConfig(
                 round(2, monster("animal_sheep_2", 11.5, 0.0, 1.0, AttackKind.MELEE, "minecraft:sheep", 3, 14, 0, 1.0, 2.5, 13)),
                 round(3, monster("animal_cow_3", 13.0, 0.0, 1.0, AttackKind.MELEE, "minecraft:cow", 3, 18, 0, 1.0, 2.5, 13)),
                 round(4, monster("animal_wolf_4", 14.5, 2.0, 1.5, AttackKind.MELEE, "minecraft:wolf", 5, 16, 0, 1.0, 2.5, 13)),
-                round(5, monster("animal_llama_5", 16.0, 0.0, 0.5, AttackKind.RANGED, "minecraft:llama", 5, 20, 0, 1.0, 6.0, 13)),
-                round(6, monster("zombie_rush_6", 15.0, 1.0, 1.25, AttackKind.MELEE, "minecraft:zombie", 4, 35, 0, 1.2, 2.5, 11)),
-                round(7, monster("husk_swarm_7", 19.0, 3.0, 2.0, AttackKind.MELEE, "minecraft:husk", 4, 30, 0, 1.0, 2.5, 13)),
+                round(5, monster("animal_llama_5", 16.0, 0.0, 0.6, AttackKind.RANGED, "minecraft:llama", 5, 20, 0, 1.0, 6.0, 13)),
+                round(6, monster("zombie_rush_6", 15.0, 1.0, 1.608333, AttackKind.MELEE, "minecraft:zombie", 4, 35, 0, 1.2, 2.5, 11)),
+                round(7, monster("husk_swarm_7", 19.0, 3.0, 2.746667, AttackKind.MELEE, "minecraft:husk", 4, 30, 0, 1.0, 2.5, 13)),
                 roundRobin(8,
-                        monster("husk_tank_8", 25.0, 4.0, 1.0, AttackKind.MELEE, "minecraft:husk", 5, 20, 45, 0.95, 2.5, 18),
-                        monster("skeleton_ranged_8", 12.0, 0.0, 1.5, AttackKind.RANGED, "minecraft:skeleton", 5, 20, 0, 0.8, 7.0, 18)
+                        monster("husk_tank_8", 25.0, 4.0, 1.46, AttackKind.MELEE, "minecraft:husk", 5, 20, 45, 0.95, 2.5, 18),
+                        monster("skeleton_ranged_8", 12.0, 0.0, 2.19, AttackKind.RANGED, "minecraft:skeleton", 5, 20, 0, 0.8, 7.0, 18)
                 ),
-                round(9, monster("creeper_melee_9", 22.0, 4.0, 2.0, AttackKind.MELEE, "minecraft:creeper", 5, 40, 0, 1.0, 2.5, 13)),
-                round(10, monster("vindicator_elite_10", 35.25, 5.0, 2.5, AttackKind.MELEE, "minecraft:vindicator", 7, 25, 0, 1.0, 2.5, 13)),
+                round(9, monster("creeper_melee_9", 22.0, 4.0, 3.093333, AttackKind.MELEE, "minecraft:creeper", 5, 40, 0, 1.0, 2.5, 13)),
+                round(10, monster("vindicator_elite_10", 35.25, 5.0, 4.083333, AttackKind.MELEE, "minecraft:vindicator", 7, 25, 0, 1.0, 2.5, 13)),
                 roundRobin(11,
-                        monster("zombie_tank_11", 60.0, 6.0, 2.0, AttackKind.MELEE, "minecraft:zombie", 5, 15, 45, 0.95, 2.5, 18),
-                        monster("stray_ranged_11", 20.625, 1.0, 2.5, AttackKind.RANGED, "minecraft:stray", 5, 20, 0, 0.8, 8.0, 16)
+                        monster("zombie_tank_11", 60.0, 6.0, 3.44, AttackKind.MELEE, "minecraft:zombie", 5, 15, 45, 0.95, 2.5, 18),
+                        monster("stray_ranged_11", 20.625, 1.0, 4.3, AttackKind.RANGED, "minecraft:stray", 5, 20, 0, 0.8, 8.0, 16)
                 ),
-                round(12, monster("bogged_swarm_12", 39.75, 6.0, 2.5, AttackKind.MELEE, "minecraft:bogged", 6, 40, 0, 1.0, 2.5, 13)),
-                round(13, monster("spider_pressure_13", 42.0, 4.0, 3.0, AttackKind.MELEE, "minecraft:spider", 5, 50, 0, 1.3, 2.5, 10)),
+                round(12, monster("bogged_swarm_12", 39.75, 6.0, 4.516667, AttackKind.MELEE, "minecraft:bogged", 6, 40, 0, 1.0, 2.5, 13)),
+                round(13, monster("spider_pressure_13", 42.0, 4.0, 5.68, AttackKind.MELEE, "minecraft:spider", 5, 50, 0, 1.3, 2.5, 10)),
                 roundRobin(14,
-                        monster("vindicator_tank_14", 75.0, 9.0, 2.5, AttackKind.MELEE, "minecraft:vindicator", 9, 15, 45, 0.95, 2.5, 18),
-                        monster("pillager_artillery_14", 21.1875, 2.0, 4.0, AttackKind.RANGED, "minecraft:pillager", 9, 20, 0, 0.7, 9.0, 24)
+                        monster("vindicator_tank_14", 75.0, 9.0, 4.95, AttackKind.MELEE, "minecraft:vindicator", 9, 15, 45, 0.95, 2.5, 18),
+                        monster("pillager_artillery_14", 21.1875, 2.0, 7.92, AttackKind.RANGED, "minecraft:pillager", 9, 20, 0, 0.7, 9.0, 24)
                 ),
-                round(15, monster("warden_boss_15", 1100.0, 10.0, 30.0, AttackKind.MELEE, "minecraft:warden", 100, 4, 0, 1.0, 2.5, 13)),
+                round(15, monster("warden_boss_15", 1100.0, 10.0, 62, AttackKind.MELEE, "minecraft:warden", 100, 4, 0, 1.0, 2.5, 13)),
                 roundRobin(16,
-                        monster("hoglin_tank_16", 120.0, 10.0, 4.0, AttackKind.MELEE, "minecraft:hoglin", 5, 20, 45, 0.95, 2.5, 20),
-                        monster("zombified_piglin_rush_16", 60.0, 3.0, 6.0, AttackKind.MELEE, "minecraft:zombified_piglin", 5, 20, 5, 1.3, 2.5, 9),
-                        monster("piglin_ranged_16", 45.0, 3.0, 5.0, AttackKind.RANGED, "minecraft:piglin", 5, 20, 0, 0.8, 8.0, 15)
+                        monster("hoglin_tank_16", 120.0, 10.0, 8.613333, AttackKind.MELEE, "minecraft:hoglin", 5, 20, 45, 0.95, 2.5, 20),
+                        monster("zombified_piglin_rush_16", 60.0, 3.0, 12.92, AttackKind.MELEE, "minecraft:zombified_piglin", 5, 20, 5, 1.3, 2.5, 9),
+                        monster("piglin_ranged_16", 45.0, 3.0, 10.766667, AttackKind.RANGED, "minecraft:piglin", 5, 20, 0, 0.8, 8.0, 15)
                 ),
                 roundRobin(17,
-                        monster("piglin_brute_tank_17", 80.0, 10.0, 3.0, AttackKind.MELEE, "minecraft:piglin_brute", 4, 50, 45, 0.95, 2.5, 18),
-                        monster("blaze_ranged_17", 40.0, 3.0, 5.0, AttackKind.RANGED, "minecraft:blaze", 4, 50, 0, 0.8, 8.0, 14)
+                        monster("piglin_brute_tank_17", 80.0, 10.0, 6.72, AttackKind.MELEE, "minecraft:piglin_brute", 4, 50, 45, 0.95, 2.5, 18),
+                        monster("blaze_ranged_17", 40.0, 3.0, 11.2, AttackKind.RANGED, "minecraft:blaze", 4, 50, 0, 0.8, 8.0, 14)
                 ),
                 roundRobin(18,
-                        monster("magma_cube_tank_18", 120.0, 14.0, 5.0, AttackKind.MELEE, "minecraft:magma_cube", 4, 20, 45, 0.95, 2.5, 20),
-                        monster("wither_skeleton_rush_18", 45.0, 7.0, 7.0, AttackKind.MELEE, "minecraft:wither_skeleton", 4, 40, 5, 1.3, 2.5, 10),
-                        monster("piglin_artillery_18", 30.0, 4.0, 9.0, AttackKind.RANGED, "minecraft:piglin", 4, 20, 0, 0.7, 10.0, 24)
+                        monster("magma_cube_tank_18", 120.0, 14.0, 11.633333, AttackKind.MELEE, "minecraft:magma_cube", 4, 20, 45, 0.95, 2.5, 20),
+                        monster("wither_skeleton_rush_18", 45.0, 16.286667, 7.0, AttackKind.MELEE, "minecraft:wither_skeleton", 4, 40, 5, 1.3, 2.5, 10),
+                        monster("piglin_artillery_18", 30.0, 4.0, 20.94, AttackKind.RANGED, "minecraft:piglin", 4, 20, 0, 0.7, 10.0, 24)
                 ),
                 roundRobin(19,
-                        monster("hoglin_tank_19", 160.0, 16.0, 6.0, AttackKind.MELEE, "minecraft:hoglin", 4, 40, 45, 0.95, 2.5, 20),
-                        monster("blaze_artillery_19", 80.0, 6.0, 10.0, AttackKind.RANGED, "minecraft:blaze", 4, 40, 0, 0.7, 11.0, 24)
+                        monster("hoglin_tank_19", 160.0, 16.0, 14.48, AttackKind.MELEE, "minecraft:hoglin", 4, 40, 45, 0.95, 2.5, 20),
+                        monster("blaze_artillery_19", 80.0, 6.0, 24.133333, AttackKind.RANGED, "minecraft:blaze", 4, 40, 0, 0.7, 11.0, 24)
                 )
         );
 
         RoundWaveConfig animalStampede = roundRobin(20,
-                monster("infinite_cow_tank", 250.0, 14.0, 10.0, AttackKind.MELEE, "minecraft:cow", 1, 27, 45, 0.95, 2.5, 20),
-                monster("infinite_llama_ranged", 132.14, 4.0, 18.0, AttackKind.RANGED, "minecraft:llama", 1, 28, 0, 0.95, 9.0, 16)
+                monster("infinite_cow_tank", 250.0, 14.0, 25, AttackKind.MELEE, "minecraft:cow", 1, 27, 45, 0.95, 2.5, 20),
+                monster("infinite_llama_ranged", 132.14, 4.0, 45, AttackKind.RANGED, "minecraft:llama", 1, 28, 0, 0.95, 9.0, 16)
         );
         RoundWaveConfig overworldAssault = roundRobin(20,
-                monster("infinite_husk_tank", 300.0, 14.0, 10.0, AttackKind.MELEE, "minecraft:husk", 1, 20, 45, 0.95, 2.5, 20),
-                monster("infinite_spider_rush", 150.0, 7.0, 10.0, AttackKind.MELEE, "minecraft:spider", 1, 20, 5, 1.3, 2.5, 10),
-                monster("infinite_pillager_artillery", 96.67, 4.0, 18.0, AttackKind.RANGED, "minecraft:pillager", 1, 15, 0, 0.95, 11.0, 24)
+                monster("infinite_husk_tank", 300.0, 14.0, 25, AttackKind.MELEE, "minecraft:husk", 1, 20, 45, 0.95, 2.5, 20),
+                monster("infinite_spider_rush", 150.0, 7.0, 25, AttackKind.MELEE, "minecraft:spider", 1, 20, 5, 1.3, 2.5, 10),
+                monster("infinite_pillager_artillery", 96.67, 4.0, 45, AttackKind.RANGED, "minecraft:pillager", 1, 15, 0, 0.95, 11.0, 24)
         );
         RoundWaveConfig zombifiedLegion = roundRobin(20,
-                monster("infinite_piglin_brute_tank", 350.0, 14.0, 10.0, AttackKind.MELEE, "minecraft:piglin_brute", 1, 15, 45, 0.95, 2.5, 20),
-                monster("infinite_zombified_piglin_rush", 140.0, 7.0, 10.0, AttackKind.MELEE, "minecraft:zombified_piglin", 1, 25, 5, 1.3, 2.5, 10),
-                monster("infinite_blaze_ranged", 113.33, 4.0, 18.0, AttackKind.RANGED, "minecraft:blaze", 1, 15, 0, 0.95, 9.0, 16)
+                monster("infinite_piglin_brute_tank", 350.0, 14.0, 25, AttackKind.MELEE, "minecraft:piglin_brute", 1, 15, 45, 0.95, 2.5, 20),
+                monster("infinite_zombified_piglin_rush", 140.0, 7.0, 25, AttackKind.MELEE, "minecraft:zombified_piglin", 1, 25, 5, 1.3, 2.5, 10),
+                monster("infinite_blaze_ranged", 113.33, 4.0, 45, AttackKind.RANGED, "minecraft:blaze", 1, 15, 0, 0.95, 9.0, 16)
         );
         animalStampede = withHealer(animalStampede, "animal_stampede");
         overworldAssault = withHealer(overworldAssault, "overworld_assault");
@@ -365,7 +365,13 @@ public record WaveConfig(
                 if (entry.id().equals(replacementId(identified))) {
                     entries.add(entry.withCount(entry.count() - healerCount));
                     healer = new WaveMonsterEntry(original.round() < 20 ? "wave_healer_allay_" + original.round() : "wave_healer_allay_infinite",
-                            entry.health(), entry.armor(), 2, AttackKind.RANGED, "minecraft:allay", null, null,
+                            entry.health(), entry.armor(), switch (original.round()) {
+                                case 16 -> 4.306667;
+                                case 17 -> 4.48;
+                                case 18 -> 4.653333;
+                                case 19 -> 4.826667;
+                                default -> 5.0;
+                            }, AttackKind.RANGED, "minecraft:allay", null, null,
                             entry.mineralReward(), healerCount, 0, 0.85, 6, 13,
                             new WaveHealingConfig(6, original.round() < 20 ? 80 : 160, 3, 160, 20, 2));
                 } else {entries.add(entry);}

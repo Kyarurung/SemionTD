@@ -151,33 +151,61 @@ final class WaveConfigTest {
     }
 
     @Test
+    void defaultAttackRampStartsAtFirstAugmentAndReachesTwoPointFiveTimesAtRoundTwenty() {
+        WaveConfig config = WaveConfig.defaultConfig();
+        double[][] previousDamage = {
+                {1}, {1}, {1}, {1.5}, {0.5}, {1.25}, {2}, {1, 1.5}, {2}, {2.5},
+                {2, 2.5}, {2.5}, {3}, {2.5, 4}, {30}, {4, 6, 5, 2}, {3, 5, 2},
+                {5, 7, 9, 2}, {6, 10, 2}
+        };
+        for (int round = 1; round <= 19; round++) {
+            double multiplier = round < 5 ? 1.0 : 1.2 + (round - 5) * 1.3 / 15.0;
+            List<WaveMonsterEntry> entries = config.configForRound(round).orElseThrow().entriesForLane("lane_1");
+            assertEquals(previousDamage[round - 1].length, entries.size());
+            for (int index = 0; index < entries.size(); index++) {
+                assertEquals(previousDamage[round - 1][index] * multiplier, entries.get(index).attackDamage(),
+                        0.000001, entries.get(index).id());
+            }
+        }
+        for (int round : new int[]{20, 21, 25, 40}) {
+            for (RoundWaveConfig wave : config.candidatesForRound(round)) {
+                for (WaveMonsterEntry entry : wave.entriesForLane("lane_1")) {
+                    double previous = entry.healing() != null ? 2.0 : entry.attackKind() == AttackKind.RANGED ? 18.0 : 10.0;
+                    assertEquals(previous * 2.5 * (1.0 + (round - 20) * 0.03), entry.attackDamage(),
+                            0.000001, "round " + round + " " + entry.id());
+                }
+            }
+        }
+    }
+
+    @Test
     void lateRoundDefaultsUseTempoBalanceValues() {
         WaveConfig config = WaveConfig.defaultConfig();
 
-        assertCombatStats(config.configForRound(15).orElseThrow().entriesForLane("lane_1").getFirst(), 1100.0, 10.0, 30.0);
+        assertCombatStats(config.configForRound(15).orElseThrow().entriesForLane("lane_1").getFirst(), 1100.0, 10.0, 62.0);
 
         List<WaveMonsterEntry> round16 = config.configForRound(16).orElseThrow().entriesForLane("lane_1");
-        assertCombatStats(round16.get(0), 120.0, 10.0, 4.0);
-        assertCombatStats(round16.get(1), 60.0, 3.0, 6.0);
-        assertCombatStats(round16.get(2), 45.0, 3.0, 5.0);
+        assertCombatStats(round16.get(0), 120.0, 10.0, 8.613333);
+        assertCombatStats(round16.get(1), 60.0, 3.0, 12.92);
+        assertCombatStats(round16.get(2), 45.0, 3.0, 10.766667);
 
         List<WaveMonsterEntry> round18 = config.configForRound(18).orElseThrow().entriesForLane("lane_1");
-        assertCombatStats(round18.get(0), 120.0, 14.0, 5.0);
-        assertCombatStats(round18.get(1), 45.0, 7.0, 7.0);
-        assertCombatStats(round18.get(2), 30.0, 4.0, 9.0);
+        assertCombatStats(round18.get(0), 120.0, 14.0, 11.633333);
+        assertCombatStats(round18.get(1), 45.0, 7.0, 16.286667);
+        assertCombatStats(round18.get(2), 30.0, 4.0, 20.94);
     }
 
     @Test
     void infiniteRoundsScaleHealthAndAttackForLateGameTempo() {
         WaveConfig config = WaveConfig.defaultConfig();
-        int[] rounds = {20, 30, 33, 40};
-        double[] healthMultipliers = {1.0, 5.0, 6.2, 9.0};
-        double[] attackMultipliers = {1.0, 1.3, 1.39, 1.6};
+        int[] rounds = {20, 21, 30, 33, 40};
+        double[] healthMultipliers = {1.0, 1.4, 5.0, 6.2, 9.0};
+        double[] attackMultipliers = {1.0, 1.03, 1.3, 1.39, 1.6};
 
         for (int index = 0; index < rounds.length; index++) {
             WaveMonsterEntry entry = config.configForRound(rounds[index]).orElseThrow().entriesForLane("lane_1").getFirst();
             assertEquals(250.0 * healthMultipliers[index], entry.health(), 0.0001, "round " + rounds[index] + " health");
-            assertEquals(10.0 * attackMultipliers[index], entry.attackDamage(), 0.0001, "round " + rounds[index] + " attack");
+            assertEquals(25.0 * attackMultipliers[index], entry.attackDamage(), 0.0001, "round " + rounds[index] + " attack");
         }
     }
 
@@ -285,7 +313,7 @@ final class WaveConfigTest {
         assertEquals(450, healer.health());
         assertEquals(480, healer.healing().amount());
         assertEquals(5, healer.count());
-        assertEquals(2.3, healer.attackDamage(), 0.001);
+        assertEquals(5.75, healer.attackDamage(), 0.001);
         assertEquals(55, scaled.mineralRewardBudget());
         assertEquals(72, totalCount(scaled.entriesForLane("lane_1")));
         assertEquals(config.selectForRound(27, new Random(12)), config.selectForRound(27, new Random(12)));
