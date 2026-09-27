@@ -74,7 +74,7 @@ final class DemonLordAugments {
     }
 
     double maxHealthBonus(AugmentSnapshot snapshot) {
-        return masteryBonus(snapshot) + (snapshot.has("one_man_show")
+        return AugmentCombat.beneficialBonus(snapshot, "maxHealthBonus") + masteryBonus(snapshot) + (snapshot.has("one_man_show")
                 ? snapshot.parameter("one_man_show", "maxHealthBonus", .30) : 0);
     }
 
@@ -126,7 +126,7 @@ final class DemonLordAugments {
     }
 
     double damageMultiplier(AugmentSnapshot snapshot, long now) {
-        double bonus = tacticalBonus(snapshot, "ASSAULT") + masteryBonus(snapshot)
+        double bonus = AugmentCombat.beneficialBonus(snapshot, "damageBonus") + tacticalBonus(snapshot, "ASSAULT") + masteryBonus(snapshot)
                 - targeted.heat() * snapshot.parameter("overheat_core", "penaltyPerStack", .06);
         if (targeted.overheated()) bonus += snapshot.parameter("overheat_core", "damageBonus", .40);
         if (snapshot.has("one_man_show")) bonus += snapshot.parameter("one_man_show", "damageBonus", 1.0);

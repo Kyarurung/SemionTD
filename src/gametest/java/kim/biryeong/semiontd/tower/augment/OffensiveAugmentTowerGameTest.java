@@ -248,8 +248,8 @@ public final class OffensiveAugmentTowerGameTest {
         var buyer = new SemionPlayer(UUID.randomUUID(), "low-pressure-test", TeamId.BLUE, 1, economy);
         AugmentEconomyService.beginPrepare(buyer, 15);
         AugmentEconomyService.onSelected(buyer, "low_pressure_high_yield", 15, Map.of());
-        require(AugmentEconomyService.setContract(buyer, 15, AugmentEconomyService.Contract.LOW_PRESSURE), "The test contract is available.");
         var plan = AugmentEconomyService.quotePurchase(buyer, UUID.randomUUID(), 15, true, true, false, true, true, 100, 4);
+        require(plan.contract() == AugmentEconomyService.Contract.LOW_PRESSURE, "The first purchase automatically uses low pressure.");
         monster.setOrigin(MonsterOrigin.NORMAL_PAID);
         require(AugmentEconomyService.commitPurchase(buyer, plan, monster), "The successful purchase records its weak-body mark.");
         require(AugmentEconomyService.isLowPressure(monster), "The test monster carries the real contract mark.");

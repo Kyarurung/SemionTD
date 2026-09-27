@@ -215,7 +215,6 @@ public final class SeasonThreeRecordedOperationGameTest {
         int naturalSpawnsExpected;
         double naturalStartingHealth;
         long augmentOfferTick = -1;
-        int cashContractRound;
         String augmentStatus = "NOT_REACHED";
         SeasonThreeReplaySupport.ActionResult lastAttempt;
         long lastProductionDelta;
@@ -335,12 +334,6 @@ public final class SeasonThreeRecordedOperationGameTest {
                     if (!game.teams().get(subject.player.teamId()).eliminated()) {
                         selectAugment(subject);
                         if (scenario.group() != Group.NONE && round == 5 && subject.augmentStatus.equals("NOT_REACHED")) { continue; }
-                        if (scenario.group() == Group.INCOME && subject.augmentStatus.equals("ONE_R5_GOLD_SELECTED")
-                                && subject.cashContractRound < round
-                                && AugmentEconomyService.setContract(subject.player, round, AugmentEconomyService.Contract.CASH)) {
-                            subject.cashContractRound = round;
-                            subject.automation.add(new Automation(round, game.currentTick(), "CASH_CONTRACT_NEXT_ELIGIBLE_RECORDED_SUMMON", null));
-                        }
                         executeActions(subject);
                     }
                 }

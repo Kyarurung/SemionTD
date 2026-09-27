@@ -43,6 +43,41 @@ class AugmentCombatTest {
     }
 
     @Test
+    void quickEngagementUsesTwentyPercentAndEndsWithTheWave() {
+        PlayerLane lane = lane();
+        Tower tower = add(lane, "quick_engagement", 0);
+        lane.assignAugmentSnapshot(snapshot("engagement_plan_quick", AugmentChoice.none()));
+        assertEquals(0, AugmentCombat.damageBonus(tower, null));
+        startCombat(lane, 5);
+        assertEquals(.20, AugmentCombat.damageBonus(tower, null), 1e-9);
+        AugmentCombat.settleWave(lane, 5);
+        assertEquals(0, AugmentCombat.damageBonus(tower, null));
+    }
+
+    @Test
+    void beneficialEffectTiersApplyWithoutTargetsSurviveUpgradeAndDoNotDoubleBuffCopies() {
+        for (int tier = 1; tier <= 3; tier++) {
+            PlayerLane lane = lane();
+            Tower tower = add(lane, "beneficial_" + tier, 0);
+            double bonus = tier / 20.0;
+            lane.assignAugmentSnapshot(snapshot("beneficial_effect_" + tier, AugmentChoice.none()));
+            assertEquals(bonus, AugmentCombat.damageBonus(tower, null), 1e-9);
+            assertEquals(bonus, AugmentCombat.beneficialBonus(tower, "attackSpeedBonus"), 1e-9);
+            assertEquals(100 * (1 + bonus), tower.currentMaxHealth(), 1e-9);
+            Tower upgraded = create("beneficial_upgraded_" + tier, 0);
+            upgraded.copyFrom(tower, 100);
+            lane.replaceTower(tower, upgraded);
+            assertEquals(100 * (1 + bonus), upgraded.currentMaxHealth(), 1e-9);
+            assertEquals(bonus, AugmentCombat.damageBonus(upgraded, null), 1e-9);
+            upgraded.markTemporaryCopy(UUID.randomUUID());
+            assertEquals(0, AugmentCombat.beneficialBonus(upgraded, "maxHealthBonus"));
+            assertEquals(0, AugmentCombat.beneficialBonus(upgraded, "damageBonus"));
+            lane.assignAugmentSnapshot(AugmentSnapshot.none());
+            assertEquals(100, upgraded.currentMaxHealth(), 1e-9);
+        }
+    }
+
+    @Test
     void warlockAndEndDesignationsApplyWithoutEnablingOtherCommonEffects() {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
         var types = new ArrayList<>(kim.biryeong.semiontd.tower.end.EndTowers.all());
@@ -56,6 +91,11 @@ class AugmentCombatTest {
             assertEquals(tower.type().damage() > 0 && tower.type().range() > 0,
                     AugmentCombat.isDesignatableAttacker(tower), type.id());
             assertFalse(AugmentCombat.isNormalPermanent(tower), type.id());
+            double originalHealth = tower.currentMaxHealth();
+            lane.assignAugmentSnapshot(snapshot("beneficial_effect_3", AugmentChoice.none()));
+            assertEquals(originalHealth * 1.15, tower.currentMaxHealth(), 1e-6, type.id());
+            assertEquals(.15, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            assertEquals(.15, AugmentCombat.beneficialBonus(tower, "attackSpeedBonus"), 1e-9, type.id());
             lane.assignAugmentSnapshot(snapshot("tactical_designation_3_assault", choice(tower, "")));
             assertEquals(1, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
             lane.assignAugmentSnapshot(snapshot("tactical_designation_3_cover", choice(tower, "")));

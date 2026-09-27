@@ -62,6 +62,7 @@ public final class BalanceChangeService implements AutoCloseable {
     private String pendingKey;
     private boolean pendingReady;
     private String writeBlocked;
+    private Exception recoveryFailure;
     private String runtimeWriteBlocked;
     private RuntimeView view = new RuntimeView(null, 0, "UNKNOWN", null, false);
     private long updatedAt = System.currentTimeMillis();
@@ -102,6 +103,7 @@ public final class BalanceChangeService implements AutoCloseable {
             if (recovered) {store.saveIndex(index());}
             pendingReady = true;
         } catch (IOException | RuntimeException exception) {
+            recoveryFailure = exception;
             writeBlocked = "밸런스 저장소 복구에 실패했습니다. 운영자 확인이 필요합니다.";
         }
     }
@@ -109,6 +111,7 @@ public final class BalanceChangeService implements AutoCloseable {
     public BalanceBundle currentBundle() {return locked(() -> active);}
     public String currentRevision() {return locked(() -> activeRevision);}
     public String legacyRevision() {return legacyRevision;}
+    Exception recoveryFailure() {return recoveryFailure;}
 
     public BalanceState state() {
         return locked(() -> new BalanceState(serverId, true, activeRevision, view.catalogVersion(),

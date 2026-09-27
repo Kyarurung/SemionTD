@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.balance.manage;
 
 import com.google.gson.JsonParser;
+import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -83,10 +84,13 @@ public class BalanceRevisionStore {
     public BalanceBundle readRevision(String revision) throws IOException {
         if (revision == null || !revision.matches("[a-f0-9]{64}")) {throw new IOException("Invalid revision identifier.");}
         try {
-            BalanceBundle bundle = BalanceBundle.fromJson(JsonParser.parseString(Files.readString(
-                    directory.resolve("revisions").resolve(revision + ".json"))).getAsJsonObject());
-            if (!bundle.revision().equals(revision)) {throw new IOException("Balance revision checksum mismatch.");}
-            return bundle;
+            JsonObject stored = JsonParser.parseString(Files.readString(
+                    directory.resolve("revisions").resolve(revision + ".json"))).getAsJsonObject();
+            // Hash the stored snapshot before parsing adds defaults or removes retired fields.
+            if (!BalanceBundle.digest(BalanceBundle.canonical(stored)).equals(revision)) {
+                throw new IOException("Balance revision checksum mismatch.");
+            }
+            return BalanceBundle.fromJson(stored);
         } catch (RuntimeException exception) {
             throw new IOException("Invalid balance revision.", exception);
         }

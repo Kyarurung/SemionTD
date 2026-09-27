@@ -403,6 +403,56 @@ public final class BalanceRuntimeGameTest {
         }
     }
 
+    @GameTest
+    public void startupRecoversLegacyAugmentStoreWithoutFalseManualConflict(GameTestHelper context) throws Exception {
+        var previousTower = TowerBalanceRuntime.current();
+        var previousTrait = TraitBalanceRuntime.current();
+        var previousCatalog = ProductionTowerCatalog.snapshot();
+        var previousSummons = SummonRegistry.all();
+        var config = Files.createTempDirectory("semion-legacy-startup-");
+        var directory = config.resolve("balance-management");
+        Files.createDirectories(directory.resolve("revisions"));
+        try {
+            var manager = new SemionGameManager();
+            JsonObject old = manager.captureBalanceBundle().toJson();
+            JsonObject parameters = old.getAsJsonObject("augment").getAsJsonObject("parameters");
+            for (int tier = 1; tier <= 3; tier++) {parameters.remove("semiontd:beneficial_effect_" + tier);}
+            JsonObject retired = new JsonObject();
+            retired.addProperty("healthMultiplier", 2.0);
+            retired.addProperty("attackMultiplier", 1.8);
+            parameters.add("semiontd:decisive_delivery", retired);
+            var canonical = BalanceBundle.class.getDeclaredMethod("canonical", com.google.gson.JsonElement.class);
+            canonical.setAccessible(true);
+            String contents = (String) canonical.invoke(null, old);
+            String revision = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(contents.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            var storedFile = directory.resolve("revisions").resolve(revision + ".json");
+            Files.writeString(storedFile, contents);
+            new BalanceRevisionStore(directory).saveIndex(new BalanceRevisionStore.Index(1, revision, List.of(), null));
+            String index = Files.readString(directory.resolve("index.json"));
+            BalanceBundle initial = BalanceBundle.fromJson(old);
+            manager.installBalanceBundle(initial);
+            try (var bootstrap = BalanceManagementBootstrap.start(context.getLevel().getServer(), manager, config)) {
+                var runtime = (BalanceGameRuntime) get(manager, "managedBalance");
+                require(bootstrap != null && runtime != null, "Managed startup succeeds with a legacy snapshot");
+                require(runtime.writeBlocked() == null, "Schema normalization is not a manual edit");
+                require(runtime.revision().equals(revision), "Stored revision remains the audit identity");
+                require(Files.readString(storedFile).equals(contents), "Original snapshot stays byte-for-byte intact");
+                require(Files.readString(directory.resolve("index.json")).equals(index), "Startup does not rewrite history");
+                runtime.checkManualConfigConflict(change(initial, AnimalTowers.T1_PIG_TOWER.id(), "damage", 32));
+                require(runtime.writeBlocked() != null, "A real manual edit still blocks writes");
+                runtime.checkManualConfigConflict(initial);
+                require(runtime.writeBlocked() == null, "Restoring legacy values clears the conflict");
+            }
+            context.succeed();
+        } finally {
+            TowerBalanceRuntime.apply(previousTower);
+            TraitBalanceRuntime.apply(previousTrait);
+            ProductionTowerCatalog.install(previousCatalog);
+            SummonRegistry.reload(previousSummons);
+        }
+    }
+
     private static BalancePatch patch(BalanceChangeService service, ApplyMode mode, String tower, String key, double before, double after) {
         return new BalancePatch(service.currentRevision(), mode, "gametest", null,
                 List.of(new BalanceChange("tower:/towers/" + tower + "/" + key, before, after)));

@@ -403,7 +403,9 @@ public final class DemonLordState {
             return 1.0;
         }
         double elapsed = gameTime - lastBladeAttackTick;
-        return Math.max(0.0, Math.min(1.0, elapsed / intervalTicks));
+        double interval = Math.max(1, Math.ceil(intervalTicks / (1.0
+                + kim.biryeong.semiontd.augment.AugmentCombat.beneficialBonus(augmentSnapshot, "attackSpeedBonus"))));
+        return Math.max(0.0, Math.min(1.0, elapsed / interval));
     }
 
     /** Every swing resets the charge, including the weak ones. */

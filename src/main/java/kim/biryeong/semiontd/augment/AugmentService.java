@@ -306,7 +306,7 @@ public final class AugmentService {
             case "additional_payload", "support_performance" -> hasAffordableSummon(game, player, "UTILITY");
             case "forecast_offensive" -> hasAffordableSummon(game, player, "ATTACK");
             case "cash_settlement" -> hasAffordableSummon(game, player, "INCOME");
-            case "low_pressure_high_yield", "decisive_delivery" -> hasAffordableSummon(game, player, "STANDARD");
+            case "low_pressure_high_yield" -> hasAffordableSummon(game, player, "STANDARD");
             case "forbidden_blueprint" -> AugmentEconomyService.eligibleForCard(game, player, cardId);
             case "wartime_economy" -> player.economy().income() > 0;
             case "folding_barricade_blueprint", "pulse_relay_blueprint", "barrier_core_call", "giant_hunter_call",
@@ -314,7 +314,8 @@ public final class AugmentService {
                     AugmentTowerService.canSelect(game, player, cardId);
             case "ordnance_factory_call" -> AugmentTowerService.canSelect(game, player, cardId)
                     && hasAffordableSummon(game, player, "STANDARD");
-            case "triangle_formation", "engagement_plan", "emergency_loan", "biased_armor" -> true;
+            case "triangle_formation", "engagement_plan", "emergency_loan", "biased_armor",
+                    "beneficial_effect_1", "beneficial_effect_2", "beneficial_effect_3" -> true;
             default -> false;
         };
     }
@@ -448,7 +449,7 @@ public final class AugmentService {
             String description = AugmentDescriptions.describe(card, config);
             return description.length() <= 105 ? description : description.substring(0, 101).stripTrailing() + " …";
         }
-        if (!AugmentCatalog.fixedMode(card.id()).isEmpty() || id.equals("independent_position")) {
+        if (!AugmentCatalog.fixedMode(card.id()).isEmpty() || id.equals("independent_position") || id.startsWith("beneficial_effect_")) {
             return AugmentDescriptions.describe(card, config);
         }
         Map<String, Double> values = config.parametersFor(card.id());
@@ -475,13 +476,12 @@ public final class AugmentService {
             case "battlefield_mastery" -> "지정 타워가 최대 체력 " + p.apply("damageThreshold") + " 이상 피해를 받고 생존하면 피해/체력 +"
                     + p.apply("bonusPerStack") + ". 최대 " + n.apply("maxStacks") + "중첩.";
             case "biased_armor" -> "선택 유형 받는 피해 ×" + n.apply("selectedMultiplier") + ", 반대 유형 ×" + n.apply("oppositeMultiplier");
-            case "cash_settlement" -> "다음 인컴 증가를 포기하고 그 " + n.apply("diamondMultiplier") + "배를 즉시 다이아로 받음.";
+            case "cash_settlement" -> "매 라운드 첫 인컴 증가를 포기하고 그 " + n.apply("diamondMultiplier") + "배를 즉시 다이아로 받음.";
             case "forbidden_blueprint" -> n.apply("ticketValue") + "다이아 승급권 " + n.apply("ticketCount") + "장. 사용마다 영구 정기 지급 ×" + n.apply("payoutMultiplier");
-            case "low_pressure_high_yield" -> "계약 인컴 몸체 ×" + n.apply("bodyMultiplier") + ", 인컴 증가 +" + p.apply("bonusRatio") + ". 라운드 추가 상한 " + n.apply("roundBonusCap");
+            case "low_pressure_high_yield" -> "매 라운드 첫 인컴의 체력/공격력 ×" + n.apply("bodyMultiplier") + ", 인컴 증가 +" + p.apply("bonusRatio") + ". 추가 상한 " + n.apply("roundBonusCap");
             case "finishing_fire_1", "finishing_fire_2", "finishing_fire_3" -> "체력 절반 이하 적: 주 대상 기본 공격 피해 +" + p.apply("damageBonus");
             case "independent_position" -> "고립된 타워: 피해 +" + p.apply("damageBonus") + ", 받는 피해 -" + p.apply("damageReduction");
             case "winning_barrage" -> "기본 공격 처치 후 " + n.apply("charges") + "회 피해 +" + p.apply("damageBonus") + ". 재처치하면 충전 갱신.";
-            case "decisive_delivery" -> "다음 인컴 증가 포기: 인컴 체력 ×" + n.apply("healthMultiplier") + "·공격 ×" + n.apply("attackMultiplier");
             case "domino_fire" -> "기본 공격 처치의 초과 피해 " + p.apply("overkillRatio") + "를 인접 적 1기에게 전달.";
             case "one_man_show" -> "주역 피해 +" + p.apply("damageBonus") + "·체력 +" + p.apply("maxHealthBonus") + ", 나머지 피해 -" + p.apply("otherDamagePenalty") + ". 주역 변경 불가.";
             case "wartime_economy" -> "피해 +" + p.apply("damageBonus") + "·체력 +" + p.apply("maxHealthBonus") + ". 정기 지급은 영구 ×" + n.apply("payoutMultiplier");
@@ -985,8 +985,6 @@ public final class AugmentService {
     private static AugmentEconomyService.Contract purchaseOverride(String value) {
         return switch (value) {
             case "current" -> null;
-            case "normal" -> AugmentEconomyService.Contract.NONE;
-            case "low" -> AugmentEconomyService.Contract.LOW_PRESSURE;
             default -> throw new IllegalArgumentException("알 수 없는 구매 계약입니다.");
         };
     }
@@ -994,11 +992,6 @@ public final class AugmentService {
     public boolean showSummonPurchase(SemionGame game, ServerPlayer online, String summonId) {
         SemionPlayer player = game.players().get(online.getUUID());
         if (!game.augmentsEnabled() || !alive(game, player) || game.phase() != RoundPhase.PREPARE_AND_SUMMON) {
-            return false;
-        }
-        boolean lowPressure = player.augments().hasSelected("low_pressure_high_yield");
-        if (!lowPressure && AugmentEconomyService.contract(player) == AugmentEconomyService.Contract.NONE
-                && !AugmentEconomyService.payloadArmed(player)) {
             return false;
         }
         var type = game.summonShop().find(summonId).orElse(null);
@@ -1010,6 +1003,10 @@ public final class AugmentService {
             error(online, "이 인컴을 구매할 수 없습니다. 빌더의 소환 조건을 확인하세요.");
             return true;
         }
+        if (current.contract() == AugmentEconomyService.Contract.NONE && !current.payload()
+                && AugmentEconomyService.contract(player) == AugmentEconomyService.Contract.NONE) {
+            return false;
+        }
         List<Button> buttons = new ArrayList<>();
         StringBuilder body = new StringBuilder(MiniMessage.miniMessage().escapeTags(type.displayName())).append("\n현재 계약: ").append(contractName(current.contract()))
                 .append("\n").append(purchaseSummary(current));
@@ -1019,21 +1016,12 @@ public final class AugmentService {
         } else {
             body.append("\n에메랄드가 부족합니다.");
         }
-        if (lowPressure && AugmentEconomyService.isStandardAttack(type)) {
-            var low = AugmentEconomyService.previewPurchase(game, player, type, AugmentEconomyService.Contract.LOW_PRESSURE).orElse(null);
-            if (low != null) {
-                body.append("\n\n내실 다지기\n").append(purchaseSummary(low));
-                if (player.economy().emerald() >= low.emeraldCost()) {
-                    buttons.add(button("내실 다지기 구매", "buy " + low.revision() + " " + type.id() + " low " + low.emeraldCost()));
-                }
-            } else {
-                body.append("\n다른 가치 계약을 먼저 꺼야 내실 다지기를 쓸 수 있습니다.");
-            }
-        }
         if (current.contract() == AugmentEconomyService.Contract.NONE && AugmentEconomyService.contract(player) != AugmentEconomyService.Contract.NONE) {
             body.append("\n현재 계약은 이 유닛에 적용되지 않으며 다음 적격 구매까지 유지됩니다.");
         }
-        buttons.add(button("인컴 계약 변경", "ui contracts"));
+        if (AugmentEconomyService.hasPurchaseOptions(player)) {
+            buttons.add(button("인컴 계약 변경", "ui contracts"));
+        }
         buttons.add(new Button("소환 상점으로", "/semiontd summonui", "구매하지 않고 돌아갑니다."));
         show(online, "인컴 구매 확인", body.toString(), buttons, 2);
         return true;
@@ -1532,15 +1520,14 @@ public final class AugmentService {
             body.append("과다 투자: 유틸 인컴에 적용. 다른 계약 하나와 함께 사용할 수 있습니다.\n");
         }
         buttons.add(button("계약 없음", "contract " + state.revision() + " NONE"));
-        for (var contract : List.of(AugmentEconomyService.Contract.FORECAST, AugmentEconomyService.Contract.CASH, AugmentEconomyService.Contract.DECISIVE)) {
+        for (var contract : List.of(AugmentEconomyService.Contract.FORECAST)) {
             if (player.augments().hasSelected(contract.card)) {
                 buttons.add(button(contractName(contract), "contract " + state.revision() + " " + contract.name()));
-                body.append(contractName(contract)).append(": ").append(contract == AugmentEconomyService.Contract.CASH ? "인컴 증가가 있는 인컴"
-                        : contract == AugmentEconomyService.Contract.FORECAST ? "인컴" : "고유 능력 없는 인컴").append('\n');
+                body.append(contractName(contract)).append(": 인컴\n");
             }
         }
-        if (player.augments().hasSelected("low_pressure_high_yield")) {
-            body.append("내실 다지기는 인컴 구매 화면에서 고릅니다. 다른 계약이 켜져 있으면 먼저 꺼 주세요.\n");
+        if (player.augments().hasSelected("cash_settlement")) {
+            body.append("일시불은 매 라운드 첫 인컴에 자동 적용합니다. 복제본 생성 예약은 그다음 구매에 적용합니다.\n");
         }
         appendForecasts(body, game, player);
         buttons.add(new Button("소환 상점으로", "/semiontd summonui", "소환 상점을 엽니다."));
@@ -1564,7 +1551,6 @@ public final class AugmentService {
             case FORECAST -> "복제본 생성";
             case CASH -> "일시불";
             case LOW_PRESSURE -> "내실 다지기";
-            case DECISIVE -> "결전 납품";
         };
     }
 

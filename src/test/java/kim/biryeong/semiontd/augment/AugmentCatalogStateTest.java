@@ -21,20 +21,62 @@ class AugmentCatalogStateTest {
     private static final Predicate<AugmentDefinition> ALL = card -> true;
 
     @Test
-    void approvedCatalogHas164NormalNineReserveAndNineTowerCards() {
-        assertEquals(173, AugmentCatalog.definitions().size());
-        assertEquals(164, AugmentCatalog.normalDefinitions().size());
+    void approvedCatalogHas166NormalNineReserveAndNineTowerCards() {
+        assertEquals(175, AugmentCatalog.definitions().size());
+        assertEquals(166, AugmentCatalog.normalDefinitions().size());
         assertEquals(9, AugmentCatalog.reserveDefinitions().size());
         assertEquals(9, AugmentCatalog.normalDefinitions().stream().filter(AugmentDefinition::towerAugment).count());
-        assertEquals(173, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
+        assertEquals(175, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
         assertTrue(AugmentCatalog.find("honorable_retirement").isEmpty());
         assertTrue(AugmentCatalog.find("overcapacity_permit").isEmpty());
-        assertEquals(List.of(43L, 79L, 42L), List.of(SILVER, GOLD, PRISMATIC).stream()
+        assertTrue(AugmentCatalog.find("decisive_delivery").isEmpty());
+        assertEquals(List.of(44L, 79L, 43L), List.of(SILVER, GOLD, PRISMATIC).stream()
                 .map(rarity -> AugmentCatalog.normalDefinitions().stream().filter(card -> card.rarity() == rarity).count()).toList());
         for (AugmentDefinition card : AugmentCatalog.definitions()) {
             for (String conflict : card.conflicts()) {
                 assertTrue(AugmentCatalog.find(conflict).orElseThrow().conflicts().contains(card.id()), card.id());
             }
+        }
+    }
+
+    @Test
+    void retiredConfigIsDiscardedWhileNewDefaultsAndExistingOverridesArePreserved() {
+        AugmentConfig config = AugmentConfig.fromJson(JsonParser.parseString("""
+                {"parameters":{"decisive_delivery":{"healthMultiplier":1.6,"attackMultiplier":1.4},
+                "cash_settlement":{"diamondMultiplier":7}},"disabledIds":["decisive_delivery"]}
+                """).getAsJsonObject());
+        assertFalse(config.isEnabled("decisive_delivery"));
+        assertTrue(config.parametersFor("decisive_delivery").isEmpty());
+        assertFalse(config.toJson().toString().contains("decisive_delivery"));
+        assertEquals(7, config.parameter("cash_settlement", "diamondMultiplier", -1));
+        assertEquals(.20, config.parameter("engagement_plan_quick", "quickDamageBonus", -1));
+        for (int tier = 1; tier <= 3; tier++) {
+            for (String key : List.of("damageBonus", "attackSpeedBonus", "maxHealthBonus")) {
+                assertEquals(tier / 20.0, config.parameter("beneficial_effect_" + tier, key, -1));
+            }
+        }
+        assertEquals(config.toJson(), AugmentConfig.fromJson(config.toJson()).toJson());
+    }
+
+    @Test
+    void cashAndLowPressureCannotAppearAfterSelectingTheOtherInEitherOrder() {
+        for (String first : List.of("cash_settlement", "low_pressure_high_yield")) {
+            String second = first.equals("cash_settlement") ? "low_pressure_high_yield" : "cash_settlement";
+            var firstCard = AugmentCatalog.find(first).orElseThrow();
+            var secondCard = AugmentCatalog.find(second).orElseThrow();
+            PlayerAugmentState state = new PlayerAugmentState(PLAYER);
+            state.initialize(1, AugmentConfig.defaults(), List.of(firstCard.rarity(), secondCard.rarity(), secondCard.rarity()));
+            var offer = state.offer(5, 5, 600, card -> card.id().equals(firstCard.id()));
+            choose(state, offer, offer.cardIds().indexOf(firstCard.id()), AugmentChoice.none(), 20);
+            var next = state.offer(15, 15, 600, ALL);
+            assertFalse(next.cardIds().contains(secondCard.id()));
+            for (int i = 0; i < 5; i++) {
+                state.reroll(15, next.revision(), UUID.randomUUID(), 20, ALL);
+                next = state.currentOffer().orElseThrow();
+                assertFalse(next.cardIds().contains(secondCard.id()));
+            }
+            state.expire(600, card -> card.id().equals(secondCard.id()), card -> AugmentChoice.none(), (card, choice) -> true);
+            assertFalse(state.hasSelected(secondCard.id()));
         }
     }
 
@@ -347,7 +389,8 @@ class AugmentCatalogStateTest {
             assertEquals(SUCCESS, replayedState.reroll(milestone, before.revision(), UUID.randomUUID(), 20, ALL).status());
             var rerolled = state.currentOffer().orElseThrow();
             assertEquals(replayedState.currentOffer().orElseThrow(), rerolled);
-            assertTrue(rerolled.cardIds().stream().noneMatch(shown::contains));
+            assertTrue(rerolled.cardIds().stream().filter(id -> !AugmentCatalog.find(id).orElseThrow().reserve())
+                    .noneMatch(shown::contains), "Only fallback rewards may repeat after the safe pool runs out.");
             shown.addAll(rerolled.cardIds());
             assertOffer(rerolled);
             assertNull(rerolled.draft());

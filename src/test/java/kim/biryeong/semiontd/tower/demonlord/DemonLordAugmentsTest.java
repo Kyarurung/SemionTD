@@ -28,6 +28,31 @@ class DemonLordAugmentsTest {
     }
 
     @Test
+    void beneficialEffectsIncreaseSelfHealthDamageAndBladeSpeedAtEveryTier() {
+        for (int tier = 1; tier <= 3; tier++) {
+            DemonLordState state = new DemonLordState(UUID.randomUUID());
+            double baseline = state.maxHealth();
+            var snapshot = snapshot("beneficial_effect_" + tier);
+            double bonus = tier / 20.0;
+            state.syncAugments(snapshot);
+            assertEquals(baseline * (1 + bonus), state.maxHealth(), 1e-6);
+            assertEquals(1 + bonus, state.augments().damageMultiplier(snapshot, 0), 1e-9);
+            var altarType = DemonLordTowers.all().getFirst();
+            var altar = new DemonLordSkillTower(altarType, UUID.randomUUID(), TeamId.RED, 1, new GridPosition(0, 0, 0));
+            altar.syncAugments(snapshot, null);
+            assertEquals(0, AugmentCombat.beneficialBonus(altar, "damageBonus"), "A spell must not receive the bonus again through its altar.");
+            state.recordBladeAttack(0);
+            long interval = (long) Math.ceil(100 / (1 + bonus));
+            assertEquals(1, state.bladeChargeScale(interval, 100), 1e-9);
+            assertTrue(state.bladeChargeScale(interval - 1, 100) < 1);
+            state.syncAugments(AugmentSnapshot.none());
+            assertEquals(baseline, state.maxHealth(), 1e-6);
+            assertEquals(1, state.augments().damageMultiplier(AugmentSnapshot.none(), 0), 1e-9);
+            assertTrue(state.bladeChargeScale(interval, 100) < 1);
+        }
+    }
+
+    @Test
     void commonDesignationsApplyToSelfAndKeepGrowthAcrossDeathReconnectButNotNewMatch() {
         UUID owner = UUID.randomUUID();
         DemonLordStates.clearAllForTesting();

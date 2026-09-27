@@ -269,11 +269,11 @@ public final class SeasonThreeEconomyBalanceGameTest {
 
         private void purchase(Subject subject) {
             SemionPlayer player = subject.player;
-            if (subject.group == Group.CASH) {
-                require(AugmentEconomyService.setContract(player, 15, AugmentEconomyService.Contract.CASH), "CASH must arm only in its real preparation.");
-            }
             var type = game.summonShop().find(SUMMON).orElseThrow();
             var quote = AugmentEconomyService.previewPurchase(game, player, type).orElseThrow();
+            if (subject.group == Group.CASH) {
+                require(quote.contract() == AugmentEconomyService.Contract.CASH, "CASH automatically applies to the first purchase.");
+            }
             Balance before = balance(player);
             var result = game.summonMonster(player.uuid(), SUMMON);
             require(result.type() == SummonResultType.SUCCESS, "The fixed legal R15 purchase must succeed with actual funds.");

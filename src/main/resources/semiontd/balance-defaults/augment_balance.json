@@ -582,10 +582,6 @@
     "semiontd:cash_settlement": {
       "diamondMultiplier": 5.0
     },
-    "semiontd:decisive_delivery": {
-      "attackMultiplier": 1.8,
-      "healthMultiplier": 2.0
-    },
     "semiontd:domino_fire": {
       "damageCapRatio": 0.75,
       "overkillRatio": 0.9,
@@ -610,7 +606,7 @@
     "semiontd:engagement_plan": {
       "longDamageBonus": 0.25,
       "longDamageReduction": 0.15,
-      "quickDamageBonus": 0.35,
+      "quickDamageBonus": 0.2,
       "transitionTicks": 160.0
     },
     "semiontd:finishing_fire_1": {
@@ -621,6 +617,21 @@
     },
     "semiontd:finishing_fire_3": {
       "damageBonus": 1.1
+    },
+    "semiontd:beneficial_effect_1": {
+      "damageBonus": 0.05,
+      "attackSpeedBonus": 0.05,
+      "maxHealthBonus": 0.05
+    },
+    "semiontd:beneficial_effect_2": {
+      "damageBonus": 0.1,
+      "attackSpeedBonus": 0.1,
+      "maxHealthBonus": 0.1
+    },
+    "semiontd:beneficial_effect_3": {
+      "damageBonus": 0.15,
+      "attackSpeedBonus": 0.15,
+      "maxHealthBonus": 0.15
     },
     "semiontd:folding_barricade_blueprint": {
       "damagePerHitCap": 15.0,

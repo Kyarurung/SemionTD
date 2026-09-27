@@ -46,6 +46,39 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class AugmentCombatGameTest {
     @GameTest
+    public void beneficialEffectsChangeActualHealthDamageAndAttackIntervalWithoutCompounding(GameTestHelper context) {
+        PlayerLane lane = lane(context);
+        try {
+            for (int tier = 1; tier <= 3; tier++) {
+                TowerType type = new TowerType("beneficial_test_" + tier, "beneficial", TowerCategory.DIRECT,
+                        10, 100, 8, 100, 100, 0);
+                ProductionTowerCatalog.registerStarter(type);
+                var tower = new ProductionTower(type, lane.ownerPlayer(), TeamId.RED, 1,
+                        GridPosition.from(context.absolutePos(new BlockPos(4, 2, 4))));
+                lane.addTower(tower);
+                var source = entity(context, tower);
+                source.setNoAi(true);
+                source.setNoGravity(true);
+                var selected = snapshot("beneficial_effect_" + tier, AugmentChoice.none());
+                lane.assignAugmentSnapshot(selected);
+                lane.assignAugmentSnapshot(selected);
+                double bonus = tier / 20.0;
+                close(100 * (1 + bonus), source.getMaxHealth(), "The entity must receive health once.");
+                close(Math.ceil(100 / (1 + bonus)), source.attackIntervalTicks(), "Attack speed divides the attack interval.");
+                var target = monster(context, lane, source.position().add(1, 0, 0), 1000);
+                close(100 * (1 + bonus), primary(tower, source, target, 100).dealtDamage(), "Final damage applies once.");
+                lane.assignAugmentSnapshot(AugmentSnapshot.none());
+                close(100, source.getMaxHealth(), "Clearing the snapshot must restore health.");
+                close(100, source.attackIntervalTicks(), "Clearing the snapshot must restore attack speed.");
+                close(100, primary(tower, source, target, 100).dealtDamage(), "Clearing the snapshot must restore damage.");
+                lane.removeTower(tower);
+            }
+            context.succeed();
+        } catch (Throwable failure) {context.fail(net.minecraft.network.chat.Component.literal(failure.toString()));}
+        finally {cleanup(lane);}
+    }
+
+    @GameTest
     public void finalUndeadDefenderRevivesAfterTwentyTicksBeforeLaneBreak(GameTestHelper context) {
         PlayerLane lane = lane(context);
         try {
@@ -659,7 +692,6 @@ public final class AugmentCombatGameTest {
                     new PlayerEconomy(EconomyConfig.defaultConfig()));
             AugmentEconomyService.beginPrepare(buyer, 5);
             AugmentEconomyService.onSelected(buyer, "low_pressure_high_yield", 5, Map.of());
-            AugmentEconomyService.setContract(buyer, 5, AugmentEconomyService.Contract.LOW_PRESSURE);
             var plan = AugmentEconomyService.quotePurchase(buyer, UUID.randomUUID(), 5,
                     true, true, false, true, true, 10, 5);
             AugmentEconomyService.applyPurchaseBody(monster, plan);

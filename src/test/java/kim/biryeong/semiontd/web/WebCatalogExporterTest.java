@@ -127,8 +127,10 @@ final class WebCatalogExporterTest {
         EconomyConfig economy = EconomyConfig.defaultConfig();
         AugmentConfig config = AugmentConfig.defaults();
         var document = WebCatalogExporter.snapshot(1, waves, economy, summons, config);
-        assertEquals(173, document.augments().size());
-        assertEquals(164, document.augments().stream().filter(augment -> !augment.reserve()).count());
+        assertEquals(175, document.augments().size());
+        assertEquals(166, document.augments().stream().filter(augment -> !augment.reserve()).count());
+        assertTrue(document.augments().stream().noneMatch(card -> card.id().equals("semiontd:decisive_delivery")));
+        assertEquals(3, document.augments().stream().filter(card -> card.id().startsWith("semiontd:beneficial_effect_")).count());
         assertEquals(9, document.augments().stream().filter(WebCatalogExporter.AugmentEntry::reserve).count());
         assertEquals(config.version(), document.augmentVersion());
         var quick = document.augments().stream().filter(card -> card.id().equals("semiontd:engagement_plan_quick"))

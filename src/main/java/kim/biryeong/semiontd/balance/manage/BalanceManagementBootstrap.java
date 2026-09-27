@@ -37,9 +37,11 @@ public final class BalanceManagementBootstrap implements AutoCloseable {
         BalanceHttpServer http = null;
         try {
             if (service.state().writeBlocked() != null) {
-                throw new IllegalStateException("Managed balance recovery failed; refusing to use legacy JSON fallback");
+                throw new IllegalStateException("Managed balance recovery failed; refusing to use legacy JSON fallback",
+                        service.recoveryFailure());
             }
-            runtime.configureLegacyBaseline(service.legacyRevision(), initial);
+            // Compare both legacy snapshots using the current parser, not an older schema's hash.
+            runtime.configureLegacyBaseline(service.revision(service.legacyRevision()).revision(), initial);
             runtime.bootstrap(service.currentBundle(), service.currentRevision());
             // Startup waits before accepting requests; regular match ticks never do this disk write.
             CompletableFuture.supplyAsync(runtime::afterApplied).join();

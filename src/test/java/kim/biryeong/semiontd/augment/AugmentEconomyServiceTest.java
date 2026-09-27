@@ -28,8 +28,7 @@ final class AugmentEconomyServiceTest {
     void purchaseOptionsRequireAnOwnedPurchaseAugment() {
         assertFalse(AugmentEconomyService.hasPurchaseOptions(null));
         assertFalse(AugmentEconomyService.hasPurchaseOptions(player(10)));
-        var purchaseCards = java.util.Set.of("additional_payload", "forecast_offensive", "cash_settlement",
-                "low_pressure_high_yield", "decisive_delivery");
+        var purchaseCards = java.util.Set.of("additional_payload", "forecast_offensive");
         for (var card : AugmentCatalog.definitions()) {
             SemionPlayer player = player(10);
             var state = player.augments();
@@ -60,7 +59,7 @@ final class AugmentEconomyServiceTest {
             AugmentEconomyService.onSelected(player, cardId, 5, AugmentConfig.defaults().parameters().get(cardId));
         }
         assertTrue(AugmentEconomyService.setAdditionalPayload(player, 5, true));
-        assertTrue(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH));
+        assertFalse(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH));
         var plan = quote(player, 5, true, true, false, false, 241, 15);
         assertEquals(302, plan.emeraldCost());
         assertEquals(0, plan.incomeGain());
@@ -162,14 +161,14 @@ final class AugmentEconomyServiceTest {
         select(player, "additional_payload", 5);
         select(player, "cash_settlement", 5);
         assertTrue(AugmentEconomyService.setAdditionalPayload(player, 5, true));
-        assertTrue(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH));
+        assertFalse(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH));
         AugmentEconomyService.PurchasePlan plan = quote(player, 5, true, true, false, false, 241, 15);
         assertEquals(302, plan.emeraldCost());
         assertEquals(241, plan.normalEmeraldCost());
         assertEquals(0, plan.incomeGain());
         assertEquals(45, plan.instantDiamond());
         assertTrue(AugmentEconomyService.payloadArmed(player));
-        assertEquals(AugmentEconomyService.Contract.CASH, AugmentEconomyService.contract(player));
+        assertEquals(AugmentEconomyService.Contract.NONE, AugmentEconomyService.contract(player));
         assertTrue(player.augmentTelemetry().snapshot().economyEvents().isEmpty());
         Monster monster = paidMonster(player);
         AugmentEconomyService.applyPurchaseBody(monster, plan);
@@ -198,30 +197,27 @@ final class AugmentEconomyServiceTest {
     }
 
     @Test
-    void staleQuoteAndCombatPurchaseNeverConsumePreparationToggle() {
+    void staleQuoteAndCombatPurchaseNeverConsumeAutomaticPreparationReward() {
         SemionPlayer player = player(0);
         AugmentEconomyService.beginPrepare(player, 5);
         select(player, "cash_settlement", 5);
-        AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH);
         AugmentEconomyService.PurchasePlan stale = quote(player, 5, true, false, true, true, 100, 15);
         AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.NONE);
         assertFalse(AugmentEconomyService.commitPurchase(player, stale, paidMonster(player)));
-        AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH);
         AugmentEconomyService.PurchasePlan combat = quote(player, 5, false, false, true, true, 100, 15);
         assertEquals(AugmentEconomyService.Contract.NONE, combat.contract());
         assertTrue(AugmentEconomyService.commitPurchase(player, combat, paidMonster(player)));
         assertEquals(15, player.economy().income());
-        assertEquals(AugmentEconomyService.Contract.CASH, AugmentEconomyService.contract(player));
+        assertEquals(AugmentEconomyService.Contract.CASH, quote(player, 5, true, false, true, true, 100, 15).contract());
         AugmentEconomyService.endPrepare(player, 5);
         assertEquals(AugmentEconomyService.Contract.NONE, AugmentEconomyService.contract(player));
     }
 
     @Test
-    void lowPressureRetainsOnlyFractionWhenCappedAndResetsRoundAllowance() {
+    void lowPressureRetainsFractionAndOnlyModifiesTheFirstPurchaseEachRound() {
         SemionPlayer player = player(0);
         AugmentEconomyService.beginPrepare(player, 5);
         select(player, "low_pressure_high_yield", 5);
-        AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.LOW_PRESSURE);
         AugmentEconomyService.PurchasePlan large = quote(player, 5, true, false, true, true, 100, 101);
         assertEquals(113, large.incomeGain());
         Monster weakened = paidMonster(player);
@@ -230,39 +226,36 @@ final class AugmentEconomyServiceTest {
         assertEquals(0.25, player.economyAugments().lowPressureFraction());
         AugmentEconomyService.PurchasePlan capped = quote(player, 5, true, false, true, true, 100, 3);
         assertEquals(0, capped.bonusIncome());
+        assertEquals(AugmentEconomyService.Contract.NONE, capped.contract());
+        assertEquals(1, capped.healthMultiplier());
         assertTrue(AugmentEconomyService.commitPurchase(player, capped, paidMonster(player)));
-        assertEquals(0, player.economyAugments().lowPressureFraction());
+        assertEquals(.25, player.economyAugments().lowPressureFraction());
         List<EconomyEvent> measured = player.augmentTelemetry().snapshot().economyEvents();
-        assertEquals(2, measured.size());
+        assertEquals(1, measured.size());
         assertEquals(12L, measured.getFirst().incomeGranted());
-        assertEquals(0L, measured.getLast().incomeGranted());
         AugmentEconomyService.beginPrepare(player, 6);
-        AugmentEconomyService.setContract(player, 6, AugmentEconomyService.Contract.LOW_PRESSURE);
         AugmentEconomyService.PurchasePlan next = quote(player, 6, true, false, true, true, 100, 4);
         assertEquals(1, next.bonusIncome());
     }
 
     @Test
-    void perPurchaseLowPressureChoiceIsReadOnlyAndCannotBypassAnotherValueContract() {
+    void lowPressurePreviewIsReadOnlyAndOldPurchaseButtonsCannotBypassAutomaticApplication() {
         SemionPlayer player = player(0);
         AugmentEconomyService.beginPrepare(player, 5);
         select(player, "low_pressure_high_yield", 5);
         long revision = player.economyAugments().revision();
         AugmentEconomyService.PurchasePlan low = AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
-                true, true, false, true, true, 100, 4, AugmentEconomyService.Contract.LOW_PRESSURE);
+                true, true, false, true, true, 100, 4);
         assertEquals(5, low.incomeGain());
         assertEquals(revision, player.economyAugments().revision());
         assertEquals(AugmentEconomyService.Contract.NONE, AugmentEconomyService.contract(player));
-        AugmentEconomyService.PurchasePlan normal = AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
-                true, true, false, true, true, 100, 4, AugmentEconomyService.Contract.NONE);
-        assertEquals(4, normal.incomeGain());
-        assertThrows(IllegalArgumentException.class, () -> AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
-                true, true, true, false, false, 100, 4, AugmentEconomyService.Contract.LOW_PRESSURE));
-        select(player, "cash_settlement", 5);
-        AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.CASH);
-        assertThrows(IllegalArgumentException.class, () -> AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
-                true, true, false, true, true, 100, 4, AugmentEconomyService.Contract.NONE));
-        assertEquals(AugmentEconomyService.Contract.CASH, AugmentEconomyService.contract(player));
+        for (var override : AugmentEconomyService.Contract.values()) {
+            assertThrows(IllegalArgumentException.class, () -> AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
+                    true, true, false, true, true, 100, 4, override));
+        }
+        assertFalse(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.LOW_PRESSURE));
+        assertTrue(AugmentEconomyService.commitPurchase(player, low, paidMonster(player)));
+        assertEquals(AugmentEconomyService.Contract.NONE, quote(player, 5, true, false, true, true, 100, 4).contract());
     }
 
     @Test
@@ -294,25 +287,74 @@ final class AugmentEconomyServiceTest {
     }
 
     @Test
-    void decisiveChangesOnlyStandardAttackerAndForgoesJobAdjustedIncome() {
+    void automaticIncomeCardsRearmOnlyOnANewRoundAndNeverConsumeOnPreviewOrDuplicateCommit() {
+        for (String id : List.of("cash_settlement", "low_pressure_high_yield")) {
+            SemionPlayer player = player(10);
+            AugmentEconomyService.onSelected(player, id, 5, AugmentConfig.defaults().parametersFor(id));
+            var expected = id.equals("cash_settlement") ? AugmentEconomyService.Contract.CASH : AugmentEconomyService.Contract.LOW_PRESSURE;
+            for (int round = 5; round <= 6; round++) {
+                AugmentEconomyService.beginPrepare(player, round);
+                var first = quote(player, round, true, false, true, true, 100, 10);
+                assertEquals(expected, first.contract());
+                var repeatedPreview = quote(player, round, true, false, true, true, 100, 10);
+                assertEquals(first.revision(), repeatedPreview.revision());
+                assertEquals(expected, repeatedPreview.contract());
+                assertEquals(expected == AugmentEconomyService.Contract.CASH ? 50 : 0, first.instantDiamond());
+                assertEquals(expected == AugmentEconomyService.Contract.LOW_PRESSURE ? 14 : 0, first.incomeGain());
+                Monster monster = paidMonster(player);
+                assertTrue(AugmentEconomyService.commitPurchase(player, first, monster));
+                assertFalse(AugmentEconomyService.commitPurchase(player, first, monster));
+                assertFalse(AugmentEconomyService.commitPurchase(player, repeatedPreview, paidMonster(player)));
+                AugmentEconomyService.beginPrepare(player, round);
+                var second = quote(player, round, true, false, true, true, 100, 10);
+                assertEquals(AugmentEconomyService.Contract.NONE, second.contract());
+                assertEquals(10, second.incomeGain());
+                assertEquals(0, second.instantDiamond());
+                assertTrue(AugmentEconomyService.commitPurchase(player, second, paidMonster(player)));
+                AugmentEconomyService.endPrepare(player, round);
+            }
+            assertEquals(2, player.augmentTelemetry().snapshot().economyEvents().size());
+            AugmentEconomyService.close(player);
+            assertFalse(AugmentEconomyService.commitPurchase(player, quote(player, 7, true, false, true, true, 100, 10), paidMonster(player)));
+        }
+    }
+
+    @Test
+    void freeCombatAndIneligiblePurchasesDoNotUseAutomaticIncomeRewards() {
+        for (String id : List.of("cash_settlement", "low_pressure_high_yield")) {
+            SemionPlayer player = player(0);
+            AugmentEconomyService.beginPrepare(player, 5);
+            select(player, id, 5);
+            var free = AugmentEconomyService.quotePurchase(player, UUID.randomUUID(), 5,
+                    true, false, false, true, true, 0, 0);
+            assertEquals(AugmentEconomyService.Contract.NONE, free.contract());
+            assertTrue(AugmentEconomyService.commitPurchase(player, free, paidMonster(player)));
+            var combat = quote(player, 5, false, false, true, true, 100, 10);
+            assertEquals(AugmentEconomyService.Contract.NONE, combat.contract());
+            assertTrue(AugmentEconomyService.commitPurchase(player, combat, paidMonster(player)));
+            var ineligible = quote(player, 5, true, true, false, false, 100, id.equals("cash_settlement") ? 0 : 10);
+            assertEquals(AugmentEconomyService.Contract.NONE, ineligible.contract());
+            assertTrue(AugmentEconomyService.commitPurchase(player, ineligible, paidMonster(player)));
+            assertEquals(id.equals("cash_settlement") ? AugmentEconomyService.Contract.CASH : AugmentEconomyService.Contract.LOW_PRESSURE,
+                    quote(player, 5, true, false, true, true, 100, 10).contract());
+        }
+    }
+
+    @Test
+    void automaticCashDoesNotConsumeArmedForecastUntilTheFollowingPurchase() {
         SemionPlayer player = player(10);
-        AugmentEconomyService.beginPrepare(player, 15);
-        select(player, "decisive_delivery", 15);
-        AugmentEconomyService.setContract(player, 15, AugmentEconomyService.Contract.DECISIVE);
-        assertEquals(AugmentEconomyService.Contract.NONE, quote(player, 15, true, true, false, false, 100, 15).contract());
-        AugmentEconomyService.PurchasePlan plan = quote(player, 15, true, false, true, true, 100, 15);
-        Monster monster = paidMonster(player);
-        AugmentEconomyService.applyPurchaseBody(monster, plan);
-        assertTrue(AugmentEconomyService.commitPurchase(player, plan, monster));
-        assertEquals(160, monster.maxHealth());
-        assertEquals(14, monster.attackDamage());
-        assertEquals(10, player.economy().income());
-        assertEquals(15, player.economyAugments().incomeForgone());
-        assertFalse(plan.ordnanceEligible());
-        EconomyEvent event = player.augmentTelemetry().snapshot().economyEvents().getFirst();
-        assertEquals("semiontd:decisive_delivery", event.augmentId());
-        assertEquals(15L, event.incomeForgone());
-        assertNull(event.diamondGranted());
+        AugmentEconomyService.beginPrepare(player, 5);
+        select(player, "cash_settlement", 5);
+        select(player, "forecast_offensive", 5);
+        assertTrue(AugmentEconomyService.setContract(player, 5, AugmentEconomyService.Contract.FORECAST));
+        var cash = quote(player, 5, true, false, true, true, 100, 10);
+        assertEquals(AugmentEconomyService.Contract.CASH, cash.contract());
+        assertTrue(AugmentEconomyService.commitPurchase(player, cash, paidMonster(player)));
+        assertEquals(AugmentEconomyService.Contract.FORECAST, AugmentEconomyService.contract(player));
+        var forecast = quote(player, 5, true, false, true, true, 100, 10);
+        assertEquals(AugmentEconomyService.Contract.FORECAST, forecast.contract());
+        assertTrue(AugmentEconomyService.commitPurchase(player, forecast, paidMonster(player)));
+        assertEquals(AugmentEconomyService.Contract.NONE, AugmentEconomyService.contract(player));
     }
 
     @Test
@@ -471,7 +513,6 @@ final class AugmentEconomyServiceTest {
         assertFalse(quote(player, 15, false, false, true, true, 100, 10).ordnanceEligible());
         assertFalse(quote(player, 15, true, true, false, false, 100, 10).ordnanceEligible());
         select(player, "cash_settlement", 15);
-        AugmentEconomyService.setContract(player, 15, AugmentEconomyService.Contract.CASH);
         assertFalse(quote(player, 15, true, false, true, true, 100, 10).ordnanceEligible());
     }
 

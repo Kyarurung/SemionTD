@@ -102,7 +102,9 @@ public final class AugmentLifecycleGameTest {
 
     @GameTest
     public void rejectedPurchasesDoNotConsumeTheRoundRobinLaneAssignment(GameTestHelper context) {
-        for (boolean invalidContract : List.of(false, true)) {
+        for (int scenario = 0; scenario < 4; scenario++) {
+            String cardId = scenario < 2 ? "cash_settlement" : "low_pressure_high_yield";
+            boolean invalidContract = scenario % 2 == 1;
             SemionGame game = new SemionGame(EconomyConfig.defaultConfig(), WaveConfig.defaultConfig(),
                     LeaderTargetingConfig.defaultConfig(), new IncomeLaneRoutingConfig(true,
                     IncomeLaneRoutingConfig.Mode.LEAST_THREAT_PRESSURE, 1, 0.75,
@@ -118,6 +120,7 @@ public final class AugmentLifecycleGameTest {
                 require(game.start(context.getLevel().getServer(), participants), "Synthetic routing match must start.");
                 enterPrepare(game, context.getLevel().getServer(), 5);
                 SemionPlayer buyer = game.players().get(red);
+                AugmentEconomyService.onSelected(buyer, cardId, 5, game.augmentConfig().parametersFor(cardId));
                 buyer.economy().spendEmerald(buyer.economy().emerald());
                 if (invalidContract) {buyer.economy().addEmerald(1_000);}
                 var failed = invalidContract
@@ -128,9 +131,21 @@ public final class AugmentLifecycleGameTest {
                 require(game.teams().get(TeamId.BLUE).laneGroup().lanes().stream().allMatch(lane -> lane.queuedSummonCount() == 0),
                         "A failed purchase must not enqueue a unit.");
                 buyer.economy().addEmerald(1_000);
+                var quote = AugmentEconomyService.previewPurchase(game, buyer, game.summonShop().find("zombie").orElseThrow()).orElseThrow();
+                require(quote.contract() == (cardId.equals("cash_settlement")
+                                ? AugmentEconomyService.Contract.CASH : AugmentEconomyService.Contract.LOW_PRESSURE),
+                        "Rejected purchases must leave the first-purchase reward available.");
+                long incomeBefore = buyer.economy().income();
+                long diamondsBefore = buyer.economy().diamond();
                 var success = game.summonMonster(red, "zombie");
                 require(success.type() == SummonResultType.SUCCESS && success.targetLaneId().orElseThrow() == 1,
                         "The first successful purchase must still use round-robin lane one; failed purchases must not advance its cursor.");
+                require(buyer.economy().income() == incomeBefore + quote.incomeGain()
+                                && buyer.economy().diamond() == diamondsBefore + quote.instantDiamond(),
+                        "The real purchase must settle the automatic reward exactly once.");
+                require(AugmentEconomyService.previewPurchase(game, buyer, game.summonShop().find("zombie").orElseThrow())
+                                .orElseThrow().contract() == AugmentEconomyService.Contract.NONE,
+                        "The second purchase in the same preparation must use ordinary terms.");
             } finally {
                 game.close();
             }

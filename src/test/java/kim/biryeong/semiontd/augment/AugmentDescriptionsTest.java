@@ -30,6 +30,8 @@ final class AugmentDescriptionsTest {
             assertFalse(description.contains("%%"), card.id());
             assertFalse(description.contains("초초"), card.id());
             assertFalse(description.contains("T1 기준"), card.id());
+            assertFalse(description.contains("일반 영구"), card.id());
+            assertFalse(AugmentService.offerSummary(card, config).contains("일반 영구"), card.id());
             assertFalse(description.contains("더합니다"), card.id());
             assertFalse(description.contains("더하며"), card.id());
             assertFalse(description.matches("(?s).*(유료|표준|적격|공격형) 인컴.*"), card.id());
@@ -71,7 +73,14 @@ final class AugmentDescriptionsTest {
         assertTrue(describe("support_performance", defaults).contains("경기 합계 최대 +50"));
         assertTrue(describe("giant_hunter_call", defaults).contains("추가 피해: 적 최대 체력의 12%(자연 웨이브 보스 3%)"));
         assertTrue(describe("capacitor_post_blueprint", defaults).contains("충전당 추가 피해 110"));
-        assertTrue(describe("decisive_delivery", defaults).startsWith("다음 인컴의 영구 인컴 증가를 포기하고"));
+        assertTrue(describe("cash_settlement", defaults).startsWith("매 라운드 처음 보내는 인컴"));
+        assertTrue(describe("low_pressure_high_yield", defaults).startsWith("매 라운드 처음 보내는 인컴"));
+        assertEquals("전투 시작 후 8초 동안 타워의 최종 피해 +20%.", describe("engagement_plan_quick", defaults));
+        for (int tier = 1; tier <= 3; tier++) {
+            String percent = tier * 5 + "%";
+            assertEquals("타워의 최종 피해 +" + percent + ", 공격 속도 +" + percent + ", 최대 체력 +" + percent + ".",
+                    describe("beneficial_effect_" + tier, defaults));
+        }
         assertTrue(describe("additional_payload", defaults).startsWith("다음 유틸 인컴의 비용"));
         assertTrue(describe("support_performance", defaults).startsWith("유틸 인컴 한 기"));
     }

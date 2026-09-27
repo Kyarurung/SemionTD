@@ -292,7 +292,8 @@ public final class AugmentCombat {
     }
 
     public static double maxHealthBonus(Tower tower) {
-        double bonus = kim.biryeong.semiontd.tower.undead.UndeadAugments.maxHealthBonus(tower);
+        double bonus = kim.biryeong.semiontd.tower.undead.UndeadAugments.maxHealthBonus(tower)
+                + beneficialBonus(tower, "maxHealthBonus");
         if (tower.augmentSnapshot().selections().isEmpty() || !isDesignatableType(tower)) return bonus;
         if (selected(tower, "one_man_show")) bonus += parameter(tower, "one_man_show", "maxHealthBonus", .30);
         if (isNormalPermanentType(tower) && tower.augmentSnapshot().has("wartime_economy")) bonus += parameter(tower, "wartime_economy", "maxHealthBonus", .20);
@@ -301,7 +302,8 @@ public final class AugmentCombat {
     }
 
     public static double damageBonus(Tower tower, SemionTowerEntity entity) {
-        double jobBonus = kim.biryeong.semiontd.tower.undead.UndeadAugments.damageBonus(tower);
+        double jobBonus = kim.biryeong.semiontd.tower.undead.UndeadAugments.damageBonus(tower)
+                + beneficialBonus(tower, "damageBonus");
         if (tower instanceof kim.biryeong.semiontd.tower.engineer.EngineerTrapTower
                 && tower.augmentSnapshot().has("job_engineer_towers_p")) {
             jobBonus += parameter(tower, "job_engineer_towers_p", "damageBonus", 1.0);
@@ -320,7 +322,7 @@ public final class AugmentCombat {
         if (wave.twin()) bonus += parameter(tower, "twin_squadron", "damageBonus", .10);
         if (wave.independent()) bonus += parameter(tower, "independent_position", "damageBonus", .12);
         if (wave.overheated()) bonus += parameter(tower, "overheat_core", "damageBonus", .40);
-        if (isNormalPermanent(tower) && engagementActive(tower, entity, "QUICK")) bonus += parameter(tower, "engagement_plan", "quickDamageBonus", .18);
+        if (isNormalPermanent(tower) && engagementActive(tower, entity, "QUICK")) bonus += parameter(tower, "engagement_plan", "quickDamageBonus", .20);
         if (isNormalPermanent(tower) && engagementActive(tower, entity, "LONG")) bonus += parameter(tower, "engagement_plan", "longDamageBonus", .10);
         if (rolesActive(tower)) {
             bonus += isVanguard(tower)
@@ -331,6 +333,21 @@ public final class AugmentCombat {
         if (snapshot.has("one_man_show")) bonus += selected(tower, "one_man_show")
                 ? parameter(tower, "one_man_show", "damageBonus", 1.0) : -parameter(tower, "one_man_show", "otherDamagePenalty", .20);
         if (isNormalPermanent(tower) && snapshot.has("wartime_economy")) bonus += parameter(tower, "wartime_economy", "damageBonus", .35);
+        return bonus;
+    }
+
+    public static double beneficialBonus(Tower tower, String parameter) {
+        // Demon Lord spells already receive the owner's bonus before going through their altar.
+        return tower == null || tower.isTemporaryCopy() || DemonLordTowers.isDemonLordTower(tower.type())
+                ? 0 : beneficialBonus(tower.augmentSnapshot(), parameter);
+    }
+
+    public static double beneficialBonus(AugmentSnapshot snapshot, String parameter) {
+        double bonus = 0;
+        for (int tier = 1; tier <= 3; tier++) {
+            String id = "beneficial_effect_" + tier;
+            if (snapshot.has(id)) bonus += snapshot.parameter(id, parameter, tier / 20.0);
+        }
         return bonus;
     }
 

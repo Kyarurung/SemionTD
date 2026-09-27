@@ -36,12 +36,12 @@ public final class AugmentDescriptions {
                             : mode.equals("COVER") ? "지정 타워 한 기의 받는 피해 " + p(values, "damageReduction") + " 감소."
                             : "지정 타워 한 기의 모드를 고릅니다. 돌격: 최종 피해 +" + p(values, "damageBonus")
                             + ". 엄호: 받는 피해 " + p(values, "damageReduction") + " 감소.";
-            case "triangle_formation" -> "웨이브 시작에 반경 " + n(values, "radius") + "블록 안의 다른 일반 영구 타워가 "
+            case "triangle_formation" -> "웨이브 시작에 반경 " + n(values, "radius") + "블록 안의 다른 타워가 "
                     + n(values, "neighborCount") + "기 이상이면 최종 피해 +" + p(values, "damageBonus")
                     + ", 받는 피해 " + p(values, "damageReduction") + " 감소.";
             case "engagement_plan" -> mode.equals("QUICK")
-                    ? "전투 시작 후 " + seconds(values, "transitionTicks") + "초 동안 일반 영구 타워의 최종 피해 +" + p(values, "quickDamageBonus") + "."
-                    : mode.equals("LONG") ? "전투 시작 " + seconds(values, "transitionTicks") + "초 뒤부터 일반 영구 타워의 최종 피해 +"
+                    ? "전투 시작 후 " + seconds(values, "transitionTicks") + "초 동안 타워의 최종 피해 +" + p(values, "quickDamageBonus") + "."
+                    : mode.equals("LONG") ? "전투 시작 " + seconds(values, "transitionTicks") + "초 뒤부터 타워의 최종 피해 +"
                     + p(values, "longDamageBonus") + ", 받는 피해 " + p(values, "longDamageReduction") + " 감소."
                     : "속전: 전투 첫 " + seconds(values, "transitionTicks") + "초의 최종 피해 +" + p(values, "quickDamageBonus")
                     + ". 지구전: 그 이후 최종 피해 +" + p(values, "longDamageBonus") + ", 받는 피해 " + p(values, "longDamageReduction") + " 감소.";
@@ -51,7 +51,7 @@ public final class AugmentDescriptions {
             case "additional_payload" -> "다음 유틸 인컴의 비용 ×" + n(values, "costMultiplier")
                     + ", 최대 체력 ×" + n(values, "healthMultiplier") + ", 회복과 보호막 ×" + n(values, "supportMultiplier")
                     + ".";
-            case "twin_squadron" -> "웨이브 시작에 같은 종류와 티어의 일반 영구 공격 타워가 정확히 두 기이면 최종 피해 +"
+            case "twin_squadron" -> "웨이브 시작에 같은 종류와 티어의 타워가 정확히 두 기이면 최종 피해 +"
                     + p(values, "damageBonus") + ".";
             case "overheat_core" -> "이번 준비 단계에 지정한 타워의 최종 피해 +" + p(values, "damageBonus")
                     + ". 사용 후 최종 피해 " + p(values, "penaltyPerStack")
@@ -68,35 +68,36 @@ public final class AugmentDescriptions {
             case "battlefield_mastery" -> "지정 타워가 적에게 웨이브 시작 최대 체력의 " + p(values, "damageThreshold")
                     + " 이상에 해당하는 체력 피해를 받고 생존하면 최종 피해와 최대 체력 +" + p(values, "bonusPerStack")
                     + ". 최대 " + n(values, "maxStacks") + "회 중첩. 대상을 바꾸거나 해제하면 중첩이 초기화됩니다.";
-            case "biased_armor" -> "일반 영구 타워가 적의 직접 공격으로 받는 "
+            case "biased_armor" -> "타워가 적의 직접 공격으로 받는 "
                     + (mode.equals("PHYSICAL") ? "물리" : mode.equals("MAGIC") ? "마법" : "선택 유형") + " 피해 ×" + n(values, "selectedMultiplier")
                     + ", " + (mode.equals("PHYSICAL") ? "마법" : mode.equals("MAGIC") ? "물리" : "반대 유형")
                     + " 피해 ×" + n(values, "oppositeMultiplier") + ".";
-            case "cash_settlement" -> "다음 인컴의 영구 인컴 증가를 포기하고, 그 증가량의 "
+            case "cash_settlement" -> "매 라운드 처음 보내는 인컴의 정기 인컴 증가를 포기하고, 그 증가량의 "
                     + n(values, "diamondMultiplier") + "배를 즉시 다이아로 받습니다.";
             case "forbidden_blueprint" -> "장당 최대 " + n(values, "ticketValue") + "다이아를 지원하는 승급권 "
                     + n(values, "ticketCount") + "장을 받습니다. 사용할 때마다 이후 정기 지급액에 ×"
                     + n(values, "payoutMultiplier") + "를 적용합니다. 같은 타워에는 한 장만 쓰며, 이번 준비 종료 시 남은 이용권이 사라집니다.";
-            case "low_pressure_high_yield" -> "다음 인컴의 몸체 능력치 ×" + n(values, "bodyMultiplier")
+            case "low_pressure_high_yield" -> "매 라운드 처음 보내는 인컴의 체력과 공격력 ×" + n(values, "bodyMultiplier")
                     + ", 영구 인컴 증가량 +" + p(values, "bonusRatio") + ". 라운드 추가 인컴은 최대 "
                     + n(values, "roundBonusCap") + "입니다.";
             case "finishing_fire_1", "finishing_fire_2", "finishing_fire_3" ->
                     "체력이 절반 이하인 적에게 주 대상 기본 공격 피해 +" + p(values, "damageBonus") + ". 추가 공격과 범위 피해에는 적용하지 않습니다.";
+            case "beneficial_effect_1", "beneficial_effect_2", "beneficial_effect_3" ->
+                    "타워의 최종 피해 +" + p(values, "damageBonus") + ", 공격 속도 +" + p(values, "attackSpeedBonus")
+                            + ", 최대 체력 +" + p(values, "maxHealthBonus") + ".";
             case "independent_position" -> "웨이브 시작에 반경 " + n(values, "radius")
-                    + "블록 안에 이웃 타워가 없는 일반 영구 공격 타워는 최종 피해 +" + p(values, "damageBonus")
+                    + "블록 안에 이웃 타워가 없는 타워는 최종 피해 +" + p(values, "damageBonus")
                     + ", 받는 피해 " + p(values, "damageReduction") + " 감소.";
             case "winning_barrage" -> "적격 적을 기본 공격으로 처치하면 다음 기본 공격 " + n(values, "charges")
                     + "회의 피해 +" + p(values, "damageBonus") + ". 다시 처치하면 남은 횟수를 " + n(values, "charges") + "회로 갱신합니다.";
-            case "decisive_delivery" -> "다음 인컴의 영구 인컴 증가를 포기하고, 최대 체력 ×"
-                    + n(values, "healthMultiplier") + ", 기본 공격 ×" + n(values, "attackMultiplier") + "로 보냅니다.";
             case "domino_fire" -> "주 대상 기본 공격 처치의 초과 피해 " + p(values, "overkillRatio")
                     + "를 반경 " + n(values, "radius") + "블록의 다른 적 한 기에게 전달합니다. 원래 피해의 "
                     + p(values, "damageCapRatio") + "가 상한이며, 전달 피해는 다른 증강을 발동하지 않습니다.";
             case "one_man_show" -> "지정한 주역 한 기의 최종 피해 +" + p(values, "damageBonus") + ", 최대 체력 +"
-                    + p(values, "maxHealthBonus") + ". 나머지 일반 영구 타워의 최종 피해는 " + p(values, "otherDamagePenalty")
+                    + p(values, "maxHealthBonus") + ". 나머지 타워의 최종 피해는 " + p(values, "otherDamagePenalty")
                     + " 감소합니다. 주역을 해제해도 나머지 타워의 피해 감소는 유지됩니다.";
             case "wartime_economy" -> "이후 정기 다이아 지급액 ×" + n(values, "payoutMultiplier")
-                    + ". 일반 영구 타워의 최종 피해 +" + p(values, "damageBonus") + ", 최대 체력 +"
+                    + ". 타워의 최종 피해 +" + p(values, "damageBonus") + ", 최대 체력 +"
                     + p(values, "maxHealthBonus") + ".";
             case "folding_barricade_blueprint" -> offer(AugmentTowers.FOLDING_BARRICADE)
                     + "한 번에 받는 피해 최대 " + n(values, "damagePerHitCap") + " · 회복 불가. "

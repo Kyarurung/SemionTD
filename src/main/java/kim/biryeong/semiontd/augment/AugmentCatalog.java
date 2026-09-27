@@ -11,9 +11,9 @@ import java.util.Set;
 import static kim.biryeong.semiontd.augment.AugmentCategory.*;
 import static kim.biryeong.semiontd.augment.AugmentRarity.*;
 
-/** Forty common cards, 124 job cards and nine fallback rewards; old stance IDs remain readable. */
+/** Forty-two common cards, 124 job cards and nine fallback rewards; old stance IDs remain readable. */
 public final class AugmentCatalog {
-    public static final int OFFER_RULES_VERSION = 4;
+    public static final int OFFER_RULES_VERSION = 5;
     public static final List<Integer> MILESTONES = List.of(5, 15, 25);
     private static final Set<Integer> ALL_ROUNDS = Set.of(5, 15, 25);
     private static final Map<String, List<String>> STANCES = Map.of(
@@ -139,7 +139,7 @@ public final class AugmentCatalog {
         cards.add(card("biased_armor", "편향 장갑", GOLD, TRADE_OFF, null, false,
                 "물리 또는 마법 중 하나에 강해지는 대신, 반대 유형에는 더 큰 피해를 받습니다."));
         cards.add(card("cash_settlement", "일시불", GOLD, INCOME, null, false,
-                "다음 인컴 구매에서 정기 인컴 증가를 포기하고 다이아를 즉시 받습니다."));
+                "매 라운드 처음 보내는 인컴의 정기 인컴 증가를 포기하고 다이아를 즉시 받습니다."));
         cards.add(card("tactical_designation_3", "전술 지명 III", PRISMATIC, GENERAL, "TACTICAL_DESIGNATION", true,
                 "지정 타워에 돌격(피해 증가) 또는 엄호(받는 피해 감소) 중 하나를 적용합니다."));
         cards.add(card("forbidden_blueprint", "금지된 설계도", PRISMATIC, TRADE_OFF, null, false,
@@ -147,18 +147,19 @@ public final class AugmentCatalog {
         cards.add(card("barrier_core_call", "수호자", PRISMATIC, TOWER, null, false,
                 "타워 자리 두 칸을 쓰는 수호자를 받습니다. 연결한 타워의 피해 일부를 대신 받습니다."));
         cards.add(card("low_pressure_high_yield", "내실 다지기", PRISMATIC, INCOME, null, false,
-                "약해진 인컴 유닛을 보내는 대신 정기 인컴을 더 많이 올립니다."));
+                "매 라운드 처음 보내는 인컴을 약화하는 대신 정기 인컴을 더 많이 올립니다."));
         for (int i = 1; i <= 3; i++) {
             cards.add(card("finishing_fire_" + i, "마무리 사격 " + roman(i), AugmentRarity.values()[i - 1],
                     GENERAL, "FINISHING_FIRE", false,
                     "체력이 절반 이하인 적에게 기본 공격이 더 강해집니다. 범위 피해는 제외합니다."));
+            cards.add(card("beneficial_effect_" + i, "엄청 이로운 효과 " + roman(i), AugmentRarity.values()[i - 1],
+                    GENERAL, "BENEFICIAL_EFFECT", true,
+                    "타워의 최종 피해, 공격 속도와 최대 체력이 증가합니다."));
         }
         cards.add(card("independent_position", "혼자가 편해", SILVER, GENERAL, null, false,
                 "다른 타워와 떨어져 배치한 공격 타워가 더 강하게 공격하고 피해를 덜 받습니다."));
         cards.add(card("winning_barrage", "칼날비", GOLD, GENERAL, null, false,
                 "기본 공격으로 적을 처치하면 다음 세 번의 공격이 강화됩니다. 처치할 때마다 다시 충전합니다."));
-        cards.add(card("decisive_delivery", "결전 납품", GOLD, INCOME, null, false,
-                "정기 인컴 증가를 포기하고 체력과 공격력이 높은 인컴 유닛을 보냅니다."));
         cards.add(card("domino_fire", "도미노 사격", GOLD, GAME_CHANGER, null, false,
                 "기본 공격으로 적을 처치하면 남은 피해 일부를 주변의 다른 적 한 기에게 전달합니다."));
         cards.add(card("one_man_show", "원맨쇼", PRISMATIC, TRADE_OFF, null, false,
@@ -214,7 +215,8 @@ public final class AugmentCatalog {
         if (id.equals("one_man_show")) {conflicts.addAll(tactical); conflicts.addAll(Set.of("overheat_core", "frontline_specialization"));}
         if (id.equals("frontline_specialization")) {conflicts.add("one_man_show");}
         if (id.equals("forecast_offensive")) {conflicts.add("low_pressure_high_yield");}
-        if (id.equals("low_pressure_high_yield")) {conflicts.add("forecast_offensive");}
+        if (id.equals("cash_settlement")) {conflicts.add("low_pressure_high_yield");}
+        if (id.equals("low_pressure_high_yield")) {conflicts.addAll(Set.of("forecast_offensive", "cash_settlement"));}
         return new AugmentDefinition(id, name, rarity, category, family == null ? id.toUpperCase(java.util.Locale.ROOT) : family,
                 safe, category == TRADE_OFF, category == TOWER, false, rounds, conflicts, description);
     }

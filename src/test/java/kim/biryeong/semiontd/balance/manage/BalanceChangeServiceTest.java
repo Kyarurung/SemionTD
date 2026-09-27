@@ -125,7 +125,7 @@ class BalanceChangeServiceTest {
         try (var service = service(new FakeRuntime())) {
             var fields = service.fields().stream().filter(field ->
                     field.id().startsWith("augment:/parameters/") || field.domain().equals("trait")).toList();
-            assertEquals(426, fields.stream().filter(field -> field.domain().equals("augment")).count());
+            assertEquals(433, fields.stream().filter(field -> field.domain().equals("augment")).count());
             assertEquals(32, fields.stream().filter(field -> field.domain().equals("trait")).count());
             var changes = fields.stream().map(field -> {
                 assertTrue(field.editable(), field.id());
@@ -392,8 +392,137 @@ class BalanceChangeServiceTest {
         }
         try (var service = service(new FakeRuntime())) {
             assertNotNull(service.state().writeBlocked());
+            assertInstanceOf(IOException.class, service.recoveryFailure());
             assertEquals(503, assertThrows(BalanceException.class, () -> submit(service, key(), ApplyMode.NOW, 6)).status());
         }
+    }
+
+    @Test
+    void legacyAugmentRevisionsKeepValuesAndHistoryAcrossRestartPatchAndRollback() throws Exception {
+        JsonObject baseline = legacyAugmentJson();
+        String before = saveLegacyRevision(baseline);
+        JsonObject active = baseline.deepCopy();
+        active.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("t1_pig_tower").addProperty("damage", 9);
+        String originalRevision = saveLegacyRevision(active);
+        String originalKey = key();
+        BalancePatch originalPatch = new BalancePatch(before, ApplyMode.NEXT_MATCH, "old patch", null,
+                List.of(new BalanceChange(DAMAGE, defaults.tower().towers().get("t1_pig_tower").damage(), 9)));
+        BalanceDeployment original = new BalanceDeployment(originalKey, DeploymentState.APPLIED, before, originalRevision,
+                ApplyMode.NEXT_MATCH, "old patch", "operator", "web", 1L, 2L, "NEXT_MATCH", "SYNCED", null, originalPatch.changes());
+        var receipt = new BalanceRevisionStore.Receipt(originalKey, "a".repeat(64), originalPatch, originalRevision,
+                "b".repeat(64), SCOPE, null, original);
+        new BalanceRevisionStore(directory).saveIndex(new BalanceRevisionStore.Index(1, originalRevision, List.of(receipt), null));
+        String index = Files.readString(directory.resolve("index.json"));
+        String stored = Files.readString(directory.resolve("revisions").resolve(originalRevision + ".json"));
+
+        try (var service = service(new FakeRuntime())) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(originalRevision, service.currentRevision());
+            assertEquals(before, service.legacyRevision());
+            assertEquals(List.of(original), service.history());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            JsonObject recovered = service.currentBundle().toJson();
+            for (String domain : List.of("tower", "economy", "wave", "summon", "trait", "monsterScaling")) {
+                assertEquals(BalanceBundle.canonical(active.get(domain)), BalanceBundle.canonical(recovered.get(domain)), domain);
+            }
+            JsonObject parameters = recovered.getAsJsonObject("augment").getAsJsonObject("parameters");
+            assertEquals(.35, parameters.getAsJsonObject("semiontd:engagement_plan").get("quickDamageBonus").getAsDouble());
+            assertFalse(parameters.has("semiontd:decisive_delivery"));
+            assertEquals(.15, parameters.getAsJsonObject("semiontd:beneficial_effect_3").get("damageBonus").getAsDouble());
+            assertEquals(Set.of("semiontd:folding_barricade_blueprint"), service.currentBundle().augment().disabledIds());
+            assertEquals(index, Files.readString(directory.resolve("index.json")), "Reading must not rewrite the journal");
+            assertEquals(stored, Files.readString(directory.resolve("revisions").resolve(originalRevision + ".json")));
+            String next = key();
+            submit(service, next, ApplyMode.NOW, 10);
+            service.onBoundary(Boundary.TICK);
+            awaitTerminal(service, next);
+            assertEquals(DeploymentState.APPLIED, service.deployment(next).state());
+            assertEquals(service.currentBundle().revision(), service.currentRevision());
+        }
+        try (var service = service(new FakeRuntime())) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(original, service.deployment(originalKey));
+            assertEquals(10, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            String rollback = key();
+            service.rollback(rollback, originalRevision, service.currentRevision(), ApplyMode.NEXT_MATCH,
+                    "restore old snapshot", "operator", "web", SCOPE);
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            awaitTerminal(service, rollback);
+            assertEquals(DeploymentState.APPLIED, service.deployment(rollback).state());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(original, service.deployment(originalKey));
+            assertEquals(stored, Files.readString(directory.resolve("revisions").resolve(originalRevision + ".json")));
+        }
+    }
+
+    @Test
+    void checksumIncludesRetiredFieldsAndValidHashStillRequiresValidConfiguration() throws Exception {
+        JsonObject old = legacyAugmentJson();
+        String revision = saveLegacyRevision(old);
+        BalanceRevisionStore store = new BalanceRevisionStore(directory);
+        assertNotNull(store.readRevision(revision));
+        old.getAsJsonObject("augment").getAsJsonObject("parameters").getAsJsonObject("semiontd:decisive_delivery")
+                .addProperty("healthMultiplier", 999);
+        Files.writeString(directory.resolve("revisions").resolve(revision + ".json"), BalanceBundle.canonical(old));
+        assertEquals("Balance revision checksum mismatch.", assertThrows(IOException.class, () -> store.readRevision(revision)).getMessage());
+        old.getAsJsonObject("augment").getAsJsonObject("parameters").add("semiontd:unknown_card", new JsonObject());
+        String invalid = saveLegacyRevision(old);
+        assertEquals("Invalid balance revision.", assertThrows(IOException.class, () -> store.readRevision(invalid)).getMessage());
+    }
+
+    @Test
+    void legacyPendingRevisionStillRequiresReviewBeforeAnyApplication() throws Exception {
+        JsonObject baseline = legacyAugmentJson();
+        String before = saveLegacyRevision(baseline);
+        JsonObject candidate = baseline.deepCopy();
+        candidate.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("t1_pig_tower").addProperty("damage", 9);
+        String candidateRevision = saveLegacyRevision(candidate);
+        String pending = key();
+        BalancePatch patch = new BalancePatch(before, ApplyMode.NEXT_MATCH, "old pending patch", null,
+                List.of(new BalanceChange(DAMAGE, defaults.tower().towers().get("t1_pig_tower").damage(), 9)));
+        BalanceDeployment deployment = new BalanceDeployment(pending, DeploymentState.SCHEDULED, before, null,
+                ApplyMode.NEXT_MATCH, "old pending patch", "operator", "web", 1L, null, "NEXT_MATCH", "PENDING", null, patch.changes());
+        var receipt = new BalanceRevisionStore.Receipt(pending, "a".repeat(64), patch, candidateRevision,
+                "b".repeat(64), SCOPE, null, deployment);
+        new BalanceRevisionStore(directory).saveIndex(new BalanceRevisionStore.Index(1, before, List.of(receipt), null));
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = service(runtime)) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(pending).state());
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            assertEquals(0, runtime.applied);
+            assertEquals(before, service.currentRevision());
+            service.cancel(pending, "operator");
+            assertEquals(DeploymentState.CANCELLED, service.deployment(pending).state());
+            String next = key();
+            submit(service, next, ApplyMode.NOW, 6);
+            service.onBoundary(Boundary.TICK);
+            awaitTerminal(service, next);
+            assertEquals(DeploymentState.APPLIED, service.deployment(next).state());
+        }
+    }
+
+    private static JsonObject legacyAugmentJson() {
+        JsonObject json = defaults.toJson();
+        JsonObject augment = json.getAsJsonObject("augment");
+        JsonObject parameters = augment.getAsJsonObject("parameters");
+        for (int tier = 1; tier <= 3; tier++) {parameters.remove("semiontd:beneficial_effect_" + tier);}
+        JsonObject retired = new JsonObject();
+        retired.addProperty("healthMultiplier", 2.0);
+        retired.addProperty("attackMultiplier", 1.8);
+        parameters.add("semiontd:decisive_delivery", retired);
+        parameters.getAsJsonObject("semiontd:engagement_plan").addProperty("quickDamageBonus", .35);
+        augment.getAsJsonArray("disabledIds").add("semiontd:decisive_delivery");
+        augment.getAsJsonArray("disabledIds").add("semiontd:folding_barricade_blueprint");
+        return json;
+    }
+
+    private String saveLegacyRevision(JsonObject json) throws IOException {
+        String contents = BalanceBundle.canonical(json);
+        String revision = BalanceBundle.digest(contents);
+        Files.createDirectories(directory.resolve("revisions"));
+        Files.writeString(directory.resolve("revisions").resolve(revision + ".json"), contents);
+        return revision;
     }
 
     @Test

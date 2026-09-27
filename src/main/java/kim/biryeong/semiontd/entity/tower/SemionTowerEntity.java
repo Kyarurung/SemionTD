@@ -503,6 +503,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     public int attackIntervalTicks() {
         int adjustedInterval = runtimeTower == null ? attackIntervalTicks : runtimeTower.adjustAttackInterval(attackIntervalTicks);
         double attackSpeedMultiplier = 1.0
+                + AugmentCombat.beneficialBonus(runtimeTower, "attackSpeedBonus")
                 + timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION);
         int minimumInterval = runtimeTower == null ? 1 : Math.max(1, runtimeTower.minimumAttackIntervalTicks());

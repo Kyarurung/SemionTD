@@ -28,6 +28,35 @@ import net.minecraft.server.level.ServerPlayer;
 /** Exercises the real server controller and native dialog construction, not client rendering. */
 public final class AugmentControllerGameTest {
     @GameTest
+    public void beneficialCardsAreAcquiredInOneClickWithoutATargetAndSurviveReopen(GameTestHelper context) {
+        for (int tier = 1; tier <= 3; tier++) {
+            String id = "beneficial_effect_" + tier;
+            String schedule = tier == 1 ? "SSS" : tier == 2 ? "GGG" : "PPP";
+            String rarity = tier == 1 ? "silver" : tier == 2 ? "gold" : "prismatic";
+            ServerPlayer online = context.makeMockServerPlayerInLevel();
+            SemionGame game = prepare(context, online, schedule);
+            try {
+                Tower tower = addTarget(game, online);
+                double health = tower.currentMaxHealth();
+                force(game, online, id + " reserve_income_" + rarity + " reserve_production_" + rarity);
+                advance(game, online, 20);
+                var player = game.players().get(online.getUUID());
+                String command = "draft " + player.augments().currentOffer().orElseThrow().revision() + " 0 " + UUID.randomUUID();
+                require(handle(game, online, command) == 1, "The new card must be granted in one click.");
+                handle(game, online, command);
+                require(player.augments().selections().size() == 1 && toolCount(online) == 0,
+                        "A passive stat card must not issue a target tool or duplicate grant.");
+                require(Math.abs(tower.currentMaxHealth() - health * (1 + tier / 20.0)) < .00001,
+                        "Selection must immediately reach the placed tower.");
+                game.augmentService().reopen(game, online);
+                require(Math.abs(AugmentCombat.damageBonus(tower, null) - tier / 20.0) < .00001,
+                        "Reopening must retain the passive effect without stacking it again.");
+            } finally {game.close();}
+        }
+        context.succeed();
+    }
+
+    @GameTest
     public void specialBuilderBodiesAcceptDesignationsAndApplyActualCover(GameTestHelper context) {
         warmPlayerSpawn(context);
         context.runAfterDelay(10, () -> checkSpecialBuilderDesignations(context));

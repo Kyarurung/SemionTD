@@ -32,7 +32,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class AugmentEconomyService {
     public enum Contract {
         NONE(null), FORECAST("forecast_offensive"), CASH("cash_settlement"),
-        LOW_PRESSURE("low_pressure_high_yield"), DECISIVE("decisive_delivery");
+        LOW_PRESSURE("low_pressure_high_yield");
 
         final String card;
         Contract(String card) { this.card = card; }
@@ -47,11 +47,7 @@ public final class AugmentEconomyService {
 
     public static boolean hasPurchaseOptions(SemionPlayer player) {
         if (player == null) {return false;}
-        if (player.augments().hasSelected("additional_payload")) {return true;}
-        for (Contract contract : Contract.values()) {
-            if (contract.card != null && player.augments().hasSelected(contract.card)) {return true;}
-        }
-        return false;
+        return player.augments().hasSelected("additional_payload") || player.augments().hasSelected("forecast_offensive");
     }
 
     public static void beginPrepare(SemionPlayer player, int round) {
@@ -144,10 +140,9 @@ public final class AugmentEconomyService {
     public static boolean setContract(SemionPlayer player, int round, Contract contract) {
         AugmentEconomyState state = player.economyAugments();
         if (contract == null || !preparing(state, round)) { return false; }
+        if (contract == Contract.CASH || contract == Contract.LOW_PRESSURE) { return false; }
         if (contract != Contract.NONE && (!state.parameters.containsKey(contract.card)
                 || state.usedContracts.contains(contract))) { return false; }
-        if (contract == Contract.LOW_PRESSURE && state.contract != Contract.NONE
-                && state.contract != Contract.LOW_PRESSURE) { return false; }
         state.contract = contract;
         state.revision++;
         return true;
@@ -184,16 +179,18 @@ public final class AugmentEconomyService {
         }
         AugmentEconomyState state = player.economyAugments();
         boolean active = preparation && normalPaid && preparing(state, round);
-        if (contractOverride != null && (!active || !state.parameters.containsKey("low_pressure_high_yield")
-                || (contractOverride != Contract.NONE && contractOverride != Contract.LOW_PRESSURE)
-                || (state.contract != Contract.NONE && state.contract != Contract.LOW_PRESSURE))) {
-            throw new IllegalArgumentException("A purchase override requires an unlocked preparation low-pressure choice.");
+        if (contractOverride != null) {
+            throw new IllegalArgumentException("Per-purchase contract overrides are no longer supported.");
         }
-        Contract requested = contractOverride == null ? state.contract : contractOverride;
+        Contract requested = state.contract;
+        for (Contract automatic : List.of(Contract.CASH, Contract.LOW_PRESSURE)) {
+            if (active && state.parameters.containsKey(automatic.card) && !state.usedContracts.contains(automatic)
+                    && eligibleContract(automatic, utility, standardAttack, attackEligible, normalIncomeGain) != Contract.NONE) {
+                requested = automatic;
+                break;
+            }
+        }
         Contract contract = active ? eligibleContract(requested, utility, standardAttack, attackEligible, normalIncomeGain) : Contract.NONE;
-        if (contractOverride == Contract.LOW_PRESSURE && contract != Contract.LOW_PRESSURE) {
-            throw new IllegalArgumentException("This summon cannot use a low-pressure contract.");
-        }
         boolean payload = active && utility && state.payloadArmed && !state.payloadUsed;
         long cost = payload ? ceilProduct(normalEmeraldCost, value(state, "additional_payload", "costMultiplier", 1.25)) : normalEmeraldCost;
         long income = normalIncomeGain;
@@ -219,11 +216,6 @@ public final class AugmentEconomyService {
                 fraction = raw.subtract(BigDecimal.valueOf(whole));
                 health = attack = value(state, contract.card, "bodyMultiplier", 0.7);
             }
-            case DECISIVE -> {
-                income = 0;
-                health = value(state, contract.card, "healthMultiplier", 1.6);
-                attack = value(state, contract.card, "attackMultiplier", 1.4);
-            }
             case NONE -> { }
         }
         return new PurchasePlan(player.uuid(), transactionId, state.revision, round, normalPaid, preparation, utility,
@@ -246,9 +238,9 @@ public final class AugmentEconomyService {
         AugmentEconomyState state = player.economyAugments();
         state.purchaseReceipts.add(plan.transactionId());
         if (plan.payload()) { state.payloadUsed = true; state.payloadArmed = false; }
-        if (plan.contract() != Contract.NONE && plan.contract() != Contract.LOW_PRESSURE) {
+        if (plan.contract() != Contract.NONE) {
             state.usedContracts.add(plan.contract());
-            state.contract = Contract.NONE;
+            if (state.contract == plan.contract()) { state.contract = Contract.NONE; }
         }
         if (plan.contract() == Contract.LOW_PRESSURE) {
             state.lowPressureFraction = plan.lowPressureFraction();
@@ -257,7 +249,7 @@ public final class AugmentEconomyService {
         if (plan.contract() == Contract.FORECAST) {
             state.deferredIncome.put(plan.transactionId(), new AugmentEconomyState.DeferredIncome(plan.transactionId(), original.id(),
                     plan.round() + 1, original.targetTeam(), original.targetLaneId(), plan.emeraldCost(), plan.deferredIncome()));
-        } else if (plan.contract() == Contract.CASH || plan.contract() == Contract.DECISIVE) {
+        } else if (plan.contract() == Contract.CASH) {
             state.incomeForgone += plan.normalIncomeGain();
         }
         if (plan.preparation() && plan.normalPaid() && preparing(state, plan.round())
@@ -273,7 +265,7 @@ public final class AugmentEconomyService {
             List<String> related = new ArrayList<>();
             if (plan.payload()) { related.add("semiontd:additional_payload"); }
             if (plan.contract() != Contract.NONE) { related.add("semiontd:" + plan.contract().card); }
-            boolean forfeited = plan.contract() == Contract.CASH || plan.contract() == Contract.DECISIVE;
+            boolean forfeited = plan.contract() == Contract.CASH;
             player.augmentTelemetry().recordEconomy(new EconomyEvent(plan.round(), player.augmentTelemetry().currentTick(),
                     related.size() == 1 ? related.getFirst() : null, plan.forecast() ? "FORECAST_RESERVED" : "PURCHASE_COMMIT", null,
                     plan.normalEmeraldCost(), plan.emeraldCost(), null,
@@ -494,7 +486,7 @@ public final class AugmentEconomyService {
         return switch (requested) {
             case CASH -> gain > 0 ? requested : Contract.NONE;
             case FORECAST -> attack && !utility ? requested : Contract.NONE;
-            case LOW_PRESSURE, DECISIVE -> standardAttack && gain > 0 ? requested : Contract.NONE;
+            case LOW_PRESSURE -> standardAttack && gain > 0 ? requested : Contract.NONE;
             case NONE -> Contract.NONE;
         };
     }

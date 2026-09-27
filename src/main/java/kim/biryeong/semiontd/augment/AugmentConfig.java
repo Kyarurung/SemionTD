@@ -32,6 +32,8 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
         if (parameters != null) {
             parameters.forEach((id, values) -> {
                 String normalized = AugmentCatalog.effectId(id);
+                // Removed cards may remain in an existing server's configuration.
+                if (normalized.equals("semiontd:decisive_delivery")) {return;}
                 Map<String, Double> defaults = DEFAULT_PARAMETERS.get(normalized);
                 if (defaults == null) {throw new IllegalArgumentException("Unknown augment: " + id);}
                 values.forEach((key, value) -> {
@@ -44,6 +46,7 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
         copy.replaceAll((id, values) -> Map.copyOf(values));
         parameters = Map.copyOf(copy);
         disabledIds = disabledIds == null ? Set.of() : disabledIds.stream().map(AugmentCatalog::normalizeId)
+                .filter(id -> !id.equals("semiontd:decisive_delivery"))
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         validateValues(rarityWeights, disabledIds);
     }
@@ -253,7 +256,7 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
         put(cards, "tactical_designation_2", "damageBonus", .65, "damageReduction", .30);
         put(cards, "tactical_designation_3", "damageBonus", 1.0, "damageReduction", .40);
         put(cards, "triangle_formation", "damageBonus", .20, "damageReduction", .15, "radius", 4, "neighborCount", 2);
-        put(cards, "engagement_plan", "quickDamageBonus", .35, "longDamageBonus", .25, "longDamageReduction", .15, "transitionTicks", 160);
+        put(cards, "engagement_plan", "quickDamageBonus", .20, "longDamageBonus", .25, "longDamageReduction", .15, "transitionTicks", 160);
         put(cards, "emergency_loan", "advanceMultiplier", 3, "advanceCap", 300, "debtMultiplier", 4.0 / 3.0, "repaymentCount", 4);
         put(cards, "folding_barricade_blueprint", "damagePerHitCap", 15);
         put(cards, "additional_payload", "costMultiplier", 1.25, "healthMultiplier", 1.65, "supportMultiplier", 1.65);
@@ -271,9 +274,12 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
         put(cards, "finishing_fire_1", "damageBonus", .40);
         put(cards, "finishing_fire_2", "damageBonus", .70);
         put(cards, "finishing_fire_3", "damageBonus", 1.10);
+        for (int tier = 1; tier <= 3; tier++) {
+            double bonus = tier / 20.0;
+            put(cards, "beneficial_effect_" + tier, "damageBonus", bonus, "attackSpeedBonus", bonus, "maxHealthBonus", bonus);
+        }
         put(cards, "independent_position", "damageBonus", .30, "damageReduction", .15, "radius", 4);
         put(cards, "winning_barrage", "damageBonus", .60, "charges", 3);
-        put(cards, "decisive_delivery", "healthMultiplier", 2.0, "attackMultiplier", 1.80);
         put(cards, "domino_fire", "overkillRatio", .90, "damageCapRatio", .75, "radius", 4);
         put(cards, "one_man_show", "damageBonus", 2.0, "maxHealthBonus", 1.0, "otherDamagePenalty", .20);
         put(cards, "wartime_economy", "payoutMultiplier", .65, "damageBonus", .65, "maxHealthBonus", .40);
