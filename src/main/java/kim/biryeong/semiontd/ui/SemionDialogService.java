@@ -1507,8 +1507,6 @@ public final class SemionDialogService {
                     .append("</gold> <dark_gray>(이번 라운드 기준)</dark_gray>\n");
         }
         body.append("<white>라운드 인컴</white> <aqua>+").append(IncomeTowerService.incomeOf(game, tower)).append("</aqua>\n");
-        body.append("<white>공격 대상</white> ").append(tower.targetTeam().map(SemionDialogService::teamMarkup)
-                .orElse("<gray>무작위 (팀장 지정이 있으면 그 팀)</gray>")).append('\n');
         body.append("<white>판매 시 환불</white> <green>").append(IncomeTowerBalance.sellRefund(tower.paidEmerald()))
                 .append(" 에메랄드</green> <dark_gray>(올린 인컴은 사라집니다)</dark_gray>\n");
         if (!owned) {
@@ -1532,32 +1530,10 @@ public final class SemionDialogService {
                     Component.literal("보내는 유닛이 세지고 라운드 인컴이 +" + (unit == null ? 0 : unit.incomeGain()) + " 오릅니다."),
                     BUTTON_WIDTH));
         }
-        actions.add(actionButton("공격 대상 지정", "/semiontd income targetui " + coordinates, "이 타워가 보낼 팀을 고릅니다."));
         actions.add(actionButton(Component.literal("판매").withStyle(ChatFormatting.RED), "/semiontd income sell " + coordinates,
                 Component.literal("에메랄드 " + IncomeTowerBalance.sellRefund(tower.paidEmerald()) + " 환불, 인컴 -"
                         + IncomeTowerService.incomeOf(game, tower)), BUTTON_WIDTH));
         showActions(player, "세미온 TD 인컴 타워", body.toString(), actions, 1);
-    }
-
-    public void showIncomeTowerTarget(ServerPlayer player, SemionGame game, IncomeTower tower) {
-        SemionPlayer semionPlayer = game.players().get(player.getUUID());
-        if (semionPlayer == null || !tower.ownerPlayer().equals(player.getUUID())) {
-            show(player, "인컴 타워", "<red>자신이 설치한 인컴 타워만 관리할 수 있습니다.</red>");
-            return;
-        }
-        var position = tower.managementPosition();
-        String prefix = "/semiontd income target " + position.x() + " " + position.y() + " " + position.z() + " ";
-        StringBuilder body = new StringBuilder();
-        body.append("<white><bold>").append(tower.type().displayName()).append("</bold></white> 공격 대상\n");
-        body.append("<white>현재</white> ").append(tower.targetTeam().map(SemionDialogService::teamMarkup).orElse("<gray>무작위</gray>")).append('\n');
-        ArrayList<ActionButton> actions = new ArrayList<>();
-        actions.add(actionButton("무작위", prefix + "random", "팀장 지정 팀이 있으면 그 팀, 없으면 무작위 적 팀으로 보냅니다."));
-        game.teams().values().stream()
-                .filter(team -> team.active() && !team.eliminated() && team.id() != semionPlayer.teamId())
-                .sorted(Comparator.comparing(SemionTeam::id))
-                .forEach(team -> actions.add(actionButton(team.id().name(),
-                        prefix + team.id().name().toLowerCase(java.util.Locale.ROOT), team.id().name() + " 팀으로 보냅니다.")));
-        showActions(player, "세미온 TD 인컴 타워", body.toString(), actions, 2);
     }
 
     public void showDebugSummonShop(ServerPlayer player) {
