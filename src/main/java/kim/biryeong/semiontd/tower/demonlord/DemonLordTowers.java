@@ -183,6 +183,58 @@ public final class DemonLordTowers {
         );
     }
 
+    static {
+        register(
+                DemonLordSkill.RIFT_CLEAVE,
+                Blocks.GILDED_BLACKSTONE,
+                new long[] {60, 140, 255, 400},
+                new double[] {100, 200, 350, 550},
+                List.of(
+                        "<gray>마검을 내려찍어 앞 반경 <aqua>{ability.radius:blocks}</aqua>에 "
+                                + "<yellow>{ability.damage:number}</yellow> 피해를 줍니다.</gray>",
+                        "<green>이어서 땅이 갈라지며 폭발 <aqua>{ability.waveCount:integer}</aqua>번이 "
+                                + "<aqua>{ability.waveSpacing:blocks}</aqua>씩 앞으로 전진합니다.</green>",
+                        "<green>　 폭발마다 반경 <aqua>{ability.waveRadius:blocks}</aqua>에 "
+                                + "<yellow>{ability.waveDamage:number}</yellow> 피해<dark_gray> · </dark_gray>벽에 닿으면 멈춥니다.</green>",
+                        "<yellow>일렬로 밀려오는 줄을 앞에서부터 꿰뚫어 지우는 관통기입니다.</yellow>"
+                )
+        );
+    }
+
+    static {
+        register(
+                DemonLordSkill.SUMMON_FIEND,
+                Blocks.CRIMSON_NYLIUM,
+                new long[] {70, 160, 285, 440},
+                new double[] {100, 200, 350, 550},
+                List.of(
+                        "<gray>바라보는 곳(최대 <aqua>{ability.range:blocks}</aqua>)에 마수를 불러냅니다.</gray>",
+                        "<green>마수는 <aqua>{ability.durationTicks:seconds}</aqua> 동안 주변 몬스터의 어그로를 "
+                                + "마왕 대신 끌어갑니다.</green>",
+                        "<green>　 체력 = 마왕 최대 체력의 <aqua>{ability.healthRatio:percent}</aqua>"
+                                + "<dark_gray> · </dark_gray>가까운 적에게 <yellow>{ability.damage:number}</yellow> 피해</green>",
+                        "<yellow>타워 수를 차지하지 않고, 다시 부르면 이전 마수는 돌아갑니다.</yellow>"
+                )
+        );
+    }
+
+    static {
+        register(
+                DemonLordSkill.ABYSS_VORTEX,
+                Blocks.OBSIDIAN,
+                new long[] {75, 170, 300, 460},
+                new double[] {105, 210, 360, 570},
+                List.of(
+                        "<gray>바라보는 지점(최대 <aqua>{ability.placementRange:blocks}</aqua>)에 심연 소용돌이를 엽니다.</gray>",
+                        "<green><aqua>{ability.durationTicks:seconds}</aqua> 동안 반경 <aqua>{ability.radius:blocks}</aqua> 안의 "
+                                + "적을 계속 중심으로 끌어당깁니다.</green>",
+                        "<green>　 <aqua>{ability.damageIntervalTicks:seconds}</aqua>마다 "
+                                + "<yellow>{ability.damage:number}</yellow> 피해</green>",
+                        "<yellow>흩어진 무리를 한데 모아 광역기로 이어 주는 몰이기입니다.</yellow>"
+                )
+        );
+    }
+
     private DemonLordTowers() {
     }
 

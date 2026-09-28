@@ -49,6 +49,31 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class DemonLordGameTest {
     @GameTest
+    public void skillEffectsSnapToTheGroundSurfaceUnderTheirOrigin(GameTestHelper context) {
+        var level = context.getLevel();
+        var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        var air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        BlockPos floor = context.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos slab = context.absolutePos(new BlockPos(4, 1, 2));
+        for (BlockPos pos : List.of(floor, slab)) {
+            level.setBlockAndUpdate(pos.above(), air);
+            level.setBlockAndUpdate(pos.above(2), air);
+        }
+        level.setBlockAndUpdate(floor, stone);
+        level.setBlockAndUpdate(slab, net.minecraft.world.level.block.Blocks.STONE_SLAB.defaultBlockState());
+
+        double top = floor.getY() + 1.0;
+        double x = floor.getX() + 0.5, z = floor.getZ() + 0.5;
+        requireClose(top, DemonLordVfx.onGround(level, new Vec3(x, top - 0.1, z)).y, "A sunken origin rises to the surface.");
+        requireClose(top, DemonLordVfx.onGround(level, new Vec3(x, top + 0.2, z)).y, "A barely floating origin drops to the surface.");
+        requireClose(top + 2.0, DemonLordVfx.onGround(level, new Vec3(x, top + 2.0, z)).y, "Effects in the air stay where they are.");
+        double slabTop = slab.getY() + 0.5;
+        requireClose(slabTop, DemonLordVfx.onGround(level, new Vec3(slab.getX() + 0.5, slabTop + 0.1, slab.getZ() + 0.5)).y,
+                "A partial block snaps to its own collision top.");
+        context.succeed();
+    }
+
+    @GameTest
     public void selfDesignationsBoostBladeAndAltarDamageExactlyOnce(GameTestHelper context) {
         net.minecraft.world.level.ChunkPos.rangeClosed(new net.minecraft.world.level.ChunkPos(context.getLevel().getSharedSpawnPos()), 2)
                 .forEach(pos -> context.getLevel().getChunk(pos.x, pos.z));
@@ -276,21 +301,25 @@ public final class DemonLordGameTest {
             require(DemonLordService.orderedAltars(lane, owner).size() == bindings.length - 1,
                     "Removing a skill must drop its carrier.");
 
-            // 열 가지 스킬 모두 공용 연출 예산을 거쳐야 합니다. 슬롯은 일곱 개라 하나씩 돌려 봅니다.
+            // 모든 스킬이 디스플레이 엔티티 연출을 띄워야 합니다. 슬롯은 일곱 개라 하나씩 돌려 봅니다.
             TowerVfxService.resetStats();
             for (DemonLordBinding binding : bindings) {
                 state.loadout().remove(binding);
             }
+            int activeBefore = kim.biryeong.semiontd.vfx.DisplayEffect.activeCount();
             for (DemonLordSkill skill : skills) {
                 state.loadout().remove(DemonLordBinding.SLOT_1);
                 state.loadout().assign(DemonLordBinding.SLOT_1, skill, 0);
                 DemonLordService.syncCarriers(lane, state);
                 DemonLordSkillTower carrier = DemonLordService.orderedAltars(lane, owner).getFirst();
                 require(DemonLordVfx.showDebug(carrier, lane, carrier.entity(lane).position()),
-                        skill + " must enter the shared combat VFX path.");
+                        skill + " must spawn its display-entity effect.");
             }
-            require(TowerVfxService.statsSummary().contains("queued=10"),
-                    "All ten skills must be queued through the shared VFX budget: "
+            require(kim.biryeong.semiontd.vfx.DisplayEffect.activeCount() - activeBefore == skills.length,
+                    "Every skill must be a live display effect: "
+                            + (kim.biryeong.semiontd.vfx.DisplayEffect.activeCount() - activeBefore));
+            require(!TowerVfxService.statsSummary().contains("queued="),
+                    "Demon lord skills must no longer spray the shared area particles: "
                             + TowerVfxService.statsSummary());
             context.succeed();
         } catch (Throwable failure) {

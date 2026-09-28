@@ -84,6 +84,8 @@ public class SemionTd implements ModInitializer {
                 new BalancePatchNotifier(configDir.resolve("balance_notification_state.json"));
         SemionMusicResourcePack.register(musicService::library, LOGGER);
         SemionSkyboxResourcePack.register(skyboxService::library, LOGGER);
+        kim.biryeong.semiontd.vfx.DisplaySpriteResourcePack.register(
+                () -> kim.biryeong.semiontd.tower.demonlord.DemonLordDisplayVfx.SPRITES, LOGGER);
         gameManager.configureWebIntegration(configs.webIntegration());
         gameManager.configureCombatSpeed(configs.combatSpeed());
         gameManager.configureJobAvailability(configs.jobAvailability());

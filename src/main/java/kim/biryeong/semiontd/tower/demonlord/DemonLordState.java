@@ -7,6 +7,7 @@ import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.augment.AugmentSnapshot;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
+import kim.biryeong.semiontd.game.TeamId;
 import kim.biryeong.semiontd.game.TowerRoundMetricsSnapshot;
 import kim.biryeong.semiontd.tower.LogarithmicScaling;
 import kim.biryeong.semiontd.tower.TowerRoundMetricsTracker;
@@ -40,10 +41,14 @@ public final class DemonLordState {
     private boolean loadoutDirty = true;
     private int lastSelectedSlot = -1;
     private int laneId = -1;
+    private TeamId teamId;
     private long lastBladeAttackTick = Long.MIN_VALUE;
     private TowerType pendingBombardment;
     private long pendingBombardmentTick;
     private HellfireZone zone;
+    private RiftCleave rift;
+    private DemonLordFiend fiend;
+    private AbyssVortex vortex;
     private double roundPhysicalDamageDealt;
     private double roundMagicDamageDealt;
     private TowerRoundMetricsTracker roundMetricsTracker;
@@ -441,6 +446,101 @@ public final class DemonLordState {
     public void clearPendingSkills() {
         pendingBombardment = null;
         zone = null;
+        rift = null;
+        vortex = null;
+    }
+
+    // ------------------------------------------------------------ 심연 소용돌이
+
+    /**
+     * 심연 소용돌이. 지정한 지점에 머물며 범위 안의 적을 매 틱 중심으로 끌어당기고, 일정 간격으로 피해를 줍니다.
+     * 한 번에 하나만 두며 다시 시전하면 이전 소용돌이를 대체합니다.
+     */
+    public record AbyssVortex(
+            TowerType altarType,
+            Vec3 centre,
+            double radius,
+            double pullStrength,
+            int damageIntervalTicks,
+            long expiryTick,
+            long nextDamageTick
+    ) {
+        public AbyssVortex afterDamage() {
+            return new AbyssVortex(altarType, centre, radius, pullStrength, damageIntervalTicks, expiryTick,
+                    nextDamageTick + damageIntervalTicks);
+        }
+    }
+
+    public void openVortex(AbyssVortex opened) {
+        vortex = opened;
+    }
+
+    public AbyssVortex vortex() {
+        return vortex;
+    }
+
+    public void closeVortex() {
+        vortex = null;
+    }
+
+    // ------------------------------------------------------------ 균열참 파동
+
+    /**
+     * 균열참이 앞으로 밀어 보내는 폭발 파동.
+     *
+     * <p>시전 때 벽까지 몇 번 터질 수 있는지({@code count}) 미리 정해 두고, {@code intervalTicks}마다 한 칸씩
+     * 전진하며 터뜨립니다. 연출도 같은 횟수와 간격으로 미리 짜 두므로 피해와 그림이 어긋나지 않습니다.
+     * 한 번에 하나만 유지하며 다시 시전하면 이전 파동을 대체합니다.
+     *
+     * @param nextIndex 다음에 터질 파동 번호(1부터)
+     */
+    public record RiftCleave(
+            TowerType altarType,
+            Vec3 origin,
+            Vec3 direction,
+            double firstOffset,
+            double spacing,
+            double radius,
+            int count,
+            int intervalTicks,
+            int nextIndex,
+            long nextTick
+    ) {
+        public Vec3 centre(int index) {
+            return origin.add(direction.scale(firstOffset + spacing * index));
+        }
+
+        public RiftCleave advanced() {
+            return new RiftCleave(altarType, origin, direction, firstOffset, spacing, radius, count, intervalTicks,
+                    nextIndex + 1, nextTick + intervalTicks);
+        }
+    }
+
+    // ------------------------------------------------------------ 마수 소환
+
+    /** 지금 레인에 나와 있는 마수. 한 번에 하나만 두고, 다시 부르면 이전 마수는 돌려보냅니다. */
+    public DemonLordFiend fiend() {
+        return fiend;
+    }
+
+    public void summonFiend(DemonLordFiend summoned) {
+        fiend = summoned;
+    }
+
+    public void clearFiend() {
+        fiend = null;
+    }
+
+    public void queueRift(RiftCleave cleave) {
+        rift = cleave;
+    }
+
+    public RiftCleave rift() {
+        return rift;
+    }
+
+    public void clearRift() {
+        rift = null;
     }
 
     // -------------------------------------------------- 지옥불 낙인 장판
@@ -494,9 +594,13 @@ public final class DemonLordState {
         if (monster == null) {
             return false;
         }
-        return centralDefense
-                ? monster.inFinalDefenseCombat() && !monster.isRemoved() && monster.health() > 0.0
-                : monster.isAlive() && monster.targetLaneId() == laneId;
+        if (centralDefense) {
+            return monster.inFinalDefenseCombat() && !monster.isRemoved() && monster.health() > 0.0;
+        }
+        if (boundless() && teamId != null) {
+            return monster.isAlive() && monster.targetTeam() == teamId;
+        }
+        return monster.isAlive() && monster.targetLaneId() == laneId;
     }
 
     /**
@@ -661,6 +765,15 @@ public final class DemonLordState {
 
     public void setLaneId(int laneId) {
         this.laneId = laneId;
+    }
+
+    public void setTeamId(TeamId teamId) {
+        this.teamId = teamId;
+    }
+
+    /** 경계 없는 마왕 패시브: 라인 밖으로 나가고 아군 라인의 적과도 싸웁니다. */
+    public boolean boundless() {
+        return loadout.hasPassive(DemonLordPassive.BOUNDLESS);
     }
 
     /** True while the hotbar is holding the combat kit instead of the normal match tools. */

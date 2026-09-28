@@ -28,12 +28,27 @@ public final class DemonLordLoadout {
         }
     }
 
+    /** 8·9번 패시브 자리에 넣은 패시브와 그 자리에 낸 다이아. */
+    public record PassiveEntry(DemonLordPassive passive, long paid) {
+        public PassiveEntry {
+            if (passive == null) {
+                throw new IllegalArgumentException("passive");
+            }
+            paid = Math.max(0L, paid);
+        }
+    }
+
     private final EnumMap<DemonLordBinding, Slot> slots = new EnumMap<>(DemonLordBinding.class);
+    private final EnumMap<DemonLordPassiveSlot, PassiveEntry> passives = new EnumMap<>(DemonLordPassiveSlot.class);
 
     public DemonLordLoadout() {
     }
 
     public DemonLordLoadout(Map<DemonLordBinding, Slot> restored) {
+        this(restored, Map.of());
+    }
+
+    public DemonLordLoadout(Map<DemonLordBinding, Slot> restored, Map<DemonLordPassiveSlot, PassiveEntry> restoredPassives) {
         if (restored != null) {
             restored.forEach((binding, slot) -> {
                 if (binding != null && slot != null && bindingOf(slot.skill()).isEmpty()) {
@@ -41,6 +56,37 @@ public final class DemonLordLoadout {
                 }
             });
         }
+        if (restoredPassives != null) {
+            restoredPassives.forEach((slot, entry) -> {
+                if (slot != null && entry != null && !hasPassive(entry.passive())) {
+                    passives.put(slot, entry);
+                }
+            });
+        }
+    }
+
+    public Optional<PassiveEntry> passive(DemonLordPassiveSlot slot) {
+        return slot == null ? Optional.empty() : Optional.ofNullable(passives.get(slot));
+    }
+
+    public boolean hasPassive(DemonLordPassive passive) {
+        return passives.values().stream().anyMatch(entry -> entry.passive() == passive);
+    }
+
+    public Map<DemonLordPassiveSlot, PassiveEntry> passivesView() {
+        return new EnumMap<>(passives);
+    }
+
+    boolean assignPassive(DemonLordPassiveSlot slot, DemonLordPassive passive, long paid) {
+        if (slot == null || passive == null || passives.containsKey(slot) || hasPassive(passive)) {
+            return false;
+        }
+        passives.put(slot, new PassiveEntry(passive, paid));
+        return true;
+    }
+
+    Optional<PassiveEntry> removePassive(DemonLordPassiveSlot slot) {
+        return slot == null ? Optional.empty() : Optional.ofNullable(passives.remove(slot));
     }
 
     public Optional<Slot> slot(DemonLordBinding binding) {
@@ -59,7 +105,7 @@ public final class DemonLordLoadout {
     }
 
     public boolean isEmpty() {
-        return slots.isEmpty();
+        return slots.isEmpty() && passives.isEmpty();
     }
 
     /** 슬롯 순서(1 → Q)대로 정렬된 사본. */

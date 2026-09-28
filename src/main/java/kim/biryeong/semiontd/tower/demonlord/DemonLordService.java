@@ -89,9 +89,6 @@ public final class DemonLordService {
     /** How often a knocked-out demon lord shakes off lingering monster targets. */
     private static final int AGGRO_RELEASE_INTERVAL = 5;
 
-    /** 스스로 전투에서 물러나는 자리. 스킬 슬롯과 마검 사이의 마지막 빈칸입니다. */
-    private static final int RETREAT_SLOT = 7;
-
     /**
      * 슬롯마다 하나씩 띄우는 스킬 운반체. 레인의 타워 목록에는 들어가지 않습니다.
      *
@@ -107,9 +104,6 @@ public final class DemonLordService {
 
     private static final ResourceLocation MOVE_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
-
-    private static final Component RETREAT_NAME =
-            Component.literal("전투 이탈").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
 
     private static final Component BLADE_NAME =
             Component.literal("마검").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD);
@@ -218,8 +212,11 @@ public final class DemonLordService {
                     ? List.of()
                     : orderedAltars(lane, attacker.getUUID());
             DemonLordSkillTower altar = altars.isEmpty() ? null : altars.getFirst();
-            Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity,
-                    state.bladeDamage() * (0.2 + charge * charge * 0.8), DamageType.PHYSICAL);
+            double swing = state.bladeDamage() * (0.2 + charge * charge * 0.8);
+            Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity, swing, DamageType.PHYSICAL);
+            if (lane != null && state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
+                DemonLordPassives.bloodCleave(attacker, lane, state, altar, monsterEntity, swing, result.dealtDamage());
+            }
             if (result.dealtDamage() > 0.0 && lane != null) {
                 double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), now);
                 if (ratio > 0.0) {
@@ -257,6 +254,7 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.getOrCreate(owner);
         state.syncAugments(lane.augmentSnapshot());
         state.setLaneId(lane.laneId());
+        state.setTeamId(lane.teamId());
         long gameTime = lane.arenaWorld().getGameTime();
         state.augments().tickVisuals(gameTime);
 
@@ -402,6 +400,9 @@ public final class DemonLordService {
             state.syncAugments(lane.augmentSnapshot());
             state.enterCombat();
             state.augments().beginTargeted(lane.augmentSnapshot(), round, state.maxHealth());
+            if (state.loadout().hasPassive(DemonLordPassive.LEGION_ECHO)) {
+                DemonLordPassives.summonLegion(lane, round);
+            }
         }
     }
 
@@ -442,19 +443,12 @@ public final class DemonLordService {
     }
 
     private static void knockOutOfCombat(ServerPlayer player, DemonLordState state) {
-        knockOutOfCombat(player, state, false);
-    }
-
-    private static void knockOutOfCombat(ServerPlayer player, DemonLordState state, boolean voluntary) {
         state.leaveCombat();
         releaseAggro(player);
         restoreFlight(player);
         setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
         player.displayClientMessage(
-                Component.literal(voluntary
-                                ? "스스로 전투에서 물러났습니다. 다음 라운드에 복귀합니다."
-                                : "전투에서 제외되었습니다. 다음 라운드에 부활합니다.")
-                        .withStyle(voluntary ? ChatFormatting.GOLD : ChatFormatting.DARK_RED),
+                Component.literal("전투에서 제외되었습니다. 다음 라운드에 부활합니다.").withStyle(ChatFormatting.DARK_RED),
                 false
         );
     }
@@ -588,7 +582,8 @@ public final class DemonLordService {
             return;
         }
         if (!lane.clearedThisRound()) {
-            if (!containsHorizontally(layout.laneArea(), player.position())) {
+            // 경계 없는 마왕은 라인 밖으로 나가 아군 라인을 도울 수 있습니다.
+            if (!state.boundless() && !containsHorizontally(layout.laneArea(), player.position())) {
                 teleport(player, laneCentre(layout));
             }
             return;
@@ -601,7 +596,7 @@ public final class DemonLordService {
                     (area.minX + area.maxX) / 2.0,
                     area.maxY,
                     (area.minZ + area.maxZ) / 2.0));
-        } else if (!layout.isInsideFinalDefenseTowerArea(player.position())) {
+        } else if (!state.boundless() && !layout.isInsideFinalDefenseTowerArea(player.position())) {
             teleport(player, layout.clampToFinalDefenseTowerArea(player.position()));
         }
     }
@@ -756,15 +751,6 @@ public final class DemonLordService {
             return;
         }
         state.setLastSelectedSlot(selected);
-
-        // 8번 슬롯은 스스로 전투에서 빠지는 자리입니다. 다음 라운드까지 스킬을 못 쓰지만
-        // 어그로에서도 벗어나므로, 이길 수 없는 웨이브를 버티다 죽는 대신 물러설 수 있습니다.
-        if (selected == RETREAT_SLOT) {
-            setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
-            state.setLastSelectedSlot(DemonLordSkill.BLADE_SLOT);
-            knockOutOfCombat(player, state, true);
-            return;
-        }
 
         DemonLordBinding binding = DemonLordBinding.forHotbarSlot(selected);
         if (binding == null) {
@@ -982,9 +968,6 @@ public final class DemonLordService {
             player.getInventory().setItem(binding.hotbarSlot(),
                     carrier == null || carrier.skill() == null ? ItemStack.EMPTY : skillStack(carrier, binding));
         }
-        ItemStack retreat = new ItemStack(Items.TOTEM_OF_UNDYING);
-        retreat.set(DataComponents.CUSTOM_NAME, RETREAT_NAME);
-        player.getInventory().setItem(RETREAT_SLOT, DemonLordKitItems.mark(retreat));
 
         ItemStack blade = new ItemStack(Items.NETHERITE_SWORD);
         blade.set(DataComponents.CUSTOM_NAME, BLADE_NAME);

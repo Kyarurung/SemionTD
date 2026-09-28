@@ -2125,6 +2125,18 @@ public record TowerBalanceConfig(
                         }
                     }
                     case HELL_GUILLOTINE -> validatePositive(id, "range", "radius");
+                    case ABYSS_VORTEX -> {
+                        validatePositive(id, "placementRange", "radius", "pullStrength", "durationTicks", "damageIntervalTicks");
+                        validateIntegral(id, false, "durationTicks", "damageIntervalTicks");
+                    }
+                    case SUMMON_FIEND -> {
+                        validatePositive(id, "range", "healthRatio", "durationTicks", "attackRange", "attackIntervalTicks");
+                        validateIntegral(id, false, "durationTicks", "attackIntervalTicks");
+                    }
+                    case RIFT_CLEAVE -> {
+                        validatePositive(id, "radius", "waveRadius", "waveSpacing", "waveCount", "waveIntervalTicks");
+                        validateIntegral(id, false, "waveCount", "waveIntervalTicks");
+                    }
                 }
             }
         }
@@ -4897,6 +4909,22 @@ public record TowerBalanceConfig(
         global.put("autoIncomeThreshold", 0.7);
         putAbilities(abilities, DemonLordTowers.GLOBAL_CONFIG_ID, global);
 
+        // 8·9번 슬롯 패시브. 구매가(다이아)와 효과 수치입니다.
+        LinkedHashMap<String, Double> bloodCleave = new LinkedHashMap<>();
+        bloodCleave.put("cost", 180.0);
+        bloodCleave.put("cleaveRadius", 2.5);
+        bloodCleave.put("cleaveRatio", 0.6);
+        bloodCleave.put("lifeStealRatio", 0.15);
+        bloodCleave.put("lifeStealCap", 0.04);
+        putAbilities(abilities, "demon_lord_passive_blood_cleave", bloodCleave);
+        LinkedHashMap<String, Double> legionEcho = new LinkedHashMap<>();
+        legionEcho.put("cost", 260.0);
+        legionEcho.put("copies", 5.0);
+        putAbilities(abilities, "demon_lord_passive_legion_echo", legionEcho);
+        LinkedHashMap<String, Double> boundless = new LinkedHashMap<>();
+        boundless.put("cost", 120.0);
+        putAbilities(abilities, "demon_lord_passive_boundless", boundless);
+
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier <= DemonLordSkill.MAX_TIER; tier++) {
                 LinkedHashMap<String, Double> values = new LinkedHashMap<>();
@@ -4987,6 +5015,37 @@ public record TowerBalanceConfig(
                 values.put("damage", new double[] {45.0, 71.0, 101.0, 139.0}[index]);
                 // 마왕이 잃은 체력 비율에 비례해 피해가 커집니다. 체력 0 에 가까울 때의 최대 증가폭.
                 values.put("missingHealthDamageBonus", new double[] {1.00, 1.20, 1.40, 1.80}[index]);
+            }
+            case ABYSS_VORTEX -> {
+                // 바라보는 지점(최대 placementRange)에 소용돌이를 엽니다.
+                values.put("placementRange", new double[] {10.0, 11.0, 12.0, 14.0}[index]);
+                values.put("radius", new double[] {5.0, 5.5, 6.0, 7.0}[index]);
+                // 매 틱 중심 쪽으로 미는 속도(블록/틱). 가장자리일수록 세게 당깁니다.
+                values.put("pullStrength", new double[] {0.16, 0.18, 0.20, 0.24}[index]);
+                values.put("durationTicks", new double[] {60.0, 70.0, 80.0, 100.0}[index]);
+                // 몰이가 본업이라 피해는 가볍게, 1초마다 들어갑니다.
+                values.put("damage", new double[] {8.0, 12.0, 17.0, 23.0}[index]);
+                values.put("damageIntervalTicks", 20.0);
+            }
+            case SUMMON_FIEND -> {
+                // 시선이 닿는 곳(최대 range)에 마수를 부릅니다. 체력은 마왕 최대 체력에 비례합니다.
+                values.put("range", new double[] {6.0, 6.5, 7.0, 8.0}[index]);
+                values.put("healthRatio", new double[] {0.50, 0.65, 0.80, 1.00}[index]);
+                values.put("damage", new double[] {14.0, 22.0, 31.0, 42.0}[index]);
+                values.put("durationTicks", new double[] {160.0, 200.0, 240.0, 300.0}[index]);
+                values.put("attackRange", 3.0);
+                values.put("attackIntervalTicks", 20.0);
+            }
+            case RIFT_CLEAVE -> {
+                // 검을 내려찍는 자리(앞으로 1.6칸)의 반경과 피해입니다.
+                values.put("radius", new double[] {2.5, 2.6, 2.8, 3.0}[index]);
+                values.put("damage", new double[] {40.0, 62.0, 88.0, 120.0}[index]);
+                // 이어서 앞으로 전진하며 터지는 파동. 벽에 닿으면 그 앞에서 멈춥니다.
+                values.put("waveCount", new double[] {5.0, 6.0, 7.0, 8.0}[index]);
+                values.put("waveDamage", new double[] {18.0, 28.0, 40.0, 55.0}[index]);
+                values.put("waveRadius", new double[] {1.8, 1.9, 2.0, 2.2}[index]);
+                values.put("waveSpacing", 1.8);
+                values.put("waveIntervalTicks", 3.0);
             }
             case ROAR_OF_DREAD -> {
                 values.put("radius", new double[] {5.0, 5.5, 6.0, 7.0}[index]);
