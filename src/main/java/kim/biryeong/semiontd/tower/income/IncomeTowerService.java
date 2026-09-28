@@ -45,8 +45,7 @@ public final class IncomeTowerService {
         NOT_ENOUGH_EMERALD("에메랄드가 부족합니다."),
         NO_TOWER("그 자리에 인컴 타워가 없습니다."),
         NOT_OWNED("자신의 인컴 타워만 관리할 수 있습니다."),
-        MAX_LEVEL("이미 최고 레벨입니다."),
-        INVALID_TARGET("공격할 수 없는 팀입니다.");
+        MAX_LEVEL("이미 최고 레벨입니다.");
 
         private final String message;
 
@@ -190,27 +189,6 @@ public final class IncomeTowerService {
         }
         context.player.economy().addEmerald(IncomeTowerBalance.sellRefund(tower.paidEmerald()));
         context.player.economy().removeIncome(income);
-        return Result.SUCCESS;
-    }
-
-    /** {@code target}가 비어 있으면 무작위(팀장 지정이 있으면 그 팀)로 되돌립니다. 전투 중에도 바꿀 수 있습니다. */
-    public static Result setTarget(SemionGame game, UUID playerId, GridPosition position, TeamId target) {
-        Context context = context(game, playerId, false);
-        if (context.failure != null) {
-            return context.failure;
-        }
-        IncomeTower tower = ownedTower(context, playerId, position);
-        if (tower == null) {
-            return ownershipFailure(context, playerId, position);
-        }
-        if (target != null) {
-            SemionTeam team = game.teams().get(target);
-            if (team == null || !team.active() || team.eliminated() || target == context.player.teamId()) {
-                return Result.INVALID_TARGET;
-            }
-        }
-        tower.setTargetTeam(target);
-        tower.onStateChanged(context.lane);
         return Result.SUCCESS;
     }
 

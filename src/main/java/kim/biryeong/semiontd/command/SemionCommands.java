@@ -476,21 +476,7 @@ public final class SemionCommands {
                                         context.getSource(), gameManager, incomeTowerPosition(context)))))
                         .then(literal("sell")
                                 .then(incomeTowerPosition(context -> sellIncomeTower(
-                                        context.getSource(), gameManager, incomeTowerPosition(context)))))
-                        .then(literal("targetui")
-                                .then(incomeTowerPosition(context -> incomeTowerTargetDialog(
-                                        context.getSource(), gameManager, incomeTowerPosition(context)))))
-                        .then(literal("target")
-                                .then(argument("x", IntegerArgumentType.integer())
-                                        .then(argument("y", IntegerArgumentType.integer())
-                                                .then(argument("z", IntegerArgumentType.integer())
-                                                        .then(argument("team", StringArgumentType.word())
-                                                                .executes(context -> setIncomeTowerTarget(
-                                                                        context.getSource(),
-                                                                        gameManager,
-                                                                        incomeTowerPosition(context),
-                                                                        StringArgumentType.getString(context, "team")
-                                                                ))))))))
+                                        context.getSource(), gameManager, incomeTowerPosition(context))))))
                 .then(literal("summons")
                         .executes(context -> summons(context.getSource(), gameManager)))
                 .then(literal("summonui")
@@ -3832,54 +3818,6 @@ public final class SemionCommands {
             return 0;
         }
         success(source, "인컴 타워를 판매했습니다.");
-        return 1;
-    }
-
-    private static int incomeTowerTargetDialog(CommandSourceStack source, SemionGameManager gameManager, GridPosition position)
-            throws CommandSyntaxException {
-        SemionGame game = playableGame(source, gameManager);
-        if (game == null) {
-            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다. /semiontd sandbox start를 사용하세요.");
-            return 0;
-        }
-        ServerPlayer player = source.getPlayerOrException();
-        Tower tower = game.playerLane(player.getUUID()).map(lane -> lane.towerAt(position)).orElse(null);
-        if (!(tower instanceof IncomeTower incomeTower)) {
-            failure(source, IncomeTowerService.Result.NO_TOWER.message());
-            return 0;
-        }
-        gameManager.dialogService().showIncomeTowerTarget(player, game, incomeTower);
-        return 1;
-    }
-
-    private static int setIncomeTowerTarget(
-            CommandSourceStack source,
-            SemionGameManager gameManager,
-            GridPosition position,
-            String teamName
-    ) throws CommandSyntaxException {
-        SemionGame game = playableGame(source, gameManager);
-        if (game == null) {
-            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다. /semiontd sandbox start를 사용하세요.");
-            return 0;
-        }
-        ServerPlayer player = source.getPlayerOrException();
-        TeamId target = null;
-        if (!"random".equalsIgnoreCase(teamName)) {
-            try {
-                target = TeamId.valueOf(teamName.toUpperCase(java.util.Locale.ROOT));
-            } catch (IllegalArgumentException invalid) {
-                failure(source, "알 수 없는 팀입니다: " + teamName);
-                return 0;
-            }
-        }
-        IncomeTowerService.Result result = IncomeTowerService.setTarget(game, player.getUUID(), position, target);
-        if (result != IncomeTowerService.Result.SUCCESS) {
-            failure(source, "공격 대상 지정 실패: " + result.message());
-            return 0;
-        }
-        success(source, "공격 대상을 " + (target == null ? "무작위" : target.name()) + "(으)로 정했습니다.");
-        reopenIncomeTower(gameManager, game, player, position);
         return 1;
     }
 

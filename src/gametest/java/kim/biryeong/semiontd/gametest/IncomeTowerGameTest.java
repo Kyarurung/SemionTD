@@ -81,10 +81,6 @@ public final class IncomeTowerGameTest {
             require(economy.income() == incomeBefore + incomePerLevel * 2, "Each level must add its income.");
             require(economy.emerald() == emeraldBefore - buildCost - IncomeTowerBalance.upgradeCost(buildCost, 1),
                     "Level up must be paid in emerald.");
-            require(IncomeTowerService.setTarget(game, owner, grid, TeamId.BLUE) == IncomeTowerService.Result.SUCCESS,
-                    "Targeting a living enemy team must succeed.");
-            require(IncomeTowerService.setTarget(game, owner, grid, TeamId.RED) == IncomeTowerService.Result.INVALID_TARGET,
-                    "An income tower must not target its own team.");
 
             BlockPos soldPosition = emptyPosition(lane, 0);
             require(IncomeTowerService.build(game, owner, soldPosition, "goblin_scout") == IncomeTowerService.Result.SUCCESS,

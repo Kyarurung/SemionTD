@@ -1522,10 +1522,8 @@ public final class SemionGame {
                     if (owner == null) {
                         continue;
                     }
-                    Optional<SemionTeam> targetTeam = incomeTower.targetTeam()
-                            .map(teams::get)
-                            .filter(candidate -> candidate.active() && !candidate.eliminated() && candidate.id() != owner.teamId())
-                            .or(() -> targetTeamForSummon(owner.teamId()));
+                    // 보낼 팀은 소환 몹과 같은 규칙(팀장 지정 팀 → 무작위 적 팀)으로 정합니다.
+                    Optional<SemionTeam> targetTeam = targetTeamForSummon(owner.teamId());
                     Optional<PlayerLane> targetLane = targetTeam.flatMap(this::targetLaneForSummon);
                     if (targetTeam.isEmpty() || targetLane.isEmpty()) {
                         continue;

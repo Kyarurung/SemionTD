@@ -1,7 +1,6 @@
 package kim.biryeong.semiontd.tower.income;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -25,7 +24,6 @@ public class IncomeTower extends ProductionTower {
     private final String summonId;
     private int level = 1;
     private long paidEmerald;
-    private TeamId targetTeam;
 
     public IncomeTower(TowerType type, UUID ownerPlayer, TeamId teamId, int laneId, GridPosition position, String summonId) {
         super(type, ownerPlayer, teamId, laneId, position);
@@ -56,15 +54,6 @@ public class IncomeTower extends ProductionTower {
 
     void recordPaidEmerald(long cost) {
         paidEmerald += Math.max(0, cost);
-    }
-
-    /** 플레이어가 지정한 공격 대상 팀. 비어 있으면 팀장 지정 팀, 그것도 없으면 무작위 적 팀으로 보냅니다. */
-    public Optional<TeamId> targetTeam() {
-        return Optional.ofNullable(targetTeam);
-    }
-
-    void setTargetTeam(TeamId targetTeam) {
-        this.targetTeam = targetTeam;
     }
 
     /**
@@ -126,9 +115,6 @@ public class IncomeTower extends ProductionTower {
 
     @Override
     public List<String> runtimeDetailLines() {
-        return List.of(
-                "레벨 " + level + "/" + IncomeTowerBalance.MAX_LEVEL,
-                "공격 대상 " + targetTeam().map(TeamId::name).orElse("무작위")
-        );
+        return List.of("레벨 " + level + "/" + IncomeTowerBalance.MAX_LEVEL);
     }
 }
