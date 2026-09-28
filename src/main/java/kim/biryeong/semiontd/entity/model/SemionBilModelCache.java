@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.entity.model;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -13,6 +14,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.resources.ResourceLocation;
 
@@ -63,6 +65,7 @@ public final class SemionBilModelCache {
                 throw new IllegalArgumentException("Model doesn't exist: " + path);
             }
             JsonObject json = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+            wrapMultiAxisRotations(json);
             applyGlow(json);
             byte[] bytes = json.toString().getBytes(StandardCharsets.UTF_8);
             return new BbModelLoader().load(new ByteArrayInputStream(bytes), id.getPath());
@@ -93,6 +96,90 @@ public final class SemionBilModelCache {
             changed++;
         }
         return changed;
+    }
+
+    /**
+     * 두 축 이상으로 돌린 큐브를 같은 회전의 그룹으로 감쌉니다. 바꾼 큐브 수를 돌려줍니다.
+     *
+     * <p>BIL은 큐브 회전을 아이템 모델 요소로 옮기면서 0이 아닌 첫 축 하나만 남깁니다. 그래서 블록벤치에서 여러 축으로
+     * 기울인 판이 게임에서는 엉뚱한 방향의 막대로 보입니다. 그룹(뼈)은 회전 전체를 쿼터니언으로 옮기므로, 큐브의 회전과
+     * 회전축을 새 그룹({@code <이름>_rot})에 넘기고 큐브는 돌리지 않습니다. 모델 파일은 그대로 두고 불러올 때만 고칩니다.
+     */
+    public static int wrapMultiAxisRotations(JsonObject model) {
+        if (!model.has("elements") || !model.has("outliner") || !model.get("outliner").isJsonArray()) {
+            return 0;
+        }
+        if (!model.has("groups") || !model.get("groups").isJsonArray()) {
+            model.add("groups", new JsonArray());
+        }
+        JsonArray groups = model.getAsJsonArray("groups");
+        int changed = 0;
+        for (JsonElement entry : model.getAsJsonArray("elements")) {
+            if (!entry.isJsonObject()) {
+                continue;
+            }
+            JsonObject element = entry.getAsJsonObject();
+            if (!element.has("rotation") || !element.has("uuid") || rotatedAxes(element.getAsJsonArray("rotation")) < 2) {
+                continue;
+            }
+            String elementUuid = element.get("uuid").getAsString();
+            String groupUuid = UUID.nameUUIDFromBytes((elementUuid + "/rot").getBytes(StandardCharsets.UTF_8)).toString();
+            JsonObject wrapper = new JsonObject();
+            wrapper.addProperty("uuid", groupUuid);
+            wrapper.addProperty("isOpen", false);
+            JsonArray children = new JsonArray();
+            children.add(elementUuid);
+            wrapper.add("children", children);
+            if (!replaceChild(model.getAsJsonArray("outliner"), elementUuid, wrapper)) {
+                continue;
+            }
+            JsonObject group = new JsonObject();
+            group.addProperty("name", (element.has("name") ? element.get("name").getAsString() : "cube") + "_rot");
+            group.addProperty("uuid", groupUuid);
+            group.addProperty("export", true);
+            group.add("origin", element.has("origin") ? element.get("origin").deepCopy() : zeroVector());
+            group.add("rotation", element.get("rotation").deepCopy());
+            group.addProperty("mirror_uv", false);
+            group.addProperty("autouv", 0);
+            group.addProperty("visibility", true);
+            groups.add(group);
+            element.add("rotation", zeroVector());
+            changed++;
+        }
+        return changed;
+    }
+
+    private static int rotatedAxes(JsonArray rotation) {
+        int axes = 0;
+        for (JsonElement value : rotation) {
+            if (Math.abs(value.getAsDouble()) > 1.0e-4) {
+                axes++;
+            }
+        }
+        return axes;
+    }
+
+    private static boolean replaceChild(JsonArray children, String uuid, JsonObject replacement) {
+        for (int index = 0; index < children.size(); index++) {
+            JsonElement child = children.get(index);
+            if (child.isJsonPrimitive() && uuid.equals(child.getAsString())) {
+                children.set(index, replacement);
+                return true;
+            }
+            if (child.isJsonObject() && child.getAsJsonObject().has("children")
+                    && replaceChild(child.getAsJsonObject().getAsJsonArray("children"), uuid, replacement)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static JsonArray zeroVector() {
+        JsonArray vector = new JsonArray();
+        vector.add(0);
+        vector.add(0);
+        vector.add(0);
+        return vector;
     }
 
     public static String normalize(String value) {

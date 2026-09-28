@@ -17,6 +17,7 @@ import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.defender.LaneDefenseEntity;
 import kim.biryeong.semiontd.entity.healing.HealingTarget;
 import kim.biryeong.semiontd.entity.goal.NaturalWaveHealGoal;
+import kim.biryeong.semiontd.entity.model.BilDeathVisual;
 import kim.biryeong.semiontd.entity.model.SemionBilModelCache;
 import kim.biryeong.semiontd.entity.monster.goal.AcquireLaneDefenseTargetGoal;
 import kim.biryeong.semiontd.entity.monster.goal.LaneFollowGoal;
@@ -74,6 +75,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private String blockbenchModelId;
     private EntityDimensions runtimeDimensions = MonsterDimensions.DEFAULT.toEntityDimensions();
     private SemionAnimationState animationState = SemionAnimationState.IDLE;
+    /** 공격·치유처럼 한 번 도는 동작이 끝나는 틱. 그 전에는 걷기·대기로 바뀌어도 멈추지 않습니다. */
+    private int oneShotEndTick;
+    private boolean deathVisualShown;
     private final List<Goal> summonAbilityGoals = new ArrayList<>();
     private NaturalWaveHealGoal waveAbilityGoal;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
@@ -111,6 +115,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     @Override
     public void die(DamageSource damageSource) {
+        showDeathVisual();
         super.die(damageSource);
         if (runtimeMonster != null) {
             runtimeMonster.syncHealth(0.0);
@@ -316,6 +321,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
         hurt(damageSource, (float) appliedDamage);
         if (runtimeMonster.health() <= 0.0) {
+            showDeathVisual();
             discard();
             return new AppliedDamageResult(true, result.healthDamageAttempted(), appliedDamage, result.absorbedDamage());
         }
@@ -416,15 +422,37 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         if (animationState == null) {
             return;
         }
-        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL)) {
+        boolean oneShot = isOneShot(animationState);
+        if (holder != null && (this.animationState != animationState || oneShot)) {
+            boolean oneShotRunning = tickCount < oneShotEndTick;
             for (SemionAnimationState state : SemionAnimationState.values()) {
-                if (state != animationState) {
-                    holder.getAnimator().pauseAnimation(state.animationId());
+                // 공격 직후 쿨다운 동안 대기·걷기로 돌아와도, 돌고 있는 공격·치유 동작은 끝까지 두어 위에 겹쳐 보이게 합니다.
+                // 예전에는 바로 다음 틱에 멈춰서 공격 모션이 한 틱만 보였습니다.
+                if (state == animationState || (isOneShot(state) && !oneShot && oneShotRunning)) {
+                    continue;
                 }
+                holder.getAnimator().pauseAnimation(state.animationId());
             }
-            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL ? 10 : 1, true);
+            holder.getAnimator().playAnimation(animationState.animationId(), oneShot ? 10 : 1, true);
+            if (oneShot) {
+                de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
+                oneShotEndTick = tickCount + (animation == null ? 0 : animation.duration());
+            }
         }
         this.animationState = animationState;
+    }
+
+    private static boolean isOneShot(SemionAnimationState state) {
+        return state == SemionAnimationState.ATTACK || state == SemionAnimationState.HEAL;
+    }
+
+    /** 죽은 자리에 모델만 남겨 사망 애니메이션을 한 번 보여 줍니다(모델에 death가 있을 때). */
+    public void showDeathVisual() {
+        if (deathVisualShown || holder == null || !(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        deathVisualShown = true;
+        BilDeathVisual.spawn(serverLevel, position(), yBodyRot, holder.getModel(), holder.getScale());
     }
 
     public double attackRange() {
@@ -801,6 +829,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         SemionBilModelCache.load(modelId).ifPresent(model -> {
             holder = new LivingEntityHolder<>(this, model);
             holderAttachment = EntityAttachment.ofTicking(holder, this);
+            // 새 모델에는 아직 아무 애니메이션도 돌지 않습니다. playAnimation은 같은 상태면 건너뛰므로, 지금 상태(처음엔 idle)를
+            // 여기서 바로 틀어야 가만히 선 몹이 기본 자세(팔을 늘어뜨리고 무기를 눕힌 모습)로 굳지 않습니다.
+            holder.getAnimator().playAnimation(animationState.animationId(), 1, true);
         });
     }
 

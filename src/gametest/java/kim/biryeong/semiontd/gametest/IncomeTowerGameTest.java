@@ -25,6 +25,20 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 public final class IncomeTowerGameTest {
+    /** 침공군 모델 10종이 BIL에서 실제로 불러와지는지(발광·여러 축 회전 전처리를 거친 JSON 포함) 확인합니다. */
+    @GameTest
+    public void everyInvasionUnitModelLoadsThroughBil(GameTestHelper context) {
+        for (String unit : IncomeTowerBalance.UNIT_IDS) {
+            require(kim.biryeong.semiontd.entity.model.SemionBilModelCache.load("semion-td:invasion/" + unit).isPresent(),
+                    "The " + unit + " model must load.");
+            var model = kim.biryeong.semiontd.entity.model.SemionBilModelCache.load("semion-td:invasion/" + unit).orElseThrow();
+            require(kim.biryeong.semiontd.entity.model.BilDeathVisual.spawn(context.getLevel(),
+                            net.minecraft.world.phys.Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(1, 1, 1))), 90.0F, model, 1.0F),
+                    "A dead " + unit + " must leave its death animation behind.");
+        }
+        context.succeed();
+    }
+
     @GameTest(maxTicks = 20)
     public void incomeTowerTakesASlotPaysIncomeAndAttacksEveryWaveWithoutBeingConsumed(GameTestHelper context) {
         UUID owner = stableUuid("income-tower-owner");
