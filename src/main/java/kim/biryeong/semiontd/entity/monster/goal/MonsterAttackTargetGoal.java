@@ -74,8 +74,8 @@ public final class MonsterAttackTargetGoal extends Goal {
             return;
         }
 
-        monster.playAnimation(SemionAnimationState.ATTACK);
-        target.hurt(monster.damageSources().mobAttack(monster), (float) monster.attackDamageAmount());
+        // 공격 방식이 있는 몬스터는 애니메이션에서 무기가 닿는 틱에 피해가 들어갑니다(startAttack).
+        monster.startAttack(target);
         cooldownTicks = monster.attackIntervalTicks();
     }
 }

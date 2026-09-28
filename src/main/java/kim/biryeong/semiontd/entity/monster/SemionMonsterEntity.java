@@ -85,6 +85,17 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private final Map<Tower, BeePoisonState> beePoisons = new IdentityHashMap<>();
     private LivingEntityHolder<SemionMonsterEntity> holder;
     private EntityAttachment holderAttachment;
+    /** 공격 방식(선딜·특수 타격). 없으면 공격을 트는 틱에 바로 한 번 때립니다. */
+    private MonsterAttackStyle attackStyle;
+    private LivingEntity pendingHitTarget;
+    private int pendingHitTick = -1;
+    /** 은신 유닛: 공격 중이 아니면 타워가 고를 수 없고 모델도 숨습니다. */
+    private boolean stealthCapable;
+    private int revealedUntilTick;
+    private boolean stealthVisualApplied;
+    private float visibleScale = 1.0F;
+    /** 타워·마왕 어그로를 모두 무시하고 레인 끝의 보스만 노립니다. */
+    private boolean ignoresDefenses;
 
     public SemionMonsterEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -192,6 +203,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         super.aiStep();
+        tickPendingHit();
+        tickStealthVisual();
         tickIgnite();
         tickBeePoisons();
         timedEffects.tick();
@@ -237,6 +250,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         if (runtimeMonster == null) {
             return true;
         }
+        if (ignoresDefenses && (target instanceof ServerPlayer || target instanceof LaneDefenseEntity)) {
+            return false;
+        }
         double targetSearchRange = defenseTargetSearchRange();
         double leashRangeSqr = targetSearchRange * targetSearchRange;
         if (target instanceof ServerPlayer player) {
@@ -251,6 +267,115 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return true;
         }
         return defenseEntity.defendsLane(runtimeMonster.targetLaneId()) && distanceToSqr(target) <= leashRangeSqr;
+    }
+
+    public void setAttackStyle(MonsterAttackStyle attackStyle) {
+        this.attackStyle = attackStyle;
+    }
+
+    public MonsterAttackStyle attackStyle() {
+        return attackStyle;
+    }
+
+    /**
+     * 공격 한 번을 시작합니다. 공격 방식이 있으면 애니메이션에서 무기가 닿는 틱까지 기다렸다 때리고,
+     * 없으면 예전처럼 바로 때립니다. 은신 유닛은 공격하는 동안 드러납니다.
+     */
+    public void startAttack(LivingEntity target) {
+        playAnimation(SemionAnimationState.ATTACK);
+        if (attackStyle == null) {
+            MonsterAttackStyle.strike(this, target, attackDamageAmount());
+            return;
+        }
+        if (pendingHitTick >= 0) {
+            // 공격 속도가 올라 앞 공격의 타격 틱보다 먼저 다음 공격이 시작되면, 앞 타격을 지금 넣고 넘어갑니다.
+            pendingHitTick = tickCount;
+            tickPendingHit();
+        }
+        int delay = Math.max(0, attackStyle.hitDelayTicks());
+        revealFor(delay + STEALTH_REVEAL_AFTER_ATTACK_TICKS);
+        if (delay == 0) {
+            attackStyle.hit(this, target);
+            return;
+        }
+        pendingHitTarget = target;
+        pendingHitTick = tickCount + delay;
+    }
+
+    public boolean hasPendingHit() {
+        return pendingHitTick >= 0;
+    }
+
+    private void tickPendingHit() {
+        if (pendingHitTick < 0 || tickCount < pendingHitTick) {
+            return;
+        }
+        LivingEntity target = pendingHitTarget;
+        pendingHitTarget = null;
+        pendingHitTick = -1;
+        // 휘두르는 도중 기절하면 헛손질입니다. 대상이 죽었으면 방식에 따라 주변만 맞을 수 있습니다.
+        if (isAlive() && !isStunned() && attackStyle != null) {
+            attackStyle.hit(this, target);
+        }
+    }
+
+    /** 공격을 마친 은신 유닛이 다시 숨기까지의 틱. */
+    public static final int STEALTH_REVEAL_AFTER_ATTACK_TICKS = 20;
+
+    public void setStealthCapable(boolean stealthCapable) {
+        this.stealthCapable = stealthCapable;
+    }
+
+    /** 은신 중이면 타워가 이 몬스터를 공격 대상으로 고를 수 없습니다(범위 공격에는 맞습니다). */
+    public boolean isStealthed() {
+        return stealthCapable && isAlive() && tickCount >= revealedUntilTick;
+    }
+
+    public void revealFor(int ticks) {
+        revealedUntilTick = Math.max(revealedUntilTick, tickCount + Math.max(0, ticks));
+    }
+
+    private void tickStealthVisual() {
+        if (!stealthCapable || holder == null) {
+            return;
+        }
+        boolean hidden = isStealthed();
+        if (hidden == stealthVisualApplied) {
+            return;
+        }
+        stealthVisualApplied = hidden;
+        if (hidden) {
+            visibleScale = holder.getScale();
+            // 디스플레이는 투명도를 못 바꾸므로 모델을 아주 작게 줄여 숨깁니다. 이름표도 같이 감춥니다.
+            holder.setScale(0.001F);
+            setCustomNameVisible(false);
+        } else {
+            holder.setScale(visibleScale);
+            setCustomNameVisible(true);
+        }
+        if (level() instanceof ServerLevel serverLevel) {
+            kim.biryeong.semiontd.summon.invasion.InvasionVfx.stealthPuff(serverLevel, position(), hidden);
+        }
+    }
+
+    public void setIgnoresDefenses(boolean ignoresDefenses) {
+        this.ignoresDefenses = ignoresDefenses;
+    }
+
+    public boolean ignoresDefenses() {
+        return ignoresDefenses;
+    }
+
+    /** 이 몬스터가 레인을 지키는 대상(타워·마왕)을 때릴 수 있는지. 사거리 제한 없이 범위 공격에 씁니다. */
+    public boolean canDamageDefense(LivingEntity target) {
+        if (runtimeMonster == null || target == null || !target.isAlive() || target.isRemoved() || ignoresDefenses) {
+            return false;
+        }
+        if (target instanceof ServerPlayer player) {
+            DemonLordState state = DemonLordStates.get(player.getUUID());
+            return state != null && state.inCombat() && state.canFight(runtimeMonster);
+        }
+        return target instanceof LaneDefenseEntity defenseEntity && defenseEntity.defendsLane(runtimeMonster.targetLaneId());
     }
 
     public double defenseTargetSearchRange() {

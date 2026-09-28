@@ -1119,6 +1119,24 @@ public final class PlayerLane {
         spawnMinecraftEntity(monster, spawn);
     }
 
+    /**
+     * 레인 도중의 지정한 자리에 몬스터를 바로 세웁니다(강령술사가 부르는 해골처럼 레인 입구가 아닌 곳에서 나타나는 유닛).
+     * 레인 진행도와 다음 경로점은 서 있는 자리에서 알아서 이어집니다. 세운 몬스터 엔티티를 돌려줍니다.
+     */
+    public java.util.Optional<SemionMonsterEntity> spawnMonsterAt(Monster monster, Vec3 position) {
+        if (monster == null || position == null || arenaWorld == null || laneLayout == null) {
+            return java.util.Optional.empty();
+        }
+        spawnMinecraftEntity(monster, position);
+        if (!monster.hasMinecraftEntity()) {
+            return java.util.Optional.empty();
+        }
+        activeMonsters.add(monster);
+        return arenaWorld.getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity entity
+                ? java.util.Optional.of(entity)
+                : java.util.Optional.empty();
+    }
+
     private void spawnMinecraftEntity(Monster monster, Vec3 spawn) {
         if (monster.hasMinecraftEntity()) {
             return;
