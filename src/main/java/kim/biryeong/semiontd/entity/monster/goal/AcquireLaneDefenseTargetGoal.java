@@ -52,7 +52,8 @@ public final class AcquireLaneDefenseTargetGoal extends Goal {
     }
 
     private LivingEntity findTarget() {
-        if (monster.runtimeMonster() == null) {
+        // 어그로를 무시하는 유닛(공성 골렘)은 타워·마왕을 고르지 않고 레인 끝 보스까지 걸어갑니다.
+        if (monster.runtimeMonster() == null || monster.ignoresDefenses()) {
             return null;
         }
         LivingEntity defender = findDefenseTarget();

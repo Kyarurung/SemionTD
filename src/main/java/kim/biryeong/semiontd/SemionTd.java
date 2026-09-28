@@ -86,6 +86,8 @@ public class SemionTd implements ModInitializer {
         SemionSkyboxResourcePack.register(skyboxService::library, LOGGER);
         kim.biryeong.semiontd.vfx.DisplaySpriteResourcePack.register(
                 () -> kim.biryeong.semiontd.tower.demonlord.DemonLordDisplayVfx.SPRITES, LOGGER);
+        kim.biryeong.semiontd.vfx.DisplaySpriteResourcePack.register(
+                () -> kim.biryeong.semiontd.summon.invasion.InvasionVfx.SPRITES, LOGGER);
         gameManager.configureWebIntegration(configs.webIntegration());
         gameManager.configureCombatSpeed(configs.combatSpeed());
         gameManager.configureJobAvailability(configs.jobAvailability());

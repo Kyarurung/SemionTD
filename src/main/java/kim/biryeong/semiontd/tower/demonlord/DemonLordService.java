@@ -196,6 +196,10 @@ public final class DemonLordService {
             if (state == null || !state.inCombat() || !(target instanceof SemionMonsterEntity monsterEntity)) {
                 return InteractionResult.PASS;
             }
+            if (monsterEntity.isStealthed()) {
+                // 은신한 몬스터는 지정해서 벨 수 없습니다.
+                return InteractionResult.FAIL;
+            }
             // 마검 평타. 바닐라 피해 대신 런타임 피해로 넣어야 몹의 방어/저항이 정상 적용됩니다.
             //
             // 바닐라 공격 쿨다운은 바닐라 피해 경로에만 걸리므로, 여기서 직접 걸지 않으면 연타가

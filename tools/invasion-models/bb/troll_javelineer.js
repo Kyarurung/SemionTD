@@ -29,7 +29,8 @@
         group(side + '_foot', [2.4 * sign, 1.5, 0], side + '_shin');
         group(side + '_ear', [3 * sign, 38.5, -1.5], 'head', [0, -15 * sign, 10 * sign]);
     }
-    group('javelin', [5.2, 10.5, 0], 'right_hand', [-12, 0, 0]);
+    // 투창 각도(블록벤치에서 맞춘 값): 손에 쥔 채 앞으로 곧게 눕힙니다.
+    group('javelin', [5.2, 10.5, 0], 'right_hand', [90, 0, 0]);
     group('quiver', [0, 28, 2.6], 'torso', [0, 0, -20]);
 
     const sides = [['right', 1], ['left', -1]];

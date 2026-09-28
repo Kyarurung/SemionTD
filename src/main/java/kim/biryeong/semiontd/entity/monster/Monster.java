@@ -39,9 +39,9 @@ public final class Monster {
     private final SummonTier summonTier;
     private final List<SummonRole> summonRoles;
     private final double targetPriority;
-    private final double movementSpeedMultiplier;
-    private final double attackRange;
-    private final int attackIntervalTicks;
+    private double movementSpeedMultiplier;
+    private double attackRange;
+    private int attackIntervalTicks;
     private double attackDamageMultiplier = 1.0;
     private double permanentStatScale = 1.0;
     private double minimumVisualScale = 0.10;
@@ -537,6 +537,16 @@ public final class Monster {
 
     public double targetPriority() {
         return targetPriority;
+    }
+
+    /**
+     * 유닛마다 다른 이동 속도·사거리·공격 간격을 줍니다(침공군처럼 소환 기본값과 다른 유닛).
+     * 공격 간격은 공격 애니메이션 길이에 맞춰, 모션이 끝나기 전에 다음 공격이 시작되지 않게 잡습니다.
+     */
+    public void applyCombatProfile(double movementSpeedMultiplier, double attackRange, int attackIntervalTicks) {
+        this.movementSpeedMultiplier = movementSpeedMultiplier;
+        this.attackRange = attackRange;
+        this.attackIntervalTicks = Math.max(1, attackIntervalTicks);
     }
 
     public double movementSpeedMultiplier() {
