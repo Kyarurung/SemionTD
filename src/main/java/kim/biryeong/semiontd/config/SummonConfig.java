@@ -63,6 +63,17 @@ public record SummonConfig(Map<String, SummonDefinition> summons) {
         add(summons, def("evoker", "Evoker", "minecraft:evoker", 680, 33, 24, SummonTier.T5, roles(SummonRole.SUPPORT, SummonRole.DISRUPTOR), AttackKind.RANGED, DamageType.MAGIC, 560, 8, 24, 26, 0.6, 1.95, acts(SummonAbilityActivation.COOLDOWN), Map.of("radius", 8.0, "attackMagnitude", 0.25, "damageReductionMagnitude", 0.25, "durationTicks", 80.0, "cooldownTicks", 60.0, "maxTargets", 10.0), "주변 아군 인컴 유닛을 공격과 방어 양쪽으로 강화합니다."));
         add(summons, def("elder_guardian", "Elder Guardian", "minecraft:elder_guardian", 700, 34, 26, SummonTier.T5, roles(SummonRole.TANK, SummonRole.DISRUPTOR), AttackKind.RANGED, DamageType.MAGIC, 760, 22, 28, 32, 1.0, 1.0, acts(SummonAbilityActivation.COOLDOWN), Map.of("radius", 8.0, "attackSpeedMagnitude", 0.30, "rangeMagnitude", 0.20, "durationTicks", 100.0, "cooldownTicks", 80.0, "maxTargets", 3.0), "여러 타워의 공격 속도와 사거리를 동시에 낮춥니다."));
         add(summons, def("warden", "Warden", "minecraft:warden", 800, 40, 30, SummonTier.T5, roles(SummonRole.TANK, SummonRole.SIEGE), AttackKind.MELEE, DamageType.PHYSICAL, 1050, 28, 22, 46, 1.55, 2.6, acts(SummonAbilityActivation.COOLDOWN), Map.of("supportRadius", 8.0, "physicalShield", 70.0, "magicShield", 70.0, "supportMaxTargets", 8.0, "shieldDurationTicks", 100.0, "supportCooldownTicks", 120.0, "supportRetryDelayTicks", 20.0, "physicalCanary", 0.0), "같은 목표 레인의 비보스 아군을 지원합니다."));
+        // 인컴 타워 유닛(침공군). 모델은 model/semion-td/invasion/<id>.bbmodel 입니다.
+        add(summons, invasion("goblin_scout", "고블린 정찰병", 50, 3, 3, SummonTier.T1, roles(SummonRole.RUSH, SummonRole.SWARM), AttackKind.MELEE, DamageType.PHYSICAL, 45, 0, 0, 3, 0.6, 1.0, "작고 빠른 정찰병입니다. 싸게 세워 일찍부터 인컴을 올립니다."));
+        add(summons, invasion("elf_assassin", "엘프 암살자", 110, 5, 6, SummonTier.T2, roles(SummonRole.RUSH), AttackKind.MELEE, DamageType.PHYSICAL, 90, 1, 4, 9, 0.6, 1.9, "날랜 단검 암살자입니다. 체력은 낮지만 공격이 매섭습니다."));
+        add(summons, invasion("dark_priest", "암흑 신관", 140, 6, 7, SummonTier.T2, roles(SummonRole.SUPPORT), AttackKind.RANGED, DamageType.MAGIC, 100, 1, 8, 5, 0.6, 1.9, "멀리서 마법 피해를 주는 사제입니다."));
+        add(summons, invasion("dwarf_gunner", "드워프 총병", 170, 8, 9, SummonTier.T3, roles(SummonRole.RUSH), AttackKind.RANGED, DamageType.PHYSICAL, 150, 4, 2, 12, 0.7, 1.5, "단단한 몸으로 버티며 멀리서 총을 쏩니다."));
+        add(summons, invasion("troll_javelineer", "트롤 투창병", 230, 10, 12, SummonTier.T3, roles(SummonRole.RUSH), AttackKind.RANGED, DamageType.PHYSICAL, 190, 2, 2, 14, 0.9, 2.7, "키 큰 트롤이 긴 창을 던집니다."));
+        add(summons, invasion("orc_warrior", "오크 전사", 290, 13, 15, SummonTier.T3, roles(SummonRole.TANK, SummonRole.RUSH), AttackKind.MELEE, DamageType.PHYSICAL, 260, 6, 2, 16, 1.2, 2.6, "도끼를 든 튼튼한 근접 전사입니다."));
+        add(summons, invasion("necromancer", "강령술사", 350, 15, 18, SummonTier.T4, roles(SummonRole.SUPPORT, SummonRole.DISRUPTOR), AttackKind.RANGED, DamageType.MAGIC, 230, 3, 14, 12, 0.6, 2.0, "해골 지팡이로 강한 마법 피해를 줍니다."));
+        add(summons, invasion("siege_golem", "공성 골렘", 470, 20, 24, SummonTier.T4, roles(SummonRole.SIEGE, SummonRole.TANK), AttackKind.MELEE, DamageType.PHYSICAL, 460, 16, 6, 20, 1.6, 2.4, "두꺼운 돌 몸으로 버티며 공성추 주먹으로 부숩니다."));
+        add(summons, invasion("legion_commander", "군단장", 590, 25, 30, SummonTier.T5, roles(SummonRole.TANK), AttackKind.MELEE, DamageType.PHYSICAL, 580, 14, 10, 30, 1.6, 2.9, "거대한 방패와 소드스태프를 든 군단의 지휘관입니다."));
+        add(summons, invasion("ogre_champion", "오우거 투사", 710, 30, 36, SummonTier.T5, roles(SummonRole.TANK), AttackKind.MELEE, DamageType.PHYSICAL, 760, 10, 6, 36, 1.8, 3.4, "가장 큰 거인 투사입니다. 가시 몽둥이로 내려찍습니다."));
         SummonConfig fallback = new SummonConfig(summons);
         return BundledBalanceDefaults.load("summons.json", SummonConfig.class, fallback);
     }
@@ -134,6 +145,30 @@ public record SummonConfig(Map<String, SummonDefinition> summons) {
                 abilityValues
         );
         return definition.withDescription(SummonDescriptionFactory.describe(definition));
+    }
+
+    private static SummonDefinition invasion(
+            String id,
+            String displayName,
+            long emeraldCost,
+            long incomeGain,
+            long diamondReward,
+            SummonTier tier,
+            List<SummonRole> roles,
+            AttackKind attackKind,
+            DamageType damageType,
+            double maxHealth,
+            double armor,
+            double resistance,
+            double attackDamage,
+            double width,
+            double height,
+            String description
+    ) {
+        return new SummonDefinition(id, displayName, true, emeraldCost, incomeGain, maxHealth, armor, resistance,
+                attackDamage, attackKind, damageType, "minecraft:zombie", "semion-td:invasion/" + id,
+                new DimensionConfig(width, height), diamondReward, tier, roles, acts(SummonAbilityActivation.PASSIVE),
+                List.of(description), Map.of());
     }
 
     private static void add(LinkedHashMap<String, SummonDefinition> summons, SummonDefinition definition) {
