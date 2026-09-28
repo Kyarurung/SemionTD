@@ -58,6 +58,14 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private static final double DEFAULT_MOVEMENT_SPEED = 0.42;
     public static final double DEFENSE_SEARCH_HORIZONTAL_PADDING = 5.0;
     public static final double DEFENSE_TARGET_LEASH_RANGE = 8.0;
+    /**
+     * 이미 마왕을 노리던 몬스터가 표적을 놓지 않는 거리.
+     *
+     * <p>마왕 스킬(공포의 포효·악의 파동·하늘 부수기 등)은 몬스터를 6~7칸씩 날려 보냅니다. 붙잡는
+     * 거리(8칸)로 놓아 버리면 날아간 몬스터가 마왕을 잊고 레인 앞쪽으로만 걸어 그대로 빠져나갑니다.
+     * 그래서 한 번 잡은 마왕은 이 거리까지 계속 쫓아오게 합니다. 새로 붙잡는 거리는 그대로 8칸입니다.
+     */
+    public static final double DEMON_LORD_AGGRO_KEEP_RANGE = 16.0;
     private static final double DEFENSE_SEARCH_VERTICAL_PADDING = 3.0;
 
     private EntityType<?> polymerEntityType = EntityType.ZOMBIE;
@@ -228,10 +236,11 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         double leashRangeSqr = targetSearchRange * targetSearchRange;
         if (target instanceof ServerPlayer player) {
             DemonLordState state = DemonLordStates.get(player.getUUID());
+            double keepRange = Math.max(DEMON_LORD_AGGRO_KEEP_RANGE, targetSearchRange);
             return state != null
                     && state.inCombat()
                     && state.canFight(runtimeMonster)
-                    && distanceToSqr(target) <= leashRangeSqr;
+                    && (!onGround() || distanceToSqr(target) <= keepRange * keepRange);
         }
         if (!(target instanceof LaneDefenseEntity defenseEntity)) {
             return true;
