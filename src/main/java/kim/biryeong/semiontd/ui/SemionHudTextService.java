@@ -219,8 +219,8 @@ public final class SemionHudTextService {
                         HighlightTarget.EMERALD,
                         highlightTarget,
                         highlightOn,
-                        emeraldMarkup(economy.emerald()),
-                        "⬢ 에메랄드 " + economy.emerald()
+                        emeraldMarkup(economy.emerald(), economy.emeraldOverflow()),
+                        "⬢ 에메랄드 " + economy.emerald() + (economy.emeraldOverflow() > 0 ? " (+" + economy.emeraldOverflow() + ")" : "")
                 )
                 + " <dark_gray>|</dark_gray> " + highlightable(
                         HighlightTarget.EMERALD_RATE,
@@ -254,7 +254,12 @@ public final class SemionHudTextService {
     }
 
     static String emeraldMarkup(long emerald) {
-        return "<green>⬢ 에메랄드 " + emerald + "</green>";
+        return emeraldMarkup(emerald, 0);
+    }
+
+    /** 한도를 넘어 쌓인 초과분(마왕)은 뒤에 (+N)으로 붙입니다. */
+    static String emeraldMarkup(long emerald, long overflow) {
+        return "<green>⬢ 에메랄드 " + emerald + "</green>" + (overflow > 0 ? " <dark_green>(+" + overflow + ")</dark_green>" : "");
     }
 
     static String emeraldRateMarkup(long emeraldPerSec) {
