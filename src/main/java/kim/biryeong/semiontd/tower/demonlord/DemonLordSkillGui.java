@@ -18,20 +18,26 @@ import net.minecraft.world.item.Items;
 /**
  * [스킬 배정] 상자 창.
  *
- * <p>첫 화면은 키 슬롯 일곱 개(1·2·3·4·마검 우클릭·F·Q)입니다. 빈 슬롯을 누르면 그 자리에 넣을
- * 스킬을 고르고, 찬 슬롯을 누르면 업그레이드하거나 빼서 전액 환불받습니다. 어느 키에 무엇을
- * 둘지 플레이어가 직접 고르므로, 예전처럼 지은 순서가 키를 정하지 않습니다.
+ * <p>첫 화면은 키 슬롯 일곱 개(1·2·3·4·마검 우클릭·F·Q)와 그 아래 패시브 자리 두 개(8·9)입니다. 빈 슬롯을
+ * 누르면 그 자리에 넣을 스킬이나 패시브를 고르고, 찬 슬롯을 누르면 업그레이드하거나 빼서 전액 환불받습니다.
+ * 어느 키에 무엇을 둘지 플레이어가 직접 고르므로, 예전처럼 지은 순서가 키를 정하지 않습니다.
  */
 public final class DemonLordSkillGui extends SimpleGui {
     private static final int FIRST_BINDING_SLOT = 10;
+    /** 패시브 8·9번 자리. 스킬 줄 아래 가운데에 둡니다. */
+    private static final int[] PASSIVE_SLOTS = {21, 23};
 
     private final ServerPlayer owner;
     private final PlayerEconomy economy;
     private View view = View.overview();
 
-    private record View(DemonLordBinding binding, boolean picking) {
+    private record View(DemonLordBinding binding, DemonLordPassiveSlot passive, boolean picking) {
+        View(DemonLordBinding binding, boolean picking) {
+            this(binding, null, picking);
+        }
+
         static View overview() {
-            return new View(null, false);
+            return new View(null, null, false);
         }
     }
 
@@ -55,7 +61,13 @@ public final class DemonLordSkillGui extends SimpleGui {
             return;
         }
         setSlot(4, header(state));
-        if (view.binding() == null) {
+        if (view.passive() != null) {
+            if (view.picking()) {
+                drawPassivePicker(state, view.passive());
+            } else {
+                drawPassiveManage(state, view.passive());
+            }
+        } else if (view.binding() == null) {
             drawOverview(state);
         } else if (view.picking()) {
             drawPicker(state, view.binding());
@@ -69,7 +81,8 @@ public final class DemonLordSkillGui extends SimpleGui {
                 .setName(Component.literal("보유 다이아 " + economy.diamond()).withStyle(ChatFormatting.AQUA))
                 .addLoreLineRaw(gray("스킬은 타워 수를 차지하지 않습니다."))
                 .addLoreLineRaw(gray("같은 스킬은 한 슬롯에만 둘 수 있습니다."))
-                .addLoreLineRaw(gray("스킬을 빼면 그 슬롯에 낸 다이아를 전부 돌려받습니다."));
+                .addLoreLineRaw(gray("스킬을 빼면 그 슬롯에 낸 다이아를 전부 돌려받습니다."))
+                .addLoreLineRaw(gray("8·9번은 넣어 두면 항상 켜지는 패시브 자리입니다."));
         if (state.inCombat()) {
             builder.addLoreLineRaw(Component.literal("전투 중에는 바꿀 수 없습니다.").withStyle(ChatFormatting.RED));
         }
@@ -102,7 +115,81 @@ public final class DemonLordSkillGui extends SimpleGui {
             }
             setSlot(slot++, builder);
         }
+        DemonLordPassiveSlot[] passiveSlots = DemonLordPassiveSlot.values();
+        for (int index = 0; index < passiveSlots.length; index++) {
+            DemonLordPassiveSlot target = passiveSlots[index];
+            Optional<DemonLordLoadout.PassiveEntry> owned = state.loadout().passive(target);
+            GuiElementBuilder builder;
+            if (owned.isEmpty()) {
+                builder = new GuiElementBuilder(Items.PURPLE_STAINED_GLASS_PANE)
+                        .setName(Component.literal("[" + target.label() + "] 빈 패시브 자리").withStyle(ChatFormatting.GRAY))
+                        .addLoreLineRaw(gray("넣어 두면 항상 켜져 있습니다."))
+                        .addLoreLineRaw(white("클릭: 이 자리에 넣을 패시브 고르기"))
+                        .setCallback((i, type, action) -> open(new View(null, target, true)));
+            } else {
+                DemonLordPassive passive = owned.get().passive();
+                builder = new GuiElementBuilder(passive.item())
+                        .setName(Component.literal("[" + target.label() + "] " + passive.displayName())
+                                .withStyle(ChatFormatting.GOLD))
+                        .hideDefaultTooltip();
+                passive.description().forEach(line -> builder.addLoreLineRaw(gray(line)));
+                builder.addLoreLineRaw(gray("낸 다이아 " + owned.get().paid()))
+                        .addLoreLineRaw(white("클릭: 빼기"))
+                        .setCallback((i, type, action) -> open(new View(null, target, false)));
+            }
+            setSlot(PASSIVE_SLOTS[index], builder);
+        }
         setSlot(31, closeButton());
+    }
+
+    private void drawPassivePicker(DemonLordState state, DemonLordPassiveSlot slot) {
+        DemonLordPassive[] passives = DemonLordPassive.values();
+        for (int i = 0; i < passives.length; i++) {
+            DemonLordPassive passive = passives[i];
+            long cost = passive.cost();
+            boolean affordable = economy.diamond() >= cost;
+            GuiElementBuilder builder = new GuiElementBuilder(passive.item())
+                    .setName(Component.literal(passive.displayName()).withStyle(ChatFormatting.GOLD))
+                    .hideDefaultTooltip();
+            passive.description().forEach(line -> builder.addLoreLineRaw(gray(line)));
+            if (state.loadout().hasPassive(passive)) {
+                builder.addLoreLineRaw(Component.literal("이미 다른 자리에 있습니다.").withStyle(ChatFormatting.DARK_GRAY));
+            } else {
+                builder.addLoreLineRaw(Component.literal("구매 " + cost + " 다이아")
+                                .withStyle(affordable ? ChatFormatting.AQUA : ChatFormatting.RED))
+                        .addLoreLineRaw(white("클릭: [" + slot.label() + "] 자리에 구매"))
+                        .setCallback((index, type, action) -> {
+                            if (report(DemonLordSkillShop.buyPassive(state, economy, slot, passive))) {
+                                open(View.overview());
+                            }
+                        });
+            }
+            setSlot(11 + i * 2, builder);
+        }
+        setSlot(31, backButton());
+    }
+
+    private void drawPassiveManage(DemonLordState state, DemonLordPassiveSlot slot) {
+        Optional<DemonLordLoadout.PassiveEntry> owned = state.loadout().passive(slot);
+        if (owned.isEmpty()) {
+            open(View.overview());
+            return;
+        }
+        DemonLordPassive passive = owned.get().passive();
+        GuiElementBuilder info = new GuiElementBuilder(passive.item())
+                .setName(Component.literal("[" + slot.label() + "] " + passive.displayName()).withStyle(ChatFormatting.GOLD))
+                .hideDefaultTooltip();
+        passive.description().forEach(line -> info.addLoreLineRaw(gray(line)));
+        setSlot(13, info);
+        setSlot(15, new GuiElementBuilder(Items.LAVA_BUCKET)
+                .setName(Component.literal("빼기").withStyle(ChatFormatting.RED))
+                .addLoreLineRaw(Component.literal("환불 " + owned.get().paid() + " 다이아 (전액)").withStyle(ChatFormatting.AQUA))
+                .setCallback((index, type, action) -> {
+                    if (report(DemonLordSkillShop.removePassive(state, economy, slot))) {
+                        open(View.overview());
+                    }
+                }));
+        setSlot(31, backButton());
     }
 
     private void drawPicker(DemonLordState state, DemonLordBinding binding) {

@@ -25,6 +25,7 @@ public final class DemonLordSkillShop {
         SKILL_ALREADY_SLOTTED("이미 다른 슬롯에 있는 스킬입니다."),
         SLOT_EMPTY("빈 슬롯입니다."),
         MAX_TIER("이미 최고 티어입니다."),
+        PASSIVE_ALREADY_SLOTTED("이미 다른 자리에 있는 패시브입니다."),
         UNAVAILABLE("지금은 스킬을 배정할 수 없습니다.");
 
         private final String message;
@@ -115,6 +116,47 @@ public final class DemonLordSkillShop {
             return blocked;
         }
         Optional<DemonLordLoadout.Slot> removed = state.loadout().remove(binding);
+        if (removed.isEmpty()) {
+            return Result.SLOT_EMPTY;
+        }
+        economy.addDiamond(removed.get().paid());
+        state.markLoadoutDirty();
+        return Result.SUCCESS;
+    }
+
+    public static Result buyPassive(DemonLordState state, PlayerEconomy economy, DemonLordPassiveSlot slot,
+            DemonLordPassive passive) {
+        if (state == null || economy == null || slot == null || passive == null) {
+            return Result.UNAVAILABLE;
+        }
+        if (state.inCombat()) {
+            return Result.IN_COMBAT;
+        }
+        DemonLordLoadout loadout = state.loadout();
+        if (loadout.passive(slot).isPresent()) {
+            return Result.SLOT_OCCUPIED;
+        }
+        if (loadout.hasPassive(passive)) {
+            return Result.PASSIVE_ALREADY_SLOTTED;
+        }
+        long cost = passive.cost();
+        if (!economy.spendDiamond(cost)) {
+            return Result.NOT_ENOUGH_DIAMOND;
+        }
+        loadout.assignPassive(slot, passive, cost);
+        state.markLoadoutDirty();
+        return Result.SUCCESS;
+    }
+
+    /** 패시브를 빼고 그 자리에 낸 다이아를 전부 돌려줍니다. */
+    public static Result removePassive(DemonLordState state, PlayerEconomy economy, DemonLordPassiveSlot slot) {
+        if (state == null || economy == null || slot == null) {
+            return Result.UNAVAILABLE;
+        }
+        if (state.inCombat()) {
+            return Result.IN_COMBAT;
+        }
+        Optional<DemonLordLoadout.PassiveEntry> removed = state.loadout().removePassive(slot);
         if (removed.isEmpty()) {
             return Result.SLOT_EMPTY;
         }

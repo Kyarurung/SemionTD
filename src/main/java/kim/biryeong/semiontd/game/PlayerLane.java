@@ -1058,6 +1058,11 @@ public final class PlayerLane {
         }
     }
 
+    /** 같은 팀의 모든 라인(자기 포함). */
+    public List<PlayerLane> teamLanes() {
+        return notificationLanes();
+    }
+
     private List<PlayerLane> notificationLanes() {
         return teamLaneGroup == null ? List.of(this) : List.copyOf(teamLaneGroup.lanes());
     }

@@ -3352,6 +3352,102 @@
       "attackIntervalTicks": 20,
       "aggroPriority": 0
     },
+    "t1_rift_cleave_tower": {
+      "mineralCost": 60,
+      "maxHealth": 100.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t2_rift_cleave_tower": {
+      "mineralCost": 140,
+      "maxHealth": 200.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t3_rift_cleave_tower": {
+      "mineralCost": 255,
+      "maxHealth": 350.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t4_rift_cleave_tower": {
+      "mineralCost": 400,
+      "maxHealth": 550.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t1_summon_fiend_tower": {
+      "mineralCost": 70,
+      "maxHealth": 100.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t2_summon_fiend_tower": {
+      "mineralCost": 160,
+      "maxHealth": 200.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t3_summon_fiend_tower": {
+      "mineralCost": 285,
+      "maxHealth": 350.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t4_summon_fiend_tower": {
+      "mineralCost": 440,
+      "maxHealth": 550.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t1_abyss_vortex_tower": {
+      "mineralCost": 75,
+      "maxHealth": 105.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t2_abyss_vortex_tower": {
+      "mineralCost": 170,
+      "maxHealth": 210.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t3_abyss_vortex_tower": {
+      "mineralCost": 300,
+      "maxHealth": 360.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
+    "t4_abyss_vortex_tower": {
+      "mineralCost": 460,
+      "maxHealth": 570.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 0
+    },
     "gamble_dice_t1": {
       "mineralCost": 45,
       "maxHealth": 10.0,
@@ -4428,6 +4524,15 @@
     "t1_hell_guillotine_tower->t2_hell_guillotine_tower": 240,
     "t2_hell_guillotine_tower->t3_hell_guillotine_tower": 428,
     "t3_hell_guillotine_tower->t4_hell_guillotine_tower": 660,
+    "t1_rift_cleave_tower->t2_rift_cleave_tower": 210,
+    "t2_rift_cleave_tower->t3_rift_cleave_tower": 383,
+    "t3_rift_cleave_tower->t4_rift_cleave_tower": 600,
+    "t1_summon_fiend_tower->t2_summon_fiend_tower": 240,
+    "t2_summon_fiend_tower->t3_summon_fiend_tower": 428,
+    "t3_summon_fiend_tower->t4_summon_fiend_tower": 660,
+    "t1_abyss_vortex_tower->t2_abyss_vortex_tower": 255,
+    "t2_abyss_vortex_tower->t3_abyss_vortex_tower": 450,
+    "t3_abyss_vortex_tower->t4_abyss_vortex_tower": 690,
     "gamble_dice_t1->gamble_dice_t2": 100,
     "gamble_dice_t2->gamble_dice_t3": 200,
     "gamble_spectator_t1->gamble_spectator_t2": 100,
@@ -7501,6 +7606,144 @@
       "radius": 5.5,
       "damage": 139.0,
       "missingHealthDamageBonus": 1.8
+    },
+    "t1_rift_cleave_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 220.0,
+      "radius": 2.5,
+      "damage": 40.0,
+      "waveCount": 5.0,
+      "waveDamage": 18.0,
+      "waveRadius": 1.8,
+      "waveSpacing": 1.8,
+      "waveIntervalTicks": 3.0
+    },
+    "t2_rift_cleave_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 200.0,
+      "radius": 2.6,
+      "damage": 62.0,
+      "waveCount": 6.0,
+      "waveDamage": 28.0,
+      "waveRadius": 1.9,
+      "waveSpacing": 1.8,
+      "waveIntervalTicks": 3.0
+    },
+    "t3_rift_cleave_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 180.0,
+      "radius": 2.8,
+      "damage": 88.0,
+      "waveCount": 7.0,
+      "waveDamage": 40.0,
+      "waveRadius": 2.0,
+      "waveSpacing": 1.8,
+      "waveIntervalTicks": 3.0
+    },
+    "t4_rift_cleave_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 160.0,
+      "radius": 3.0,
+      "damage": 120.0,
+      "waveCount": 8.0,
+      "waveDamage": 55.0,
+      "waveRadius": 2.2,
+      "waveSpacing": 1.8,
+      "waveIntervalTicks": 3.0
+    },
+    "t1_summon_fiend_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 360.0,
+      "range": 6.0,
+      "healthRatio": 0.5,
+      "damage": 14.0,
+      "durationTicks": 160.0,
+      "attackRange": 3.0,
+      "attackIntervalTicks": 20.0
+    },
+    "t2_summon_fiend_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 340.0,
+      "range": 6.5,
+      "healthRatio": 0.65,
+      "damage": 22.0,
+      "durationTicks": 200.0,
+      "attackRange": 3.0,
+      "attackIntervalTicks": 20.0
+    },
+    "t3_summon_fiend_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 320.0,
+      "range": 7.0,
+      "healthRatio": 0.8,
+      "damage": 31.0,
+      "durationTicks": 240.0,
+      "attackRange": 3.0,
+      "attackIntervalTicks": 20.0
+    },
+    "t4_summon_fiend_tower": {
+      "towerSlotCost": 3.0,
+      "cooldownTicks": 300.0,
+      "range": 8.0,
+      "healthRatio": 1.0,
+      "damage": 42.0,
+      "durationTicks": 300.0,
+      "attackRange": 3.0,
+      "attackIntervalTicks": 20.0
+    },
+    "t1_abyss_vortex_tower": {
+      "towerSlotCost": 4.0,
+      "cooldownTicks": 320.0,
+      "placementRange": 10.0,
+      "radius": 5.0,
+      "pullStrength": 0.16,
+      "durationTicks": 60.0,
+      "damage": 8.0,
+      "damageIntervalTicks": 20.0
+    },
+    "t2_abyss_vortex_tower": {
+      "towerSlotCost": 4.0,
+      "cooldownTicks": 300.0,
+      "placementRange": 11.0,
+      "radius": 5.5,
+      "pullStrength": 0.18,
+      "durationTicks": 70.0,
+      "damage": 12.0,
+      "damageIntervalTicks": 20.0
+    },
+    "t3_abyss_vortex_tower": {
+      "towerSlotCost": 4.0,
+      "cooldownTicks": 280.0,
+      "placementRange": 12.0,
+      "radius": 6.0,
+      "pullStrength": 0.2,
+      "durationTicks": 80.0,
+      "damage": 17.0,
+      "damageIntervalTicks": 20.0
+    },
+    "t4_abyss_vortex_tower": {
+      "towerSlotCost": 4.0,
+      "cooldownTicks": 260.0,
+      "placementRange": 14.0,
+      "radius": 7.0,
+      "pullStrength": 0.24,
+      "durationTicks": 100.0,
+      "damage": 23.0,
+      "damageIntervalTicks": 20.0
+    },
+    "demon_lord_passive_blood_cleave": {
+      "cost": 180.0,
+      "cleaveRadius": 2.5,
+      "cleaveRatio": 0.6,
+      "lifeStealRatio": 0.15,
+      "lifeStealCap": 0.04
+    },
+    "demon_lord_passive_legion_echo": {
+      "cost": 260.0,
+      "copies": 5.0
+    },
+    "demon_lord_passive_boundless": {
+      "cost": 120.0
     },
     "gamble_global": {
       "oddEvenWinScore": 70.0,
