@@ -6,6 +6,7 @@ public final class PlayerEconomy {
     private long diamond;
     private long emerald;
     private long income;
+    private long emeraldOverflow;
     private long emeraldPerSec;
     private long augmentEmeraldPerSec;
     private int emeraldProductionUpgradeCount;
@@ -97,6 +98,28 @@ public final class PlayerEconomy {
         }
     }
 
+    /**
+     * 한도를 넘친 생산분을 버리지 않고 초과분으로 쌓습니다(마왕 전용).
+     *
+     * <p>마왕은 교전 중에 에메랄드를 쓸 수 없어 한도에 막힌 생산이 그대로 사라집니다. 초과분은 따로 쌓아 두고
+     * 쓸 때 먼저 빼 가지만, 살 수 있는지는 여전히 한도 안의 에메랄드로만 따집니다. 그래서 낮은 라운드에 한도보다
+     * 비싼 유닛을 사지는 못하고, 한도 안의 구매를 더 여러 번 할 수 있을 뿐입니다.
+     */
+    public void addEmeraldWithOverflow(long amount, long cap) {
+        if (amount <= 0) {
+            return;
+        }
+        long room = Math.max(0, cap - emerald);
+        long kept = Math.min(room, amount);
+        emerald += kept;
+        emeraldOverflow += amount - kept;
+    }
+
+    /** 한도를 넘어 쌓인 에메랄드(마왕 전용). 화면에는 (+N)으로 보입니다. */
+    public long emeraldOverflow() {
+        return emeraldOverflow;
+    }
+
     public void addGas(long amount, long cap) {
         addEmerald(amount, cap);
     }
@@ -104,6 +127,13 @@ public final class PlayerEconomy {
     public void addIncome(long amount) {
         if (amount > 0) {
             income += amount;
+        }
+    }
+
+    /** 인컴 타워를 팔면 그 타워가 올려 둔 인컴만큼 내립니다. 0 아래로는 내려가지 않습니다. */
+    public void removeIncome(long amount) {
+        if (amount > 0) {
+            income = Math.max(0, income - amount);
         }
     }
 
@@ -123,7 +153,9 @@ public final class PlayerEconomy {
         if (amount < 0 || emerald < amount) {
             return false;
         }
-        emerald -= amount;
+        long fromOverflow = Math.min(emeraldOverflow, amount);
+        emeraldOverflow -= fromOverflow;
+        emerald -= amount - fromOverflow;
         return true;
     }
 

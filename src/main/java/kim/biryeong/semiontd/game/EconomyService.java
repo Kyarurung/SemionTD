@@ -12,6 +12,7 @@ import kim.biryeong.semiontd.entity.monster.MonsterOrigin;
 import kim.biryeong.semiontd.job.JobContext;
 import kim.biryeong.semiontd.job.PirateTowerJob;
 import kim.biryeong.semiontd.summon.SummonMonsterType;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordIncome;
 import kim.biryeong.semiontd.tower.pirate.PirateStates;
 
 public final class EconomyService {
@@ -43,7 +44,13 @@ public final class EconomyService {
         long multiplier = economyConfig.emeraldIncomeMultiplierForRound(currentRound);
         for (SemionPlayer player : players) {
             if (isEconomyEligible(player, teams)) {
-                player.economy().addEmerald(player.economy().emeraldPerSec() * multiplier, emeraldCap);
+                long produced = player.economy().emeraldPerSec() * multiplier;
+                // 마왕은 교전 중 에메랄드를 못 쓰므로 한도를 넘친 생산분을 초과분으로 쌓아 둡니다.
+                if (DemonLordIncome.isDemonLord(player)) {
+                    player.economy().addEmeraldWithOverflow(produced, emeraldCap);
+                } else {
+                    player.economy().addEmerald(produced, emeraldCap);
+                }
             }
         }
     }
