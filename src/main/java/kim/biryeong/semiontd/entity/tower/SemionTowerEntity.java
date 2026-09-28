@@ -1512,6 +1512,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         SemionBilModelCache.load(modelId).ifPresent(model -> {
             holder = new LivingEntityHolder<>(this, model);
             holderAttachment = EntityAttachment.ofTicking(holder, this);
+            // playAnimation은 같은 상태면 건너뛰므로, 새 모델에는 지금 상태(처음엔 idle)를 여기서 바로 틉니다.
+            holder.getAnimator().playAnimation(animationState.animationId(), 1, true);
         });
     }
 

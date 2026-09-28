@@ -619,6 +619,10 @@ public final class PlayerLane {
                     IllagerRaidStates.onMonsterKilled(players, monster);
                     notifyNearbyMonsterDeath(monster, monsterDeathPosition(monster));
                 });
+                if (monster.hasMinecraftEntity()
+                        && arenaWorld.getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity dying) {
+                    dying.showDeathVisual();
+                }
                 discardMinecraftEntity(monster);
                 monster.markRemoved();
                 iterator.remove();

@@ -3,7 +3,9 @@ package kim.biryeong.semiontd.entity.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -42,6 +44,59 @@ final class SemionBilModelGlowTest {
                 }
             }
         }
+    }
+
+    @Test
+    void multiAxisCubesAreWrappedInGroupsThatCarryTheirRotation() throws IOException {
+        JsonObject model = read("/model/semion-td/invasion/dark_priest.bbmodel");
+        java.util.Map<String, JsonArray> before = new java.util.HashMap<>();
+        for (JsonElement element : model.getAsJsonArray("elements")) {
+            JsonObject object = element.getAsJsonObject();
+            if (object.has("rotation")) {
+                before.put(object.get("uuid").getAsString(), object.getAsJsonArray("rotation").deepCopy());
+            }
+        }
+
+        assertEquals(7, SemionBilModelCache.wrapMultiAxisRotations(model), "The priest's side skirt panels and bust are tilted on several axes.");
+        assertEquals(0, SemionBilModelCache.wrapMultiAxisRotations(model), "Wrapping twice changes nothing.");
+
+        java.util.Map<String, JsonObject> groups = new java.util.HashMap<>();
+        for (JsonElement group : model.getAsJsonArray("groups")) {
+            groups.put(group.getAsJsonObject().get("uuid").getAsString(), group.getAsJsonObject());
+        }
+        int wrapped = 0;
+        for (JsonElement element : model.getAsJsonArray("elements")) {
+            JsonObject object = element.getAsJsonObject();
+            long axes = !object.has("rotation") ? 0 : object.getAsJsonArray("rotation").asList().stream()
+                    .filter(v -> Math.abs(v.getAsDouble()) > 1.0e-4).count();
+            assertTrue(axes <= 1, object.get("name").getAsString() + " still rotates on several axes");
+            JsonObject parent = parentOf(model.getAsJsonArray("outliner"), object.get("uuid").getAsString());
+            if (parent != null && groups.get(parent.get("uuid").getAsString()).get("name").getAsString().endsWith("_rot")) {
+                assertEquals(before.get(object.get("uuid").getAsString()), groups.get(parent.get("uuid").getAsString()).get("rotation"),
+                        "The wrapping group carries the cube's original rotation.");
+                wrapped++;
+            }
+        }
+        assertEquals(7, wrapped);
+    }
+
+    private static JsonObject parentOf(JsonArray children, String uuid) {
+        for (JsonElement child : children) {
+            if (!child.isJsonObject()) {
+                continue;
+            }
+            JsonArray nested = child.getAsJsonObject().getAsJsonArray("children");
+            for (JsonElement grandChild : nested) {
+                if (grandChild.isJsonPrimitive() && uuid.equals(grandChild.getAsString())) {
+                    return child.getAsJsonObject();
+                }
+            }
+            JsonObject found = parentOf(nested, uuid);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private static JsonObject read(String path) throws IOException {
