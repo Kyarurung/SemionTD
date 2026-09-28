@@ -1848,6 +1848,86 @@
       "attackIntervalTicks": 20,
       "aggroPriority": 4
     },
+    "mage_prophecy_goblin_scout": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_elf_assassin": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_dark_priest": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_dwarf_gunner": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_troll_javelineer": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_orc_warrior": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_necromancer": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_siege_golem": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_legion_commander": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
+    "mage_prophecy_ogre_champion": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
     "engineer_copper_golem": {
       "mineralCost": 30,
       "maxHealth": 1.0,

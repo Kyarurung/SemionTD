@@ -1428,6 +1428,320 @@
         "supportRetryDelayTicks": 20.0,
         "physicalCanary": 0.0
       }
+    },
+    "goblin_scout": {
+      "id": "goblin_scout",
+      "displayName": "고블린 정찰병",
+      "enabled": true,
+      "emeraldCost": 50,
+      "incomeGain": 3,
+      "maxHealth": 45.0,
+      "armor": 0.0,
+      "resistance": 0.0,
+      "attackDamage": 3.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/goblin_scout",
+      "dimensions": {
+        "width": 0.6,
+        "height": 1.0
+      },
+      "diamondReward": 3,
+      "tier": "T1",
+      "roles": [
+        "RUSH",
+        "SWARM"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "작고 빠른 정찰병입니다. 싸게 세워 일찍부터 인컴을 올립니다."
+      ],
+      "abilityValues": {}
+    },
+    "elf_assassin": {
+      "id": "elf_assassin",
+      "displayName": "엘프 암살자",
+      "enabled": true,
+      "emeraldCost": 110,
+      "incomeGain": 5,
+      "maxHealth": 90.0,
+      "armor": 1.0,
+      "resistance": 4.0,
+      "attackDamage": 9.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/elf_assassin",
+      "dimensions": {
+        "width": 0.6,
+        "height": 1.9
+      },
+      "diamondReward": 6,
+      "tier": "T2",
+      "roles": [
+        "RUSH"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "날랜 단검 암살자입니다. 체력은 낮지만 공격이 매섭습니다."
+      ],
+      "abilityValues": {}
+    },
+    "dark_priest": {
+      "id": "dark_priest",
+      "displayName": "암흑 신관",
+      "enabled": true,
+      "emeraldCost": 140,
+      "incomeGain": 6,
+      "maxHealth": 100.0,
+      "armor": 1.0,
+      "resistance": 8.0,
+      "attackDamage": 5.0,
+      "attackKind": "RANGED",
+      "damageType": "MAGIC",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/dark_priest",
+      "dimensions": {
+        "width": 0.6,
+        "height": 1.9
+      },
+      "diamondReward": 7,
+      "tier": "T2",
+      "roles": [
+        "SUPPORT"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "멀리서 마법 피해를 주는 사제입니다."
+      ],
+      "abilityValues": {}
+    },
+    "dwarf_gunner": {
+      "id": "dwarf_gunner",
+      "displayName": "드워프 총병",
+      "enabled": true,
+      "emeraldCost": 170,
+      "incomeGain": 8,
+      "maxHealth": 150.0,
+      "armor": 4.0,
+      "resistance": 2.0,
+      "attackDamage": 12.0,
+      "attackKind": "RANGED",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/dwarf_gunner",
+      "dimensions": {
+        "width": 0.7,
+        "height": 1.5
+      },
+      "diamondReward": 9,
+      "tier": "T3",
+      "roles": [
+        "RUSH"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "단단한 몸으로 버티며 멀리서 총을 쏩니다."
+      ],
+      "abilityValues": {}
+    },
+    "troll_javelineer": {
+      "id": "troll_javelineer",
+      "displayName": "트롤 투창병",
+      "enabled": true,
+      "emeraldCost": 230,
+      "incomeGain": 10,
+      "maxHealth": 190.0,
+      "armor": 2.0,
+      "resistance": 2.0,
+      "attackDamage": 14.0,
+      "attackKind": "RANGED",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/troll_javelineer",
+      "dimensions": {
+        "width": 0.9,
+        "height": 2.7
+      },
+      "diamondReward": 12,
+      "tier": "T3",
+      "roles": [
+        "RUSH"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "키 큰 트롤이 긴 창을 던집니다."
+      ],
+      "abilityValues": {}
+    },
+    "orc_warrior": {
+      "id": "orc_warrior",
+      "displayName": "오크 전사",
+      "enabled": true,
+      "emeraldCost": 290,
+      "incomeGain": 13,
+      "maxHealth": 260.0,
+      "armor": 6.0,
+      "resistance": 2.0,
+      "attackDamage": 16.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/orc_warrior",
+      "dimensions": {
+        "width": 1.2,
+        "height": 2.6
+      },
+      "diamondReward": 15,
+      "tier": "T3",
+      "roles": [
+        "TANK",
+        "RUSH"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "도끼를 든 튼튼한 근접 전사입니다."
+      ],
+      "abilityValues": {}
+    },
+    "necromancer": {
+      "id": "necromancer",
+      "displayName": "강령술사",
+      "enabled": true,
+      "emeraldCost": 350,
+      "incomeGain": 15,
+      "maxHealth": 230.0,
+      "armor": 3.0,
+      "resistance": 14.0,
+      "attackDamage": 12.0,
+      "attackKind": "RANGED",
+      "damageType": "MAGIC",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/necromancer",
+      "dimensions": {
+        "width": 0.6,
+        "height": 2.0
+      },
+      "diamondReward": 18,
+      "tier": "T4",
+      "roles": [
+        "SUPPORT",
+        "DISRUPTOR"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "해골 지팡이로 강한 마법 피해를 줍니다."
+      ],
+      "abilityValues": {}
+    },
+    "siege_golem": {
+      "id": "siege_golem",
+      "displayName": "공성 골렘",
+      "enabled": true,
+      "emeraldCost": 470,
+      "incomeGain": 20,
+      "maxHealth": 460.0,
+      "armor": 16.0,
+      "resistance": 6.0,
+      "attackDamage": 20.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/siege_golem",
+      "dimensions": {
+        "width": 1.6,
+        "height": 2.4
+      },
+      "diamondReward": 24,
+      "tier": "T4",
+      "roles": [
+        "SIEGE",
+        "TANK"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "두꺼운 돌 몸으로 버티며 공성추 주먹으로 부숩니다."
+      ],
+      "abilityValues": {}
+    },
+    "legion_commander": {
+      "id": "legion_commander",
+      "displayName": "군단장",
+      "enabled": true,
+      "emeraldCost": 590,
+      "incomeGain": 25,
+      "maxHealth": 580.0,
+      "armor": 14.0,
+      "resistance": 10.0,
+      "attackDamage": 30.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/legion_commander",
+      "dimensions": {
+        "width": 1.6,
+        "height": 2.9
+      },
+      "diamondReward": 30,
+      "tier": "T5",
+      "roles": [
+        "TANK"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "거대한 방패와 소드스태프를 든 군단의 지휘관입니다."
+      ],
+      "abilityValues": {}
+    },
+    "ogre_champion": {
+      "id": "ogre_champion",
+      "displayName": "오우거 투사",
+      "enabled": true,
+      "emeraldCost": 710,
+      "incomeGain": 30,
+      "maxHealth": 760.0,
+      "armor": 10.0,
+      "resistance": 6.0,
+      "attackDamage": 36.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:zombie",
+      "blockbenchModelId": "semion-td:invasion/ogre_champion",
+      "dimensions": {
+        "width": 1.8,
+        "height": 3.4
+      },
+      "diamondReward": 36,
+      "tier": "T5",
+      "roles": [
+        "TANK"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "가장 큰 거인 투사입니다. 가시 몽둥이로 내려찍습니다."
+      ],
+      "abilityValues": {}
     }
   }
 }
