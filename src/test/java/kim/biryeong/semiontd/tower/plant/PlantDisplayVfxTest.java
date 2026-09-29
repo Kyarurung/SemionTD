@@ -26,14 +26,16 @@ class PlantDisplayVfxTest {
     private static List<DisplayEffect> allEffects() {
         return List.of(
                 PlantDisplayVfx.pitcherLob(new Vector3f(0, 0, 12), 5.0, 2.5, true, 7L),
-                PlantDisplayVfx.lilacCone(0.0F, 3.0, 70.0, 7L),
+                PlantDisplayVfx.lilacCone(0.0F, 5.0, 130.0, 7L),
                 PlantDisplayVfx.tulipNova(3.0, 7L),
                 PlantDisplayVfx.meadowPulse(4.0, 7L),
                 PlantDisplayVfx.meadowHeal(7L),
                 PlantDisplayVfx.sandSlow(7L),
                 PlantDisplayVfx.mineFuse(7L),
                 PlantDisplayVfx.mineBurst(3.0, 7L),
-                PlantDisplayVfx.pandaImpact(1.5, 7L));
+                PlantDisplayVfx.pandaImpact(1.5, 7L),
+                PlantDisplayVfx.pandaDash(0.0F, 8, 7L),
+                PlantDisplayVfx.pandaDashTrail(0.0F, 7.0, 8, 7L));
     }
 
     @Test

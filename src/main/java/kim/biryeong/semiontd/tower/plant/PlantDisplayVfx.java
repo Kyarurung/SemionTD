@@ -46,12 +46,15 @@ public final class PlantDisplayVfx {
     static final DisplaySprite WALL_TULIP = DisplaySprite.cylinder("wall_tulip", DIR);
     static final DisplaySprite WALL_LEAF = DisplaySprite.cylinder("wall_leaf", DIR);
     static final DisplaySprite WALL_SPORE = DisplaySprite.cylinder("wall_spore", DIR);
+    static final DisplaySprite POLLEN_STREAK = DisplaySprite.cross("pollen_streak", DIR);
+    static final DisplaySprite WIND_STREAK = DisplaySprite.cross("wind_streak", DIR);
+    static final DisplaySprite WIND_ARC = DisplaySprite.flat("wind_arc", DIR);
 
     /** 리소스팩에 넣을 텍스처. */
     public static final List<DisplaySprite> SPRITES = List.of(
             WATER_DROP, WATER_RING, WATER_FLASH, VINE_RING, PETAL_TULIP, PETAL_LILAC, PETAL_RING, TULIP_FLASH, POLLEN,
             LEAF, LEAF_FLASH, HEAL_RING, SAND_PUFF, DUST_PUFF, SPORE, SPORE_RING, SPORE_FLASH, BAMBOO_LEAF,
-            WALL_WATER, WALL_TULIP, WALL_LEAF, WALL_SPORE);
+            WALL_WATER, WALL_TULIP, WALL_LEAF, WALL_SPORE, POLLEN_STREAK, WIND_STREAK, WIND_ARC);
 
     // 침공군 흙먼지 고리를 그대로 빌려 씁니다(리소스팩에는 침공군 목록으로 이미 들어갑니다).
     private static final DisplaySprite DUST_RING = DisplaySprite.flat("dust_ring", INVASION_DIR);
@@ -115,27 +118,24 @@ public final class PlantDisplayVfx {
     // ------------------------------------------------------------------ 라일락
 
     /**
-     * 라일락 꽃가루: 맞은 자리에서 {@code yaw} 방향 {@code coneDegrees} 부채꼴로 꽃가루 뭉치와 꽃잎이 흩날립니다.
-     * 기준점은 맞은 적의 발밑입니다.
+     * 라일락 꽃가루: 맞은 자리에서 {@code yaw} 방향 {@code coneDegrees} 부채꼴을 고르게 나눠, 꽃가루 줄기 아홉 가닥이
+     * 반경 끝까지 곧게 뻗습니다. 한 가닥 걸러 끝에 꽃가루 뭉치가 터집니다. 기준점은 맞은 적의 발밑입니다.
      */
     public static DisplayEffect lilacCone(float yaw, double radius, double coneDegrees, long seed) {
         DisplayEffect effect = effect("lilac_cone", 16);
         DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
-        double half = Math.toRadians(Math.max(10.0, coneDegrees) / 2.0);
-        int puffs = 8;
-        for (int index = 0; index < puffs + 4; index++) {
-            boolean petal = index >= puffs;
-            double angle = shapes.random(-half, half);
-            double reach = radius * shapes.random(0.45, 1.0);
-            Vector3f from = shapes.local(0, 1.0, 0.2);
-            Vector3f to = shapes.local(Math.sin(angle) * reach, 0.6 + shapes.random(0.0, 0.8), Math.cos(angle) * reach);
-            float size = (float) (petal ? shapes.random(0.35, 0.5) : shapes.random(0.6, 0.95));
-            Quaternionf roll = new Quaternionf().rotateZ((float) shapes.random(0, Math.PI * 2));
-            Quaternionf rollEnd = new Quaternionf(roll).rotateZ((float) shapes.random(1.0, 3.0));
-            int travel = 4 + (int) shapes.random(0, 3);
-            effect.part(petal ? PETAL_LILAC : POLLEN, Pose.of(from, roll, vec(size * 0.4, size * 0.4, 1)))
-                    .to(2, travel, Pose.of(to, rollEnd, vec(size, size, 1)))
-                    .to(2 + travel + 3, 4, Pose.of(new Vector3f(to).add(0, -0.4F, 0), rollEnd, vec(0, 0, 1)));
+        double half = Math.toRadians(Math.min(170.0, Math.max(10.0, coneDegrees)) / 2.0);
+        int streaks = 9;
+        for (int index = 0; index < streaks; index++) {
+            double angle = -half + 2.0 * half * index / (streaks - 1);
+            double reach = radius * shapes.random(0.88, 1.0);
+            Vector3f from = shapes.local(Math.sin(angle) * 0.3, 0.7, Math.cos(angle) * 0.3);
+            Vector3f to = shapes.local(Math.sin(angle) * reach, 0.45, Math.cos(angle) * reach);
+            int lag = index % 2;
+            shapes.beam(POLLEN_STREAK, from, to, 0.55, 2 + lag, 2, 7 + lag, 4);
+            if (index % 2 == 0) {
+                shapes.pop(POLLEN, new Vector3f(to).add(0, 0.2F, 0), 0.8, 4 + lag, 2, 8, 4);
+            }
         }
         return effect;
     }
@@ -225,6 +225,56 @@ public final class PlantDisplayVfx {
     }
 
     // ------------------------------------------------------------------ 판다
+
+    /**
+     * 판다 몸에 붙어 따라가는 돌진 연출({@link DisplayEffect#follow}). 등 뒤로 바람 줄기 네 가닥이 늘어지고, 몸 앞에
+     * 바람 초승달 두 장이 {@code durationTicks} 동안 버팁니다. 방향은 돌진을 시작할 때의 {@code yaw}로 고정합니다.
+     */
+    public static DisplayEffect pandaDash(float yaw, int durationTicks, long seed) {
+        int last = 2 + Math.max(1, durationTicks);
+        DisplayEffect effect = effect("panda_dash", last + 4);
+        DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
+        double[][] lines = {{-0.45, 0.5}, {0.45, 0.5}, {-0.3, 1.2}, {0.3, 1.2}};
+        for (double[] line : lines) {
+            shapes.beam(WIND_STREAK, shapes.local(line[0], line[1], -0.5), shapes.local(line[0] * 1.2, line[1], -2.6),
+                    0.32, 2, 1, last, 3);
+        }
+        for (int index = 0; index < 2; index++) {
+            double size = index == 0 ? 2.2 : 1.6;
+            Vector3f at = shapes.local(0, index == 0 ? 0.9 : 0.35, 0.95 - size * 0.48);
+            Quaternionf rotation = shapes.localRotation(0, 0, 0);
+            effect.part(WIND_ARC, Pose.of(at, rotation, vec(0, 1, 0)))
+                    .to(2, 1, Pose.of(at, rotation, vec(size, 1, size)))
+                    .to(last, 3, Pose.of(at, rotation, vec(0, 1, 0)));
+        }
+        return effect;
+    }
+
+    /**
+     * 돌진 경로에 남는 흙먼지. 판다가 지나가는 때에 맞춰 발밑에서 차례로 피어오릅니다. 기준점은 돌진 시작 발밑입니다.
+     */
+    public static DisplayEffect pandaDashTrail(float yaw, double distance, int durationTicks, long seed) {
+        int puffs = 5;
+        DisplayEffect effect = effect("panda_dash_trail", 2 + durationTicks + 12);
+        DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
+        for (int index = 0; index < puffs; index++) {
+            int at = 2 + index * Math.max(1, durationTicks) / puffs;
+            Vector3f foot = shapes.local(shapes.random(-0.35, 0.35), 0.25, distance * index / puffs);
+            Vector3f risen = new Vector3f(foot).add(0, 0.45F, 0);
+            Quaternionf roll = new Quaternionf().rotateZ((float) shapes.random(0, Math.PI * 2));
+            effect.part(DUST_PUFF, Pose.of(foot, roll, vec(0, 0, 1)))
+                    .to(at, 2, Pose.of(foot, roll, vec(0.8, 0.8, 1)))
+                    .to(at + 2, 8, Pose.of(risen, roll, vec(0, 0, 1)));
+        }
+        return effect;
+    }
+
+    /** 엔티티에 붙여 띄웁니다. 예산이 차면 띄우지 않습니다. */
+    static void follow(DisplayEffect effect, net.minecraft.world.entity.Entity entity) {
+        if (entity != null) {
+            effect.follow(entity);
+        }
+    }
 
     /** 판다 돌진이 적을 들이받은 자리: 흙먼지 고리와 대나무 잎이 튑니다. 기준점은 판다의 발밑입니다. */
     public static DisplayEffect pandaImpact(double radius, long seed) {

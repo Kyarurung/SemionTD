@@ -112,6 +112,7 @@ public class PandaTower extends ProductionTower {
         Vec3 start = source.position();
         Vec3 direction = horizontal(target.position().subtract(start));
         Vec3 end = start.add(direction.scale(distance));
+        showDash(source, direction, distance, CHARGE_VFX_TICKS);
         double damage = chargeDamage();
         double knockback = ability("chargeKnockback");
         int debuffTicks = abilityTicks("chargeDebuffTicks");
@@ -162,6 +163,20 @@ public class PandaTower extends ProductionTower {
         // 타워라, 속도만 주면 이후 이동은 평소 경로 탐색이 이어받기 때문입니다.
         source.setDeltaMovement(direction.x * knockback, 0.25, direction.z * knockback);
         source.hurtMarked = true;
+    }
+
+    /** 돌진 연출이 버티는 틱. 판다가 속도를 받아 밀려 나가는 동안입니다. */
+    private static final int CHARGE_VFX_TICKS = 6;
+
+    /** 판다 몸에 붙는 바람 줄기·초승달과, 경로에 차례로 피는 흙먼지. */
+    private static void showDash(SemionTowerEntity source, Vec3 direction, double distance, int durationTicks) {
+        if (!(source.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return;
+        }
+        float yaw = kim.biryeong.semiontd.vfx.DisplayShapes.yawOf(direction.x, direction.z);
+        long seed = PlantDisplayVfx.seed(level);
+        PlantDisplayVfx.follow(PlantDisplayVfx.pandaDash(yaw, durationTicks, seed), source);
+        PlantDisplayVfx.play(level, PlantDisplayVfx.pandaDashTrail(yaw, distance, durationTicks, seed), source.position());
     }
 
     private static void knockBack(SemionMonsterEntity monster, Vec3 from, double strength) {
