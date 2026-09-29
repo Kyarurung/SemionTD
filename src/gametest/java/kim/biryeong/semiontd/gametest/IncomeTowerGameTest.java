@@ -69,6 +69,26 @@ public final class IncomeTowerGameTest {
             GridPosition grid = GridPosition.from(position);
             require(lane.towerAt(grid) instanceof IncomeTower, "The lane must hold the income tower.");
             IncomeTower tower = (IncomeTower) lane.towerAt(grid);
+            var towerEntities = context.getLevel().getEntitiesOfClass(
+                    kim.biryeong.semiontd.entity.tower.SemionTowerEntity.class,
+                    new net.minecraft.world.phys.AABB(position).inflate(3.0), entity -> entity.runtimeTower() == tower);
+            if (towerEntities.isEmpty()) {
+                context.fail(net.minecraft.network.chat.Component.literal("No income tower body near " + position));
+                return;
+            }
+            var towerEntity = towerEntities.getFirst();
+            net.minecraft.world.phys.Vec3 facing = net.minecraft.world.phys.Vec3.directionFromRotation(0.0F, towerEntity.getYRot());
+            // 레인 경로를 따라 입구 쪽(몹이 오는 쪽)을 봐야 합니다. 기본값(남쪽)이면 레인과 어긋납니다.
+            var layout = lane.laneLayout();
+            double progress = layout.progressAt(towerEntity.position());
+            net.minecraft.world.phys.Vec3 upLane = layout.positionAt(Math.max(0.0, progress - 0.05))
+                    .subtract(layout.positionAt(Math.min(1.0, progress + 0.05)));
+            double length = Math.sqrt(upLane.x * upLane.x + upLane.z * upLane.z);
+            if (length < 1.0e-6 || (facing.x * upLane.x + facing.z * upLane.z) / length < 0.9) {
+                context.fail(net.minecraft.network.chat.Component.literal("Income tower must face up the lane: yaw="
+                        + towerEntity.getYRot() + " facing=" + facing + " upLane=" + upLane));
+                return;
+            }
             require(game.towerCapacityUsed(owner) == slotsBefore + 1, "An income tower must take a tower slot.");
             require(economy.emerald() == emeraldBefore - buildCost, "Building must be paid in emerald.");
             require(economy.income() == incomeBefore + incomePerLevel, "Building must raise the round income.");

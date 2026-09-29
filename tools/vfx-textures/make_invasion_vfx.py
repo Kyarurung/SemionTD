@@ -50,6 +50,41 @@ def swing_arc(name, colors):
     return c.save(name)
 
 
+def swing_arc_frames(name, colors, frames):
+    """플립북용 검 궤적 여러 장. 앞 장일수록 선명하고, 뒤로 갈수록 꼬리부터 사라지며 색이 어두워지고 도트가
+    듬성듬성 빠져 흐려집니다. 게임에서는 한 틱마다 한 장씩 바꿔 끼워 흐려지는 것처럼 보입니다."""
+    names = []
+    for k in range(frames):
+        fade = k / max(1, frames - 1)                   # 0 = 첫 장, 1 = 마지막 장
+        c = Canvas(64, 64)
+
+        def fn(x, y, fade=fade):
+            dx, dy = x - 32.0, y - 32.0
+            r = math.hypot(dx, dy)
+            if r < 15.0 or r > 31.5:
+                return None
+            angle = math.degrees(math.atan2(dx, dy))
+            if abs(angle) > 55.0:
+                return None
+            t = (angle + 55.0) / 110.0
+            if t < fade * 0.55:                          # 꼬리부터 사라집니다
+                return None
+            radial = (r - 15.0) / 16.5
+            heat = t ** 1.4 * (0.35 + 0.65 * radial ** 1.5)
+            if radial > 0.9:
+                heat = max(heat, 0.35 + 0.65 * t)
+            heat *= 1.0 - fade * 0.45
+            if heat < 0.08:
+                return None
+            # 흐려질수록 도트를 규칙적으로 빼서 성기게 합니다(투명도를 보간하지 못하는 디스플레이용).
+            if fade > 0 and ((int(x) * 7 + int(y) * 13) % 10) < fade * 6:
+                return None
+            return ramp(colors, heat * 1.05 + 0.05), alpha_step((0.2 + heat) * (1.0 - fade * 0.35))
+        c.field(fn)
+        names.append(c.save(f"{name}_{k}"))
+    return names
+
+
 def javelin():
     """트롤 투창. 세로로 긴 판(위가 창끝)이라 교차 모델에 씌워 날아가는 방향으로 눕힙니다."""
     c = Canvas(8, 64)
@@ -172,7 +207,7 @@ def holy_ring():
 
 TEXTURES = [
     javelin, smoke,
-    lambda: swing_arc("gold_arc", GOLD),
+    lambda: swing_arc_frames("gold_arc", GOLD, 4),
     lambda: base.beam("tracer", GOLD),
     lambda: base.flash("muzzle", base.FIRE),
     lambda: base.circle("holy_circle", HOLY, 6, 2, 12),
@@ -189,7 +224,10 @@ TEXTURES = [
 
 
 if __name__ == "__main__":
-    made = [make() for make in TEXTURES]
+    made = []
+    for make in TEXTURES:
+        result = make()
+        made.extend(result if isinstance(result, list) else [result])
     print("wrote", len(made), "textures to", base.OUT)
     if "--sheet" in sys.argv:
         base.contact_sheet(made, sys.argv[sys.argv.index("--sheet") + 1])
