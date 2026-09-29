@@ -122,54 +122,86 @@ def swing_arc():
 
 
 def wing():
-    """박쥐 날개. 왼쪽 위 어깨에서 오른쪽으로 뼈 네 가닥이 뻗고, 그 사이 막은 아래로 오목하게 파입니다."""
-    c = Canvas(64, 64)
-    shoulder = (3.0, 14.0)
-    tips = [(60.0, 6.0), (62.0, 26.0), (52.0, 46.0), (34.0, 58.0), (14.0, 50.0)]
+    """박쥐 날개. 부채처럼 한 점에서 뼈가 퍼지지 않도록 실제 박쥐 날개 구조를 따릅니다.
 
-    def inside_membrane(x, y):
-        # 인접한 두 뼈와 어깨가 만드는 삼각형 안이면서, 두 끝을 잇는 오목한 호의 위쪽
-        for (ax, ay), (bx, by) in zip(tips, tips[1:]):
-            if point_in_tri(x, y, shoulder, (ax, ay), (bx, by)):
-                mx, my = (ax + bx) / 2, (ay + by) / 2
-                # 어깨 쪽으로 파인 가장자리
-                dx, dy = shoulder[0] - mx, shoulder[1] - my
-                length = math.hypot(dx, dy)
-                nx, ny = dx / length, dy / length
-                span = math.hypot(bx - ax, by - ay)
-                cx, cy = mx + nx * -span * 0.55, my + ny * -span * 0.55
-                radius = math.hypot(ax - cx, ay - cy)
-                if math.hypot(x - cx, y - cy) < radius:
-                    return None
-                edge = abs(math.hypot(x - cx, y - cy) - radius)
-                return edge
-        return None
+    어깨(왼쪽)에서 위팔·아래팔 뼈가 앞날(위쪽 가장자리)을 따라 손목까지 뻗고, 손가락 뼈 네 가닥은 손목에서
+    갈라져 나갑니다. 손가락 사이 막은 끝과 끝을 잇는 가장자리가 안쪽으로 오목하게 처지고, 맨 뒤 막은 몸통(왼쪽
+    아래)까지 이어집니다. 손목에는 엄지 발톱이 튀어나옵니다.
+    """
+    c = Canvas(64, 64)
+    shoulder = (3.0, 22.0)
+    elbow = (21.0, 11.0)
+    wrist = (38.0, 7.0)
+    fingers = [(63.0, 9.0), (60.0, 28.0), (48.0, 43.0), (31.0, 50.0)]
+    body = (4.0, 38.0)
+
+    def scallop_center(a, b, inside, sag_ratio):
+        """a–b 가장자리가 {inside} 쪽으로 처지는 호의 원(중심·반지름). 원 안은 막이 파인 곳입니다."""
+        mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+        half = math.hypot(b[0] - a[0], b[1] - a[1]) / 2
+        sag = max(0.5, half * 2 * sag_ratio)
+        # 가장자리의 법선 중 막 바깥쪽(inside의 반대)을 고릅니다.
+        nx, ny = -(b[1] - a[1]), b[0] - a[0]
+        length = math.hypot(nx, ny)
+        nx, ny = nx / length, ny / length
+        if (inside[0] - mx) * nx + (inside[1] - my) * ny > 0:
+            nx, ny = -nx, -ny
+        k = (half * half - sag * sag) / (2 * sag)
+        cx, cy = mx + nx * k, my + ny * k
+        return cx, cy, math.hypot(a[0] - cx, a[1] - cy)
+
+    # 막 조각: 손가락 사이 세 장(손목·끝·끝)과 몸통 쪽 한 장(어깨·팔꿈치·손목·마지막 손가락·몸통)
+    panels = []
+    for a, b in zip(fingers, fingers[1:]):
+        panels.append(([wrist, a, b], (a, b)))
+    panels.append(([shoulder, elbow, wrist, fingers[-1], body], (fingers[-1], body)))
+    scallops = [scallop_center(a, b, wrist if len(poly) == 3 else elbow, 0.16) for poly, (a, b) in panels]
+
+    def in_poly(x, y, poly):
+        inside = False
+        for (ax, ay), (bx, by) in zip(poly, poly[1:] + poly[:1]):
+            if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / (by - ay) + ax:
+                inside = not inside
+        return inside
 
     for y in range(64):
         for x in range(64):
-            edge = inside_membrane(x + 0.5, y + 0.5)
-            if edge is None:
-                continue
-            dist = math.hypot(x - shoulder[0], y - shoulder[1]) / 62.0
-            if edge < 1.2:
-                c.put(x, y, CRIMSON[3], 255)
-            elif edge < 2.4:
-                c.put(x, y, CRIMSON[2], 230)
-            else:
-                shade = SHADOW[3] if dist < 0.3 else SHADOW[2] if dist < 0.6 else SHADOW[1]
-                c.put(x, y, shade, 225)
-    # 뼈
-    for tip in tips:
-        line(c, shoulder, tip, SHADOW[0], 255, width=1)
-        line(c, (shoulder[0], shoulder[1] - 1), (tip[0], tip[1] - 1), CRIMSON[1], 255, width=0)
-    for tip in tips:
-        c.put(int(tip[0]), int(tip[1]), CRIMSON[4], 255)
-    # 어깨 관절과 발톱
-    for dx in range(-2, 3):
-        for dy in range(-2, 3):
-            if dx * dx + dy * dy <= 4:
-                c.put(int(shoulder[0]) + dx, int(shoulder[1]) + dy, SHADOW[0], 255)
-    c.put(int(shoulder[0]) + 1, int(shoulder[1]) - 3, CRIMSON[3], 255)
+            px, py = x + 0.5, y + 0.5
+            for (poly, _), (cx, cy, radius) in zip(panels, scallops):
+                if not in_poly(px, py, poly):
+                    continue
+                gap = math.hypot(px - cx, py - cy) - radius
+                if gap < 0:
+                    break
+                depth = math.hypot(px - wrist[0], py - wrist[1]) / 52.0
+                if gap < 1.1:
+                    c.put(x, y, CRIMSON[3], 255)            # 처진 가장자리의 붉은 테
+                elif gap < 2.2:
+                    c.put(x, y, CRIMSON[1], 235)
+                else:
+                    shade = SHADOW[3] if depth < 0.35 else SHADOW[2] if depth < 0.7 else SHADOW[1]
+                    c.put(x, y, shade, 225)
+                break
+    # 막의 핏줄: 손가락 사이로 흐르는 가는 붉은 선
+    for a, b in zip(fingers, fingers[1:]):
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        vein_end = (wrist[0] + (mid[0] - wrist[0]) * 0.72, wrist[1] + (mid[1] - wrist[1]) * 0.72)
+        line(c, wrist, vein_end, CRIMSON[0], 200, width=0)
+    # 뼈: 팔(앞날, 굵게)과 손목에서 갈라지는 손가락
+    for a, b in ((shoulder, elbow), (elbow, wrist)):
+        line(c, a, b, SHADOW[0], 255, width=1)
+        line(c, (a[0], a[1] - 1), (b[0], b[1] - 1), CRIMSON[2], 255, width=0)
+    for tip in fingers:
+        line(c, wrist, tip, SHADOW[0], 255, width=0)
+        c.over(int(tip[0]), int(tip[1]), CRIMSON[4], 255)
+    # 관절 마디와 손목 엄지 발톱
+    for joint, size in ((shoulder, 2), (elbow, 1), (wrist, 1)):
+        for dx in range(-size, size + 1):
+            for dy in range(-size, size + 1):
+                if dx * dx + dy * dy <= size * size:
+                    c.put(int(joint[0]) + dx, int(joint[1]) + dy, SHADOW[0], 255)
+    for step, (dx, dy) in enumerate(((0, -1), (1, -2), (2, -3), (3, -3))):
+        c.put(int(wrist[0]) + dx, int(wrist[1]) + dy, CRIMSON[4] if step == 3 else CRIMSON[2], 255)
     return c.save("wing")
 
 
