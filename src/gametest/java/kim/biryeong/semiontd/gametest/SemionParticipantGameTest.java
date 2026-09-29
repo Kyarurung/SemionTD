@@ -8771,9 +8771,9 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
                 "magma_cube", "ocelot", "vindicator", "witch", "iron_golem", "blaze", "shulker",
                 "ghast", "zoglin", "wither_skeleton", "evoker", "elder_guardian", "warden",
                 "goblin_scout", "elf_assassin", "dark_priest", "dwarf_gunner", "troll_javelineer",
-                "orc_warrior", "necromancer", "siege_golem", "legion_commander", "ogre_champion"
+                "orc_warrior", "necromancer", "creaking", "siege_golem", "legion_commander", "ogre_champion"
         );
-        if (!assertEquals(context, 54, SummonRegistry.all().size(), "Default income registry should contain the 44 legacy summons and the 10 income tower units.")) {
+        if (!assertEquals(context, 55, SummonRegistry.all().size(), "Default income registry should contain the 44 legacy summons and the 11 income tower units.")) {
             return;
         }
         for (String summonId : expectedSummonIds) {
@@ -8796,7 +8796,7 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
         SummonConfig.SummonDefinition chicken = SummonConfig.defaultConfig().summons().get("chicken");
         SummonConfig partial = new SummonConfig(Map.of("chicken", chicken));
         SummonConfig merged = partial.withMissingDefaults(SummonConfig.defaultConfig());
-        if (!assertEquals(context, 54, merged.summons().size(), "Summon config should append missing default summon ids.")) {
+        if (!assertEquals(context, 55, merged.summons().size(), "Summon config should append missing default summon ids.")) {
             return;
         }
         if (!assertPresent(context, Optional.ofNullable(merged.summons().get("warden")), "Missing T5 summon should be appended.")) {

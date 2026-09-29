@@ -26,6 +26,7 @@ public final class DemonLordSkillShop {
         SLOT_EMPTY("빈 슬롯입니다."),
         MAX_TIER("이미 최고 티어입니다."),
         PASSIVE_ALREADY_SLOTTED("이미 다른 자리에 있는 패시브입니다."),
+        PACT_LOCKED("파멸의 계약은 시작된 뒤에는 뺄 수 없습니다."),
         UNAVAILABLE("지금은 스킬을 배정할 수 없습니다.");
 
         private final String message;
@@ -144,6 +145,9 @@ public final class DemonLordSkillShop {
             return Result.NOT_ENOUGH_DIAMOND;
         }
         loadout.assignPassive(slot, passive, cost);
+        if (passive == DemonLordPassive.DOOM_PACT) {
+            state.resetPactCount();
+        }
         state.markLoadoutDirty();
         return Result.SUCCESS;
     }
@@ -156,9 +160,16 @@ public final class DemonLordSkillShop {
         if (state.inCombat()) {
             return Result.IN_COMBAT;
         }
+        Optional<DemonLordLoadout.PassiveEntry> current = state.loadout().passive(slot);
+        if (current.isPresent() && current.get().passive() == DemonLordPassive.DOOM_PACT && state.pactRoundsServed() > 0) {
+            return Result.PACT_LOCKED;
+        }
         Optional<DemonLordLoadout.PassiveEntry> removed = state.loadout().removePassive(slot);
         if (removed.isEmpty()) {
             return Result.SLOT_EMPTY;
+        }
+        if (removed.get().passive() == DemonLordPassive.DOOM_PACT) {
+            state.resetPactCount();
         }
         economy.addDiamond(removed.get().paid());
         state.markLoadoutDirty();

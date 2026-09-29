@@ -200,6 +200,10 @@ public final class DemonLordService {
                 // 은신한 몬스터는 지정해서 벨 수 없습니다.
                 return InteractionResult.FAIL;
             }
+            if (state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)) {
+                // 검기 패시브: 근접 평타는 없습니다. 같은 클릭의 휘두름 패킷이 검기를 쏩니다({@link #handleSwing}).
+                return InteractionResult.SUCCESS;
+            }
             // 마검 평타. 바닐라 피해 대신 런타임 피해로 넣어야 몹의 방어/저항이 정상 적용됩니다.
             //
             // 바닐라 공격 쿨다운은 바닐라 피해 경로에만 걸리므로, 여기서 직접 걸지 않으면 연타가
@@ -221,16 +225,56 @@ public final class DemonLordService {
             if (lane != null && state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
                 DemonLordPassives.bloodCleave(attacker, lane, state, altar, monsterEntity, swing, result.dealtDamage());
             }
-            if (result.dealtDamage() > 0.0 && lane != null) {
-                double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), now);
-                if (ratio > 0.0) {
-                    kim.biryeong.semiontd.augment.AugmentCombat.runWithoutTriggers(() -> dealDamage(
-                            attacker, lane, altar, monsterEntity, state.bladeDamage() * ratio, DamageType.PHYSICAL));
-                }
-            }
+            applyFinisher(attacker, lane, state, altar, monsterEntity, result.dealtDamage());
             playSwing(attacker, charge);
             return InteractionResult.SUCCESS;
         });
+    }
+
+    /** 마무리 동작 증강: 평타(또는 검기의 첫 적중)가 피해를 줬으면 대기 중인 추가 피해를 넣습니다. */
+    static void applyFinisher(ServerPlayer attacker, PlayerLane lane, DemonLordState state, DemonLordSkillTower altar,
+            SemionMonsterEntity target, double dealt) {
+        if (dealt <= 0.0 || lane == null) {
+            return;
+        }
+        double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), attacker.level().getGameTime());
+        if (ratio > 0.0) {
+            kim.biryeong.semiontd.augment.AugmentCombat.runWithoutTriggers(() -> dealDamage(
+                    attacker, lane, altar, target, state.bladeDamage() * ratio, DamageType.PHYSICAL));
+        }
+    }
+
+    /**
+     * 좌클릭 휘두름. 클라이언트는 허공·블록·엔티티 어디를 치든 휘두름 패킷을 보내므로, 검기 패시브는 여기서 쏩니다.
+     * 서버 스레드에서 불러야 합니다.
+     */
+    public static void handleSwing(SemionGameManager gameManager, ServerPlayer player) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state == null || !state.inCombat() || !state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)
+                || player.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
+            return;
+        }
+        long now = player.level().getGameTime();
+        if (state.swingIgnored(now)) {
+            return;
+        }
+        PlayerLane lane = gameManager.playableGame(player.getUUID())
+                .flatMap(game -> game.playerLane(player.getUUID()))
+                .orElse(null);
+        if (lane == null) {
+            return;
+        }
+        List<DemonLordSkillTower> altars = orderedAltars(lane, player.getUUID());
+        int interval = (int) TowerBalanceRuntime.ability(DemonLordTowers.GLOBAL_CONFIG_ID, "bladeAttackIntervalTicks", 12.0);
+        DemonLordPassives.fireBladeWave(player, lane, state, altars.isEmpty() ? null : altars.getFirst(), now, interval);
+    }
+
+    /** Q(버리기)를 누르면 클라이언트가 팔도 휘두릅니다. 그 휘두름은 검기로 치지 않습니다. */
+    public static void ignoreDropSwing(ServerPlayer player) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state != null) {
+            state.ignoreSwingUntil(player.level().getGameTime() + 1);
+        }
     }
 
     /** Called once per lane tick from {@code PlayerLane}. */
@@ -278,6 +322,11 @@ public final class DemonLordService {
         if (!state.inCombat()) {
             restoreFlight(player);
             releaseAggro(player, gameTime);
+            if (state.consumePactEndedNotice()) {
+                player.displayClientMessage(Component.literal("파멸의 계약이 끝났습니다. 레벨과 스탯이 처음으로 돌아갑니다.")
+                        .withStyle(ChatFormatting.DARK_RED), false);
+                player.playNotifySound(SoundEvents.WITHER_DEATH, SoundSource.PLAYERS, 0.6f, 1.2f);
+            }
             return;
         }
 
@@ -288,7 +337,12 @@ public final class DemonLordService {
         }
         enforceCombatArea(player, lane, state);
         state.expireShieldIfNeeded(gameTime);
-        lockFlight(player);
+        if (state.loadout().hasPassive(DemonLordPassive.DARK_FLIGHT)) {
+            restoreFlight(player);
+            capAltitude(player, lane);
+        } else {
+            lockFlight(player);
+        }
         rescueFromVoid(player, lane);
         DemonLordSkills.tickPending(player, lane, state, gameTime);
         detectSkillCast(player, lane, state, gameTime);
@@ -402,6 +456,7 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.get(lane.ownerPlayer());
         if (state != null) {
             state.syncAugments(lane.augmentSnapshot());
+            state.countPactRound();
             state.enterCombat();
             state.augments().beginTargeted(lane.augmentSnapshot(), round, state.maxHealth());
             if (state.loadout().hasPassive(DemonLordPassive.LEGION_ECHO)) {
@@ -426,6 +481,7 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.get(playerId);
         if (state != null) {
             state.standDown();
+            state.settlePact();
         }
     }
 
@@ -646,6 +702,20 @@ public final class DemonLordService {
             player.getAbilities().mayfly = false;
             player.getAbilities().flying = false;
             player.onUpdateAbilities();
+        }
+    }
+
+    /** 어둠의 비상: 레인 바닥에서 정해 둔 높이 위로는 오르지 못하게 눌러 둡니다. */
+    private static void capAltitude(ServerPlayer player, PlayerLane lane) {
+        if (lane.laneLayout() == null || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        double ceiling = lane.laneLayout().laneArea().min().getY()
+                + Math.max(1.0, DemonLordPassive.DARK_FLIGHT.ability("maxAltitude", 10.0));
+        if (player.getY() > ceiling) {
+            player.teleportTo(player.getX(), ceiling, player.getZ());
+            Vec3 motion = player.getDeltaMovement();
+            player.setDeltaMovement(motion.x, Math.min(0.0, motion.y), motion.z);
         }
     }
 

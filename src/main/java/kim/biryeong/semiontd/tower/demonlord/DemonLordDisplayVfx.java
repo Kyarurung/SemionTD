@@ -37,6 +37,8 @@ public final class DemonLordDisplayVfx {
     static final List<DisplaySprite> SWING_ARC_FRAMES = List.of(
             DisplaySprite.flat("swing_arc_0", DIR), DisplaySprite.flat("swing_arc_1", DIR),
             DisplaySprite.flat("swing_arc_2", DIR), DisplaySprite.flat("swing_arc_3", DIR));
+    /** 검기 패시브의 초승달. 볼록한 쪽이 앞(+Z)입니다. */
+    static final DisplaySprite BLADE_WAVE = DisplaySprite.flat("blade_wave", DIR);
     static final DisplaySprite VORTEX = DisplaySprite.flat("vortex", DIR);
     static final DisplaySprite VOID_CORE = DisplaySprite.billboard("void_core", DIR);
     static final DisplaySprite WING = DisplaySprite.upright("wing", DIR);
@@ -62,7 +64,7 @@ public final class DemonLordDisplayVfx {
     public static final List<DisplaySprite> SPRITES = List.of(
             SLASH, RIFT, SWING_ARC_FRAMES.get(0), SWING_ARC_FRAMES.get(1), SWING_ARC_FRAMES.get(2), SWING_ARC_FRAMES.get(3), VORTEX, VOID_CORE, SHOCKWAVE_CRIMSON, SHOCKWAVE_VIOLET, CRACK, SIGIL, CIRCLE_ARCANE, WING, BLADE, BARRIER,
             BEAM_CRIMSON, BEAM_ARCANE, BEAM_SOUL, SPIKE_BLOCK, SPIKE_CORE, CLAW, CHAIN, RUNE, SHARD, BOLT, FEATHER, FLAME, SOUL,
-            FLASH_CRIMSON, FLASH_ARCANE
+            FLASH_CRIMSON, FLASH_ARCANE, BLADE_WAVE
     );
 
     private DemonLordDisplayVfx() {
@@ -580,6 +582,36 @@ public final class DemonLordDisplayVfx {
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(7), 0), 0.5, radius * 2.0, 2, 3, 5, 3, 25, 1.08);
         shapes.pop(FLASH_CRIMSON, vec(0, 1.0, 0), 1.4, 2, 1, 3, 3);
         shapes.burst(SHARD, 4, vec(0, 1.0, 0), radius * 0.6, 0.35, 0.8, 0.5, 2, 4, 6, 3);
+        return effect;
+    }
+
+    // ------------------------------------------------------------ 검기
+
+    /** 검기 초승달의 지름(칸). */
+    static final double BLADE_WAVE_SIZE = 2.6;
+
+    /**
+     * 검기: 초승달이 시선 방향({@code yaw}, {@code pitchDeg})으로 {@code length}칸을 틱당 {@code speed}칸씩 날아갑니다.
+     *
+     * <p>판은 옆으로 35° 기울여, 1인칭에서도 판이 옆으로 누워 선처럼 보이지 않게 합니다. 3틱째부터 움직이며, 서버의
+     * 피해 판정도 같은 틱부터 같은 속도로 전진합니다({@code DemonLordPassives.BLADE_WAVE_DELAY}).
+     */
+    public static DisplayEffect bladeWave(float yaw, float pitchDeg, double length, double speed, long seed) {
+        int start = 3;
+        int travel = Math.max(1, (int) Math.ceil(length / Math.max(0.05, speed)));
+        DisplayEffect effect = new DisplayEffect("blade_wave", start + travel + 3);
+        DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
+        Quaternionf rotation = shapes.localRotation(0.0, pitchDeg, -35.0);
+        Vector3f forward = rotation.transform(new Vector3f(0.0F, 0.0F, 1.0F));
+        double back = BLADE_WAVE_SIZE * 0.48;
+        double first = Math.min(length, speed);
+        Vector3f from = new Vector3f(forward).mul((float) (first - back));
+        Vector3f to = new Vector3f(forward).mul((float) (length - back));
+        Vector3f full = vec(BLADE_WAVE_SIZE, 1, BLADE_WAVE_SIZE);
+        effect.part(BLADE_WAVE, Pose.of(from, rotation, vec(0, 1, 0)))
+                .to(2, 0, Pose.of(from, rotation, full))
+                .to(start, travel, Pose.of(to, rotation, full))
+                .to(start + travel, 2, Pose.of(new Vector3f(to).add(new Vector3f(forward).mul(0.6F)), rotation, vec(0, 1, 0)));
         return effect;
     }
 

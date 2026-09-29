@@ -1512,6 +1512,7 @@ public final class SemionGame {
      */
     private void dispatchIncomeTowers() {
         IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(waveConfig, currentRound);
+        java.util.Random guardRandom = new java.util.Random();
         for (SemionTeam team : livingTeams()) {
             for (PlayerLane lane : team.laneGroup().lanes()) {
                 for (Tower tower : List.copyOf(lane.towers())) {
@@ -1520,6 +1521,15 @@ public final class SemionGame {
                     }
                     SemionPlayer owner = players.get(tower.ownerPlayer());
                     if (owner == null) {
+                        continue;
+                    }
+                    var demonLord = kim.biryeong.semiontd.tower.demonlord.DemonLordStates.get(owner.uuid());
+                    if (demonLord != null && demonLord.loadout().hasPassive(
+                            kim.biryeong.semiontd.tower.demonlord.DemonLordPassive.INVASION_GUARD)) {
+                        // 침공군 호위: 적 레인으로 보내는 대신 무작위 아군 라인을 이 웨이브 동안 지킵니다.
+                        IncomeTowerService.createDispatch(this, owner, incomeTower, owner.teamId(), lane.laneId(), scale)
+                                .ifPresent(unit -> kim.biryeong.semiontd.tower.demonlord.DemonLordPassives.deployInvasionGuard(
+                                        lane, incomeTower.type(), unit, currentRound, guardRandom));
                         continue;
                     }
                     // 보낼 팀은 소환 몹과 같은 규칙(팀장 지정 팀 → 무작위 적 팀)으로 정합니다.

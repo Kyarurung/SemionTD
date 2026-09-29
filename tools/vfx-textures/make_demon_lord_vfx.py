@@ -715,9 +715,32 @@ def void_core():
         c.put(x, y, VIOLET[1], 255)
     return c.save("void_core")
 
+def blade_wave():
+    """Crescent sword wave (blade_wave): thick in the middle, thin at the tips. The bulge faces image-down,
+    the same direction as the swing arc's front (+Z in game). The outer edge is brightest."""
+    c = Canvas(64, 64)
+
+    def fn(x, y):
+        dx, dy = x - 32.0, y - 32.0
+        outer = math.hypot(dx, dy)
+        inner = math.hypot(dx, dy + 11.0)
+        if outer > 31.5 or inner < 30.0 or dy < -2.0:
+            return None
+        thickness = max(1e-3, 31.5 - 30.0 + 11.0 * max(0.0, dy / 31.5))
+        edge = 1.0 - min(1.0, (31.5 - outer) / thickness)
+        middle = 1.0 - min(1.0, abs(dx) / 31.5)
+        heat = 0.25 + 0.55 * edge ** 1.2 + 0.3 * middle
+        if heat < 0.1:
+            return None
+        return ramp(CRIMSON, min(1.0, heat)), alpha_step(0.35 + 0.65 * min(1.0, heat))
+    c.field(fn)
+    return c.save("blade_wave")
+
+
 TEXTURES = [
     slash, rift, vortex, void_core, wing, spike_block, spike_core, claw, blade, crack, rune, shard, barrier, chain, bolt, feather,
     lambda: swing_arc_frames("swing_arc", CRIMSON, 4),
+    blade_wave,
     lambda: beam("beam_crimson", CRIMSON),
     lambda: beam("beam_arcane", MAGENTA),
     lambda: beam("beam_soul", SOUL),

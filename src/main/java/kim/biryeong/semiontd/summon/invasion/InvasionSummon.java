@@ -27,6 +27,10 @@ public final class InvasionSummon extends BasicIncomeSummon {
     public Monster createMonster(SummonContext context, TeamId targetTeam, int targetLaneId, int scalingRound) {
         Monster monster = super.createMonster(context, targetTeam, targetLaneId, scalingRound);
         monster.applyCombatProfile(profile.moveSpeed(), profile.attackRange(), profile.intervalTicks());
+        if ("creaking".equals(id())) {
+            // 크리킹: 한 번에 받는 피해가 최대 체력의 일정 비율을 넘지 않습니다.
+            monster.setMaxHitHealthRatio(abilityValue("maxHitHealthRatio", 0.05));
+        }
         return monster;
     }
 
@@ -86,6 +90,7 @@ public final class InvasionSummon extends BasicIncomeSummon {
                         abilityValue("auraDamageReduction", 0.2),
                         abilityValue("auraAttackBonus", 0.2)));
             }
+            case "creaking" -> entity.setAttackStyle(InvasionAttacks.single(hit, null));
             case "ogre_champion" -> {
                 double splash = abilityValue("splashRadius", 2.8);
                 entity.setAttackStyle(InvasionAttacks.area(hit, splash,

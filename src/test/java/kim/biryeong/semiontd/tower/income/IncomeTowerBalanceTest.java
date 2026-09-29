@@ -47,7 +47,13 @@ class IncomeTowerBalanceTest {
         for (String id : IncomeTowerBalance.UNIT_IDS) {
             SummonConfig.SummonDefinition definition = defaults.summons().get(id);
             assertTrue(definition != null && definition.enabled(), "Missing default summon " + id);
-            assertEquals("semion-td:invasion/" + id, definition.blockbenchModelId());
+            if ("creaking".equals(id)) {
+                // The creaking keeps the vanilla model instead of a Blockbench one.
+                assertEquals("minecraft:creaking", definition.entityTypeId());
+                assertEquals(null, definition.blockbenchModelId());
+            } else {
+                assertEquals("semion-td:invasion/" + id, definition.blockbenchModelId());
+            }
             assertTrue(definition.emeraldCost() > 0 && definition.incomeGain() > 0, "Unit " + id + " must cost and pay.");
         }
     }

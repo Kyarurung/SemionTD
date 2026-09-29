@@ -4924,6 +4924,32 @@ public record TowerBalanceConfig(
         LinkedHashMap<String, Double> boundless = new LinkedHashMap<>();
         boundless.put("cost", 120.0);
         putAbilities(abilities, "demon_lord_passive_boundless", boundless);
+        LinkedHashMap<String, Double> bladeWave = new LinkedHashMap<>();
+        bladeWave.put("cost", 200.0);
+        bladeWave.put("damageRatio", 0.6);
+        bladeWave.put("range", 14.0);
+        bladeWave.put("speed", 1.4);
+        bladeWave.put("hitRadius", 1.1);
+        putAbilities(abilities, "demon_lord_passive_blade_wave", bladeWave);
+        LinkedHashMap<String, Double> darkFlight = new LinkedHashMap<>();
+        darkFlight.put("cost", 150.0);
+        darkFlight.put("maxAltitude", 10.0);
+        putAbilities(abilities, "demon_lord_passive_dark_flight", darkFlight);
+        LinkedHashMap<String, Double> doomPact = new LinkedHashMap<>();
+        doomPact.put("cost", 100.0);
+        doomPact.put("rounds", 5.0);
+        doomPact.put("healthMultiplier", 2.5);
+        doomPact.put("damageMultiplier", 2.5);
+        doomPact.put("defenseBonus", 0.3);
+        doomPact.put("cooldownMultiplier", 0.6);
+        doomPact.put("rangeMultiplier", 1.3);
+        doomPact.put("moveSpeedBonus", 0.25);
+        putAbilities(abilities, "demon_lord_passive_doom_pact", doomPact);
+        LinkedHashMap<String, Double> invasionGuard = new LinkedHashMap<>();
+        invasionGuard.put("cost", 150.0);
+        invasionGuard.put("healthRatio", 1.0);
+        invasionGuard.put("damageRatio", 1.0);
+        putAbilities(abilities, "demon_lord_passive_invasion_guard", invasionGuard);
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier <= DemonLordSkill.MAX_TIER; tier++) {

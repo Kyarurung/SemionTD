@@ -735,6 +735,17 @@ public final class Monster {
         damage(amount, DamageType.PHYSICAL);
     }
 
+    private double maxHitHealthRatio;
+
+    /** 한 번에 받는 피해의 상한(최대 체력 비율). 0이면 상한이 없습니다. */
+    public void setMaxHitHealthRatio(double ratio) {
+        maxHitHealthRatio = Math.max(0.0, ratio);
+    }
+
+    public double maxHitHealthRatio() {
+        return maxHitHealthRatio;
+    }
+
     public void damage(double amount, DamageType incomingDamageType) {
         damageResult(amount, incomingDamageType);
     }
@@ -754,6 +765,10 @@ public final class Monster {
                 : amount * 100.0 / (100.0 + Math.max(0.0, defense));
         double absorbed = damageType == DamageType.TRUE ? 0.0 : shield(damageType).absorb(effectiveDamage, supportGameTime);
         effectiveDamage -= absorbed;
+        if (maxHitHealthRatio > 0.0) {
+            // 크리킹처럼 한 번에 받는 피해에 상한이 있는 몬스터.
+            effectiveDamage = Math.min(effectiveDamage, maxHealth * maxHitHealthRatio);
+        }
         double applied = Math.min(health, effectiveDamage);
         health = Math.max(0, health - effectiveDamage);
         if (health <= 0) {
