@@ -2,10 +2,15 @@ package kim.biryeong.semiontd.tower.demonlord;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import kim.biryeong.semiontd.entity.monster.DamageType;
+import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
@@ -22,9 +27,15 @@ import kim.biryeong.semiontd.tower.hero.HeroPartyTower;
 import kim.biryeong.semiontd.tower.mage.MageTowers;
 import kim.biryeong.semiontd.tower.succubus.SuccubusTowers;
 import kim.biryeong.semiontd.tower.warlock.WarlockTowers;
+import kim.biryeong.semiontd.vfx.DisplayShapes;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 
@@ -59,6 +70,155 @@ public final class DemonLordPassives {
             state.heal(heal);
         }
         DemonLordVfx.play(lane, DemonLordDisplayVfx.bloodCleave(radius, DemonLordVfx.seed(lane)), centre);
+    }
+
+    // ------------------------------------------------------------ 검기
+
+    /** 검기가 시전 후 움직이기 시작하는 틱. 연출의 첫 이동 키프레임과 맞춥니다. */
+    static final int BLADE_WAVE_DELAY = 3;
+
+    /**
+     * 날아가는 검기 하나. 연출은 쏠 때 끝점까지 한 번에 짜 두고, 피해는 매 틱 연출과 같은 속도로 한 구간씩 전진하며
+     * 그 구간에 걸친 적에게 줍니다. 한 적은 한 번만 맞습니다.
+     */
+    public static final class BladeWave {
+        final Vec3 origin;
+        final Vec3 direction;
+        final double speed;
+        final double length;
+        final double damage;
+        final double hitRadius;
+        final long startTick;
+        final DemonLordSkillTower altar;
+        final Set<Integer> hit = new HashSet<>();
+        double travelled;
+        boolean firstHit;
+
+        BladeWave(Vec3 origin, Vec3 direction, double speed, double length, double damage, double hitRadius,
+                long startTick, DemonLordSkillTower altar) {
+            this.origin = origin;
+            this.direction = direction;
+            this.speed = speed;
+            this.length = length;
+            this.damage = damage;
+            this.hitRadius = hitRadius;
+            this.startTick = startTick;
+            this.altar = altar;
+        }
+
+        public double length() {
+            return length;
+        }
+    }
+
+    /**
+     * 좌클릭으로 검기를 쏩니다. 평타 간격이 다 차지 않았으면 쏘지 않습니다(연타로 약한 검기를 뿌리지 않게).
+     *
+     * @return 쐈으면 {@code true}
+     */
+    static boolean fireBladeWave(ServerPlayer player, PlayerLane lane, DemonLordState state, DemonLordSkillTower altar,
+            long gameTime, int intervalTicks) {
+        if (state.bladeChargeScale(gameTime, intervalTicks) < 1.0) {
+            return false;
+        }
+        state.recordBladeAttack(gameTime);
+        DemonLordPassive passive = DemonLordPassive.BLADE_WAVE;
+        double range = Math.max(1.0, passive.ability("range", 14.0));
+        double speed = Math.max(0.2, passive.ability("speed", 1.4));
+        Vec3 direction = player.getLookAngle().normalize();
+        Vec3 origin = player.getEyePosition().subtract(0.0, 0.4, 0.0);
+        HitResult clip = player.level().clip(new ClipContext(origin, origin.add(direction.scale(range)),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        double length = clip.getType() == HitResult.Type.MISS ? range : Math.max(0.5, clip.getLocation().distanceTo(origin));
+        double damage = state.bladeDamage() * passive.ability("damageRatio", 0.6);
+        state.bladeWaves().add(new BladeWave(origin, direction, speed, length, damage,
+                Math.max(0.1, passive.ability("hitRadius", 1.1)), gameTime + BLADE_WAVE_DELAY, altar));
+        float yaw = DisplayShapes.yawOf(direction.x, direction.z);
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.bladeWave(yaw, player.getXRot(), length, speed, DemonLordVfx.seed(lane)), origin);
+        if (player.level() instanceof ServerLevel level) {
+            level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 0.8f);
+        }
+        return true;
+    }
+
+    /** 날아가는 검기를 한 틱 전진시킵니다. */
+    static void tickBladeWaves(ServerPlayer player, PlayerLane lane, DemonLordState state, long gameTime) {
+        List<BladeWave> waves = state.bladeWaves();
+        if (waves.isEmpty() || lane.arenaWorld() == null) {
+            return;
+        }
+        for (Iterator<BladeWave> iterator = waves.iterator(); iterator.hasNext(); ) {
+            BladeWave wave = iterator.next();
+            if (gameTime <= wave.startTick) {
+                continue;
+            }
+            double from = wave.travelled;
+            double to = Math.min(wave.length, from + wave.speed);
+            wave.travelled = to;
+            advance(player, lane, state, wave, wave.origin.add(wave.direction.scale(from)), wave.origin.add(wave.direction.scale(to)));
+            if (to >= wave.length) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private static void advance(ServerPlayer player, PlayerLane lane, DemonLordState state, BladeWave wave, Vec3 from, Vec3 to) {
+        AABB sweep = new AABB(from, to).inflate(wave.hitRadius + 1.0);
+        List<SemionMonsterEntity> struck = new ArrayList<>(lane.arenaWorld().getEntitiesOfClass(SemionMonsterEntity.class, sweep,
+                entity -> entity.isAlive() && entity.runtimeMonster() != null && !wave.hit.contains(entity.getId())
+                        && state.canFight(entity.runtimeMonster())
+                        && crosses(entity.getBoundingBox().inflate(wave.hitRadius), from, to)));
+        struck.sort(Comparator.comparingDouble(entity -> entity.position().distanceToSqr(wave.origin)));
+        for (SemionMonsterEntity target : struck) {
+            wave.hit.add(target.getId());
+            double dealt = DemonLordService.dealDamage(player, lane, wave.altar, target, wave.damage, DamageType.PHYSICAL).dealtDamage();
+            if (wave.firstHit) {
+                continue;
+            }
+            // 폭발(흡혈 참격)과 마무리 동작은 처음 맞은 적에게서만 터집니다.
+            wave.firstHit = true;
+            if (state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
+                bloodCleave(player, lane, state, wave.altar, target, wave.damage, dealt);
+            }
+            DemonLordService.applyFinisher(player, lane, state, wave.altar, target, dealt);
+        }
+    }
+
+    /** 선분이 상자를 지나가는지(시작점이 상자 안이어도 참). */
+    static boolean crosses(AABB box, Vec3 from, Vec3 to) {
+        return box.contains(from) || box.clip(from, to).isPresent();
+    }
+
+    // ------------------------------------------------------------ 침공군 호위
+
+    /**
+     * 인컴 타워가 보낼 유닛을 적 레인 대신 무작위 아군 라인의 빈자리에 호위로 세웁니다.
+     *
+     * @return 세웠으면 {@code true}. 어느 아군 라인에도 빈자리가 없으면 {@code false}이고, 그때는 유닛을 보내지 않습니다.
+     */
+    public static boolean deployInvasionGuard(PlayerLane ownLane, TowerType incomeType, Monster unit, int round, Random random) {
+        List<PlayerLane> lanes = new ArrayList<>(ownLane.teamLanes().stream()
+                .filter(lane -> lane.arenaWorld() != null && lane.laneLayout() != null).toList());
+        Collections.shuffle(lanes, random);
+        DemonLordPassive passive = DemonLordPassive.INVASION_GUARD;
+        TowerType type = InvasionGuardTower.type(incomeType, unit,
+                passive.ability("healthRatio", 1.0), passive.ability("damageRatio", 1.0));
+        for (PlayerLane lane : lanes) {
+            List<GridPosition> free = freePositions(lane);
+            if (free.isEmpty()) {
+                continue;
+            }
+            GridPosition at = free.get(random.nextInt(free.size()));
+            InvasionGuardTower guard = new InvasionGuardTower(type, ownLane.ownerPlayer(), ownLane.teamId(), lane.laneId(), at);
+            lane.addTower(guard);
+            // 웨이브 시작 처리가 이미 지나간 뒤에 들어오므로 시작 표시를 직접 해 줍니다.
+            guard.markWaveStarted(round);
+            guard.onWaveStarted(lane, round);
+            DemonLordVfx.play(lane, DemonLordDisplayVfx.echo(DemonLordVfx.seed(lane)), new Vec3(at.x() + 0.5, at.y() + 1.0, at.z() + 0.5));
+            return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------ 군단의 잔영

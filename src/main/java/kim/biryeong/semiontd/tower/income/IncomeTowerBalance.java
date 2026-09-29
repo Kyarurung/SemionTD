@@ -24,6 +24,7 @@ public final class IncomeTowerBalance {
             "troll_javelineer",
             "orc_warrior",
             "necromancer",
+            "creaking",
             "siege_golem",
             "legion_commander",
             "ogre_champion"

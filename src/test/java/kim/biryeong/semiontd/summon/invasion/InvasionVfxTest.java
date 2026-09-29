@@ -81,7 +81,7 @@ class InvasionVfxTest {
     @Test
     void everyUnitHitsBeforeItsNextSwingStarts() {
         for (String unit : List.of("goblin_scout", "elf_assassin", "dark_priest", "dwarf_gunner", "troll_javelineer",
-                "orc_warrior", "necromancer", "siege_golem", "legion_commander", "ogre_champion")) {
+                "orc_warrior", "necromancer", "creaking", "siege_golem", "legion_commander", "ogre_champion")) {
             InvasionUnits.Profile profile = InvasionUnits.profile(unit);
             assertTrue(profile.hitDelayTicks() < profile.intervalTicks(), unit + " must land its hit before the next attack");
         }

@@ -1920,6 +1920,14 @@
       "attackIntervalTicks": 20,
       "aggroPriority": 4
     },
+    "mage_prophecy_creaking": {
+      "mineralCost": 0,
+      "maxHealth": 45.0,
+      "range": 0.0,
+      "damage": 0.0,
+      "attackIntervalTicks": 20,
+      "aggroPriority": 4
+    },
     "mage_prophecy_ogre_champion": {
       "mineralCost": 0,
       "maxHealth": 45.0,
@@ -7824,6 +7832,32 @@
     },
     "demon_lord_passive_boundless": {
       "cost": 120.0
+    },
+    "demon_lord_passive_blade_wave": {
+      "cost": 200.0,
+      "damageRatio": 0.6,
+      "range": 14.0,
+      "speed": 1.4,
+      "hitRadius": 1.1
+    },
+    "demon_lord_passive_dark_flight": {
+      "cost": 150.0,
+      "maxAltitude": 10.0
+    },
+    "demon_lord_passive_doom_pact": {
+      "cost": 100.0,
+      "rounds": 5.0,
+      "healthMultiplier": 2.5,
+      "damageMultiplier": 2.5,
+      "defenseBonus": 0.3,
+      "cooldownMultiplier": 0.6,
+      "rangeMultiplier": 1.3,
+      "moveSpeedBonus": 0.25
+    },
+    "demon_lord_passive_invasion_guard": {
+      "cost": 150.0,
+      "healthRatio": 1.0,
+      "damageRatio": 1.0
     },
     "gamble_global": {
       "oddEvenWinScore": 70.0,

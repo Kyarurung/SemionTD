@@ -167,6 +167,25 @@ public final class InvasionUnitGameTest {
 
     // ------------------------------------------------------------------ 준비
 
+    @GameTest(maxTicks = 40)
+    public void creakingNeverLosesMoreThanItsHitCapAtOnce(GameTestHelper context) {
+        guard(context, () -> {
+            Fixture fixture = Fixture.start(context);
+            try {
+                SemionMonsterEntity creaking = fixture.spawn("creaking", fixture.combatEntity.position());
+                Monster monster = creaking.runtimeMonster();
+                double max = monster.maxHealth();
+                monster.damage(max * 10.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+                require(Math.abs(monster.health() - max * 0.95) < 1.0e-6,
+                        "A huge hit must only take 5% of the creaking's max health, left " + monster.health() + "/" + max);
+                require(creaking.isAlive(), "The creaking must survive the huge hit.");
+            } finally {
+                fixture.close();
+            }
+            context.succeed();
+        });
+    }
+
     private static final class Fixture {
         final GameTestHelper context;
         final SemionGame game;

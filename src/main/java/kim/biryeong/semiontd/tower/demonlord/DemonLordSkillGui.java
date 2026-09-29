@@ -180,6 +180,10 @@ public final class DemonLordSkillGui extends SimpleGui {
                 .setName(Component.literal("[" + slot.label() + "] " + passive.displayName()).withStyle(ChatFormatting.GOLD))
                 .hideDefaultTooltip();
         passive.description().forEach(line -> info.addLoreLineRaw(gray(line)));
+        if (passive == DemonLordPassive.DOOM_PACT) {
+            info.addLoreLineRaw(Component.literal("계약 진행: " + state.pactRoundsServed() + " / " + state.pactRounds() + " 라운드")
+                    .withStyle(ChatFormatting.DARK_RED));
+        }
         setSlot(13, info);
         setSlot(15, new GuiElementBuilder(Items.LAVA_BUCKET)
                 .setName(Component.literal("빼기").withStyle(ChatFormatting.RED))

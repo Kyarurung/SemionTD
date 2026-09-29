@@ -1649,6 +1649,38 @@
       ],
       "abilityValues": {}
     },
+    "creaking": {
+      "id": "creaking",
+      "displayName": "크리킹",
+      "enabled": true,
+      "emeraldCost": 420,
+      "incomeGain": 18,
+      "maxHealth": 380.0,
+      "armor": 4.0,
+      "resistance": 4.0,
+      "attackDamage": 30.0,
+      "attackKind": "MELEE",
+      "damageType": "PHYSICAL",
+      "entityTypeId": "minecraft:creaking",
+      "dimensions": {
+        "width": 0.9,
+        "height": 2.7
+      },
+      "diamondReward": 21,
+      "tier": "T4",
+      "roles": [
+        "TANK"
+      ],
+      "abilityActivations": [
+        "PASSIVE"
+      ],
+      "description": [
+        "한 번에 받는 피해가 최대 체력의 5%를 넘지 않습니다. 큰 한 방으로는 쓰러뜨릴 수 없는 나무 괴물입니다."
+      ],
+      "abilityValues": {
+        "maxHitHealthRatio": 0.05
+      }
+    },
     "siege_golem": {
       "id": "siege_golem",
       "displayName": "공성 골렘",

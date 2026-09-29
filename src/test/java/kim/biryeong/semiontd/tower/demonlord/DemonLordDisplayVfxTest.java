@@ -121,6 +121,7 @@ class DemonLordDisplayVfxTest {
         effects.add(DemonLordDisplayVfx.echo(7L));
         effects.add(DemonLordDisplayVfx.fiendDismiss(7L));
         effects.add(DemonLordDisplayVfx.bloodCleave(2.5, 7L));
+        effects.add(DemonLordDisplayVfx.bladeWave(0.0F, 0.0F, 14.0, 1.4, 7L));
         return effects;
     }
 }

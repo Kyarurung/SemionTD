@@ -92,6 +92,73 @@ final class DemonLordPassiveTest {
         assertEquals(5, (int) bundled.ability(DemonLordPassive.LEGION_ECHO.configId(), "copies", -1));
     }
 
+    @Test
+    void doomPactBoostsEveryStatThenResetsTheDemonLordToLevelOne() {
+        DemonLordState state = new DemonLordState(UUID.randomUUID());
+        PlayerEconomy economy = economy(1000);
+        state.addExperience(10_000.0);
+        assertTrue(state.level() > 1);
+        state.allocate(DemonLordStat.ATTACK);
+        double damageBefore = state.damageMultiplier();
+        double healthBefore = state.maxHealth();
+        double cooldownBefore = state.cooldownMultiplier();
+
+        assertEquals(DemonLordSkillShop.Result.SUCCESS, DemonLordSkillShop.buyPassive(
+                state, economy, DemonLordPassiveSlot.EIGHT, DemonLordPassive.DOOM_PACT));
+        assertEquals(damageBefore * 2.5, state.damageMultiplier(), 1.0e-6);
+        assertEquals(healthBefore * 2.5, state.maxHealth(), 1.0e-6);
+        assertEquals(cooldownBefore * 0.6, state.cooldownMultiplier(), 1.0e-6);
+        assertTrue(state.damageReduction() >= 0.3);
+
+        for (int round = 1; round <= 5; round++) {
+            state.countPactRound();
+            state.enterCombat();
+            if (round == 1) {
+                state.standDown();
+                assertEquals(DemonLordSkillShop.Result.PACT_LOCKED,
+                        DemonLordSkillShop.removePassive(state, economy, DemonLordPassiveSlot.EIGHT),
+                        "A started pact cannot be refunded.");
+                continue;
+            }
+            state.standDown();
+            assertEquals(round == 5, state.settlePact(), "The pact ends exactly after its fifth round.");
+        }
+        assertEquals(1, state.level());
+        assertEquals(0, state.points(DemonLordStat.ATTACK));
+        assertEquals(0, state.unspentPoints());
+        assertFalse(state.loadout().hasPassive(DemonLordPassive.DOOM_PACT), "The pact is consumed.");
+        assertEquals(1.0, state.damageMultiplier(), 1.0e-6);
+    }
+
+    @Test
+    void doomPactCanBeRefundedBeforeItsFirstWave() {
+        DemonLordState state = new DemonLordState(UUID.randomUUID());
+        PlayerEconomy economy = economy(1000);
+        DemonLordSkillShop.buyPassive(state, economy, DemonLordPassiveSlot.NINE, DemonLordPassive.DOOM_PACT);
+        assertEquals(DemonLordSkillShop.Result.SUCCESS, DemonLordSkillShop.removePassive(state, economy, DemonLordPassiveSlot.NINE));
+        assertEquals(1000, economy.diamond());
+    }
+
+    @Test
+    void doomPactProgressSurvivesTheStateBeingRebuilt() {
+        UUID owner = UUID.randomUUID();
+        DemonLordState state = DemonLordStates.getOrCreate(owner);
+        DemonLordSkillShop.buyPassive(state, economy(1000), DemonLordPassiveSlot.EIGHT, DemonLordPassive.DOOM_PACT);
+        state.countPactRound();
+        state.countPactRound();
+        DemonLordStates.clear(owner);
+        assertEquals(2, DemonLordStates.getOrCreate(owner).pactRoundsServed());
+    }
+
+    @Test
+    void bladeWaveSegmentsHitBoxesTheyPassThroughOrStartIn() {
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(4, 0, -1, 5, 2, 1);
+        net.minecraft.world.phys.Vec3 origin = new net.minecraft.world.phys.Vec3(0, 1, 0);
+        assertTrue(DemonLordPassives.crosses(box, origin, new net.minecraft.world.phys.Vec3(10, 1, 0)));
+        assertFalse(DemonLordPassives.crosses(box, origin, new net.minecraft.world.phys.Vec3(3, 1, 0)));
+        assertTrue(DemonLordPassives.crosses(box, new net.minecraft.world.phys.Vec3(4.5, 1, 0), new net.minecraft.world.phys.Vec3(6, 1, 0)));
+    }
+
     private static PlayerEconomy economy(long diamonds) {
         PlayerEconomy economy = new PlayerEconomy(EconomyConfig.defaultConfig());
         economy.overrideStartingValues(diamonds, 0, 0, 0);

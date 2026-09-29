@@ -19,7 +19,15 @@ public enum DemonLordPassive {
     /** 웨이브마다 아군 타워 몇 개를 복제해 내 라인에 잠시 세웁니다. */
     LEGION_ECHO("legion_echo", "군단의 잔영", Items.ARMOR_STAND),
     /** 내 라인과 전투 구역 밖으로 나가 아군 라인의 적과도 싸울 수 있습니다. */
-    BOUNDLESS("boundless", "경계 없는 마왕", Items.ENDER_PEARL);
+    BOUNDLESS("boundless", "경계 없는 마왕", Items.ENDER_PEARL),
+    /** 좌클릭이 근접 평타 대신 앞으로 날아가며 꿰뚫는 검기가 됩니다. */
+    BLADE_WAVE("blade_wave", "검기", Items.PRISMARINE_SHARD),
+    /** 전투 중에도 날 수 있습니다. */
+    DARK_FLIGHT("dark_flight", "어둠의 비상", Items.PHANTOM_MEMBRANE),
+    /** 몇 라운드 동안 모든 능력치가 크게 오르지만, 끝나면 레벨과 스탯이 1레벨로 돌아갑니다. */
+    DOOM_PACT("doom_pact", "파멸의 계약", Items.WITHER_ROSE),
+    /** 웨이브가 시작될 때 인컴 타워의 침공군이 적 레인 대신 무작위 아군 라인을 지킵니다. */
+    INVASION_GUARD("invasion_guard", "침공군 호위", Items.SHIELD);
 
     private final String key;
     private final String displayName;
@@ -74,6 +82,31 @@ public enum DemonLordPassive {
             case BOUNDLESS -> List.of(
                     "내 라인과 전투 구역 밖으로 자유롭게 나갈 수 있습니다.",
                     "같은 팀 아군 라인의 적도 공격하고, 그 적도 나를 노립니다."
+            );
+            case BLADE_WAVE -> List.of(
+                    "좌클릭이 근접 평타 대신 바라보는 방향으로 검기를 날립니다.",
+                    "검기는 " + number(ability("range", 14.0)) + "칸까지 꿰뚫고 나가며, 경로의 모든 적에게",
+                    "평타 피해의 " + percent(ability("damageRatio", 0.6)) + "를 줍니다. 평타 간격이 다 차야 나갑니다.",
+                    "흡혈 참격이 있으면 폭발과 흡혈은 처음 맞은 적에게서만 터집니다."
+            );
+            case DARK_FLIGHT -> List.of(
+                    "전투 중에도 날 수 있습니다(전투 밖에서는 원래 날 수 있습니다).",
+                    "레인 바닥에서 " + number(ability("maxAltitude", 10.0)) + "칸 위까지만 오를 수 있습니다."
+            );
+            case DOOM_PACT -> List.of(
+                    "장착한 뒤 " + (int) ability("rounds", 5.0) + "라운드 동안 체력 x" + number(ability("healthMultiplier", 2.5))
+                            + ", 피해 x" + number(ability("damageMultiplier", 2.5)) + ",",
+                    "받는 피해 -" + percent(ability("defenseBonus", 0.3)) + ", 재사용 대기시간 x"
+                            + number(ability("cooldownMultiplier", 0.6)) + ", 스킬 범위 x" + number(ability("rangeMultiplier", 1.3)) + ",",
+                    "이동 속도 +" + percent(ability("moveSpeedBonus", 0.25)) + "가 됩니다.",
+                    "계약이 끝나면 레벨이 1이 되고 찍은 스탯과 남은 포인트가 모두 사라지며,",
+                    "패시브도 사라집니다(환불 없음). 첫 웨이브가 시작된 뒤에는 뺄 수 없습니다."
+            );
+            case INVASION_GUARD -> List.of(
+                    "웨이브가 시작될 때 인컴 타워의 침공군이 적 레인으로 가지 않고,",
+                    "각자 무작위 아군 라인(내 라인 포함)에 나타나 그 웨이브 동안 라인을 지킵니다.",
+                    "체력은 보낼 때의 " + percent(ability("healthRatio", 1.0)) + ", 공격력은 "
+                            + percent(ability("damageRatio", 1.0)) + "입니다. 인컴은 그대로 받습니다."
             );
         };
     }

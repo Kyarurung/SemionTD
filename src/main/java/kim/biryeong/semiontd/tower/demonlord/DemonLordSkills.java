@@ -656,6 +656,7 @@ public final class DemonLordSkills {
 
     /** Runs the delayed and lasting parts of skills. Called once per lane tick. */
     public static void tickPending(ServerPlayer player, PlayerLane lane, DemonLordState state, long gameTime) {
+        DemonLordPassives.tickBladeWaves(player, lane, state, gameTime);
         tickHellfireZone(player, lane, state, gameTime);
         tickRiftCleave(player, lane, state, gameTime);
         tickFiend(lane, state, gameTime);

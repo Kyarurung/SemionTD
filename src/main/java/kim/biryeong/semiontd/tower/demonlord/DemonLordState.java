@@ -56,6 +56,14 @@ public final class DemonLordState {
     private final DemonLordAugments augments = new DemonLordAugments();
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
     private DemonLordLoadout loadout = new DemonLordLoadout();
+    /** 파멸의 계약을 건 뒤 시작된 웨이브 수. 0이면 아직 계약이 시작되지 않았습니다. */
+    private int pactRoundsServed;
+    /** 날아가는 중인 검기. */
+    private final java.util.List<DemonLordPassives.BladeWave> bladeWaves = new java.util.ArrayList<>();
+    /** Q(버리기)를 누르면 클라이언트가 팔도 휘두릅니다. 그 휘두름으로 검기가 나가지 않게 이 틱까지 무시합니다. */
+    private long ignoreSwingUntil = Long.MIN_VALUE;
+    /** 계약이 끝났다는 알림을 다음 서비스 틱에 한 번 띄웁니다. 라운드 종료 처리에는 플레이어 핸들이 없습니다. */
+    private boolean pactEndedNotice;
     private boolean autoIncomeEnabled = true;
     /** 플레이어가 막대로 고른 값. 고르지 않았으면 {@code null}이고 설정 기본값을 씁니다. */
     private Double autoIncomeThreshold;
@@ -112,7 +120,8 @@ public final class DemonLordState {
                 global("healthBonusThreshold", 500.0),
                 global("healthBonusScale", 500.0)
         );
-        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot)));
+        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot))
+                * pact("healthMultiplier", 2.5));
     }
 
     // ------------------------------------------------------------------ 스탯
@@ -149,7 +158,8 @@ public final class DemonLordState {
     public double damageReduction() {
         double perPoint = global("statDefensePerPoint", 0.02);
         double cap = Math.min(0.9, Math.max(0.0, global("statDefenseCap", 0.6)));
-        return Math.max(0.0, Math.min(cap, points(DemonLordStat.DEFENSE) * perPoint));
+        double reduction = Math.max(0.0, Math.min(cap, points(DemonLordStat.DEFENSE) * perPoint));
+        return pactActive() ? Math.min(0.9, reduction + DemonLordPassive.DOOM_PACT.ability("defenseBonus", 0.3)) : reduction;
     }
 
     /**
@@ -160,19 +170,20 @@ public final class DemonLordState {
      */
     public double cooldownMultiplier() {
         double halving = Math.max(1.0, global("statCooldownHalvingPoints", 10.0));
-        return Math.pow(0.5, points(DemonLordStat.COOLDOWN) / halving);
+        return Math.pow(0.5, points(DemonLordStat.COOLDOWN) / halving) * pact("cooldownMultiplier", 0.6);
     }
 
     /** 스킬 사거리·반경 배율입니다. */
     public double skillRangeMultiplier() {
-        return 1.0 + points(DemonLordStat.SKILL_RANGE) * global("statSkillRangePerPoint", 0.03);
+        return (1.0 + points(DemonLordStat.SKILL_RANGE) * global("statSkillRangePerPoint", 0.03)) * pact("rangeMultiplier", 1.3);
     }
 
     /** 이동 속도 증가율입니다. */
     public double moveSpeedBonus() {
         double perPoint = global("statMoveSpeedPerPoint", 0.03);
         double cap = Math.max(0.0, global("statMoveSpeedCap", 0.5));
-        return Math.max(0.0, Math.min(cap, points(DemonLordStat.MOVE_SPEED) * perPoint));
+        double bonus = Math.max(0.0, Math.min(cap, points(DemonLordStat.MOVE_SPEED) * perPoint));
+        return pactActive() ? bonus + DemonLordPassive.DOOM_PACT.ability("moveSpeedBonus", 0.25) : bonus;
     }
 
     public double shield() {
@@ -344,7 +355,88 @@ public final class DemonLordState {
                 global("damageBonusScale", 0.5)
         );
         double allocated = points(DemonLordStat.ATTACK) * global("statAttackPerPoint", 0.04);
-        return 1.0 + scaledLevelBonus + allocated;
+        return (1.0 + scaledLevelBonus + allocated) * pact("damageMultiplier", 2.5);
+    }
+
+    // ------------------------------------------------------------ 파멸의 계약
+
+    /** 파멸의 계약이 걸려 있는지. 장착한 순간부터 능력치가 오릅니다. */
+    public boolean pactActive() {
+        return loadout != null && loadout.hasPassive(DemonLordPassive.DOOM_PACT);
+    }
+
+    private double pact(String key, double fallback) {
+        return pactActive() ? Math.max(0.0, DemonLordPassive.DOOM_PACT.ability(key, fallback)) : 1.0;
+    }
+
+    public int pactRoundsServed() {
+        return pactRoundsServed;
+    }
+
+    public int pactRounds() {
+        return Math.max(1, (int) DemonLordPassive.DOOM_PACT.ability("rounds", 5.0));
+    }
+
+    /** 웨이브가 시작될 때: 계약 중이면 한 라운드를 셉니다. */
+    void countPactRound() {
+        if (pactActive()) {
+            pactRoundsServed++;
+        }
+    }
+
+    /** 계약을 새로 걸거나 시작 전에 뺐을 때 셈을 지웁니다. */
+    void resetPactCount() {
+        pactRoundsServed = 0;
+    }
+
+    void restorePact(int served) {
+        pactRoundsServed = Math.max(0, served);
+    }
+
+    /**
+     * 라운드가 끝날 때: 계약한 라운드를 다 채웠으면 대가를 치릅니다. 레벨이 1로, 경험치·찍은 스탯·남은 포인트가
+     * 0으로 돌아가고 계약 패시브도 사라집니다(환불 없음).
+     *
+     * @return 이번에 계약이 끝났으면 {@code true}
+     */
+    public boolean settlePact() {
+        if (!pactActive() || pactRoundsServed < pactRounds()) {
+            return false;
+        }
+        loadout.passivesView().forEach((slot, entry) -> {
+            if (entry.passive() == DemonLordPassive.DOOM_PACT) {
+                loadout.removePassive(slot);
+            }
+        });
+        pactRoundsServed = 0;
+        level = 1;
+        experience = 0.0;
+        statPoints.clear();
+        unspentPoints = 0;
+        health = Math.min(health, maxHealth());
+        loadoutDirty = true;
+        pactEndedNotice = true;
+        return true;
+    }
+
+    public boolean consumePactEndedNotice() {
+        boolean notice = pactEndedNotice;
+        pactEndedNotice = false;
+        return notice;
+    }
+
+    // ------------------------------------------------------------ 검기
+
+    public java.util.List<DemonLordPassives.BladeWave> bladeWaves() {
+        return bladeWaves;
+    }
+
+    public void ignoreSwingUntil(long gameTime) {
+        ignoreSwingUntil = gameTime;
+    }
+
+    public boolean swingIgnored(long gameTime) {
+        return gameTime <= ignoreSwingUntil;
     }
 
     public double bladeDamage() {
@@ -444,6 +536,7 @@ public final class DemonLordState {
     }
 
     public void clearPendingSkills() {
+        bladeWaves.clear();
         pendingBombardment = null;
         zone = null;
         rift = null;

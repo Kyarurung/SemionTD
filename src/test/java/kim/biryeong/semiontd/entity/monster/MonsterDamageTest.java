@@ -25,6 +25,17 @@ final class MonsterDamageTest {
     }
 
     @Test
+    void maxHitRatioCapsEverySingleHit() {
+        Monster capped = monster(0.0, 0.0);
+        capped.setMaxHitHealthRatio(0.05);
+
+        capped.damage(10_000.0, DamageType.TRUE);
+        assertEquals(950.0, capped.health(), 0.0001, "One hit takes at most 5% of max health.");
+        capped.damage(20.0, DamageType.PHYSICAL);
+        assertEquals(930.0, capped.health(), 0.0001, "Hits under the cap are untouched.");
+    }
+
+    @Test
     void nonPositiveDamageDoesNothing() {
         Monster monster = monster(20.0, 25.0);
 

@@ -548,6 +548,10 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         boolean oneShot = isOneShot(animationState);
+        if (holder == null && animationState == SemionAnimationState.ATTACK && polymerEntityType == EntityType.CREAKING) {
+            // 바닐라 모습의 크리킹은 엔티티 이벤트 4로 팔 휘두르기 동작을 봅니다.
+            level().broadcastEntityEvent(this, (byte) 4);
+        }
         if (holder != null && (this.animationState != animationState || oneShot)) {
             boolean oneShotRunning = tickCount < oneShotEndTick;
             for (SemionAnimationState state : SemionAnimationState.values()) {

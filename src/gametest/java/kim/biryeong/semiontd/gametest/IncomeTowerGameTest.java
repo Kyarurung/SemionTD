@@ -29,6 +29,9 @@ public final class IncomeTowerGameTest {
     @GameTest
     public void everyInvasionUnitModelLoadsThroughBil(GameTestHelper context) {
         for (String unit : IncomeTowerBalance.UNIT_IDS) {
+            if ("creaking".equals(unit)) {
+                continue; // 바닐라 모델을 씁니다.
+            }
             require(kim.biryeong.semiontd.entity.model.SemionBilModelCache.load("semion-td:invasion/" + unit).isPresent(),
                     "The " + unit + " model must load.");
             var model = kim.biryeong.semiontd.entity.model.SemionBilModelCache.load("semion-td:invasion/" + unit).orElseThrow();
@@ -128,6 +131,52 @@ public final class IncomeTowerGameTest {
             require(tower.entityId().isEmpty(), "The income tower body must be hidden while the round is fought.");
             lane.resetForRound();
             require(tower.entityId().isPresent(), "The income tower body must come back for the next preparation.");
+            context.succeed();
+        } finally {
+            if (game != null) {
+                game.close();
+            }
+        }
+    }
+
+    /** 침공군 호위 패시브: 웨이브가 시작되면 유닛이 적 레인으로 가지 않고 아군 라인에 호위로 섭니다. */
+    @GameTest(maxTicks = 20)
+    public void invasionGuardKeepsTheUnitOnAnAlliedLane(GameTestHelper context) {
+        UUID owner = stableUuid("income-guard-owner");
+        UUID enemy = stableUuid("income-guard-enemy");
+        SemionGame game = null;
+        try {
+            game = startedGame(context, owner, enemy);
+            PlayerEconomy economy = game.players().get(owner).economy();
+            economy.addEmerald(100_000);
+            economy.addDiamond(100_000);
+            PlayerLane lane = game.playerLane(owner).orElseThrow();
+            require(IncomeTowerService.build(game, owner, emptyPosition(lane, 0), "goblin_scout") == IncomeTowerService.Result.SUCCESS,
+                    "Building a goblin income tower must succeed.");
+            var state = kim.biryeong.semiontd.tower.demonlord.DemonLordStates.getOrCreate(owner);
+            require(kim.biryeong.semiontd.tower.demonlord.DemonLordSkillShop.buyPassive(state, economy,
+                            kim.biryeong.semiontd.tower.demonlord.DemonLordPassiveSlot.EIGHT,
+                            kim.biryeong.semiontd.tower.demonlord.DemonLordPassive.INVASION_GUARD)
+                            == kim.biryeong.semiontd.tower.demonlord.DemonLordSkillShop.Result.SUCCESS,
+                    "The invasion guard passive must be bought.");
+
+            PlayerLane enemyLane = game.playerLane(enemy).orElseThrow();
+            for (var team : game.teams().values()) {
+                team.laneGroup().disableMonsters();
+            }
+            int queuedBefore = enemyLane.queuedSummonCount();
+            int guard = game.remainingPrepareSeconds() * 20 + 40;
+            while (game.phase() == RoundPhase.PREPARE_AND_SUMMON && guard-- > 0) {
+                game.tick(context.getLevel().getServer());
+            }
+            require(game.phase() == RoundPhase.LANE_WAVE, "The prepare phase must end.");
+            require(enemyLane.queuedSummonCount() == queuedBefore, "A guarding unit must not be sent to the enemy.");
+            var guards = lane.teamLanes().stream().flatMap(ally -> ally.towers().stream())
+                    .filter(tower -> tower instanceof kim.biryeong.semiontd.tower.demonlord.InvasionGuardTower).toList();
+            require(guards.size() == 1, "One guard must stand on an allied lane, found " + guards.size());
+            require(guards.getFirst().isTemporaryCopy() && !guards.getFirst().countsForLaneDefense(),
+                    "The guard is temporary and does not hold the lane on its own.");
+            require(guards.getFirst().type().damage() > 0.0, "The guard fights with the unit's attack.");
             context.succeed();
         } finally {
             if (game != null) {
