@@ -417,7 +417,7 @@ public final class DemonLordDisplayVfx {
 
     /**
      * 균열참: 몸 앞을 110° 부채꼴로 쓸고 지나가는 검 궤적, 내려찍은 자리의 섬광·충격파·균열, 그리고 땅을 가르며
-     * 앞으로 뻗어 나가는 균열을 따라 {@code interval}틱마다 한 번씩 폭발 기둥·충격파·가시·불티가 터집니다.
+     * 앞으로 뻗어 나가는 균열을 따라 {@code interval}틱마다 한 번씩 큰 폭발 기둥·섬광·충격파·불티가 터집니다.
      *
      * <p>폭발 횟수와 간격은 서버가 피해를 넣는 일정({@link DemonLordState.RiftCleave})과 같게 짭니다.
      */
@@ -445,7 +445,7 @@ public final class DemonLordDisplayVfx {
         }
 
         Vector3f slam = shapes.local(0, 0, slamOffset);
-        shapes.pop(FLASH_CRIMSON, new Vector3f(slam).add(0, 0.8F, 0), 2.8, slamTick, 1, slamTick + 2, 4);
+        shapes.pop(FLASH_CRIMSON, new Vector3f(slam).add(0, 1.0F, 0), 4.2, slamTick, 1, slamTick + 2, 4);
         shapes.decal(SHOCKWAVE_CRIMSON, new Vector3f(slam).add(0, ground(4), 0), 0.6, slamRadius * 2.0, slamTick, 4, slamTick + 4, 3, 30, 1.12);
         shapes.decal(CRACK, new Vector3f(slam).add(0, ground(1), 0), 0.8, slamRadius * 1.6, slamTick, 2, lastWave + 8, 6, 0, 0.0);
 
@@ -466,12 +466,11 @@ public final class DemonLordDisplayVfx {
         for (int index = 1; index <= count; index++) {
             int tick = slamTick + interval * index;
             Vector3f centre = shapes.local(0, 0, slamOffset + spacing * index);
-            shapes.beam(BEAM_CRIMSON, new Vector3f(centre), new Vector3f(centre).add(0, 3.2F, 0), 1.3, tick, 2, tick + 3, 4);
-            shapes.pop(FLASH_CRIMSON, new Vector3f(centre).add(0, 0.8F, 0), waveRadius * 1.6, tick, 1, tick + 2, 3);
+            // 폭발 기둥과 섬광은 크게, 가시는 넣지 않습니다.
+            shapes.beam(BEAM_CRIMSON, new Vector3f(centre), new Vector3f(centre).add(0, 5.0F, 0), 2.0, tick, 2, tick + 3, 4);
+            shapes.pop(FLASH_CRIMSON, new Vector3f(centre).add(0, 1.0F, 0), waveRadius * 2.4, tick, 1, tick + 2, 3);
             shapes.decal(SHOCKWAVE_CRIMSON, new Vector3f(centre).add(0, ground(4) + index * GROUND_STEP, 0), 0.5, waveRadius * 2.0,
                     tick, 3, tick + 3, 3, 30, 1.1);
-            shapes.solidSpike(SPIKE_BLOCK, SPIKE_CORE, centre, yaw + shapes.random(-0.6, 0.6), shapes.random(5, 18),
-                    0.3, shapes.random(1.2, 1.8), tick, 2, tick + 7, 4);
             shapes.burst(FLAME, 3, new Vector3f(centre).add(0, 0.4F, 0), waveRadius * 0.6, 0.6, 1.8, 0.5, tick, 4, tick + 5, 4);
         }
         return effect;
