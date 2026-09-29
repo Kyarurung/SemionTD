@@ -235,11 +235,19 @@ final class InvasionAttacks {
         return (attacker, at) -> InvasionVfx.playAt(level(attacker), make.apply(seed(attacker)), at);
     }
 
-    /** 공격자 발밑에, 공격자가 바라보는 방향으로 띄웁니다. */
+    /**
+     * 공격자 발밑에, 공격자에서 맞은 자리({@code at})를 향하는 방향으로 띄웁니다. 몸이 도는 속도와 상관없이
+     * 연출이 항상 대상 쪽을 향합니다.
+     */
     static VfxAt facing(java.util.function.BiFunction<Float, Long, kim.biryeong.semiontd.vfx.DisplayEffect> make) {
         return (attacker, at) -> {
-            float yaw = (float) Math.toRadians(-attacker.getYRot());
-            InvasionVfx.playAt(level(attacker), make.apply(yaw, seed(attacker)), attacker.position());
+            Vec3 from = attacker.position();
+            double dx = at.x - from.x;
+            double dz = at.z - from.z;
+            float yaw = dx * dx + dz * dz < 1.0e-6
+                    ? (float) Math.toRadians(-attacker.getYRot())
+                    : kim.biryeong.semiontd.vfx.DisplayShapes.yawOf(dx, dz);
+            InvasionVfx.playAt(level(attacker), make.apply(yaw, seed(attacker)), from);
         };
     }
 

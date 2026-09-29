@@ -346,6 +346,50 @@ def shockwave(name, colors):
     return c.save(name)
 
 
+def arcane_wave(name, colors):
+    """마력 파동: 매끈한 테 대신 번개처럼 들쭉날쭉한 바깥 테와, 안쪽으로 가시처럼 찔러 드는 방전 줄기."""
+    rnd = random.Random(name)
+    c = Canvas(64, 64)
+    spikes = 22
+    jitter = [rnd.uniform(-2.2, 2.2) for _ in range(spikes)]
+
+    def edge(a):
+        # 톱니 반지름: 칸마다 뾰족하게 솟았다 꺼집니다.
+        u = (a / math.tau) * spikes
+        i = int(u) % spikes
+        f = u - int(u)
+        tooth = 1.0 - abs(f - 0.5) * 2.0
+        return 26.5 + tooth * 3.2 + jitter[i] * 0.5
+
+    for y in range(64):
+        for x in range(64):
+            dx, dy = x + 0.5 - 32, y + 0.5 - 32
+            r = math.hypot(dx, dy)
+            a = math.atan2(dy, dx) % math.tau
+            e = edge(a)
+            if r > e or r > 31.5:
+                continue
+            gap = e - r
+            if gap < 1.1:
+                c.put(x, y, colors[4], 255)
+            elif gap < 2.4:
+                c.put(x, y, colors[3], 225)
+            elif r > 19:
+                fade = (r - 19) / max(1.0, e - 21)
+                c.put(x, y, colors[1], alpha_step(fade * 0.55))
+    # 안쪽으로 찔러 드는 방전 줄기
+    for i in range(9):
+        a = rnd.uniform(0, math.tau)
+        r0 = edge(a) - 1
+        x, y = 32 + math.cos(a) * r0, 32 + math.sin(a) * r0
+        for _ in range(rnd.randint(4, 7)):
+            a += rnd.uniform(-0.5, 0.5)
+            nx, ny = x - math.cos(a) * 1.6, y - math.sin(a) * 1.6
+            line(c, (x, y), (nx, ny), colors[4], 255, width=0)
+            x, y = nx, ny
+    return c.save(name)
+
+
 def crack():
     """갈라진 땅. 가운데 그을음 위로 들쭉날쭉한 균열이 퍼지고 균열 속이 진홍으로 빛납니다."""
     c = Canvas(64, 64)
@@ -667,7 +711,7 @@ TEXTURES = [
     lambda: beam("beam_arcane", MAGENTA),
     lambda: beam("beam_soul", SOUL),
     lambda: shockwave("shockwave_crimson", CRIMSON),
-    lambda: shockwave("shockwave_violet", VIOLET),
+    lambda: arcane_wave("shockwave_violet", VIOLET),
     lambda: circle("sigil", FIRE[:1] + CRIMSON[1:], 5, 2, 10),
     lambda: circle("circle_arcane", MAGENTA, 6, 2, 12),
     lambda: flame("flame", FIRE),

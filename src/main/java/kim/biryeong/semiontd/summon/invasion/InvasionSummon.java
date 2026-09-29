@@ -37,7 +37,7 @@ public final class InvasionSummon extends BasicIncomeSummon {
             case "goblin_scout" -> entity.setAttackStyle(InvasionAttacks.goblin(hit));
             case "elf_assassin" -> {
                 entity.setStealthCapable(true);
-                entity.setAttackStyle(InvasionAttacks.single(hit, InvasionAttacks.facing(InvasionVfx::elfSlash)));
+                entity.setAttackStyle(InvasionAttacks.single(hit, InvasionAttacks.at(InvasionVfx::elfSlash)));
             }
             case "dark_priest" -> {
                 double splash = abilityValue("splashRadius", 2.5);

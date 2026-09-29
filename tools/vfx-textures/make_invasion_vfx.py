@@ -7,6 +7,7 @@
 실행: python tools/vfx-textures/make_invasion_vfx.py [--sheet out.png]
 """
 import math
+import random
 import os
 import sys
 
@@ -89,6 +90,86 @@ def smoke():
     return c.save("smoke")
 
 
+GOBLIN = [hexc(c) for c in ("1f3a0a", "3f7a14", "7fc22a", "c8f25a", "f2ffc8", "ffffff")]
+ELF = [hexc(c) for c in ("0f2438", "1f4f7a", "3f8fd1", "8fd0ff", "e3f5ff", "ffffff")]
+
+
+def slash_line(name, colors):
+    """한 줄로 긋는 칼자국(빌보드). 가운데가 가장 굵고 밝으며 양 끝으로 가늘어집니다. 가로로 누운 모양이라
+    게임에서 판을 돌려(굴림) 사선으로 씁니다."""
+    c = Canvas(64, 64)
+
+    def fn(x, y):
+        t = (x - 2.0) / 60.0                             # 0 = 시작, 1 = 끝
+        if t < 0.0 or t > 1.0:
+            return None
+        # 앞쪽(끝)이 조금 더 굵은 비대칭 잎 모양: 긋는 방향으로 힘이 실립니다.
+        half = 3.4 * math.sin(math.pi * t) ** 0.8 * (0.55 + 0.45 * t)
+        d = abs(y - 32.0)
+        if d > half + 0.3:
+            return None
+        core = 1.0 - d / max(half, 0.4)
+        heat = core * (0.55 + 0.45 * math.sin(math.pi * t))
+        return ramp(colors, 0.25 + heat * 0.85), alpha_step(0.35 + core * 0.8)
+    c.field(fn)
+    return c.save(name)
+
+
+def dust_ring():
+    """흙먼지 충격파: 매끈한 고리 대신 크기가 제각각인 흙덩이가 고리를 이루고, 군데군데 끊겨 있습니다.
+    안쪽엔 옅은 먼지 얼룩만 남습니다."""
+    rnd = random.Random("dust_ring")
+    c = Canvas(64, 64)
+    # 옅은 먼지
+    for _ in range(46):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(14, 27)
+        cx, cy = 32 + math.cos(a) * r, 32 + math.sin(a) * r
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                if dx * dx + dy * dy <= 4 and rnd.random() < 0.7:
+                    c.over(int(cx + dx), int(cy + dy), EARTH[2], 70)
+    # 흙덩이 고리(끊긴 곳 셋)
+    gaps = [rnd.uniform(0, math.tau) for _ in range(3)]
+    a = 0.0
+    while a < math.tau:
+        if all(abs(math.atan2(math.sin(a - g), math.cos(a - g))) > 0.22 for g in gaps):
+            size = rnd.choice((1, 1, 2, 2, 3))
+            r = 28.5 + rnd.uniform(-2.5, 1.5)
+            cx, cy = 32 + math.cos(a) * r, 32 + math.sin(a) * r
+            for dy in range(-size, size + 1):
+                for dx in range(-size, size + 1):
+                    if abs(dx) + abs(dy) <= size + 0.5:
+                        top = dy < 0 or (dy == 0 and dx < 0)
+                        c.put(int(cx + dx), int(cy + dy), EARTH[4 if top else 2], 255)
+            c.put(int(cx), int(cy), EARTH[5], 255)
+        a += rnd.uniform(0.09, 0.2)
+    return c.save("dust_ring")
+
+
+def holy_ring():
+    """성스러운 파동: 얇은 두 겹 고리(바깥은 실선, 안쪽은 점선) 위에 네 갈래 반짝임 여덟 개. 속은 비어 있습니다."""
+    c = Canvas(64, 64)
+    for y in range(64):
+        for x in range(64):
+            r = math.hypot(x + 0.5 - 32, y + 0.5 - 32)
+            a = math.atan2(y + 0.5 - 32, x + 0.5 - 32)
+            if 29.6 < r < 31.4:
+                c.put(x, y, HOLY[4], 255)
+            elif 28.4 < r <= 29.6:
+                c.put(x, y, HOLY[2], 200)
+            elif 21.3 < r < 22.5 and int((a + math.pi) / (math.tau / 48)) % 2 == 0:
+                c.put(x, y, HOLY[3], 230)
+    for i in range(8):
+        a = math.tau * i / 8
+        cx, cy = int(32 + math.cos(a) * 30), int(32 + math.sin(a) * 30)
+        for k in range(-3, 4):
+            color = HOLY[5] if abs(k) <= 1 else HOLY[3]
+            c.put(cx + k, cy, color, 255)
+            c.put(cx, cy + k, color, 255)
+    return c.save("holy_ring")
+
+
 TEXTURES = [
     javelin, smoke,
     lambda: swing_arc("gold_arc", GOLD),
@@ -96,12 +177,14 @@ TEXTURES = [
     lambda: base.flash("muzzle", base.FIRE),
     lambda: base.circle("holy_circle", HOLY, 6, 2, 12),
     lambda: base.flash("holy_flash", HOLY),
-    lambda: base.shockwave("holy_ring", HOLY),
+    holy_ring,
     lambda: base.circle("necro_circle", NECRO, 5, 2, 10),
     lambda: base.flame("necro_soul", NECRO),
     lambda: base.flash("necro_flash", NECRO),
-    lambda: base.shockwave("dust_ring", EARTH),
+    dust_ring,
     lambda: base.flash("gold_flash", GOLD),
+    lambda: slash_line("slash_goblin", GOBLIN),
+    lambda: slash_line("slash_elf", ELF),
 ]
 
 

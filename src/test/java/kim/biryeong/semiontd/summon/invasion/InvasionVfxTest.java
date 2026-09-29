@@ -22,7 +22,7 @@ class InvasionVfxTest {
         return List.of(
                 InvasionVfx.stealth(true, 7L),
                 InvasionVfx.stealth(false, 7L),
-                InvasionVfx.elfSlash(0.0F, 7L),
+                InvasionVfx.elfSlash(7L),
                 InvasionVfx.goblinExecute(7L),
                 InvasionVfx.priestBlast(2.5, 7L),
                 InvasionVfx.priestHeal(7L),
