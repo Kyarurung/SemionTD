@@ -137,6 +137,24 @@ public final class DisplayShapes {
         }
     }
 
+    /**
+     * 바닥 원형 연출에 겹치는 반투명 원기둥 벽({@link DisplaySprite.Shape#CYLINDER}). 밑면 중심이 {@code centre}입니다.
+     * {@code start}에 지름 {@code size0}·높이 0에서 솟아 {@code grow}틱 만에 지름 {@code size1}·높이 {@code height}가 되고,
+     * {@code fadeAt}부터 {@code fade}틱 동안 지름이 {@code fadeGrowth}배로 더 번지며 높이가 0으로 내려앉아 사라집니다.
+     * 둘레 텍스처가 {@code spinDeg}만큼 돌아갑니다.
+     */
+    public DisplayEffect.Part cylinder(DisplaySprite sprite, Vector3f centre, double size0, double size1, double height,
+            int start, int grow, int fadeAt, int fade, double spinDeg, double fadeGrowth) {
+        float turn = rad(random(0, 360));
+        Quaternionf from = new Quaternionf().rotateY(turn);
+        Quaternionf to = new Quaternionf().rotateY(turn + rad(spinDeg));
+        Quaternionf end = new Quaternionf().rotateY(turn + rad(spinDeg * 1.4));
+        double last = size1 * Math.max(0.0, fadeGrowth);
+        return effect.part(sprite, Pose.of(new Vector3f(centre), from, vec(size0, 0, size0)))
+                .to(start, grow, Pose.of(new Vector3f(centre).add(0, (float) height / 2.0F, 0), to, vec(size1, height, size1)))
+                .to(fadeAt, fade, Pose.of(new Vector3f(centre), end, vec(last, 0, last)));
+    }
+
     /** 제자리에서 커졌다 사라지는 빌보드 한 장(섬광·룬). */
     public void pop(DisplaySprite sprite, Vector3f at, double size, int start, int grow, int fadeAt, int fade) {
         Quaternionf roll = new Quaternionf().rotateZ(rad(random(0, 90)));

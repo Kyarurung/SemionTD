@@ -6,7 +6,6 @@ import java.util.UUID;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
-import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
@@ -126,9 +125,13 @@ public class PandaTower extends ProductionTower {
                 distance / 2.0 + hitRadius,
                 java.util.Set.of(),
                 monster -> distanceToSegment(monster.position(), start, end) <= hitRadius,
-                AreaVfxSpec.onTrigger(AreaVfxStyles.SPLASH)
+                AreaVfxSpec.none()
         );
+        Vec3[] firstHit = {null};
         SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
+            if (firstHit[0] == null) {
+                firstHit[0] = monster.position();
+            }
             Tower.DamageResult result = damageResolvedTargetResult(source, monster, damage, DamageType.PHYSICAL);
             if (result.killed()) {
                 onKill(source, monster, damage);
@@ -149,6 +152,11 @@ public class PandaTower extends ProductionTower {
             monster.setTarget(null);
             return result.dealtDamage() > 0.0 ? AreaEffectOutcome.APPLIED : AreaEffectOutcome.UNCHANGED;
         });
+
+        if (firstHit[0] != null && source.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            // 들이받은 첫 적 자리에 한 번만 띄웁니다. 한 번에 여럿을 치어도 먼지는 한 번입니다.
+            PlantDisplayVfx.play(level, PlantDisplayVfx.pandaImpact(hitRadius, PlantDisplayVfx.seed(level)), firstHit[0]);
+        }
 
         // 판다 자신도 앞으로 나갑니다. 좌표를 직접 옮기지 않는 것은 이 타워가 원래 걸어 다니는
         // 타워라, 속도만 주면 이후 이동은 평소 경로 탐색이 이어받기 때문입니다.

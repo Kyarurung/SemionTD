@@ -9,7 +9,6 @@ import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaTowerTarget;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
-import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.api.area.TowerAreaEffectRequest;
 import kim.biryeong.semiontd.api.area.TowerAreaTargetMode;
@@ -31,7 +30,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 /**
  * Combat half of the plant builder.
@@ -269,11 +270,10 @@ public class PlantCombatTower extends ProductionTower {
                         towerEntity,
                         target,
                         radius,
-                        AreaVfxSpec.onTrigger(ability("lobArcHeight") > 0.0
-                                ? PlantVfx.LOBBED_SPLASH
-                                : AreaVfxStyles.SPLASH)
+                        AreaVfxSpec.none()
                 )
                 .withFilter(monster -> withinCone(towerEntity, target, monster, coneDegrees));
+        showSplash(towerEntity, target, radius, coneDegrees, snare > 0.0 && snareTicks > 0);
 
         SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
             double damage = outgoingDamage * ratio + missingHealthDamage(monster, missingHealthRatio);
@@ -288,6 +288,28 @@ public class PlantCombatTower extends ProductionTower {
             }
             return AreaEffectOutcome.APPLIED;
         });
+    }
+
+    /** 광역 연출: 곡사면 물병 포격, 부채꼴이면 라일락 꽃가루, 그 밖에는 꽃잎 고리를 맞은 자리에 띄웁니다. */
+    private void showSplash(SemionTowerEntity towerEntity, SemionMonsterEntity target, double radius, double coneDegrees,
+            boolean snare) {
+        if (!(towerEntity.level() instanceof ServerLevel level)) {
+            return;
+        }
+        long seed = PlantDisplayVfx.seed(level);
+        Vec3 from = towerEntity.position();
+        Vec3 at = target.position();
+        double arcHeight = ability("lobArcHeight");
+        if (arcHeight > 0.0) {
+            Vector3f end = new Vector3f((float) (at.x - from.x), (float) (at.y - from.y), (float) (at.z - from.z));
+            PlantDisplayVfx.play(level, PlantDisplayVfx.pitcherLob(end, arcHeight, radius, snare, seed), from);
+        } else if (coneDegrees > 0.0) {
+            Vec3 axis = flatten(at.subtract(from));
+            float yaw = axis.lengthSqr() < 1.0E-6 ? 0.0F : kim.biryeong.semiontd.vfx.DisplayShapes.yawOf(axis.x, axis.z);
+            PlantDisplayVfx.play(level, PlantDisplayVfx.lilacCone(yaw, radius, coneDegrees, seed), at);
+        } else {
+            PlantDisplayVfx.play(level, PlantDisplayVfx.tulipNova(radius, seed), at);
+        }
     }
 
     /** 대상이 잃은 체력에 비례한 추가 피해입니다. 두들겨 맞은 적일수록 더 아픕니다. */
@@ -336,9 +358,12 @@ public class PlantCombatTower extends ProductionTower {
                         AreaEffectIds.tower(this, "bloom_nova"),
                         towerEntity,
                         radius,
-                        AreaVfxSpec.onTrigger(AreaVfxStyles.PULSE)
+                        AreaVfxSpec.none()
                 )
                 .withFilter(monster -> monster != null && !monster.getUUID().equals(target.getUUID()));
+        if (towerEntity.level() instanceof ServerLevel level) {
+            PlantDisplayVfx.play(level, PlantDisplayVfx.tulipNova(radius, PlantDisplayVfx.seed(level)), towerEntity.position());
+        }
         damageArea(towerEntity, request, outgoingDamage * ratio);
     }
 
@@ -424,10 +449,22 @@ public class PlantCombatTower extends ProductionTower {
                 source,
                 radius,
                 TowerAreaTargetMode.REGISTERED,
-                AreaVfxSpec.onChange(AreaVfxStyles.BUFF)
+                AreaVfxSpec.none()
         );
-        SemionTdApi.areaEffects().applyToTowers(request, target ->
-                heal(target, healPercent) ? AreaEffectOutcome.APPLIED : AreaEffectOutcome.UNCHANGED);
+        ServerLevel level = source.level() instanceof ServerLevel serverLevel ? serverLevel : null;
+        boolean[] healedAny = {false};
+        SemionTdApi.areaEffects().applyToTowers(request, target -> {
+            if (!heal(target, healPercent)) {
+                return AreaEffectOutcome.UNCHANGED;
+            }
+            healedAny[0] = true;
+            target.entity().ifPresent(entity -> PlantDisplayVfx.play(level,
+                    PlantDisplayVfx.meadowHeal(PlantDisplayVfx.seed(level) + entity.getId()), entity.position()));
+            return AreaEffectOutcome.APPLIED;
+        });
+        if (healedAny[0]) {
+            PlantDisplayVfx.play(level, PlantDisplayVfx.meadowPulse(radius, PlantDisplayVfx.seed(level)), source.position());
+        }
     }
 
     /**
@@ -523,13 +560,16 @@ public class PlantCombatTower extends ProductionTower {
                         AreaEffectIds.tower(this, "soil_" + soil.key()),
                         source,
                         auraRadius(),
-                        AreaVfxSpec.onChange(AreaVfxStyles.DEBUFF)
+                        AreaVfxSpec.none()
                 )
                 .withFilter(monster -> standsOnSoil(monster, soil));
         SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
             double previous = monster.activeTimedEffectMagnitude(effectType);
             monster.applyTimedEffect(effectType, magnitude, durationTicks);
             boolean changed = Double.compare(previous, monster.activeTimedEffectMagnitude(effectType)) != 0;
+            if (changed && monster.level() instanceof ServerLevel level) {
+                PlantDisplayVfx.play(level, PlantDisplayVfx.sandSlow(PlantDisplayVfx.seed(level) + monster.getId()), monster.position());
+            }
             return changed ? AreaEffectOutcome.APPLIED : AreaEffectOutcome.UNCHANGED;
         });
     }

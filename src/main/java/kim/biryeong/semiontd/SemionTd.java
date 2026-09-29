@@ -30,7 +30,6 @@ import kim.biryeong.semiontd.tower.area.AreaEffectService;
 import kim.biryeong.semiontd.tower.area.AreaVfxStyleRegistryImpl;
 import kim.biryeong.semiontd.tower.area.BuiltinAreaVfxStyles;
 import kim.biryeong.semiontd.tower.atlantis.AtlantisVfx;
-import kim.biryeong.semiontd.tower.plant.PlantVfx;
 import kim.biryeong.semiontd.tower.succubus.SuccubusVfx;
 import kim.biryeong.semiontd.tower.thunder.ThunderVfx;
 import kim.biryeong.semiontd.tip.SemionTipService;
@@ -88,6 +87,8 @@ public class SemionTd implements ModInitializer {
                 () -> kim.biryeong.semiontd.tower.demonlord.DemonLordDisplayVfx.SPRITES, LOGGER);
         kim.biryeong.semiontd.vfx.DisplaySpriteResourcePack.register(
                 () -> kim.biryeong.semiontd.summon.invasion.InvasionVfx.SPRITES, LOGGER);
+        kim.biryeong.semiontd.vfx.DisplaySpriteResourcePack.register(
+                () -> kim.biryeong.semiontd.tower.plant.PlantDisplayVfx.SPRITES, LOGGER);
         gameManager.configureWebIntegration(configs.webIntegration());
         gameManager.configureCombatSpeed(configs.combatSpeed());
         gameManager.configureJobAvailability(configs.jobAvailability());
@@ -119,7 +120,6 @@ public class SemionTd implements ModInitializer {
         AreaVfxStyleRegistryImpl areaVfxStyles = new AreaVfxStyleRegistryImpl();
         BuiltinAreaVfxStyles.register(areaVfxStyles);
         AtlantisVfx.register(areaVfxStyles);
-        PlantVfx.register(areaVfxStyles);
         ThunderVfx.register(areaVfxStyles);
         SuccubusVfx.register(areaVfxStyles);
         SemionTdApi.initializeInternal(new AreaEffectService(gameManager), areaVfxStyles);

@@ -41,12 +41,36 @@ public final class DisplayEffect {
     /** 유닛(침공군) 공격·능력 연출의 예산. 스킬 연출과 따로 세어 서로 자리를 뺏지 않습니다. */
     public static final int MAX_UNIT_ACTIVE = 96;
     private static final AtomicInteger UNIT_ACTIVE = new AtomicInteger();
+    /** 타워(식물 등) 공격·능력 연출의 예산. 스킬·유닛 연출과 따로 셉니다. */
+    public static final int MAX_TOWER_ACTIVE = 96;
+    private static final AtomicInteger TOWER_ACTIVE = new AtomicInteger();
+
+    /** 어느 예산으로 세는지. */
+    private enum Budget {
+        SKILL, UNIT, TOWER;
+
+        AtomicInteger counter() {
+            return switch (this) {
+                case SKILL -> ACTIVE;
+                case UNIT -> UNIT_ACTIVE;
+                case TOWER -> TOWER_ACTIVE;
+            };
+        }
+
+        int limit() {
+            return switch (this) {
+                case SKILL -> MAX_ACTIVE;
+                case UNIT -> MAX_UNIT_ACTIVE;
+                case TOWER -> MAX_TOWER_ACTIVE;
+            };
+        }
+    }
     private static final float CULL_SIZE = 32.0F;
 
     private final String id;
     private final int lifetime;
     private final List<Part> parts = new ArrayList<>();
-    private boolean unitBudget;
+    private Budget budget = Budget.SKILL;
 
     public DisplayEffect(String id, int lifetime) {
         this.id = id;
@@ -59,7 +83,13 @@ public final class DisplayEffect {
 
     /** 유닛 연출 예산({@link #MAX_UNIT_ACTIVE})으로 셉니다. 몹이 자주 띄우는 짧은 연출에 씁니다. */
     public DisplayEffect unitBudget() {
-        this.unitBudget = true;
+        this.budget = Budget.UNIT;
+        return this;
+    }
+
+    /** 타워 연출 예산({@link #MAX_TOWER_ACTIVE})으로 셉니다. 타워가 공격마다 띄우는 짧은 연출에 씁니다. */
+    public DisplayEffect towerBudget() {
+        this.budget = Budget.TOWER;
         return this;
     }
 
@@ -93,7 +123,7 @@ public final class DisplayEffect {
         }
         float f = (float) factor;
         DisplayEffect copy = new DisplayEffect(id, lifetime);
-        copy.unitBudget = unitBudget;
+        copy.budget = budget;
         for (Part part : parts) {
             Part scaledPart = null;
             for (Frame frame : part.frames) {
@@ -120,7 +150,7 @@ public final class DisplayEffect {
 
     /** 고정된 자리에 띄웁니다. 예산을 넘으면 띄우지 않고 {@code false}입니다. */
     public boolean spawn(ServerLevel level, Vec3 origin) {
-        if (parts.isEmpty() || !reserve(unitBudget)) {
+        if (parts.isEmpty() || !reserve(budget)) {
             return false;
         }
         ChunkAttachment.ofTicking(new Runtime(this), level, origin);
@@ -129,16 +159,16 @@ public final class DisplayEffect {
 
     /** 엔티티를 따라다니게 띄웁니다(날개·방어막처럼 몸에 붙는 연출). */
     public boolean follow(Entity entity) {
-        if (parts.isEmpty() || !reserve(unitBudget)) {
+        if (parts.isEmpty() || !reserve(budget)) {
             return false;
         }
         EntityAttachment.ofTicking(new Runtime(this), entity);
         return true;
     }
 
-    private static boolean reserve(boolean unit) {
-        AtomicInteger counter = unit ? UNIT_ACTIVE : ACTIVE;
-        int limit = unit ? MAX_UNIT_ACTIVE : MAX_ACTIVE;
+    private static boolean reserve(Budget budget) {
+        AtomicInteger counter = budget.counter();
+        int limit = budget.limit();
         while (true) {
             int current = counter.get();
             if (current >= limit) {
@@ -151,7 +181,7 @@ public final class DisplayEffect {
     }
 
     private void release() {
-        (unitBudget ? UNIT_ACTIVE : ACTIVE).decrementAndGet();
+        budget.counter().decrementAndGet();
     }
 
     /** 미리보기 페이지용 JSON. 좌표는 기준점 기준, 회전은 쿼터니언 (x, y, z, w)입니다. */
