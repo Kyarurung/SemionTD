@@ -37,18 +37,18 @@ public final class InvasionVfx {
     static final DisplaySprite NECRO_FLASH = DisplaySprite.billboard("necro_flash", DIR);
     static final DisplaySprite DUST_RING = DisplaySprite.flat("dust_ring", DIR);
     static final DisplaySprite GOLD_FLASH = DisplaySprite.billboard("gold_flash", DIR);
+    static final DisplaySprite SLASH_GOBLIN = DisplaySprite.billboard("slash_goblin", DIR);
+    static final DisplaySprite SLASH_ELF = DisplaySprite.billboard("slash_elf", DIR);
 
     /** 이 클래스가 리소스팩에 넣는 텍스처. 마왕 연출 텍스처는 그쪽에서 이미 넣습니다. */
     public static final List<DisplaySprite> SPRITES = List.of(
             JAVELIN, SMOKE, GOLD_ARC, TRACER, MUZZLE, HOLY_CIRCLE, HOLY_FLASH, HOLY_RING,
-            NECRO_CIRCLE, NECRO_SOUL, NECRO_FLASH, DUST_RING, GOLD_FLASH);
+            NECRO_CIRCLE, NECRO_SOUL, NECRO_FLASH, DUST_RING, GOLD_FLASH, SLASH_GOBLIN, SLASH_ELF);
 
     // 마왕 연출 텍스처를 그대로 빌려 씁니다(리소스팩에는 마왕 쪽 목록으로 이미 들어갑니다).
     private static final DisplaySprite CRACK = DisplaySprite.flat("crack", DEMON_LORD_DIR);
     private static final DisplaySprite SHOCKWAVE_CRIMSON = DisplaySprite.flat("shockwave_crimson", DEMON_LORD_DIR);
     private static final DisplaySprite FLASH_CRIMSON = DisplaySprite.billboard("flash_crimson", DEMON_LORD_DIR);
-    private static final DisplaySprite CLAW = DisplaySprite.cross("claw", DEMON_LORD_DIR);
-    private static final DisplaySprite SLASH = DisplaySprite.flat("slash", DEMON_LORD_DIR);
 
     private InvasionVfx() {
     }
@@ -86,28 +86,34 @@ public final class InvasionVfx {
         return effect;
     }
 
-    /** 기습 단검: 대상 앞을 가르는 한 줄 칼자국. */
-    public static DisplayEffect elfSlash(float yaw, long seed) {
+    /** 기습 단검: 대상 앞에 사선으로 그어지는 한 줄 칼자국(빌보드라 어느 쪽에서 봐도 보입니다). */
+    public static DisplayEffect elfSlash(long seed) {
         DisplayEffect effect = effect("elf_slash", 10);
-        DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
-        Quaternionf flat = shapes.localRotation(35, 0, 0);
-        effect.part(SLASH, Pose.of(vec(0, 1.0, 0), flat, vec(0.2, 1, 0.2)))
-                .to(2, 2, Pose.of(vec(0, 1.0, 0), flat, vec(1.6, 1, 1.6)))
-                .to(6, 3, Pose.of(vec(0, 1.0, 0), flat, vec(2.0, 1, 0)));
+        straightSlash(effect, SLASH_ELF, vec(0, 1.1, 0), -35.0, 2, 2.4);
         return effect;
+    }
+
+    /**
+     * 한 줄로 긋는 칼자국 한 장. 판을 {@code rollDeg}만큼 굴려 사선으로 두고, 짧게 나타나 {@code length}까지 뻗은 뒤
+     * 두께가 얇아지며 사라집니다.
+     */
+    private static void straightSlash(DisplayEffect effect, DisplaySprite sprite, Vector3f at, double rollDeg, int start,
+            double length) {
+        Quaternionf roll = new Quaternionf().rotateZ((float) Math.toRadians(rollDeg));
+        effect.part(sprite, Pose.of(at, roll, vec(0.2, length, 1)))
+                .to(start, 2, Pose.of(at, roll, vec(length, length, 1)))
+                .to(start + 3, 3, Pose.of(at, roll, vec(length * 1.12, 0, 1)));
     }
 
     // ------------------------------------------------------------------ 고블린 정찰병
 
-    /** 비전투 타워를 단숨에 끝장낼 때: 발톱 자국과 먼지. */
+    /** 비전투 타워를 단숨에 끝장낼 때: 직선 칼자국 두 줄이 X자로 엇갈리고 타워가 먼지 속에 무너집니다. */
     public static DisplayEffect goblinExecute(long seed) {
-        DisplayEffect effect = effect("goblin_execute", 14);
+        DisplayEffect effect = effect("goblin_execute", 16);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
-        Quaternionf tilt = new Quaternionf().rotateY(0.6F).rotateZ(0.5F);
-        effect.part(CLAW, Pose.of(vec(0, 1.0, 0), tilt, vec(0.2, 0.2, 0.2)))
-                .to(2, 2, Pose.of(vec(0, 1.0, 0), tilt, vec(1.3, 1.6, 1.3)))
-                .to(7, 4, Pose.of(vec(0, 0.9, 0), tilt, vec(0, 1.6, 0)));
-        shapes.burst(SMOKE, 6, vec(0, 0.6, 0), 1.1, 0.8, 0.5, 0.2, 2, 6, 8, 5);
+        straightSlash(effect, SLASH_GOBLIN, vec(0, 1.1, 0), 45.0, 2, 2.2);
+        straightSlash(effect, SLASH_GOBLIN, vec(0, 1.1, 0), -45.0, 4, 2.2);
+        shapes.burst(SMOKE, 6, vec(0, 0.6, 0), 1.1, 0.8, 0.5, 0.2, 5, 6, 10, 5);
         return effect;
     }
 
@@ -213,16 +219,21 @@ public final class InvasionVfx {
 
     // ------------------------------------------------------------------ 군단장
 
-    /** 소드스태프 내려베기: 앞으로 떨어지는 금빛 궤적과 섬광. {@code yaw}는 바라보는 방향입니다. */
+    /**
+     * 소드스태프 내려베기: 머리 위에서 앞쪽 땅까지 세로로 떨어지는 금빛 궤적과, 날이 닿은 앞 땅의 섬광.
+     * 궤적 판을 바라보는 방향의 세로면에 세우고, 가장 밝은 칼끝(텍스처 오른쪽)이 아래 앞쪽에 오도록 돌립니다.
+     * {@code yaw}는 공격자가 대상을 보는 방향입니다.
+     */
     public static DisplayEffect commanderSlash(float yaw, long seed) {
         DisplayEffect effect = effect("commander_slash", 12);
         DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
-        Quaternionf upright = shapes.localRotation(0, 90, 0);
-        Vector3f at = shapes.local(0, 1.4, 1.2);
-        effect.part(GOLD_ARC, Pose.of(at, upright, vec(0.5, 1, 0.5)))
-                .to(2, 2, Pose.of(at, upright, vec(3.0, 1, 3.0)))
-                .to(6, 4, Pose.of(at, upright, vec(3.4, 1, 0)));
-        shapes.pop(GOLD_FLASH, shapes.local(0, 0.8, 2.0), 1.6, 3, 2, 6, 3);
+        Quaternionf vertical = shapes.localRotation(0, 0, -90);
+        Vector3f pivot = shapes.local(0, 1.9, 0.2);
+        double size = 5.0;
+        effect.part(GOLD_ARC, Pose.of(pivot, vertical, vec(size * 0.4, 1, size * 0.4)))
+                .to(2, 2, Pose.of(pivot, vertical, vec(size, 1, size)))
+                .to(6, 4, Pose.of(pivot, vertical, vec(size * 1.05, 1, 0)));
+        shapes.pop(GOLD_FLASH, shapes.local(0, 0.3, 2.2), 1.6, 3, 2, 6, 3);
         return effect;
     }
 
