@@ -26,6 +26,7 @@ SAND = [hexc(c) for c in ("5a4424", "8c6c3c", "c2a064", "e2c98e", "f4e6c2", "fff
 SPORE = [hexc(c) for c in ("2a1f33", "4e3a5e", "7c6390", "b09cc4", "e2d8ee", "ffffff")]
 MUSHROOM = [hexc(c) for c in ("4a0808", "8e1414", "d83030", "ff7060", "ffd0c8", "ffffff")]
 EARTH = [hexc(c) for c in ("2a1d12", "4f3a26", "7d6243", "a88c68", "d6c3a3", "f3eadb")]
+WIND = [hexc(c) for c in ("2f4a3a", "5f8f72", "9fcfae", "d4f2dc", "f2fff6", "ffffff")]
 BAMBOO = [hexc(c) for c in ("1d3a12", "3a6a1e", "5f9a2e", "92c850", "d0f08c")]
 
 
@@ -310,6 +311,26 @@ def wall(name, colors, seed):
     return c.save(name)
 
 
+def wind_arc():
+    """판다 돌진 앞의 바람 초승달(바닥 판). 볼록한 쪽이 앞(+Z, 그림 아래)이고 가운데가 두껍습니다."""
+    c = Canvas(64, 64)
+
+    def fn(x, y):
+        dx, dy = x - 32.0, y - 32.0
+        outer = math.hypot(dx, dy)
+        inner = math.hypot(dx, dy + 9.0)
+        if outer > 31.5 or inner < 29.5 or dy < 0.0:
+            return None
+        edge = 1.0 - min(1.0, (31.5 - outer) / 10.0)
+        middle = 1.0 - min(1.0, abs(dx) / 31.5)
+        heat = 0.2 + 0.55 * edge + 0.3 * middle
+        if (int(x) + int(y) * 3) % 7 == 0 and heat < 0.6:
+            return None
+        return ramp(WIND, min(1.0, heat)), alpha_step(0.3 + 0.6 * min(1.0, heat))
+    c.field(fn)
+    return c.save("wind_arc")
+
+
 TEXTURES = [
     water_drop, water_ring, vine_ring,
     lambda: petal("petal_tulip", TULIP),
@@ -328,6 +349,9 @@ TEXTURES = [
     lambda: wall("wall_tulip", TULIP, "tulip"),
     lambda: wall("wall_leaf", LEAF, "leaf"),
     lambda: wall("wall_spore", SPORE, "spore"),
+    lambda: base.beam("pollen_streak", LILAC),
+    lambda: base.beam("wind_streak", WIND),
+    wind_arc,
 ]
 
 
