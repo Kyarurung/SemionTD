@@ -33,7 +33,10 @@ public final class DemonLordDisplayVfx {
     static final DisplaySprite SIGIL = DisplaySprite.flat("sigil", DIR);
     static final DisplaySprite CIRCLE_ARCANE = DisplaySprite.flat("circle_arcane", DIR);
     static final DisplaySprite RIFT = DisplaySprite.flat("rift", DIR);
-    static final DisplaySprite SWING_ARC = DisplaySprite.flat("swing_arc", DIR);
+    /** 균열참 검 궤적 플립북: 0이 가장 선명하고 3으로 갈수록 꼬리부터 흐려집니다. */
+    static final List<DisplaySprite> SWING_ARC_FRAMES = List.of(
+            DisplaySprite.flat("swing_arc_0", DIR), DisplaySprite.flat("swing_arc_1", DIR),
+            DisplaySprite.flat("swing_arc_2", DIR), DisplaySprite.flat("swing_arc_3", DIR));
     static final DisplaySprite VORTEX = DisplaySprite.flat("vortex", DIR);
     static final DisplaySprite VOID_CORE = DisplaySprite.billboard("void_core", DIR);
     static final DisplaySprite WING = DisplaySprite.upright("wing", DIR);
@@ -57,7 +60,7 @@ public final class DemonLordDisplayVfx {
 
     /** 리소스팩에 넣을 스프라이트 전부. */
     public static final List<DisplaySprite> SPRITES = List.of(
-            SLASH, RIFT, SWING_ARC, VORTEX, VOID_CORE, SHOCKWAVE_CRIMSON, SHOCKWAVE_VIOLET, CRACK, SIGIL, CIRCLE_ARCANE, WING, BLADE, BARRIER,
+            SLASH, RIFT, SWING_ARC_FRAMES.get(0), SWING_ARC_FRAMES.get(1), SWING_ARC_FRAMES.get(2), SWING_ARC_FRAMES.get(3), VORTEX, VOID_CORE, SHOCKWAVE_CRIMSON, SHOCKWAVE_VIOLET, CRACK, SIGIL, CIRCLE_ARCANE, WING, BLADE, BARRIER,
             BEAM_CRIMSON, BEAM_ARCANE, BEAM_SOUL, SPIKE_BLOCK, SPIKE_CORE, CLAW, CHAIN, RUNE, SHARD, BOLT, FEATHER, FLAME, SOUL,
             FLASH_CRIMSON, FLASH_ARCANE
     );
@@ -425,13 +428,21 @@ public final class DemonLordDisplayVfx {
         DisplayEffect effect = new DisplayEffect("rift_cleave", lastWave + 16);
         DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
 
-        // 검 궤적: 가슴 높이에 110° 부채꼴 궤적을 눕혀 두고, 오른쪽에서 왼쪽으로 돌려 휘두르는 움직임을 줍니다.
-        // 비스듬히 내려베는 느낌이 나도록 판을 옆으로 조금 기울이고, 휘두를수록 아래로 내려갑니다.
+        // 검 궤적 플립북: 흐려지는 정도가 다른 110° 부채꼴 궤적 네 장을 한 틱씩 바꿔 끼웁니다(디스플레이는 투명도를
+        // 보간하지 못하므로 크기로 없애지 않습니다). 장이 바뀔 때마다 오른쪽에서 왼쪽으로 돌아가며 조금씩 내려가
+        // 비스듬히 베어 내리는 것처럼 보입니다. 판은 옆으로 35° 기울인 사선이라, 완전 세로와 달리 시전자의
+        // 1인칭 시점에서도 판이 옆으로 누워 보이지 않고 궤적이 보입니다.
         double swing = (slamOffset + slamRadius * 0.5) * 2.0;
-        effect.part(SWING_ARC, Pose.of(shapes.local(0, 1.5, 0), shapes.localRotation(-50.0, 0.0, -24.0), vec(swing * 0.6, 1, swing * 0.6)).hidden())
-                .to(2, 2, Pose.of(shapes.local(0, 1.25, 0), shapes.localRotation(0.0, 0.0, -18.0), vec(swing, 1, swing)))
-                .to(4, 2, Pose.of(shapes.local(0, 1.0, 0), shapes.localRotation(14.0, 0.0, -14.0), vec(swing * 1.04, 1, swing * 1.04)))
-                .to(6, 3, Pose.of(shapes.local(0, 0.9, 0), shapes.localRotation(22.0, 0.0, -12.0), vec(0, 1, 0)));
+        double[] turn = {-45.0, -15.0, 10.0, 28.0};
+        double[] height = {1.5, 1.32, 1.14, 0.98};
+        for (int frame = 0; frame < SWING_ARC_FRAMES.size(); frame++) {
+            Quaternionf rotation = shapes.localRotation(turn[frame], 0.0, -35.0);
+            Vector3f at = shapes.local(0, height[frame], 0);
+            int shown = 2 + frame;
+            effect.part(SWING_ARC_FRAMES.get(frame), Pose.of(at, rotation, vec(0, 1, 0)))
+                    .to(shown, 0, Pose.of(at, rotation, vec(swing, 1, swing)))
+                    .to(shown + 1, 0, Pose.of(at, rotation, vec(0, 1, 0)));
+        }
 
         Vector3f slam = shapes.local(0, 0, slamOffset);
         shapes.pop(FLASH_CRIMSON, new Vector3f(slam).add(0, 0.8F, 0), 2.8, slamTick, 1, slamTick + 2, 4);
