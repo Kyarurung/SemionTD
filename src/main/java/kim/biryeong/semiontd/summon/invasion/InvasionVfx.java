@@ -26,7 +26,10 @@ public final class InvasionVfx {
 
     static final DisplaySprite JAVELIN = DisplaySprite.cross("javelin", DIR);
     static final DisplaySprite SMOKE = DisplaySprite.billboard("smoke", DIR);
-    static final DisplaySprite GOLD_ARC = DisplaySprite.flat("gold_arc", DIR);
+    /** 군단장 궤적 플립북: 0이 가장 선명하고 3으로 갈수록 꼬리부터 흐려집니다. */
+    static final List<DisplaySprite> GOLD_ARC_FRAMES = List.of(
+            DisplaySprite.flat("gold_arc_0", DIR), DisplaySprite.flat("gold_arc_1", DIR),
+            DisplaySprite.flat("gold_arc_2", DIR), DisplaySprite.flat("gold_arc_3", DIR));
     static final DisplaySprite TRACER = DisplaySprite.cross("tracer", DIR);
     static final DisplaySprite MUZZLE = DisplaySprite.billboard("muzzle", DIR);
     static final DisplaySprite HOLY_CIRCLE = DisplaySprite.flat("holy_circle", DIR);
@@ -42,7 +45,7 @@ public final class InvasionVfx {
 
     /** 이 클래스가 리소스팩에 넣는 텍스처. 마왕 연출 텍스처는 그쪽에서 이미 넣습니다. */
     public static final List<DisplaySprite> SPRITES = List.of(
-            JAVELIN, SMOKE, GOLD_ARC, TRACER, MUZZLE, HOLY_CIRCLE, HOLY_FLASH, HOLY_RING,
+            JAVELIN, SMOKE, GOLD_ARC_FRAMES.get(0), GOLD_ARC_FRAMES.get(1), GOLD_ARC_FRAMES.get(2), GOLD_ARC_FRAMES.get(3), TRACER, MUZZLE, HOLY_CIRCLE, HOLY_FLASH, HOLY_RING,
             NECRO_CIRCLE, NECRO_SOUL, NECRO_FLASH, DUST_RING, GOLD_FLASH, SLASH_GOBLIN, SLASH_ELF);
 
     // 마왕 연출 텍스처를 그대로 빌려 씁니다(리소스팩에는 마왕 쪽 목록으로 이미 들어갑니다).
@@ -221,18 +224,27 @@ public final class InvasionVfx {
 
     /**
      * 소드스태프 내려베기: 머리 위에서 앞쪽 땅까지 세로로 떨어지는 금빛 궤적과, 날이 닿은 앞 땅의 섬광.
-     * 궤적 판을 바라보는 방향의 세로면에 세우고, 가장 밝은 칼끝(텍스처 오른쪽)이 아래 앞쪽에 오도록 돌립니다.
-     * {@code yaw}는 공격자가 대상을 보는 방향입니다.
+     *
+     * <p>디스플레이는 투명도를 보간하지 못하므로 크기를 줄여 없애지 않고, 흐려지는 정도가 다른 궤적 네 장을
+     * 한 틱씩 바꿔 끼우는 플립북으로 흐려지게 합니다. 장이 바뀔 때마다 궤적이 휘두르는 방향(아래 앞쪽)으로
+     * 조금씩 돌아가 날이 지나가는 것처럼 보입니다. 궤적 판은 바라보는 방향의 세로면에 세우고, 가장 밝은
+     * 칼끝(텍스처 오른쪽)이 아래 앞쪽에 오도록 돌립니다. {@code yaw}는 공격자가 대상을 보는 방향입니다.
      */
     public static DisplayEffect commanderSlash(float yaw, long seed) {
         DisplayEffect effect = effect("commander_slash", 12);
         DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
-        Quaternionf vertical = shapes.localRotation(0, 0, -90);
         Vector3f pivot = shapes.local(0, 1.9, 0.2);
-        double size = 5.0;
-        effect.part(GOLD_ARC, Pose.of(pivot, vertical, vec(size * 0.4, 1, size * 0.4)))
-                .to(2, 2, Pose.of(pivot, vertical, vec(size, 1, size)))
-                .to(6, 4, Pose.of(pivot, vertical, vec(size * 1.05, 1, 0)));
+        Vector3f full = vec(5.0, 1, 5.0);
+        Vector3f none = vec(0, 1, 0);
+        double[] pitch = {-30.0, -12.0, 4.0, 16.0};
+        for (int frame = 0; frame < GOLD_ARC_FRAMES.size(); frame++) {
+            Quaternionf rotation = shapes.localRotation(0, pitch[frame], -90);
+            int shown = 2 + frame;
+            // 바로 나타났다가 다음 틱에 바로 사라집니다(보간 0틱). 그 자리를 다음 장이 이어받습니다.
+            effect.part(GOLD_ARC_FRAMES.get(frame), Pose.of(pivot, rotation, none))
+                    .to(shown, 0, Pose.of(pivot, rotation, full))
+                    .to(shown + 1, 0, Pose.of(pivot, rotation, none));
+        }
         shapes.pop(GOLD_FLASH, shapes.local(0, 0.3, 2.2), 1.6, 3, 2, 6, 3);
         return effect;
     }

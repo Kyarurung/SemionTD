@@ -67,6 +67,39 @@ public class IncomeTower extends ProductionTower {
         onRemoved(lane);
     }
 
+    /**
+     * 타워 엔티티는 기본적으로 남쪽(yaw 0)을 보고 서서, 레인이 동서로 뻗으면 유닛 모델이 레인과 90도 어긋나 보입니다.
+     * 인컴 타워는 공격하지 않아 돌아볼 일도 없으므로, 세울 때 레인 입구(몹이 오는 쪽)를 보게 돌려 둡니다.
+     */
+    @Override
+    protected void configureEntityAfterSpawn(SemionTowerEntity entity, PlayerLane lane) {
+        super.configureEntityAfterSpawn(entity, lane);
+        if (lane == null || lane.laneLayout() == null) {
+            return;
+        }
+        float yaw = laneEntranceYaw(lane.laneLayout(), entity.position());
+        entity.setYRot(yaw);
+        entity.setYHeadRot(yaw);
+        entity.setYBodyRot(yaw);
+        entity.yRotO = yaw;
+        entity.yBodyRotO = yaw;
+        entity.yHeadRotO = yaw;
+    }
+
+    /** {@code at}에서 레인 경로를 따라 입구 쪽을 보는 yaw(도). 굽은 레인에서도 그 자리의 경로 방향을 따릅니다. */
+    public static float laneEntranceYaw(kim.biryeong.semiontd.map.LaneRegionLayout layout, net.minecraft.world.phys.Vec3 at) {
+        double progress = layout.progressAt(at);
+        net.minecraft.world.phys.Vec3 toward = layout.positionAt(Math.max(0.0, progress - 0.05));
+        net.minecraft.world.phys.Vec3 away = layout.positionAt(Math.min(1.0, progress + 0.05));
+        double dx = toward.x - away.x;
+        double dz = toward.z - away.z;
+        if (dx * dx + dz * dz < 1.0e-6) {
+            return 0.0F;
+        }
+        // 마인크래프트 yaw: 0이 +Z, 앞 방향은 (-sin, cos)
+        return (float) Math.toDegrees(Math.atan2(-dx, dz));
+    }
+
     @Override
     public boolean canChaseTargets() {
         return false;
