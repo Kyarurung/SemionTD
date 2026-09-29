@@ -20,7 +20,9 @@ class InvasionVfxTest {
 
     private static List<DisplayEffect> allEffects() {
         return List.of(
-                InvasionVfx.elfSlash(0.5F, 7L),
+                InvasionVfx.stealth(true, 7L),
+                InvasionVfx.stealth(false, 7L),
+                InvasionVfx.elfSlash(0.0F, 7L),
                 InvasionVfx.goblinExecute(7L),
                 InvasionVfx.priestBlast(2.5, 7L),
                 InvasionVfx.priestHeal(7L),
@@ -31,7 +33,7 @@ class InvasionVfxTest {
                 InvasionVfx.necroRise(7L),
                 InvasionVfx.necroBolt(7L),
                 InvasionVfx.groundSlam(2.8, 7L),
-                InvasionVfx.commanderSlash(0.5F, 7L));
+                InvasionVfx.commanderSlash(0.0F, 7L));
     }
 
     @Test
@@ -50,6 +52,21 @@ class InvasionVfxTest {
                 assertTrue(last.x * last.y * last.z < 1.0e-4, effect.id() + " parts must vanish instead of popping out");
             }
         }
+    }
+
+    /** 미리보기 페이지가 읽는 키프레임을 build/vfx-preview/invasion_vfx.json에 씁니다. 앞은 +Z입니다. */
+    @Test
+    void exportsKeyframesForThePreviewPage() throws IOException {
+        StringBuilder json = new StringBuilder("[");
+        List<DisplayEffect> effects = allEffects();
+        for (int index = 0; index < effects.size(); index++) {
+            json.append(index > 0 ? ",\n" : "").append(effects.get(index).toJson());
+        }
+        json.append("]\n");
+        java.nio.file.Path out = java.nio.file.Path.of("build", "vfx-preview", "invasion_vfx.json");
+        java.nio.file.Files.createDirectories(out.getParent());
+        java.nio.file.Files.writeString(out, json.toString(), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(java.nio.file.Files.size(out) > 1000);
     }
 
     @Test

@@ -75,11 +75,15 @@ public final class InvasionVfx {
 
     /** 은신하거나 드러날 때 피어오르는 연막. */
     public static void stealthPuff(ServerLevel level, Vec3 feet, boolean hiding) {
-        DisplayEffect effect = effect("stealth", 14);
-        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed(level));
+        play(level, stealth(hiding, seed(level)), feet);
+    }
+
+    public static DisplayEffect stealth(boolean hiding, long seed) {
+        DisplayEffect effect = effect(hiding ? "stealth" : "reveal", 14);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.burst(SMOKE, 5, vec(0, 0.9, 0), 0.7, 0.9, 0.5, 0.1, 2, 6, 8, 5);
         shapes.pop(SMOKE, vec(0, 1.0, 0), hiding ? 1.6 : 1.2, 2, 3, 6, 6);
-        play(level, effect, feet);
+        return effect;
     }
 
     /** 기습 단검: 대상 앞을 가르는 한 줄 칼자국. */
@@ -136,7 +140,7 @@ public final class InvasionVfx {
         DisplayEffect effect = effect("dwarf_shot", 10);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.pop(MUZZLE, muzzle, 1.1, 2, 1, 3, 3);
-        shapes.beam(TRACER, muzzle, end, 0.18, 2, 1, 4, 4);
+        shapes.beam(TRACER, muzzle, end, 0.3, 2, 1, 5, 4);
         return effect;
     }
 
