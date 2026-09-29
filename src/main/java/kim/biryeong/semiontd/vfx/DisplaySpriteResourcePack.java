@@ -56,7 +56,7 @@ public final class DisplaySpriteResourcePack {
      * 두께 없는 판 모델. 16 단위 모델 좌표가 디스플레이에서 가운데 정렬된 1×1 블록이 됩니다.
      * 뒷면 UV를 좌우로 뒤집어, 앞뒤 어느 쪽에서 봐도 월드 기준으로 같은 방향으로 보이게 합니다.
      */
-    static String modelJson(DisplaySprite sprite) {
+    public static String modelJson(DisplaySprite sprite) {
         String texture = SemionTd.MOD_ID + ":item/vfx/" + sprite.name();
         List<String> elements = switch (sprite.shape()) {
             case FLAT -> List.of(element("[0, 8, 0]", "[16, 8, 16]",
@@ -68,9 +68,54 @@ public final class DisplaySpriteResourcePack {
             case CUBE -> List.of(element("[0, 0, 0]", "[16, 16, 16]", String.join(", ",
                     face("north"), face("south"), face("east"), face("west"), face("up"), face("down")))
                     .replace("\"shade\": false", "\"shade\": true"));
+            case CYLINDER -> cylinderPanels();
         };
         return "{\n  \"textures\": {\"0\": \"" + texture + "\", \"particle\": \"#0\"},\n"
                 + "  \"elements\": [\n    " + String.join(",\n    ", elements) + "\n  ]\n}\n";
+    }
+
+    /**
+     * 16각 원기둥 벽. 두께 없는 판 16장을 둘레에 세웁니다. 아이템 모델의 요소 회전은 22.5° 단위(±45° 이내)만 되므로,
+     * 판마다 가장 가까운 네 방향(남·동·북·서) 중 하나에 세운 뒤 나머지 각만큼 돌립니다. 판 k는 텍스처의 가로
+     * k번째 칸(16분의 1)을 쓰므로 텍스처가 둘레를 한 바퀴 감습니다. 안쪽 면도 같은 칸을 좌우로 뒤집어 붙입니다.
+     */
+    static List<String> cylinderPanels() {
+        double apothem = 8.0 * Math.cos(Math.PI / 16.0);
+        double half = 8.0 * Math.sin(Math.PI / 16.0) + 0.02;
+        List<String> panels = new java.util.ArrayList<>();
+        for (int k = 0; k < 16; k++) {
+            int base = Math.floorMod((int) Math.floor((k * 22.5 + 45.0) / 90.0), 4);
+            double rest = k * 22.5 - base * 90.0;
+            if (rest > 45.0) {
+                rest -= 360.0;
+            }
+            String lo = fmt(8.0 - half);
+            String hi = fmt(8.0 + half);
+            String out = fmt(8.0 + apothem);
+            String in = fmt(8.0 - apothem);
+            String uv = "[" + k + ", 0, " + (k + 1) + ", 16]";
+            String uvBack = "[" + (k + 1) + ", 0, " + k + ", 16]";
+            String element = switch (base) {
+                case 0 -> element("[" + lo + ", 0, " + out + "]", "[" + hi + ", 16, " + out + "]",
+                        "\"south\": {\"uv\": " + uv + ", \"texture\": \"#0\"}, \"north\": {\"uv\": " + uvBack + ", \"texture\": \"#0\"}");
+                case 1 -> element("[" + out + ", 0, " + lo + "]", "[" + out + ", 16, " + hi + "]",
+                        "\"east\": {\"uv\": " + uv + ", \"texture\": \"#0\"}, \"west\": {\"uv\": " + uvBack + ", \"texture\": \"#0\"}");
+                case 2 -> element("[" + lo + ", 0, " + in + "]", "[" + hi + ", 16, " + in + "]",
+                        "\"north\": {\"uv\": " + uv + ", \"texture\": \"#0\"}, \"south\": {\"uv\": " + uvBack + ", \"texture\": \"#0\"}");
+                default -> element("[" + in + ", 0, " + lo + "]", "[" + in + ", 16, " + hi + "]",
+                        "\"west\": {\"uv\": " + uv + ", \"texture\": \"#0\"}, \"east\": {\"uv\": " + uvBack + ", \"texture\": \"#0\"}");
+            };
+            if (Math.abs(rest) > 1.0e-6) {
+                element = element.substring(0, element.length() - 1)
+                        + ", \"rotation\": {\"angle\": " + fmt(rest) + ", \"axis\": \"y\", \"origin\": [8, 8, 8]}}";
+            }
+            panels.add(element);
+        }
+        return panels;
+    }
+
+    private static String fmt(double value) {
+        return String.format(java.util.Locale.ROOT, "%.4f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private static String face(String side) {

@@ -23,7 +23,12 @@ public record DisplaySprite(String name, Shape shape, boolean billboard, String 
         UPRIGHT,
         CROSS,
         /** 여섯 면이 모두 같은 텍스처인 1×1×1 정육면체. 오른쪽 회전과 크기로 입체 가시 등을 만듭니다. */
-        CUBE
+        CUBE,
+        /**
+         * 지름 1, 높이 1의 속이 빈 원기둥 벽(16각). 텍스처는 옆으로 한 바퀴 감기고(가로 16등분), 위쪽이 기둥 꼭대기입니다.
+         * 바닥 원형 연출에 겹쳐 반투명한 입체 벽을 세웁니다. 크기는 (지름, 높이, 지름)입니다.
+         */
+        CYLINDER
     }
 
     public static DisplaySprite flat(String name, String resourceDir) {
@@ -40,6 +45,10 @@ public record DisplaySprite(String name, Shape shape, boolean billboard, String 
 
     public static DisplaySprite cube(String name, String resourceDir) {
         return new DisplaySprite(name, Shape.CUBE, false, resourceDir);
+    }
+
+    public static DisplaySprite cylinder(String name, String resourceDir) {
+        return new DisplaySprite(name, Shape.CYLINDER, false, resourceDir);
     }
 
     public static DisplaySprite billboard(String name, String resourceDir) {

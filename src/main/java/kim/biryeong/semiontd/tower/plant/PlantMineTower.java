@@ -6,7 +6,6 @@ import java.util.UUID;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
-import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.effect.TimedEffectType;
@@ -14,7 +13,6 @@ import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
-import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.TeamId;
@@ -22,6 +20,7 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -158,17 +157,10 @@ public class PlantMineTower extends PlantCombatTower {
     /** 지뢰가 점화됐음을 알리는 섬광 하나와 도화선 소리. */
     private void lightFuse(SemionTowerEntity source) {
         Vec3 center = source.position();
-        TowerVfxService.showAreaEffect(
-                source,
-                AreaEffectIds.tower(this, "spore_mine_fuse"),
-                PlantVfx.MINE_FUSE,
-                center,
-                Math.max(1.0, ability("explosionRadius")),
-                List.of(),
-                0,
-                0,
-                0
-        );
+        if (source.level() instanceof ServerLevel level) {
+            // 이 섬광이 예산에 밀려 잘리면 경고 없이 터지는 것과 같아, 판 한 장짜리로 가볍게 둡니다.
+            PlantDisplayVfx.play(level, PlantDisplayVfx.mineFuse(PlantDisplayVfx.seed(level)), center);
+        }
         source.level().playSound(
                 null, center.x, center.y, center.z,
                 SoundEvents.CREEPER_PRIMED, SoundSource.BLOCKS, 0.8f, 1.4f);
@@ -210,8 +202,11 @@ public class PlantMineTower extends PlantCombatTower {
                 AreaEffectIds.tower(this, "spore_mine"),
                 source,
                 radius,
-                AreaVfxSpec.onTrigger(AreaVfxStyles.PULSE)
+                AreaVfxSpec.none()
         );
+        if (source.level() instanceof ServerLevel level) {
+            PlantDisplayVfx.play(level, PlantDisplayVfx.mineBurst(radius, PlantDisplayVfx.seed(level)), source.position());
+        }
         SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
             boolean killed = damage > 0.0
                     && damageResolvedTargetResult(source, monster, damage, DamageType.MAGIC).killed();
