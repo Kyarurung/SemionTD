@@ -7090,7 +7090,8 @@
       "environmentDurationTicks": 60.0
     },
     "plant_soil_desert": {
-      "environmentMaxHealthDamagePerSecond": 0.0075,
+      "maxHealthDamagePerSecondPerTile": 0.00018,
+      "maxHealthDamagePerSecondCap": 0.0075,
       "environmentAttackSpeedReduction": 0.15,
       "auraRadius": 5.0,
       "environmentDurationTicks": 60.0,

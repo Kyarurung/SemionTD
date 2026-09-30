@@ -655,14 +655,19 @@ public final class PlantIntegrationGameTest {
             );
             lane.addTower(source);
             source.markWaveStarted(1);
-            Monster target = spawnMonster(context, lane, "plant-desert-target", sourcePos);
+            // 사암을 밟지 않은(지형 밖) 적도 사암 칸 수만큼 도트를 받습니다.
+            Monster target = spawnMonster(context, lane, "plant-desert-target", position(context, 7, 1, 7));
+            double burn = PlantSoilEnvironment.desertFieldBurnPerSecond(owner);
+            require(burn > 0.0 && PlantSoilStates.soilAt(owner, position(context, 7, 1, 7)) == null,
+                    "The target stands off the sandstone but the field still burns.");
             int delay = (int) ((20 - context.getLevel().getGameTime() % 20) % 20);
 
             context.runAfterDelay(delay, () -> {
                 try {
                     PlantSoilEnvironment.tick(lane);
-                    requireClose(992.5, target.health(), "Desert terrain must deal 0.75% max-health magic damage.");
-                    requireClose(7.5, source.roundMagicDamageDealt(),
+                    requireClose(1000.0 - 1000.0 * burn, target.health(),
+                            "Desert terrain must deal tiles x per-tile max-health magic damage even off the sandstone.");
+                    requireClose(1000.0 * burn, source.roundMagicDamageDealt(),
                             "Desert terrain damage must be credited to its terraformer.");
                     require(owner.equals(target.lastHitPlayerId().orElse(null))
                                     && target.lastHitSourceKind() == KillSourceKind.TOWER,
