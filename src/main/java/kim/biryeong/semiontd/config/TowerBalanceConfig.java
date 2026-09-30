@@ -1561,7 +1561,9 @@ public record TowerBalanceConfig(
         ));
         putAbilities(abilities, PlantSoil.DESERT.configId(), Map.of(
                 "environmentAttackSpeedReduction", 0.15,
-                "environmentMaxHealthDamagePerSecond", 0.0075,
+                // 사암 도트는 밟지 않아도 라인 전체에 들어갑니다. 크기는 사암 칸 수(칸당·상한)로 정합니다.
+                "maxHealthDamagePerSecondPerTile", 0.00018,
+                "maxHealthDamagePerSecondCap", 0.0075,
                 "environmentDurationTicks", 60.0,
                 // 타워 오라는 지형 자체 값보다 세게 잡아, 겹치면 타워 쪽이 적용됩니다.
                 "attackSpeedReduction", 0.25,
@@ -2363,7 +2365,7 @@ public record TowerBalanceConfig(
         validateRatios(PlantSoil.MYCELIUM.configId(),
                 "environmentWeakness", "damageTakenBonusPerTile", "damageTakenBonusCap", "environmentMoveSpeedReduction");
         validateRatios(PlantSoil.DESERT.configId(),
-                "environmentAttackSpeedReduction", "environmentMaxHealthDamagePerSecond",
+                "environmentAttackSpeedReduction", "maxHealthDamagePerSecondPerTile", "maxHealthDamagePerSecondCap",
                 "attackSpeedReduction", "thornReflectRatio");
         validateRatios(PlantSoil.PODZOL.configId(),
                 "attackSpeedBonus", "growthShareRatio");

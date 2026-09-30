@@ -328,7 +328,8 @@ final class PlantTowerCatalogTest {
         assertEquals(0.006, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", -1), EPSILON);
         assertEquals(0.25, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", -1), EPSILON);
         assertEquals(0.15, defaults.ability(PlantSoil.DESERT.configId(), "environmentAttackSpeedReduction", -1), EPSILON);
-        assertEquals(0.0075, defaults.ability(PlantSoil.DESERT.configId(), "environmentMaxHealthDamagePerSecond", -1), EPSILON);
+        assertEquals(0.00018, defaults.ability(PlantSoil.DESERT.configId(), "maxHealthDamagePerSecondPerTile", -1), EPSILON);
+        assertEquals(0.0075, defaults.ability(PlantSoil.DESERT.configId(), "maxHealthDamagePerSecondCap", -1), EPSILON);
         // 잔디와 회백토는 아군 지형이라 환경 효과가 없습니다.
         assertEquals(0.0, defaults.ability(PlantSoil.MEADOW.configId(), "environmentMaxHealthDamagePerSecond", 0.0), EPSILON);
         assertEquals(0.0, defaults.ability(PlantSoil.PODZOL.configId(), "environmentWeakness", 0.0), EPSILON);

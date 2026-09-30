@@ -347,7 +347,7 @@
 | 균사 계열 id | `explosionRadius`, `explosionDamageMultiplier`, `explosionHealthRatio` | 폭발 반경, 공격력 배율, 남은 체력 반영 비율입니다. 실제 피해는 `(damage × 배율 + 현재 체력 × 체력 비율) × (1+개화)`입니다. |
 | 균사 계열 id | `explosionMoveSpeedReduction`, `explosionDisableTicks` | 폭발 둔화율과 무력화 시간입니다. 무력화 동안 공격 속도·공격력이 100% 깎입니다. 지뢰는 **라운드당 한 번**만 터지므로 이 시간이 그대로 라운드당 무력화 총량입니다. 라운드 안에서 다시 장전하는 값은 일부러 두지 않았습니다 — 재장전보다 무력화가 길면 그 길목의 적이 영영 공격하지 못합니다. |
 | `plant_soil_desert` | `environmentAttackSpeedReduction` | 사암 위 적의 공격 속도 감소입니다. |
-| `plant_soil_desert` | `environmentMaxHealthDamagePerSecond` | 사암 위 적이 초당 잃는 **최대 체력 비율**입니다. 펄스 간격을 바꿔도 초당 피해량은 유지됩니다. |
+| `plant_soil_desert` | `maxHealthDamagePerSecondPerTile`, `maxHealthDamagePerSecondCap` | 라인의 모든 적(사암을 밟지 않아도)이 초당 잃는 **최대 체력 비율**입니다. 사암 칸 수에 비례하고(칸당·상한), 피해는 살아 있는 사암 테라포머의 것으로 칩니다. 펄스 간격을 바꿔도 초당 피해량은 유지됩니다. |
 | `plant_soil_meadow` | `supportRadius`, `healPercentPerPulse` | 잔디 지원 범위와 펄스마다 주변 아군을 회복시키는 최대 체력 비율입니다. |
 | `plant_global` | `meadowHealOverlapReduction` | 한 대상을 여러 잔디가 함께 회복시킬 때 **두 번째부터** 깎는 비율입니다(기본 50%). 겹치기 자체는 유효하되 잔디 개수만큼 회복이 선형으로 늘어나지 않게 합니다. 겹침 판정 창은 `soilPulseIntervalTicks` 를 그대로 씁니다 — 잔디들의 펄스는 서로 맞춰져 있지 않아 "같은 펄스"라는 것이 없기 때문입니다. |
 | `plant_soil_meadow` | `maxHealthGrowthPerRound`, `maxHealthGrowthCap` | 잔디 성장. 라운드당 최대 체력 증가와 누적 상한입니다. |
