@@ -102,6 +102,16 @@ public final class DemonLordService {
     private record CarrierSet(PlayerLane lane, EnumMap<DemonLordBinding, DemonLordSkillTower> carriers) {
     }
 
+    /** 전투 배속 보정: 클라이언트 쪽 공격 충전 표시를 서버 평타 간격에 맞춥니다. */
+    private static final ResourceLocation TICK_ATTACK_SPEED_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_tick_attack_speed");
+
+    /** 바닐라 기본 비행 속도. */
+    private static final float BASE_FLYING_SPEED = 0.05F;
+
+    /** 플레이어별로 마지막으로 맞춘 배속. 바뀌면 쿨타임 표시를 다시 보냅니다. */
+    private static final Map<UUID, Float> LAST_TICK_RATIO = new ConcurrentHashMap<>();
+
     private static final ResourceLocation MOVE_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
 
@@ -318,6 +328,7 @@ public final class DemonLordService {
         }
         syncBossBar(player, state);
         syncMoveSpeed(player, state);
+        syncTickScale(player, state, gameTime);
 
         if (!state.inCombat()) {
             DemonLordExecuteMarks.clear(player);
@@ -435,6 +446,7 @@ public final class DemonLordService {
         clearCombatKit(player);
         if (hadState) {
             restoreFlight(player);
+            clearTickScale(player);
         }
         clearPlayerState(player.getUUID());
     }
@@ -494,6 +506,7 @@ public final class DemonLordService {
         }
         clearBossBar(playerId);
         DemonLordExecuteMarks.forget(playerId);
+        LAST_TICK_RATIO.remove(playerId);
         PRE_COMBAT_HOTBAR.remove(playerId);
         removeCarriers(playerId);
         DemonLordStates.clear(playerId);
@@ -683,7 +696,9 @@ public final class DemonLordService {
         if (attribute == null) {
             return;
         }
-        double bonus = state.inCombat() ? state.moveSpeedBonus() : 0.0;
+        // 스탯 보너스에 전투 배속을 곱합니다. 곱연산 수정자라 (1 + 보너스) × 배속 - 1을 넣습니다.
+        double ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0;
+        double bonus = state.inCombat() ? (1.0 + state.moveSpeedBonus()) * ratio - 1.0 : 0.0;
         AttributeModifier existing = attribute.getModifier(MOVE_SPEED_MODIFIER_ID);
         if (bonus <= 0.0) {
             if (existing != null) {
@@ -874,20 +889,67 @@ public final class DemonLordService {
         state.startCooldown(skill, gameTime, Math.max(1, base));
         int refund = DemonLordSkills.cast(player, lane, state, skill, altar, gameTime);
         state.refundCooldown(skill, Math.min(Math.max(0, base - 1), Math.max(0, refund)));
-        int remaining = state.remainingCooldownTicks(skill, gameTime);
-        if (remaining > 0) {player.getCooldowns().addCooldown(new ItemStack(skill.item()), remaining);}
+        showCooldown(player, skill, state.remainingCooldownTicks(skill, gameTime));
         return true;
     }
 
     static void syncSkillCooldowns(ServerPlayer player, DemonLordState state, long now) {
         for (DemonLordSkill skill : DemonLordSkill.values()) {
-            ItemStack item = new ItemStack(skill.item());
-            int remaining = state.remainingCooldownTicks(skill, now);
-            if (remaining > 0) {
-                player.getCooldowns().addCooldown(item, remaining);
-            } else {
-                player.getCooldowns().removeCooldown(player.getCooldowns().getCooldownGroup(item));
+            showCooldown(player, skill, state.remainingCooldownTicks(skill, now));
+        }
+    }
+
+    /**
+     * 스킬 카드의 쿨타임 표시. 쿨타임은 서버 틱으로 세지만 클라이언트는 표시를 자기 틱(초당 20)으로 줄이므로, 전투 배속
+     * 중에는 같은 실제 시간이 되게 줄여서 보냅니다. 서버 쪽 아이템 쿨타임은 걸지 않습니다 - 스킬 준비 여부는 상태가
+     * 직접 판단하고, 서버 쪽 값은 서버 틱으로 줄어 표시와 어긋나기 때문입니다.
+     */
+    private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks) {
+        ResourceLocation group = player.getCooldowns().getCooldownGroup(new ItemStack(skill.item()));
+        player.getCooldowns().removeCooldown(group);
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundCooldownPacket(group,
+                kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(player.getServer(), remainingServerTicks)));
+    }
+
+    /**
+     * 전투 배속을 마왕에게도 맞춥니다. 서버가 빨라져도 플레이어의 움직임과 공격 충전 표시는 클라이언트가 실제 시간으로
+     * 처리하므로, 배속만큼 이동·비행 속도와 공격 속도 속성을 올립니다. 배속이 바뀌면 쿨타임 표시도 다시 보냅니다.
+     */
+    /** 마왕이 아니게 되면 배속 보정(공격 속도 수정자, 비행 속도)을 되돌립니다. */
+    private static void clearTickScale(ServerPlayer player) {
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (attackSpeed != null && attackSpeed.getModifier(TICK_ATTACK_SPEED_MODIFIER_ID) != null) {
+            attackSpeed.removeModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+        }
+        if (Math.abs(player.getAbilities().getFlyingSpeed() - BASE_FLYING_SPEED) > 1.0E-6F) {
+            player.getAbilities().setFlyingSpeed(BASE_FLYING_SPEED);
+            player.onUpdateAbilities();
+        }
+    }
+
+    private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
+        float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0F;
+        Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
+        if (previous != null && Math.abs(previous - ratio) > 1.0E-3F) {
+            syncSkillCooldowns(player, state, now);
+        }
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            AttributeModifier existing = attackSpeed.getModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+            double amount = ratio - 1.0;
+            if (amount <= 1.0E-6) {
+                if (existing != null) {
+                    attackSpeed.removeModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+                }
+            } else if (existing == null || Math.abs(existing.amount() - amount) > 1.0E-6) {
+                attackSpeed.addOrUpdateTransientModifier(new AttributeModifier(
+                        TICK_ATTACK_SPEED_MODIFIER_ID, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             }
+        }
+        float flying = BASE_FLYING_SPEED * ratio;
+        if (Math.abs(player.getAbilities().getFlyingSpeed() - flying) > 1.0E-6F) {
+            player.getAbilities().setFlyingSpeed(flying);
+            player.onUpdateAbilities();
         }
     }
 
