@@ -10,8 +10,8 @@
         tip: { c: ['#8a7a40', '#c0a850', '#e8d070', '#fff0a8'] },
     };
 
-    const CANOPY_Y = 23;       // 덮개 가운데 높이(손잡이에서)
-    const CANOPY_R = 7.2;      // 덮개 반지름
+    const CANOPY_Y = 31;       // 덮개 가운데 높이(손잡이에서). 덮개가 넓어 가장자리가 처져도 머리 위에 오게 높입니다.
+    const CANOPY_R = 21.6;     // 덮개 반지름
     const TILT = -22;          // 판이 바깥으로 내려앉는 각(음수가 아래로 처짐)
 
     function parasol(B, group, grip) {
@@ -36,8 +36,8 @@
                 { px: { up: (u, v, w, h) => (v === 0 ? 'parasol.frill:3' : (u === 0 || u === w - 1 ? 'parasol.canopy:1' : undefined)),
                         down: (u, v) => (v === 0 ? 'parasol.frill:1' : 'parasol.canopy:0') } });
         }
-        box(group, 'crown', [-1.1, CANOPY_Y - 0.2, -1.1], [1.1, CANOPY_Y + 0.9, 1.1], 'canopy');
-        box(group, 'tip', [-0.35, CANOPY_Y + 0.9, -0.35], [0.35, CANOPY_Y + 2.8, 0.35], 'tip');
+        box(group, 'crown', [-2.2, CANOPY_Y - 0.2, -2.2], [2.2, CANOPY_Y + 1.4, 2.2], 'canopy');
+        box(group, 'tip', [-0.45, CANOPY_Y + 1.4, -0.45], [0.45, CANOPY_Y + 4.2, 0.45], 'tip');
     }
 
     const PREFIXED = Object.fromEntries(Object.entries(MATERIALS).map(([k, v]) => ['parasol.' + k, v]));
