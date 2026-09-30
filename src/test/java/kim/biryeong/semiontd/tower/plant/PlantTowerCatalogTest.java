@@ -520,6 +520,17 @@ final class PlantTowerCatalogTest {
         assertEquals(2.0, totalMultiplier, EPSILON);
     }
 
+    /** 테라포머는 지형만 까는 설비라 타워 수(인구)를 차지하지 않습니다. 전투 타워는 그대로 한 칸입니다. */
+    @Test
+    void terraformersTakeNoTowerSlot() {
+        TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
+        TowerBalanceRuntime.apply(defaults);
+        for (TowerType terraformer : PlantTowers.TERRAFORM_TOWERS) {
+            assertEquals(0, kim.biryeong.semiontd.tower.TowerCapacity.slotCost(terraformer), terraformer.id());
+        }
+        assertEquals(1, kim.biryeong.semiontd.tower.TowerCapacity.slotCost(PlantTowers.T1_MYCELIUM_TOWER));
+    }
+
     @Test
     void defaultConfigCarriesEverySoilValue() {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();

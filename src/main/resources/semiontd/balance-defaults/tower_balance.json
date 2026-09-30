@@ -7009,40 +7009,52 @@
       "waterPressureRatioBonus": 0.06
     },
     "t1_oak_seed_tower": {
-      "terraformRadius": 1.0
+      "terraformRadius": 1.0,
+      "towerSlotCost": 0.0
     },
     "t2_oak_seed_tower": {
-      "terraformRadius": 2.0
+      "terraformRadius": 2.0,
+      "towerSlotCost": 0.0
     },
     "t3_oak_seed_tower": {
-      "terraformRadius": 3.0
+      "terraformRadius": 3.0,
+      "towerSlotCost": 0.0
     },
     "t1_mushroom_spore_tower": {
-      "terraformRadius": 1.0
+      "terraformRadius": 1.0,
+      "towerSlotCost": 0.0
     },
     "t2_mushroom_spore_tower": {
-      "terraformRadius": 2.0
+      "terraformRadius": 2.0,
+      "towerSlotCost": 0.0
     },
     "t3_mushroom_spore_tower": {
-      "terraformRadius": 3.0
+      "terraformRadius": 3.0,
+      "towerSlotCost": 0.0
     },
     "t1_dry_grass_seed_tower": {
-      "terraformRadius": 1.0
+      "terraformRadius": 1.0,
+      "towerSlotCost": 0.0
     },
     "t2_dry_grass_seed_tower": {
-      "terraformRadius": 2.0
+      "terraformRadius": 2.0,
+      "towerSlotCost": 0.0
     },
     "t3_dry_grass_seed_tower": {
-      "terraformRadius": 3.0
+      "terraformRadius": 3.0,
+      "towerSlotCost": 0.0
     },
     "t1_spruce_seed_tower": {
-      "terraformRadius": 1.0
+      "terraformRadius": 1.0,
+      "towerSlotCost": 0.0
     },
     "t2_spruce_seed_tower": {
-      "terraformRadius": 2.0
+      "terraformRadius": 2.0,
+      "towerSlotCost": 0.0
     },
     "t3_spruce_seed_tower": {
-      "terraformRadius": 3.0
+      "terraformRadius": 3.0,
+      "towerSlotCost": 0.0
     },
     "plant_global": {
       "bloomDamageCap": 0.6,
