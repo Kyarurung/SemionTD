@@ -161,6 +161,9 @@ TEXTURES = [
     lambda: base.flash("gold_flash", GOLD),
     lambda: slash_line("slash_goblin", GOBLIN),
     lambda: slash_line("slash_elf", ELF),
+    lambda: base.wall("wall_dust", EARTH, "dust"),
+    lambda: base.wall("wall_holy", HOLY, "holy"),
+    lambda: base.wall("wall_necro", NECRO, "necro"),
 ]
 
 

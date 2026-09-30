@@ -42,16 +42,22 @@ public final class InvasionVfx {
     static final DisplaySprite GOLD_FLASH = DisplaySprite.billboard("gold_flash", DIR);
     static final DisplaySprite SLASH_GOBLIN = DisplaySprite.billboard("slash_goblin", DIR);
     static final DisplaySprite SLASH_ELF = DisplaySprite.billboard("slash_elf", DIR);
+    /** 바닥 원형 연출에 겹치는 반투명 원기둥 벽. */
+    static final DisplaySprite WALL_DUST = DisplaySprite.cylinder("wall_dust", DIR);
+    static final DisplaySprite WALL_HOLY = DisplaySprite.cylinder("wall_holy", DIR);
+    static final DisplaySprite WALL_NECRO = DisplaySprite.cylinder("wall_necro", DIR);
 
     /** 이 클래스가 리소스팩에 넣는 텍스처. 마왕 연출 텍스처는 그쪽에서 이미 넣습니다. */
     public static final List<DisplaySprite> SPRITES = List.of(
             JAVELIN, SMOKE, GOLD_ARC_FRAMES.get(0), GOLD_ARC_FRAMES.get(1), GOLD_ARC_FRAMES.get(2), GOLD_ARC_FRAMES.get(3), TRACER, MUZZLE, HOLY_CIRCLE, HOLY_FLASH, HOLY_RING,
-            NECRO_CIRCLE, NECRO_SOUL, NECRO_FLASH, DUST_RING, GOLD_FLASH, SLASH_GOBLIN, SLASH_ELF);
+            NECRO_CIRCLE, NECRO_SOUL, NECRO_FLASH, DUST_RING, GOLD_FLASH, SLASH_GOBLIN, SLASH_ELF,
+            WALL_DUST, WALL_HOLY, WALL_NECRO);
 
     // 마왕 연출 텍스처를 그대로 빌려 씁니다(리소스팩에는 마왕 쪽 목록으로 이미 들어갑니다).
     private static final DisplaySprite CRACK = DisplaySprite.flat("crack", DEMON_LORD_DIR);
     private static final DisplaySprite SHOCKWAVE_CRIMSON = DisplaySprite.flat("shockwave_crimson", DEMON_LORD_DIR);
     private static final DisplaySprite FLASH_CRIMSON = DisplaySprite.billboard("flash_crimson", DEMON_LORD_DIR);
+    private static final DisplaySprite WALL_CRIMSON = DisplaySprite.cylinder("wall_crimson", DEMON_LORD_DIR);
 
     private InvasionVfx() {
     }
@@ -127,7 +133,8 @@ public final class InvasionVfx {
         DisplayEffect effect = effect("priest_blast", 14);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.pop(HOLY_FLASH, vec(0, 1.0, 0), 2.2, 2, 2, 5, 4);
-        shapes.decal(HOLY_RING, vec(0, ground(1), 0), 0.6, radius * 2.0, 2, 4, 7, 4, 30, 1.12);
+        shapes.decal(HOLY_RING, vec(0, ground(2), 0), 0.6, radius * 2.0, 2, 4, 7, 4, 30, 1.12);
+        shapes.cylinder(WALL_HOLY, vec(0, ground(1), 0), 0.6, radius * 2.0, 1.3, 2, 4, 7, 4, 30, 1.12);
         return effect;
     }
 
@@ -135,7 +142,8 @@ public final class InvasionVfx {
     public static DisplayEffect priestHeal(long seed) {
         DisplayEffect effect = effect("priest_heal", 18);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
-        shapes.decal(HOLY_CIRCLE, vec(0, ground(0), 0), 0.4, 1.8, 2, 4, 12, 5, 90, 0.0);
+        shapes.decal(HOLY_CIRCLE, vec(0, ground(1), 0), 0.4, 1.8, 2, 4, 12, 5, 90, 0.0);
+        shapes.cylinder(WALL_HOLY, vec(0, ground(0), 0), 0.4, 1.8, 1.1, 2, 4, 12, 5, 90, 1.0);
         effect.part(HOLY_FLASH, Pose.of(vec(0, 0.4, 0), new Quaternionf(), vec(0, 0, 1)))
                 .to(2, 3, Pose.of(vec(0, 0.9, 0), new Quaternionf(), vec(0.9, 0.9, 1)))
                 .to(8, 8, Pose.of(vec(0, 2.2, 0), new Quaternionf().rotateZ(0.8F), vec(0, 0, 1)));
@@ -175,7 +183,8 @@ public final class InvasionVfx {
         DisplayEffect effect = effect("orc_berserk", 16);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.pop(FLASH_CRIMSON, vec(0, 1.4, 0), 2.6, 2, 3, 6, 5);
-        shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(1), 0), 0.8, 4.0, 2, 5, 8, 5, 30, 1.12);
+        shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(2), 0), 0.8, 4.0, 2, 5, 8, 5, 30, 1.12);
+        shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 0.8, 4.0, 1.4, 2, 5, 8, 5, 30, 1.12);
         return effect;
     }
 
@@ -186,7 +195,8 @@ public final class InvasionVfx {
         int duration = Math.max(8, durationTicks);
         DisplayEffect effect = effect("necro_cast", duration + 8);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
-        shapes.decal(NECRO_CIRCLE, vec(0, ground(0), 0), 0.6, 3.6, 2, 5, duration, 6, 160, 0.0);
+        shapes.decal(NECRO_CIRCLE, vec(0, ground(1), 0), 0.6, 3.6, 2, 5, duration, 6, 160, 0.0);
+        shapes.cylinderHold(WALL_NECRO, vec(0, ground(0), 0), 3.6, 1.2, 2, 5, duration, 6, 40);
         return effect;
     }
 
@@ -195,6 +205,7 @@ public final class InvasionVfx {
         DisplayEffect effect = effect("necro_rise", 16);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(NECRO_CIRCLE, vec(0, ground(1), 0), 0.3, 1.4, 2, 3, 10, 4, 120, 0.0);
+        shapes.cylinder(WALL_NECRO, vec(0, ground(0), 0), 0.3, 1.4, 1.0, 2, 3, 10, 4, 120, 1.0);
         effect.part(NECRO_SOUL, Pose.of(vec(0, 0.2, 0), new Quaternionf(), vec(0, 0, 1)))
                 .to(2, 3, Pose.of(vec(0, 0.7, 0), new Quaternionf(), vec(0.7, 0.9, 1)))
                 .to(8, 6, Pose.of(vec(0, 1.8, 0), new Quaternionf(), vec(0, 0, 1)));
@@ -215,6 +226,7 @@ public final class InvasionVfx {
         DisplayEffect effect = effect("ground_slam", 18);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(DUST_RING, vec(0, ground(2), 0), 0.6, radius * 2.0, 2, 4, 8, 5, 20, 1.12);
+        shapes.cylinder(WALL_DUST, vec(0, ground(0), 0), 0.6, radius * 2.0, 1.1, 2, 4, 8, 5, 20, 1.12);
         shapes.decal(CRACK, vec(0, ground(1), 0), 0.8, radius * 1.4, 2, 3, 12, 5, 0, 0.0);
         shapes.burst(SMOKE, 5, vec(0, 0.3, 0), radius * 0.8, 0.9, 0.4, 0.1, 2, 6, 9, 5);
         return effect;
