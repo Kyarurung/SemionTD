@@ -567,6 +567,48 @@ public final class DemonLordGameTest {
         }
     }
 
+    /** 손아귀를 슬롯에 넣으면 처형 임계값 이하의 적만 그 마왕에게 빨갛게 표시되고, 회복하거나 손아귀를 빼면 꺼집니다. */
+    @GameTest
+    public void gripOfDoomMarksOnlyExecutableMonsters(GameTestHelper context) {
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        try {
+            SemionPlayer semionPlayer = demonLordPlayer(player);
+            DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
+            state.enterCombat();
+            state.consumePendingSpawn();
+            require(state.loadout().assign(DemonLordBinding.SLOT_1, DemonLordSkill.GRIP_OF_DOOM, 0), "Grip must be slotted.");
+            SpawnedTarget weak = spawnTarget(context, lane, new BlockPos(4, 2, 4), 100.0, 0.0);
+            SpawnedTarget healthy = spawnTarget(context, lane, new BlockPos(6, 2, 6), 100.0, 0.0);
+            weak.runtime().damage(70.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            DemonLordService.tick(lane, Map.of(player.getUUID(), semionPlayer));
+
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS);
+            var marked = DemonLordExecuteMarks.markedFor(player.getUUID());
+            require(marked.contains(weak.entity().getId()), "A monster at 30% health must be marked for execution.");
+            require(!marked.contains(healthy.entity().getId()), "A healthy monster must not be marked.");
+
+            weak.runtime().heal(60.0);
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 2L);
+            require(DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "Healing past the threshold must clear the mark.");
+
+            weak.runtime().damage(70.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 3L);
+            require(!DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "The mark must come back.");
+            state.loadout().remove(DemonLordBinding.SLOT_1);
+            DemonLordService.tick(lane, Map.of(player.getUUID(), semionPlayer));
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 4L);
+            require(DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "Without the grip nothing is marked.");
+            context.succeed();
+        } catch (Throwable failure) {
+            context.fail(Component.literal("Execute mark GameTest failed: " + failure.getMessage()));
+        } finally {
+            DemonLordStates.clear(player.getUUID());
+            player.discard();
+        }
+    }
+
     private static SemionPlayer demonLordPlayer(ServerPlayer player) {
         SemionPlayer semionPlayer = new SemionPlayer(
                 player.getUUID(), player.getGameProfile().getName(), TeamId.RED, 1,

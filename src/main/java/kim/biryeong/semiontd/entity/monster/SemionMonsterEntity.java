@@ -327,6 +327,40 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     /** 은신 중이면 타워가 이 몬스터를 공격 대상으로 고를 수 없습니다(범위 공격에는 맞습니다). */
+    /**
+     * 한 플레이어에게만 보내는 발광 표시 패킷. Blockbench 모델이면 모델을 이루는 디스플레이마다 발광과 발광 색을,
+     * 바닐라 모습이면 이 엔티티의 발광 비트를 바꿉니다(바닐라 모습의 색은 팀 색이라 호출하는 쪽이 팀 패킷을 따로 보냅니다).
+     * 끌 때는 지금 값으로 되돌려, 원래 켜져 있던 발광이나 투명은 그대로 둡니다.
+     */
+    public List<net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket> markGlowPackets(boolean on, int color) {
+        List<net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket> packets = new ArrayList<>();
+        if (holder != null) {
+            for (var element : holder.getElements()) {
+                if (element instanceof eu.pb4.polymer.virtualentity.api.elements.DisplayElement display) {
+                    byte flags = display.getDataTracker().get(eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS);
+                    packets.add(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(display.getEntityId(), List.of(
+                            net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                                    eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS,
+                                    on ? (byte) (flags | 0x40) : flags),
+                            net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                                    eu.pb4.polymer.virtualentity.api.tracker.DisplayTrackedData.GLOW_COLOR_OVERRIDE,
+                                    on ? color : display.getGlowColorOverride()))));
+                }
+            }
+        } else {
+            byte flags = entityData.get(DATA_SHARED_FLAGS_ID);
+            packets.add(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(getId(), List.of(
+                    net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                            DATA_SHARED_FLAGS_ID, on ? (byte) (flags | 0x40) : flags))));
+        }
+        return packets;
+    }
+
+    /** Blockbench 모델로 보이는지. 아니면 바닐라 모습(발광 색이 팀 색)입니다. */
+    public boolean usesModelVisual() {
+        return holder != null;
+    }
+
     public boolean isStealthed() {
         return stealthCapable && isAlive() && tickCount >= revealedUntilTick;
     }

@@ -64,12 +64,15 @@ public final class DemonLordDisplayVfx {
     static final DisplaySprite WALL_VIOLET = DisplaySprite.cylinder("wall_violet", DIR);
     static final DisplaySprite WALL_ARCANE = DisplaySprite.cylinder("wall_arcane", DIR);
     static final DisplaySprite WALL_FIRE = DisplaySprite.cylinder("wall_fire", DIR);
+    /** 직선 경로 양옆에 세우는 반투명 벽(서 있는 판). 원기둥 벽 텍스처와 같은 결입니다. */
+    static final DisplaySprite PATH_WALL_CRIMSON = DisplaySprite.upright("path_wall_crimson", DIR);
 
     /** 리소스팩에 넣을 스프라이트 전부. */
     public static final List<DisplaySprite> SPRITES = List.of(
             SLASH, RIFT, SWING_ARC_FRAMES.get(0), SWING_ARC_FRAMES.get(1), SWING_ARC_FRAMES.get(2), SWING_ARC_FRAMES.get(3), VORTEX, VOID_CORE, SHOCKWAVE_CRIMSON, SHOCKWAVE_VIOLET, CRACK, SIGIL, CIRCLE_ARCANE, WING, BLADE, BARRIER,
             BEAM_CRIMSON, BEAM_ARCANE, BEAM_SOUL, SPIKE_BLOCK, SPIKE_CORE, CLAW, CHAIN, RUNE, SHARD, BOLT, FEATHER, FLAME, SOUL,
-            FLASH_CRIMSON, FLASH_ARCANE, BLADE_WAVE, WALL_CRIMSON, WALL_VIOLET, WALL_ARCANE, WALL_FIRE
+            FLASH_CRIMSON, FLASH_ARCANE, BLADE_WAVE, WALL_CRIMSON, WALL_VIOLET, WALL_ARCANE, WALL_FIRE,
+            PATH_WALL_CRIMSON
     );
 
     private DemonLordDisplayVfx() {
@@ -183,10 +186,21 @@ public final class DemonLordDisplayVfx {
                         0.3, shapes.random(1.9, 2.7), 2 + step, 3, 14 + step, 5);
             }
         }
-        Vector3f landing = new Vector3f(end).add(0, ground(3), 0);
-        shapes.decal(SHOCKWAVE_CRIMSON, landing, 1.0, (hitRadius + 0.5) * 2.0, 4, 4, 8, 4, 30, 1.15);
-        shapes.cylinder(WALL_CRIMSON, new Vector3f(end).add(0, ground(0), 0), 1.0, (hitRadius + 0.5) * 2.0, 1.6, 4, 4, 8, 5, 30, 1.15);
-        shapes.decal(CRACK, new Vector3f(end).add(0, ground(1), 0), 1.0, 4.4, 4, 3, 20, 6, 0, 0.0);
+        // 피해 판정이 돌진 경로를 따라 폭 hitRadius인 직선이므로, 원형 대신 경로 양옆에 반투명 벽을 세우고
+        // 가운데로 땅이 갈라집니다.
+        Quaternionf along = shapes.localRotation(0.0, 0.0, 0.0);
+        effect.part(RIFT, Pose.of(shapes.local(0, ground(2), length / 2.0), along, vec(0, 1, length)))
+                .to(2, 3, Pose.of(shapes.local(0, ground(2), length / 2.0), along, vec(1.6, 1, length)))
+                .to(18, 6, Pose.of(shapes.local(0, ground(2), length / 2.0), along, vec(0, 1, length)));
+        double wallHeight = 1.8;
+        Quaternionf side = shapes.localRotation(90.0, 0.0, 0.0);
+        for (int sign : new int[] {-1, 1}) {
+            Vector3f foot = shapes.local(sign * hitRadius, 0.0, length / 2.0);
+            Vector3f middle = new Vector3f(foot).add(0, (float) wallHeight / 2.0F, 0);
+            effect.part(PATH_WALL_CRIMSON, Pose.of(foot, side, vec(length, 0, 1)))
+                    .to(2, 3, Pose.of(middle, side, vec(length, wallHeight, 1)))
+                    .to(9, 6, Pose.of(foot, side, vec(length, 0, 1)));
+        }
         shapes.pop(FLASH_CRIMSON, new Vector3f(end).add(0, 1.0F, 0), 3.0, 4, 2, 6, 4);
         return effect;
     }
@@ -392,12 +406,29 @@ public final class DemonLordDisplayVfx {
                     .to(14, 5, Pose.of(new Vector3f(grip).add(0, -0.3F, 0), closed, vec(0.5, 0, 0.5)));
         }
         if (executed) {
-            shapes.pop(FLASH_CRIMSON, vec(0, 1.1, 0), 3.4, 8, 2, 11, 4);
-            shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(4), 0), 1.0, (blastRadius + 0.3) * 2.0, 8, 5, 13, 4, 30, 1.15);
-            shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 1.0, (blastRadius + 0.3) * 2.0, 1.8, 8, 5, 13, 5, 30, 1.15);
-            shapes.burst(SHARD, 12, vec(0, 1.0, 0), blastRadius, 0.6, 1.8, 1.2, 8, 6, 16, 6);
-            shapes.burst(FLAME, 6, vec(0, 0.8, 0), blastRadius * 0.7, 0.6, 1.4, 0.6, 8, 5, 14, 5);
+            // 발톱이 오므라드는 순간(6틱) 시체가 터집니다: 핏빛 기둥이 치솟고, 큰 섬광 두 겹, 바닥과 허리 높이의 충격파,
+            // 원기둥 벽, 넓게 갈라지는 땅, 사방으로 튀는 핏빛 파편과 불티.
+            int blast = 6;
+            double diameter = (blastRadius + 0.3) * 2.0;
+            shapes.beam(BEAM_CRIMSON, vec(0, 0, 0), vec(0, 4.5, 0), 2.2, blast, 2, blast + 4, 5);
+            shapes.pop(FLASH_CRIMSON, vec(0, 1.2, 0), 5.0, blast, 1, blast + 2, 4);
+            shapes.pop(FLASH_ARCANE, vec(0, 1.6, 0), 3.2, blast + 1, 1, blast + 3, 4);
+            shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(4), 0), 1.0, diameter, blast, 5, blast + 5, 4, 30, 1.15);
+            shapes.decal(SHOCKWAVE_VIOLET, vec(0, 1.0, 0), 0.8, diameter * 0.8, blast + 1, 5, blast + 6, 4, -30, 1.12);
+            shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 1.0, diameter, 2.0, blast, 5, blast + 5, 5, 30, 1.15);
+            shapes.decal(CRACK, vec(0, ground(2), 0), 1.0, blastRadius * 1.5, blast, 3, blast + 14, 6, 0, 0.0);
+            shapes.burst(SHARD, 12, vec(0, 1.0, 0), blastRadius, 0.7, 2.0, 1.2, blast, 6, blast + 8, 6);
+            shapes.burst(FLAME, 8, vec(0, 0.8, 0), blastRadius * 0.75, 0.7, 1.6, 0.6, blast, 5, blast + 6, 5);
         }
+        return effect;
+    }
+
+    /** 손아귀 폭발에 휩쓸린 적: 몸에서 작은 핏빛 섬광과 파편이 튑니다. 폭발과 같은 틱에 맞춥니다. 기준점은 적의 발밑입니다. */
+    public static DisplayEffect gripBlastHit(long seed) {
+        DisplayEffect effect = new DisplayEffect("grip_blast_hit", 14);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        shapes.pop(FLASH_CRIMSON, vec(0, 1.0, 0), 1.4, 6, 1, 8, 3);
+        shapes.burst(SHARD, 4, vec(0, 1.0, 0), 0.9, 0.4, 0.9, 0.6, 6, 4, 9, 4);
         return effect;
     }
 

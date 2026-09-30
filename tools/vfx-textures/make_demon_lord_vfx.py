@@ -780,6 +780,7 @@ TEXTURES = [
     lambda: wall("wall_violet", VIOLET, "violet"),
     lambda: wall("wall_arcane", MAGENTA, "arcane"),
     lambda: wall("wall_fire", FIRE, "fire"),
+    lambda: wall("path_wall_crimson", CRIMSON, "path"),
 ]
 
 
