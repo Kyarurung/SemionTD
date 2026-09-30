@@ -12,6 +12,7 @@ final class BlueprintIcons {
         return switch (module) {
             case MULTISHOT -> Items.SPECTRAL_ARROW;
             case SPLASH -> Items.FIRE_CHARGE;
+            case LINE -> Items.BLAZE_ROD;
             case CHAIN -> Items.LIGHTNING_ROD;
             case SLOW -> Items.COBWEB;
             case STUN -> Items.ANVIL;

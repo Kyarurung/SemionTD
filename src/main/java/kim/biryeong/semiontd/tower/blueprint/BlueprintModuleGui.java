@@ -52,6 +52,7 @@ public final class BlueprintModuleGui extends SimpleGui {
         return switch (kind) {
             case OFFENSE -> "공격";
             case DEFENSE -> "생존";
+            case UTILITY -> "유틸";
             case SUPPORT -> "지원";
         };
     }

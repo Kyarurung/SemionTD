@@ -80,8 +80,12 @@ public class BlueprintTower extends ProductionTower {
         return module.value(param, level(module));
     }
 
+    /**
+     * 디버프·오라의 출처. 플레이어 한 명의 설계도 타워는 모두 같은 출처라서, 설계도를 여러 장 만들어도 같은 적에게 둔화·취약이,
+     * 같은 아군에게 가속이 겹쳐 쌓이지 않습니다(다른 플레이어 것과는 겹침).
+     */
     private ResourceLocation source(String effect) {
-        return ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_" + effect + "/" + type().id());
+        return ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_" + effect + "/" + ownerPlayer());
     }
 
     // ------------------------------------------------------------------ targeting
@@ -141,6 +145,9 @@ public class BlueprintTower extends ProductionTower {
         }
         if (level(BlueprintModule.SPLASH) > 0) {
             splash(towerEntity, target, baseDamage);
+        }
+        if (level(BlueprintModule.LINE) > 0) {
+            line(towerEntity, target, baseDamage);
         }
         if (level(BlueprintModule.CHAIN) > 0) {
             chain(towerEntity, target, outgoingDamage);
@@ -241,6 +248,36 @@ public class BlueprintTower extends ProductionTower {
             }
             return killed ? AreaEffectOutcome.KILLED : AreaEffectOutcome.APPLIED;
         });
+    }
+
+    /**
+     * 직선 관통(럴커식): 타워에서 맞은 적 쪽으로 사거리 + 보너스만큼 뻗는 선 위의 다른 적 모두에게 피해. 선에 맞은 적도 디버프가
+     * 걸리고 처치 폭발이 나지만, 광역·연쇄·직선을 다시 일으키지는 않습니다.
+     */
+    private void line(SemionTowerEntity towerEntity, SemionMonsterEntity target, double baseDamage) {
+        double lineDamage = baseDamage * value(BlueprintModule.LINE, "damageRatio");
+        double width = value(BlueprintModule.LINE, "width");
+        if (lineDamage <= 0.0 || width <= 0.0) {
+            return;
+        }
+        net.minecraft.world.phys.Vec3 start = towerEntity.position();
+        net.minecraft.world.phys.Vec3 toward = target.position().subtract(start);
+        net.minecraft.world.phys.Vec3 flat = new net.minecraft.world.phys.Vec3(toward.x, 0.0, toward.z);
+        if (flat.lengthSqr() < 1.0e-6) {
+            return;
+        }
+        double length = towerEntity.attackRange() + value(BlueprintModule.LINE, "lengthBonus");
+        net.minecraft.world.phys.Vec3 end = start.add(flat.normalize().scale(length));
+        for (SemionMonsterEntity monster : kim.biryeong.semiontd.tower.area.LineTargets.enemiesAlong(
+                towerEntity, start, end, width, monster -> monster != target)) {
+            Tower.DamageResult result = towerEntity.damageBasicAttackSecondaryTargetResult(monster, lineDamage);
+            TowerVfxService.showSecondaryAttack(towerEntity, monster);
+            if (result.killed()) {
+                onKill(towerEntity, monster, lineDamage);
+            } else if (monster.isAlive()) {
+                applyOnHitEffects(towerEntity, monster, result.dealtDamage());
+            }
+        }
     }
 
     /** 번개 타워의 연쇄와 같은 방식: 맞은 적 주변 적 몇에게 나간 피해의 일부가 튑니다. */

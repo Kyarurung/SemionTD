@@ -11,6 +11,8 @@ public final class BlueprintTexts {
         return switch (module) {
             case MULTISHOT -> "추가 대상 " + whole(module.value("extraTargets", level)) + " · 피해 " + pct(module.value("damageRatio", level));
             case SPLASH -> "반경 " + num(module.value("radius", level)) + " · 피해 " + pct(module.value("damageRatio", level));
+            case LINE -> "사거리 +" + num(module.value("lengthBonus", level)) + " · 폭 " + num(module.value("width", level))
+                    + " · 피해 " + pct(module.value("damageRatio", level));
             case CHAIN -> "튀는 수 " + whole(module.value("targets", level)) + " · 피해 " + pct(module.value("damageRatio", level));
             case SLOW -> "둔화 " + pct(module.value("amount", level)) + " · " + seconds(module.value("durationTicks", level));
             case STUN -> "확률 " + pct(module.value("chance", level)) + " · " + seconds(module.value("durationTicks", level));

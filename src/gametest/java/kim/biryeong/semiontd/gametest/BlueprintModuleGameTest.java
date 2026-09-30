@@ -176,6 +176,54 @@ public final class BlueprintModuleGameTest {
         }
     }
 
+    /**
+     * 직선 관통은 타워-대상 방향 뒤쪽 적까지 맞히고, 한 플레이어의 둔화는 설계도가 달라도 같은 적에게 겹쳐 쌓이지 않습니다.
+     */
+    @GameTest
+    public void lineHitsEnemiesBehindTheTargetAndOwnDebuffsDoNotStack(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-line".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            String visual = BlueprintVisuals.options().getFirst().sourceTowerId();
+            BlueprintStats lineStats = new BlueprintStats(300.0, 50.0, 20, 6.0, 25, DamageType.PHYSICAL)
+                    .withModules(Map.of(BlueprintModule.LINE, 1, BlueprintModule.SLOW, 1), BlueprintTargetPriority.FIRST);
+            var first = BlueprintStates.create(owner, "직선", lineStats, visual);
+            var second = BlueprintStates.create(owner, "둔화", new BlueprintStats(200.0, 20.0, 20, 6.0, 25, DamageType.PHYSICAL)
+                    .withModules(Map.of(BlueprintModule.SLOW, 1), BlueprintTargetPriority.FIRST), visual);
+            require(first.success() && second.success(), "Both blueprints must be created.");
+            BlueprintTower lineTower = (BlueprintTower) ProductionTowerCatalog.find(first.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 1, 1, 3));
+            BlueprintTower slowTower = (BlueprintTower) ProductionTowerCatalog.find(second.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 1, 1, 5));
+            lane.addTower(lineTower);
+            lane.addTower(slowTower);
+            SemionTowerEntity lineEntity = (SemionTowerEntity) context.getLevel().getEntity(lineTower.entityId().getAsInt());
+            SemionTowerEntity slowEntity = (SemionTowerEntity) context.getLevel().getEntity(slowTower.entityId().getAsInt());
+
+            Monster front = spawnMonster(context, lane, "line-front", position(context, 3, 1, 3));
+            Monster behind = spawnMonster(context, lane, "line-behind", position(context, 5, 1, 3));
+            Monster aside = spawnMonster(context, lane, "line-aside", position(context, 3, 1, 6));
+            double behindBefore = behind.health();
+            double asideBefore = aside.health();
+            lineTower.onAttackResolved(lineEntity, entity(context, front), 50.0, 50.0, 50.0, false);
+            require(behind.health() < behindBefore, "The line must hit the enemy behind the target.");
+            require(aside.health() == asideBefore, "An enemy off the line must not be hit.");
+
+            double oneSlow = entity(context, front).activeTimedEffectMagnitude(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION);
+            slowTower.onAttackResolved(slowEntity, entity(context, front), 20.0, 20.0, 20.0, false);
+            double afterSecond = entity(context, front).activeTimedEffectMagnitude(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION);
+            require(oneSlow > 0.0 && Math.abs(afterSecond - oneSlow) < 1.0e-9,
+                    "One player's slows must not stack across their blueprints: " + oneSlow + " -> " + afterSecond);
+            context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
     private static PlayerLane testLane(GameTestHelper context, UUID owner) {
         BlockPos min = context.absolutePos(new BlockPos(0, 1, 0));
         BlockPos max = context.absolutePos(new BlockPos(7, 4, 7));

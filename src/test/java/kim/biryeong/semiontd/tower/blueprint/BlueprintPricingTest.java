@@ -208,6 +208,23 @@ class BlueprintPricingTest {
         assertEquals(2, draft.design().stats().level(BlueprintModule.CRIT));
     }
 
+    @Test
+    void zeroDamageDebuffersPayForTheirDebuffsByHitRate() {
+        java.util.Map<BlueprintModule, Integer> debuffs = java.util.Map.of(
+                BlueprintModule.SLOW, 3, BlueprintModule.VULNERABILITY, 3, BlueprintModule.STUN, 3, BlueprintModule.MULTISHOT, 3);
+        BlueprintStats fastDebuffer = new BlueprintStats(30, 0.0, 5, 6.0, 25, DamageType.PHYSICAL)
+                .withModules(debuffs, BlueprintTargetPriority.FIRST);
+        BlueprintStats slowDebuffer = new BlueprintStats(30, 0.0, 40, 6.0, 25, DamageType.PHYSICAL)
+                .withModules(debuffs, BlueprintTargetPriority.FIRST);
+        assertTrue(BlueprintPricing.price(fastDebuffer) >= 500,
+                "A zero-damage tower that debuffs 4 enemies 4 times a second must not be near the minimum price: "
+                        + BlueprintPricing.price(fastDebuffer));
+        assertTrue(BlueprintPricing.price(fastDebuffer) > BlueprintPricing.price(slowDebuffer),
+                "Debuffs applied more often must cost more.");
+        assertEquals(BlueprintModule.Kind.OFFENSE, BlueprintModule.LIFESTEAL.kind(),
+                "Lifesteal heals from damage dealt, so it is priced on the offense side.");
+    }
+
     private static void assertBetween(long min, long max, long actual) {
         assertTrue(actual >= min && actual <= max, "Expected " + min + ".." + max + " but was " + actual);
     }

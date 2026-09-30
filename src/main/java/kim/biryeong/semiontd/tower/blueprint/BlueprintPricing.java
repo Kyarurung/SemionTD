@@ -11,7 +11,8 @@ import kim.biryeong.semiontd.entity.monster.DamageType;
  * <pre>
  *   공격  = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent × Π(1 + 공격 모듈 가중치 × 단계)
  *   생존  = 체력 / healthUnit × Π(1 + 생존 모듈 가중치 × 단계)
- *   P     = 공격 + 생존 + Σ 지원 모듈 위력 × 단계
+ *   유틸  = Σ 유틸 모듈 가중치 × 단계 × √(초당 맞힘) × (1 + utilityTargetBonus × (맞히는 대상 수 - 1))
+ *   P     = 공격 + 생존 + 유틸 + Σ 지원 모듈 위력 × 단계
  *   가격  = priceScale × P^priceExponent   (priceStep 단위로 반올림, 최소 minimumPrice)
  * </pre>
  * 기본 계수는 기존 빌더 타워의 가격대별 중앙값(가격 50·130·260 → 초당 피해 8·16.7·26.7, 체력 88·140·200)에
@@ -39,16 +40,33 @@ public final class BlueprintPricing {
         // 모듈은 서로 겹쳐 세지므로(다중 사격 화살마다 광역·연쇄가 터짐) 같은 쪽 모듈끼리는 곱합니다.
         double offenseMultiplier = 1.0;
         double defenseMultiplier = 1.0;
+        double utility = 0.0;
         double support = 0.0;
+        double hitRate = Math.sqrt(20.0 / Math.max(1, stats.attackIntervalTicks()));
+        double targetFactor = 1.0 + value("utilityTargetBonus") * (targetsPerHit(stats) - 1.0);
         for (var module : stats.modules().entrySet()) {
             double weighted = module.getKey().priceWeight() * module.getValue();
             switch (module.getKey().kind()) {
                 case OFFENSE -> offenseMultiplier *= 1.0 + weighted;
                 case DEFENSE -> defenseMultiplier *= 1.0 + weighted;
+                case UTILITY -> utility += weighted * hitRate * targetFactor;
                 case SUPPORT -> support += weighted;
             }
         }
-        return offense * rangeFactor * offenseMultiplier + defense * defenseMultiplier + support;
+        return offense * rangeFactor * offenseMultiplier + defense * defenseMultiplier + utility + support;
+    }
+
+    /** 한 번 공격에 효과를 거는 대상 수(기본 1 + 다중 사격 추가 대상 + 직선이 보통 더 맞히는 수). */
+    public static double targetsPerHit(BlueprintStats stats) {
+        double targets = 1.0;
+        int multishot = stats.level(BlueprintModule.MULTISHOT);
+        if (multishot > 0) {
+            targets += BlueprintModule.MULTISHOT.value("extraTargets", multishot);
+        }
+        if (stats.level(BlueprintModule.LINE) > 0) {
+            targets *= 1.0 + value("line.expectedExtraTargets");
+        }
+        return targets;
     }
 
     /** 한 설계도에 붙일 수 있는 모듈 수. */
