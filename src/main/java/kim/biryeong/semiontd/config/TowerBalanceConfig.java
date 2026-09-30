@@ -1538,10 +1538,12 @@ public record TowerBalanceConfig(
                 "supportDurationTicks", 60.0
         ));
         // environment* 값은 타워 없이 지형만으로 걸리는 효과입니다.
-        // 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증(취약)도 지형이 직접 담당합니다.
+        // 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증(취약)도 지형이 직접 담당합니다. 취약은 균사를 밟지 않아도
+        // 라인 전체에 걸리고, 크기는 균사 칸 수(칸당·상한)로 정합니다. T3 한 기(7x7, 49칸)면 상한에 닿습니다.
         putAbilities(abilities, PlantSoil.MYCELIUM.configId(), Map.of(
                 "environmentWeakness", 0.15,
-                "environmentDamageTakenBonus", 0.25,
+                "damageTakenBonusPerTile", 0.005,
+                "damageTakenBonusCap", 0.25,
                 "environmentMoveSpeedReduction", 0.25,
                 "environmentDurationTicks", 60.0
         ));
@@ -2303,7 +2305,7 @@ public record TowerBalanceConfig(
         validateRatios(PlantSoil.MEADOW.configId(),
                 "healPercentPerPulse", "growthShareRatio");
         validateRatios(PlantSoil.MYCELIUM.configId(),
-                "environmentWeakness", "environmentDamageTakenBonus", "environmentMoveSpeedReduction");
+                "environmentWeakness", "damageTakenBonusPerTile", "damageTakenBonusCap", "environmentMoveSpeedReduction");
         validateRatios(PlantSoil.DESERT.configId(),
                 "environmentAttackSpeedReduction", "environmentMaxHealthDamagePerSecond",
                 "attackSpeedReduction", "thornReflectRatio");

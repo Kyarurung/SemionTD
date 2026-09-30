@@ -341,7 +341,7 @@
 | `plant_global` | `soilPulseIntervalTicks`, `soilAuraMinRadius` | 지형 효과 갱신 주기와 최소 적용 반경입니다. |
 | 민들레 계열 id | `diamondPerWave` | 팀이 웨이브를 마칠 때 살아 있고 잔디 위에 있는 타워가 지급하는 다이아입니다. 샌드박스 라운드 이동은 정산하지 않습니다. |
 | `plant_global` | `environmentTickIntervalTicks` | 환경 효과 적용 주기입니다. 타워와 무관하게 돕니다. |
-| `plant_soil_mycelium` | `environmentWeakness`, `environmentDamageTakenBonus`, `environmentDurationTicks` | 균사 위 적의 공격력 감소, 받는 타워 피해 증가, 지속 시간입니다. 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증도 지형이 담당합니다. |
+| `plant_soil_mycelium` | `environmentWeakness`, `damageTakenBonusPerTile`, `damageTakenBonusCap`, `environmentDurationTicks` | 균사 위 적의 공격력 감소와 지속 시간, 그리고 균사 칸 수에 비례해 라인의 모든 적(균사를 밟지 않아도)이 받는 타워 피해 증가(칸당·상한)입니다. 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증도 지형이 담당합니다. |
 | 균사 계열 id | `triggerRadius`, `triggerIntervalTicks` | 지뢰 발동 반경과 확인 주기입니다. |
 | 균사 계열 id | `fuseTicks` | 밟은 뒤 터지기까지의 도화선 길이입니다. 점화 순간 섬광 파티클이 한 번 뜨고, 이 시간이 지나야 폭발합니다. **폭발 판정은 터지는 시점에 다시 잡으므로 그 사이에 빠져나간 적은 맞지 않습니다.** 0 은 즉발이라 거부됩니다 — 밟는 순간 이미 맞은 뒤면 피할 여지가 없습니다. |
 | 균사 계열 id | `explosionRadius`, `explosionDamageMultiplier`, `explosionHealthRatio` | 폭발 반경, 공격력 배율, 남은 체력 반영 비율입니다. 실제 피해는 `(damage × 배율 + 현재 체력 × 체력 비율) × (1+개화)`입니다. |
