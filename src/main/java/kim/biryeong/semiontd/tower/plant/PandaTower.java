@@ -37,8 +37,14 @@ import net.minecraft.world.phys.Vec3;
  * 화력이 됩니다.
  */
 public class PandaTower extends ProductionTower {
-    /** 돌진이 몇 틱에 걸쳐 진행되는지. 짧으면 순간이동처럼 보이고 길면 굼떠 보입니다. */
-    private static final int DASH_TICKS = 8;
+    /**
+     * 돌진이 몇 틱에 걸쳐 진행되는지. 바닐라 판다의 구르기 한 바퀴(클라이언트 {@code rollCounter} 32틱)와 같습니다.
+     * 짧게 끊으면 구르다 만 자세(옆으로 눕거나 뒤집힌 채)에서 갑자기 일어서 보입니다.
+     */
+    static final int DASH_TICKS = 32;
+
+    /** 바닐라 판다 상태 비트 중 구르기. */
+    private static final byte ROLL_FLAG = 4;
 
     /** 남은 돌진 틱. 0 보다 크면 지금 달리는 중입니다. */
     private int dashTicksLeft;
@@ -163,7 +169,23 @@ public class PandaTower extends ProductionTower {
         source.getMoveControl().setWantedPosition(source.getX(), source.getY(), source.getZ(), 0.0);
         source.getMoveControl().tick();
         source.setDeltaMovement(0.0, source.getDeltaMovement().y, 0.0);
+        setRolling(source, true);
         advanceDash(source);
+    }
+
+    /**
+     * 바닐라 판다의 구르기 동작을 켜고 끕니다. 판다 모습은 클라이언트에만 있는 가짜 판다라, 서버 엔티티 데이터가 아니라
+     * 판다의 상태 비트를 담은 데이터 패킷을 지켜보는 플레이어에게 직접 보냅니다. 클라이언트 판다는 이 비트를 보고
+     * 스스로 굴러 한 바퀴를 돕니다.
+     */
+    private static void setRolling(SemionTowerEntity source, boolean rolling) {
+        if (!(source.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+            return;
+        }
+        level.getChunkSource().broadcast(source, new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(
+                source.getId(), java.util.List.of(net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                        kim.biryeong.semiontd.mixin.accessor.PandaAccessor.semiontd$dataIdFlags(),
+                        rolling ? ROLL_FLAG : (byte) 0))));
     }
 
     private void endDash() {
@@ -184,6 +206,7 @@ public class PandaTower extends ProductionTower {
         sweep(source);
         dashTicksLeft--;
         if (dashTicksLeft <= 0) {
+            setRolling(source, false);
             endDash();
         }
     }
