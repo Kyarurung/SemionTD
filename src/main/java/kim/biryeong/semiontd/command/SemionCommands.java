@@ -375,6 +375,10 @@ public final class SemionCommands {
                 .then(literal("blueprint")
                         .then(literal("list")
                                 .executes(context -> blueprintList(context.getSource(), gameManager)))
+                        .then(literal("delete")
+                                .then(argument("number", IntegerArgumentType.integer(1))
+                                        .executes(context -> blueprintDelete(context.getSource(), gameManager,
+                                                IntegerArgumentType.getInteger(context, "number")))))
                         .then(literal("visuals")
                                 .executes(context -> blueprintVisuals(context.getSource(), null))
                                 .then(argument("filter", StringArgumentType.greedyString())
@@ -3444,19 +3448,24 @@ public final class SemionCommands {
         );
     }
 
-    private static SemionPlayer blueprintParticipant(CommandSourceStack source, SemionGameManager gameManager)
+    /** 지금 경기에서 빌더 빌더로 뛰는 참가자. 아니면 null(설계는 경기 밖에서도 됩니다). */
+    private static SemionPlayer blueprintParticipantOrNull(CommandSourceStack source, SemionGameManager gameManager)
             throws CommandSyntaxException {
         SemionGame game = playableGame(source, gameManager);
         if (game == null) {
-            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
             return null;
         }
         SemionPlayer semionPlayer = game.players().get(source.getPlayerOrException().getUUID());
-        if (semionPlayer == null || !(semionPlayer.job().orElse(null) instanceof kim.biryeong.semiontd.job.BlueprintTowerJob)) {
-            failure(source, "빌더 빌더만 쓸 수 있습니다.");
-            return null;
-        }
-        return semionPlayer;
+        return semionPlayer != null && semionPlayer.job().orElse(null) instanceof kim.biryeong.semiontd.job.BlueprintTowerJob
+                ? semionPlayer : null;
+    }
+
+    /** 계정 설계도 목록을 서버에 불러 둡니다(프로필을 읽으면 채워짐). */
+    private static ServerPlayer blueprintOwner(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().getName());
+        return player;
     }
 
     private static int blueprintCreate(
@@ -3466,18 +3475,47 @@ public final class SemionCommands {
             String visual,
             String name
     ) throws CommandSyntaxException {
-        SemionPlayer player = blueprintParticipant(source, gameManager);
-        if (player == null) {
+        ServerPlayer player = blueprintOwner(source, gameManager);
+        var design = kim.biryeong.semiontd.tower.blueprint.BlueprintDesign.of(name, stats, visual);
+        var problem = kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.check(player.getUUID(), design);
+        if (problem.isPresent()) {
+            failure(source, problem.get());
             return 0;
         }
-        var creation = kim.biryeong.semiontd.tower.blueprint.BlueprintStates.create(player.uuid(), name, stats, visual);
-        if (!creation.success()) {
-            failure(source, creation.message());
+        var updated = kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.add(player.getUUID(), design);
+        if (!gameManager.saveBlueprints(player.getUUID(), player.getGameProfile().getName(), updated)) {
+            failure(source, "설계도를 계정에 저장하지 못했습니다. 이번 접속 동안만 남습니다.");
+        }
+        long price = kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.price(stats);
+        success(source, "설계도 '" + kim.biryeong.semiontd.tower.blueprint.BlueprintStates.sanitizeName(name)
+                + "'를 저장했습니다. 가격 " + price + ", 타워 수 "
+                + kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.slotCost(price) + " (" + updated.size() + "번)");
+        SemionPlayer participant = blueprintParticipantOrNull(source, gameManager);
+        if (participant != null) {
+            var creation = kim.biryeong.semiontd.tower.blueprint.BlueprintStates.create(
+                    participant.uuid(), design.name(), stats, visual);
+            if (creation.success()) {
+                success(source, "이번 경기에서 바로 세울 수 있습니다.");
+            } else {
+                failure(source, "이번 경기에는 넣지 못했습니다: " + creation.message());
+            }
+        }
+        return 1;
+    }
+
+    private static int blueprintDelete(CommandSourceStack source, SemionGameManager gameManager, int number)
+            throws CommandSyntaxException {
+        ServerPlayer player = blueprintOwner(source, gameManager);
+        var updated = kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.remove(player.getUUID(), number - 1);
+        if (updated.isEmpty()) {
+            failure(source, number + "번 설계도가 없습니다.");
             return 0;
         }
-        var blueprint = creation.blueprint();
-        success(source, "설계도 '" + blueprint.name() + "'를 만들었습니다. 가격 " + blueprint.price()
-                + ", 타워 수 " + blueprint.slotCost() + " (" + blueprint.towerId() + ")");
+        if (!gameManager.saveBlueprints(player.getUUID(), player.getGameProfile().getName(), updated.get())) {
+            failure(source, "계정에 저장하지 못했습니다.");
+            return 0;
+        }
+        success(source, number + "번 설계도를 지웠습니다. 진행 중인 경기의 설계도는 경기가 끝날 때까지 남습니다.");
         return 1;
     }
 
@@ -3497,20 +3535,22 @@ public final class SemionCommands {
     }
 
     private static int blueprintList(CommandSourceStack source, SemionGameManager gameManager) throws CommandSyntaxException {
-        SemionPlayer player = blueprintParticipant(source, gameManager);
-        if (player == null) {
-            return 0;
-        }
-        var blueprints = kim.biryeong.semiontd.tower.blueprint.BlueprintStates.of(player.uuid());
-        if (blueprints.isEmpty()) {
-            success(source, "아직 만든 설계도가 없습니다. /semiontd blueprint create 로 만드세요.");
+        ServerPlayer player = blueprintOwner(source, gameManager);
+        var designs = kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.designs(player.getUUID());
+        if (designs.isEmpty()) {
+            success(source, "저장한 설계도가 없습니다. /semiontd blueprint create 로 만드세요.");
             return 1;
         }
-        for (var blueprint : blueprints) {
-            success(source, blueprint.name() + " - 가격 " + blueprint.price() + ", 타워 수 " + blueprint.slotCost()
-                    + " (" + blueprint.towerId() + ")");
+        int number = 1;
+        for (var design : designs) {
+            var stats = design.stats();
+            var invalid = kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.validate(stats);
+            long price = kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.price(stats);
+            success(source, number++ + ". " + design.name() + " - 가격 " + price + ", 타워 수 "
+                    + kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.slotCost(price)
+                    + invalid.map(reason -> " (지금은 못 씀: " + reason + ")").orElse(""));
         }
-        return blueprints.size();
+        return designs.size();
     }
 
     private static int blueprintVisuals(CommandSourceStack source, String filter) {

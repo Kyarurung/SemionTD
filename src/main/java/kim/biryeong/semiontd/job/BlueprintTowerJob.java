@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.job;
 import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
+import kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintStates;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintTowers;
 import kim.biryeong.semiontd.ui.SemionText;
@@ -12,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 빌더 빌더: 정해진 타워가 없고, 플레이어가 능력치·겉모습을 골라 설계한 타워만 세웁니다.
  *
- * <p>설계도는 한 경기 동안만 살고 만든 사람만 세울 수 있습니다. 세게 설계할수록 설치 가격이 가파르게 오릅니다.
+ * <p>설계도는 계정에 저장되어 경기가 시작하면 그 사람의 타워가 되고, 만든 사람만 세울 수 있습니다. 세게 설계할수록 설치 가격이 가파르게 오릅니다.
  */
 public final class BlueprintTowerJob extends SemionJob {
     public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint");
@@ -45,9 +46,14 @@ public final class BlueprintTowerJob extends SemionJob {
         return BlueprintTowers.isBlueprintTower(towerType);
     }
 
+    /** 계정에 저장된 설계도로 이 경기의 설계도를 만듭니다. 지금 한도에 안 맞는 것은 건너뜁니다. */
     @Override
     public void onMatchStarted(JobContext context) {
-        BlueprintStates.clear(context.player().uuid());
+        List<String> skipped = BlueprintLibrary.installForMatch(context.player().uuid());
+        if (!skipped.isEmpty()) {
+            kim.biryeong.semiontd.SemionTd.LOGGER.info("Skipped {} blueprint(s) for {}: {}",
+                    skipped.size(), context.player().uuid(), skipped);
+        }
     }
 
     @Override

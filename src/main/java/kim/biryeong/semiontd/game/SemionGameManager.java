@@ -859,7 +859,14 @@ public final class SemionGameManager {
     public SemionPlayerProfile profile(MinecraftServer server, UUID playerId, String playerName) {
         SemionPlayerProfile profile = progressionService.profile(server, playerId, playerName);
         HeroCompanionSkins.load(playerId, profile.heroCompanionSkins());
+        kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.load(playerId, profile.blueprints());
         return profile;
+    }
+
+    /** 빌더 빌더 설계도 목록을 계정에 저장합니다. */
+    public boolean saveBlueprints(UUID playerId, String playerName,
+            java.util.List<kim.biryeong.semiontd.tower.blueprint.BlueprintDesign> designs) {
+        return progressionService.saveBlueprints(playerId, playerName, designs);
     }
 
     public Optional<SemionPlayerProfile> grantCosmeticCurrency(UUID playerId, String playerName, long amount) {

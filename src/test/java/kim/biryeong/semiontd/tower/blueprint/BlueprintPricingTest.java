@@ -119,6 +119,27 @@ class BlueprintPricingTest {
         assertTrue(BlueprintVisuals.options().stream().noneMatch(option -> BlueprintTowers.isBlueprintId(option.sourceTowerId())));
     }
 
+    @Test
+    void savedLibraryInstallsForTheMatchAndSkipsDesignsThatNoLongerFit() {
+        String visual = BlueprintVisuals.options().getFirst().sourceTowerId();
+        BlueprintDesign good = BlueprintDesign.of("궁수", stats(120, 12.0, 7.0), visual);
+        BlueprintDesign outdated = BlueprintDesign.of("저격", stats(120, 12.0, 40.0), visual);
+        BlueprintLibrary.load(OWNER, java.util.List.of(good, outdated));
+        try {
+            java.util.List<String> skipped = BlueprintLibrary.installForMatch(OWNER);
+            assertEquals(1, skipped.size(), "A design outside today's limits must be skipped, not crash the match.");
+            assertEquals(1, BlueprintStates.of(OWNER).size());
+            assertEquals("궁수", BlueprintStates.of(OWNER).getFirst().name());
+            assertTrue(BlueprintLibrary.check(OWNER, outdated).isPresent());
+            assertTrue(BlueprintLibrary.check(OWNER, BlueprintDesign.of("새 궁수", stats(100, 10.0, 6.0), visual)).isEmpty());
+            assertEquals(3, BlueprintLibrary.add(OWNER, BlueprintDesign.of("새 궁수", stats(100, 10.0, 6.0), visual)).size());
+            assertEquals(2, BlueprintLibrary.remove(OWNER, 1).orElseThrow().size());
+            assertTrue(BlueprintLibrary.remove(OWNER, 9).isEmpty());
+        } finally {
+            BlueprintLibrary.forget(OWNER);
+        }
+    }
+
     private static void assertBetween(long min, long max, long actual) {
         assertTrue(actual >= min && actual <= max, "Expected " + min + ".." + max + " but was " + actual);
     }

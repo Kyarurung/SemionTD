@@ -146,6 +146,20 @@ public final class ProgressionService {
         return updated.equals(current) || store.putProfilePersisted(playerId, updated);
     }
 
+    /** 빌더 빌더 설계도 목록을 계정에 저장합니다. 저장에 실패하면 false입니다. */
+    public synchronized boolean saveBlueprints(
+            UUID playerId,
+            String playerName,
+            java.util.List<kim.biryeong.semiontd.tower.blueprint.BlueprintDesign> designs
+    ) {
+        if (playerId == null) {
+            return false;
+        }
+        SemionPlayerProfile current = store.getOrCreateProfile(playerId, playerName);
+        SemionPlayerProfile updated = current.updateBlueprints(playerName, designs);
+        return updated.equals(current) || store.putProfilePersisted(playerId, updated);
+    }
+
     public synchronized Map<UUID, MatchProgressionReward> applyMatchResult(MinecraftServer server, MatchResult matchResult) {
         if (appliedMatchRepository.hasApplied(matchResult.matchId(), PROGRESSION_SUBSYSTEM)) {
             return Map.of();
