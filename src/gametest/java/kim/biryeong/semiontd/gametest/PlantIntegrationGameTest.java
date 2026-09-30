@@ -664,10 +664,13 @@ public final class PlantIntegrationGameTest {
 
             context.runAfterDelay(delay, () -> {
                 try {
+                    // 기다리는 동안 테라포머 기본 공격이 대상을 칠 수 있으므로, 지형 펄스 한 번의 차이만 봅니다.
+                    double healthBefore = target.health();
+                    double creditedBefore = source.roundMagicDamageDealt();
                     PlantSoilEnvironment.tick(lane);
-                    requireClose(1000.0 - 1000.0 * burn, target.health(),
+                    requireClose(healthBefore - 1000.0 * burn, target.health(),
                             "Desert terrain must deal tiles x per-tile max-health magic damage even off the sandstone.");
-                    requireClose(1000.0 * burn, source.roundMagicDamageDealt(),
+                    requireClose(1000.0 * burn, source.roundMagicDamageDealt() - creditedBefore,
                             "Desert terrain damage must be credited to its terraformer.");
                     require(owner.equals(target.lastHitPlayerId().orElse(null))
                                     && target.lastHitSourceKind() == KillSourceKind.TOWER,
