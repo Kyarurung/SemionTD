@@ -42,6 +42,24 @@ public final class BlueprintVisuals {
                 .map(entry -> new Option(entry.type().id(), entry.type().displayName(), entry.type().visual()));
     }
 
+    /** 편집 창에 보일 아이콘: 블록 겉모습은 그 블록, 전용 모델은 갑옷 거치대, 몹은 스폰 알. */
+    public static net.minecraft.world.item.ItemStack icon(EntityVisual visual) {
+        if (kim.biryeong.semiontd.entity.visual.BlockDisplayVisual.matches(visual)) {
+            var state = kim.biryeong.semiontd.entity.visual.BlockDisplayVisual.blockState(visual);
+            if (state != null && state.getBlock().asItem() != net.minecraft.world.item.Items.AIR) {
+                return new net.minecraft.world.item.ItemStack(state.getBlock());
+            }
+            return new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GRASS_BLOCK);
+        }
+        if (visual == null || visual.blockbenchModel().isPresent()) {
+            return new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ARMOR_STAND);
+        }
+        net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(visual.entityTypeId());
+        var type = id == null ? null : net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
+        var egg = net.minecraft.world.item.SpawnEggItem.byId(type);
+        return new net.minecraft.world.item.ItemStack(egg != null ? egg : net.minecraft.world.item.Items.EGG);
+    }
+
     private static boolean borrowable(ProductionTowerCatalog.CatalogEntry entry) {
         TowerType type = entry.type();
         return entry.availability() == ProductionTowerCatalog.Availability.JOB

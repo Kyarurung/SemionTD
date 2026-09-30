@@ -63,7 +63,8 @@ public record Blueprint(
         if (stats.targetPriority() != BlueprintTargetPriority.FIRST) {
             lines.add("<yellow>대상 우선도: " + stats.targetPriority().displayName() + "</yellow>");
         }
-        stats.modules().forEach((module, level) -> lines.add("<aqua>" + module.displayName() + " " + level + "단계</aqua>"));
+        stats.modules().forEach((module, level) -> lines.add("<aqua>" + module.displayName() + " " + level + "단계</aqua> <gray>"
+                + BlueprintTexts.effect(module, level) + "</gray>"));
         lines.add("<gray>타워 수 " + slotCost() + "칸</gray>");
         return lines;
     }

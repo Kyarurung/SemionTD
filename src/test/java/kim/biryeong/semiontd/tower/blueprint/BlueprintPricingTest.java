@@ -180,6 +180,34 @@ class BlueprintPricingTest {
         assertEquals(BlueprintTargetPriority.FIRST, withUnknown.stats().targetPriority());
     }
 
+    @Test
+    void everyModuleLevelDescribesItsEffect() {
+        for (BlueprintModule module : BlueprintModule.values()) {
+            for (int level = 1; level <= BlueprintModule.MAX_LEVEL; level++) {
+                String text = BlueprintTexts.effect(module, level);
+                assertFalse(text.isBlank(), module.id() + " level " + level + " needs an effect text.");
+                assertFalse(text.contains("NaN"), module.id() + " effect text must be numeric: " + text);
+            }
+        }
+    }
+
+    @Test
+    void draftClampsToTheLimitsAndBuildsADesign() {
+        BlueprintDraft draft = new BlueprintDraft();
+        draft.maxHealth = 1.0e9;
+        draft.range = -5;
+        draft.attackIntervalTicks = 1;
+        draft.clamp();
+        assertEquals(BlueprintPricing.value("maxHealth"), draft.maxHealth, 1.0e-9);
+        assertEquals(BlueprintPricing.value("minRange"), draft.range, 1.0e-9);
+        assertEquals((int) BlueprintPricing.value("minAttackIntervalTicks"), draft.attackIntervalTicks);
+        draft.name = "초안";
+        draft.visualSourceId = BlueprintVisuals.options().getFirst().sourceTowerId();
+        draft.modules.put(BlueprintModule.CRIT, 2);
+        assertTrue(BlueprintPricing.validate(draft.design().stats()).isEmpty());
+        assertEquals(2, draft.design().stats().level(BlueprintModule.CRIT));
+    }
+
     private static void assertBetween(long min, long max, long actual) {
         assertTrue(actual >= min && actual <= max, "Expected " + min + ".." + max + " but was " + actual);
     }
