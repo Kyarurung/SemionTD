@@ -320,6 +320,7 @@ public final class DemonLordService {
         syncMoveSpeed(player, state);
 
         if (!state.inCombat()) {
+            DemonLordExecuteMarks.clear(player);
             restoreFlight(player);
             releaseAggro(player, gameTime);
             if (state.consumePactEndedNotice()) {
@@ -345,6 +346,7 @@ public final class DemonLordService {
         }
         rescueFromVoid(player, lane);
         DemonLordSkills.tickPending(player, lane, state, gameTime);
+        DemonLordExecuteMarks.tick(player, lane, state, gameTime);
         detectSkillCast(player, lane, state, gameTime);
     }
 
@@ -491,6 +493,7 @@ public final class DemonLordService {
             state.removeRoundMetrics();
         }
         clearBossBar(playerId);
+        DemonLordExecuteMarks.forget(playerId);
         PRE_COMBAT_HOTBAR.remove(playerId);
         removeCarriers(playerId);
         DemonLordStates.clear(playerId);
@@ -504,6 +507,7 @@ public final class DemonLordService {
 
     private static void knockOutOfCombat(ServerPlayer player, DemonLordState state) {
         state.leaveCombat();
+        DemonLordExecuteMarks.clear(player);
         releaseAggro(player);
         restoreFlight(player);
         setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
@@ -925,6 +929,11 @@ public final class DemonLordService {
             return List.of();
         }
         return List.copyOf(set.carriers().values());
+    }
+
+    /** 그 슬롯의 스킬 운반체. 없으면 {@code null}입니다. */
+    static DemonLordSkillTower carrierFor(PlayerLane lane, UUID owner, DemonLordBinding binding) {
+        return altarFor(lane, owner, binding);
     }
 
     private static DemonLordSkillTower altarFor(PlayerLane lane, UUID owner, DemonLordBinding binding) {

@@ -152,9 +152,16 @@ public final class DemonLordSkills {
                 + ability(altar, "areaDamage", 30.0) * state.damageMultiplier();
         double blastRadius = reach(state, altar, "explosionRadius", 4.0);
         SemionMonsterEntity executedTarget = target;
+        int[] shown = {0};
         applyArea(altar, lane, victimPosition, blastRadius, nearby -> nearby != executedTarget,
-                nearby -> damageOutcome(DemonLordService.dealDamage(
-                        player, lane, altar, nearby, blast, DamageType.MAGIC)));
+                nearby -> {
+                    // 휩쓸린 적마다 작은 폭발을 띄웁니다. 떼로 몰려 있어도 여섯 마리까지만 띄워 연출 예산을 아낍니다.
+                    if (shown[0]++ < 6) {
+                        DemonLordVfx.play(lane, DemonLordDisplayVfx.gripBlastHit(DemonLordVfx.seed(lane) + nearby.getId()),
+                                nearby.position());
+                    }
+                    return damageOutcome(DemonLordService.dealDamage(player, lane, altar, nearby, blast, DamageType.MAGIC));
+                });
         // 폭발 반경은 이미 범위 스탯이 곱해진 값이라, 발톱만 따로 키우지 않고 반경을 원래 값으로 돌려 전체를 키웁니다.
         DemonLordVfx.play(lane, DemonLordDisplayVfx.gripOfDoom(true, blastRadius / state.skillRangeMultiplier(),
                 DemonLordVfx.seed(lane)).scaled(state.skillRangeMultiplier()), victimPosition);
