@@ -486,13 +486,12 @@ public final class PlantIntegrationGameTest {
     }
 
     /**
-     * 지뢰는 라운드가 끝날 때마다 한 단계씩 삭고, 붉은 버섯은 사라집니다.
+     * 지뢰는 라운드가 끝나도 삭지 않고 제 티어 그대로 남습니다. 붉은 버섯도 사라지지 않습니다.
      *
-     * <p>실제 레인에서 확인하는 이유는 삭는 과정이 타워를 갈아 끼우기 때문입니다. 판매가와 체력이
-     * 새 티어 기준으로 잡히는지, 자리와 소유자가 그대로인지는 카탈로그 값만 봐서는 알 수 없습니다.
+     * <p>균사 지형의 취약은 균사 칸 수에 비례합니다(칸당·상한). 밟지 않아도 라인 전체에 걸리는 값입니다.
      */
     @GameTest
-    public void myceliumMinesDecayOneTierEachRoundUntilTheyDisappear(GameTestHelper context) {
+    public void myceliumMinesKeepTheirTierAndTheFieldScalesWithTiles(GameTestHelper context) {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         UUID owner = stableUuid("plant-mine-decay-owner");
         SemionGame game = null;
@@ -502,10 +501,18 @@ public final class PlantIntegrationGameTest {
             game = startedPlantGame(context, owner);
             game.players().get(owner).economy().addMineral(1_000);
             PlayerLane lane = game.playerLane(owner).orElseThrow();
+            require(PlantSoilEnvironment.myceliumFieldFrailty(owner) == 0.0, "No mycelium, no field frailty.");
             BlockPos terraformerPos = BlockPos.containing(lane.laneLayout().positionAt(0.35));
             require(ProductionTowerService.placeTower(
                     game, owner, terraformerPos, PlantTowers.T1_MUSHROOM_SPORE_TOWER.id())
                     == TowerPlacementResult.SUCCESS, "Mycelium terraformer placement must succeed.");
+
+            int tiles = PlantSoilStates.count(owner, PlantSoil.MYCELIUM);
+            require(tiles > 0, "The terraformer must claim mycelium tiles.");
+            double perTile = defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", 0.0);
+            double cap = defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", 0.0);
+            requireClose(Math.min(cap, tiles * perTile), PlantSoilEnvironment.myceliumFieldFrailty(owner),
+                    "Field frailty must be tiles x per-tile bonus, capped.");
 
             BlockPos minePos = claimedEmptyPosition(lane, owner, PlantSoil.MYCELIUM, terraformerPos);
             require(ProductionTowerService.placeTower(
@@ -517,25 +524,17 @@ public final class PlantIntegrationGameTest {
 
             GridPosition grid = GridPosition.from(minePos);
             JobContext jobContext = new JobContext(game, game.players().get(owner));
-
+            var before = lane.towerAt(grid);
             new PlantTowerJob().onRoundEnded(jobContext, 1);
-            var decayed = lane.towerAt(grid);
-            require(decayed instanceof PlantMineTower, "A decayed mine must still be a mine.");
-            require(PlantTowers.matches(decayed.type(), PlantTowers.T1_MYCELIUM_TOWER),
-                    "진홍빛 버섯 must decay into 붉은 버섯, found " + decayed.type().id());
-            require(owner.equals(decayed.ownerPlayer()), "Decay must keep the owner.");
-            requireClose(TowerBalanceRuntime.resolve(PlantTowers.T1_MYCELIUM_TOWER).maxHealth(), decayed.health(),
-                    "A decayed mine must carry the health of the tier it became.");
-            require(decayed.paidMineralCost()
-                            == TowerBalanceRuntime.resolve(PlantTowers.T1_MYCELIUM_TOWER).mineralCost(),
-                    "A decayed mine must be worth its new tier, not the one it was bought at.");
-
             new PlantTowerJob().onRoundEnded(jobContext, 2);
-            require(lane.towerAt(grid) == null, "붉은 버섯 must disappear at the end of the next round.");
+            var after = lane.towerAt(grid);
+            require(after == before, "The mine must survive round ends unchanged.");
+            require(PlantTowers.matches(after.type(), PlantTowers.T2_MYCELIUM_TOWER),
+                    "진홍빛 버섯 must stay 진홍빛 버섯, found " + after.type().id());
             context.succeed();
         } catch (RuntimeException | Error failure) {
             failure.printStackTrace();
-            context.fail(Component.literal("Plant mine decay failed: " + failure.getMessage()));
+            context.fail(Component.literal("Plant mine persistence failed: " + failure.getMessage()));
         } finally {
             if (game != null) {
                 game.close();

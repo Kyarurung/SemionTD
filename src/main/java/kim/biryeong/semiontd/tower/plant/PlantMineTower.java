@@ -29,16 +29,10 @@ import net.minecraft.world.phys.Vec3;
  * <p>폭발은 범위 피해와 함께 둔화, 그리고 공격 속도와 공격력을 동시에 100% 깎아 사실상 공격 불가
  * 상태를 만듭니다.
  *
- * <p><b>한 라운드에 한 번</b>만 터집니다. 터진 뒤에는 그 라운드 내내 빈 껍데기로 남고, 라운드가
- * 끝나면 한 단계 삭아 내려갑니다(뒤틀린 → 진홍빛 → 붉은). 붉은 버섯은 사라집니다.
- *
- * <p>예전에는 터지는 즉시 사라졌습니다. 소모 단위를 폭발 한 번에서 라운드 하나로 옮긴 것이라,
- * 뒤틀린 버섯을 심으면 세 라운드에 걸쳐 세 번 쓰는 셈입니다. 라운드 안에서 다시 장전하게 두면
- * 지뢰 하나가 광역 기관총이 되고, 무력화 시간이 재장전보다 길면 그 길목의 적은 영영 공격하지
- * 못합니다. 라운드당 한 번이면 그 두 가지를 값 조정 없이 구조로 막습니다.
- *
- * <p>삭아 내리는 처리는 {@code PlantTowerJob#onRoundEnded} 가 맡습니다 - 라운드 경계를 아는 쪽은
- * 타워가 아니라 직업입니다.
+ * <p><b>한 라운드에 한 번</b>만 터집니다. 터진 뒤에는 그 라운드 내내 빈 껍데기로 남고, 다음 라운드에
+ * 다시 장전됩니다. 예전에는 라운드마다 한 단계씩 삭아 내려갔지만(붉은 버섯은 사라짐), 값이 너무 커
+ * 쓰이지 않아 없앴습니다. 라운드 안에서 다시 장전하게 두면 지뢰 하나가 광역 기관총이 되고, 무력화
+ * 시간이 재장전보다 길면 그 길목의 적은 영영 공격하지 못하므로 라운드당 한 번은 그대로 둡니다.
  */
 public class PlantMineTower extends PlantCombatTower {
     /** 이번 라운드에 이미 터졌는지. 라운드가 새로 시작될 때만 풀립니다. */
@@ -89,8 +83,6 @@ public class PlantMineTower extends PlantCombatTower {
     /**
      * 라운드가 새로 시작되면 다시 장전됩니다.
      *
-     * <p>삭아 내리는 과정에서 타워를 새로 만들기 때문에 사실 대부분 새 인스턴스로 시작하지만,
-     * 그 사실에 기대지 않습니다. 되감기는 라운드 경계에서 벌어지는 일이고, 그건 이 훅의 몫입니다.
      */
     @Override
     public void resetForRound(PlayerLane lane) {
@@ -250,7 +242,7 @@ public class PlantMineTower extends PlantCombatTower {
                     + (int) augmentSnapshot().parameter("job_plant_towers_g2", "explosions", 3)
                     + (fuseLit ? " · 점화됨" : " · 재무장 후 적이 밟으면 점화"));
         } else if (spentThisRound) {
-            lines.add("이번 라운드에 이미 터졌습니다 · 라운드가 끝나면 한 단계 삭습니다");
+            lines.add("이번 라운드에 이미 터졌습니다 · 다음 라운드에 다시 장전됩니다");
         } else if (fuseLit) {
             lines.add("점화됨");
         } else {

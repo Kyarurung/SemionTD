@@ -630,8 +630,8 @@ public class PlantCombatTower extends ProductionTower {
                             + " · 피해 " + percentInteger(TowerBalanceRuntime.ability(type().id(), "novaDamageRatio", 0.0)));
                 }
             }
-            case MYCELIUM -> lines.add("균사 취약 +"
-                    + percentInteger(soilValue(soil, "environmentDamageTakenBonus")));
+            case MYCELIUM -> lines.add("균사 " + PlantSoilStates.count(ownerPlayer(), PlantSoil.MYCELIUM)
+                    + "칸 · 라인 전체 취약 +" + percentInteger(PlantSoilEnvironment.myceliumFieldFrailty(ownerPlayer())));
             case DESERT -> lines.add("공속 감소 -" + percentInteger(scaled(soil, "attackSpeedReduction"))
                     + ", 가시 반사 " + percentInteger(scaled(soil, "thornReflectRatio"))
                     + " +" + oneDecimal(type().damage()));

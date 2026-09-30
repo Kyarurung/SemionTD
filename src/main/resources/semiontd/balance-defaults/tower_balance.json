@@ -7065,7 +7065,8 @@
     "plant_soil_mycelium": {
       "environmentMoveSpeedReduction": 0.25,
       "environmentWeakness": 0.15,
-      "environmentDamageTakenBonus": 0.25,
+      "damageTakenBonusPerTile": 0.005,
+      "damageTakenBonusCap": 0.25,
       "environmentDurationTicks": 60.0
     },
     "plant_soil_desert": {
