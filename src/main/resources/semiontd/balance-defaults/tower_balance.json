@@ -7065,7 +7065,7 @@
     "plant_soil_mycelium": {
       "environmentMoveSpeedReduction": 0.25,
       "environmentWeakness": 0.15,
-      "damageTakenBonusPerTile": 0.005,
+      "damageTakenBonusPerTile": 0.006,
       "damageTakenBonusCap": 0.25,
       "environmentDurationTicks": 60.0
     },

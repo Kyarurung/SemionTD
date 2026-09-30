@@ -1542,7 +1542,7 @@ public record TowerBalanceConfig(
         // 라인 전체에 걸리고, 크기는 균사 칸 수(칸당·상한)로 정합니다. T3 한 기(7x7, 49칸)면 상한에 닿습니다.
         putAbilities(abilities, PlantSoil.MYCELIUM.configId(), Map.of(
                 "environmentWeakness", 0.15,
-                "damageTakenBonusPerTile", 0.005,
+                "damageTakenBonusPerTile", 0.006,
                 "damageTakenBonusCap", 0.25,
                 "environmentMoveSpeedReduction", 0.25,
                 "environmentDurationTicks", 60.0
