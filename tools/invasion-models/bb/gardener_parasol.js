@@ -10,8 +10,8 @@
         tip: { c: ['#8a7a40', '#c0a850', '#e8d070', '#fff0a8'] },
     };
 
-    const CANOPY_Y = 31;       // 덮개 가운데 높이(손잡이에서). 덮개가 넓어 가장자리가 처져도 머리 위에 오게 높입니다.
-    const CANOPY_R = 21.6;     // 덮개 반지름
+    const CANOPY_Y = 29;       // 덮개 가운데 높이(손잡이에서). 덮개가 넓어 가장자리가 처져도 머리 위에 오게 높입니다.
+    const CANOPY_R = 14.4;     // 덮개 반지름
     const TILT = -22;          // 판이 바깥으로 내려앉는 각(음수가 아래로 처짐)
 
     function parasol(B, group, grip) {
