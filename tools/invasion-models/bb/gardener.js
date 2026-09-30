@@ -97,32 +97,65 @@
     box('head', 'hair_chamfer_back', [-3.4, 32.5, 3.2], [3.4, 33.2, 3.2 + CL], 'hair', { rot: [CH, 0, 0], pivot: [0, 33.2, 3.2], px: CROWN_UP });
 
     const SW = 1.2, SD = 0.8, ROOT = 32.3;
-    // 앞머리: 이마를 덮는 결 고운 가닥들. 가운데는 짧고 양옆으로 갈수록 길어집니다.
-    group('bangs', [0, ROOT, -3.7], 'head', [14, 0, 0]);
-    [[-3.6, 5.4, -10], [-2.4, 4.2, -8], [-1.2, 3.6, -5], [0, 3.2, 0], [1.2, 3.6, 5], [2.4, 4.2, 8], [3.6, 5.4, 10]]
-        .forEach(([x, len, rz], i) => {
-            box('bangs', 'bang_' + i, [x - SW / 2, ROOT - len, -3.7 - SD], [x + SW / 2, ROOT + 0.1, -3.7], i % 3 === 0 ? 'hairShade' : 'hair',
-                { rot: [0, 0, rz], pivot: [x, ROOT + 0.1, -3.7 - SD / 2] });
+    // 곱슬: 가닥 하나를 마디 몇 개로 쪼개 마디마다 꺾습니다. 가운데서 안으로 한 번 말렸다가 끝이 바깥으로 튕깁니다.
+    // segs = [[길이 비율, 꺾는 각], ...]. 마디는 앞 마디 끝에서 이어지고, 조금 겹쳐 틈이 보이지 않게 합니다.
+    const RAD = Math.PI / 180, JOIN = 0.3;
+    const chain = (len, segs, base, step) => {
+        let along = 0, side = 0, total = segs.reduce((sum, [f]) => sum + f, 0);
+        segs.forEach(([f, bend], k) => {
+            const L = len * f / total, th = base + bend;
+            step(k, L, th, along, side);
+            side += L * Math.sin(th * RAD);
+            along += L * Math.cos(th * RAD);
         });
-    // 옆머리: 턱선까지, 끝이 바깥으로 뻗칩니다(곱슬).
-    [[-3.2, 7.6, 12], [-2.0, 7.2, 15], [-0.6, 7.6, 18], [0.8, 7.0, 16], [2.2, 6.6, 14], [3.3, 6.2, 12]].forEach(([z, len, tilt], i) => {
-        both(inG('head'), 'side_hair_' + i, [3.6, ROOT - len, z - SW / 2], [3.6 + SD, ROOT + 0.1, z + SW / 2], i % 2 ? 'hairShade' : 'hair',
-            { rot: [0, 0, tilt], pivot: [3.6, ROOT, z] });
+    };
+    // 앞머리: 이마를 덮는 결 고운 가닥들. 가운데는 짧고 양옆으로 갈수록 길어지며, 끝이 바깥으로 말립니다.
+    group('bangs', [0, ROOT, -3.7], 'head', [10, 0, 0]);
+    [[-3.6, 5.4, -10], [-2.4, 4.2, -8], [-1.2, 3.6, -5], [0, 3.2, 3], [1.2, 3.6, 5], [2.4, 4.2, 8], [3.6, 5.4, 10]]
+        .forEach(([x, len, rz], i) => {
+            const out = x < 0 || (x === 0 && i % 2) ? -1 : 1;
+            chain(len, [[0.6, 0], [0.4, out * 26]], rz, (k, L, th, along, side) => {
+                const cx = x + side, top = ROOT + 0.1 - along;
+                box('bangs', 'bang_' + i + (k ? '_' + k : ''), [cx - SW / 2, top - L, -3.7 - SD], [cx + SW / 2, top + (k ? JOIN : 0), -3.7],
+                    i % 3 === 0 ? 'hairShade' : 'hair', { rot: [0, 0, th], pivot: [cx, top, -3.7 - SD / 2] });
+            });
+        });
+    // 이마 덮개: 앞머리 뒤로 이마에 붙은 가닥을 한 줄 깔아, 이마를 텍스처 대신 머리카락 큐브로 덮습니다. 끝은 눈썹 바로 위에서 들쭉날쭉합니다.
+    [-3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5].forEach((x, i) => {
+        const end = 28.0 + [0.2, 0, 0.5, 0.1, 0.4, 0, 0.3, 0.1][i];
+        box('head', 'fringe_' + i, [x - 0.6, end, -4.35], [x + 0.6, ROOT, -4.02], i % 2 ? 'hair' : 'hairShade');
+    });
+    // 옆머리: 턱선까지. 볼 옆에서 안으로 한 번 말렸다가 끝이 바깥으로 크게 뻗칩니다(곱슬).
+    const SIDE_CURLS = [[[0.45, 0], [0.3, -14], [0.25, 30]], [[0.4, 0], [0.35, -18], [0.25, 34]], [[0.5, 0], [0.25, -10], [0.25, 26]]];
+    [[-3.2, 7.6, 10], [-2.0, 7.2, 12], [-0.6, 7.6, 14], [0.8, 7.0, 12], [2.2, 6.6, 11], [3.3, 6.2, 9]].forEach(([z, len, tilt], i) => {
+        chain(len, SIDE_CURLS[i % 3], tilt, (k, L, th, along, side) => {
+            const x0 = 3.6 + side, top = ROOT - along;
+            both(inG('head'), 'side_hair_' + i + (k ? '_' + k : ''), [x0, top - L, z - SW / 2], [x0 + SD, top + (k ? JOIN : 0.1), z + SW / 2],
+                i % 2 ? 'hairShade' : 'hair', { rot: [0, 0, th], pivot: [x0, top, z] });
+        });
     });
     for (const [sx, sz, len] of [[1, 1, 7.2], [-1, 1, 7.2], [1, -1, 6.8], [-1, -1, 6.8]]) {
         const cx = 4.25 * sx, cz = 4.25 * sz;
         box('head', 'corner_hair_' + (sx > 0 ? 'r' : 'l') + (sz > 0 ? 'b' : 'f'), [cx - SW / 2, 32.2 - len, cz - SD / 2], [cx + SW / 2, 32.3, cz + SD / 2],
             'hair', { rot: [0, 45 * sx * sz, 0], pivot: [cx, 32.2, cz] });
     }
-    // 뒷머리: 목덜미까지 오는 단발, 끝이 바깥으로 뻗칩니다.
+    // 뒷머리: 목덜미까지 오는 단발. 뒤통수를 따라 내려오다 한 번 안으로 말리고 끝이 뒤로 뻗칩니다(곱슬).
+    // x 회전이 음수면 끝이 뒤(+z)로 갑니다.
+    const BACK_CURLS = [[[0.45, 0], [0.3, 12], [0.25, -30]], [[0.4, 0], [0.35, 16], [0.25, -36]]];
     [-3.6, -2.4, -1.2, 0, 1.2, 2.4, 3.6].forEach((x, i) => {
         const len = 7.4 + [0, 0.5, 0.2, 0.7, 0.3, 0.5, 0][i];
-        box('hair_back', 'long_hair_' + i, [x - SW / 2, ROOT - len, 3.6], [x + SW / 2, ROOT + 0.1, 3.6 + SD], i % 2 ? 'hair' : 'hairShade',
-            { rot: [-16, 0, 0], pivot: [x, ROOT, 3.6] });
+        chain(len, BACK_CURLS[i % 2], -14, (k, L, th, along, side) => {
+            const z0 = 3.6 - side, top = ROOT - along;
+            box('hair_back', 'long_hair_' + i + (k ? '_' + k : ''), [x - SW / 2, top - L, z0], [x + SW / 2, top + (k ? JOIN : 0.1), z0 + SD],
+                i % 2 ? 'hair' : 'hairShade', { rot: [th, 0, 0], pivot: [x, top, z0] });
+        });
     });
     [-3.0, -1.8, -0.6, 0.6, 1.8, 3.0].forEach((x, i) => {
-        box('head', 'back_hair_' + i, [x - SW / 2, ROOT - 5.6 - (i % 2) * 0.5, 3.9], [x + SW / 2, ROOT + 0.1, 3.9 + SD], 'hair',
-            { rot: [-11, 0, 0], pivot: [x, ROOT, 3.9] });
+        chain(5.6 + (i % 2) * 0.5, [[0.6, 0], [0.4, -20]], -9, (k, L, th, along, side) => {
+            const z0 = 3.9 - side, top = ROOT - along;
+            box('head', 'back_hair_' + i + (k ? '_' + k : ''), [x - SW / 2, top - L, z0], [x + SW / 2, top + (k ? JOIN : 0.1), z0 + SD], 'hair',
+                { rot: [th, 0, 0], pivot: [x, top, z0] });
+        });
     });
 
     // ---------------------------------------------------------------- torso
