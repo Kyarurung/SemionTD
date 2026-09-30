@@ -737,6 +737,17 @@ public final class Monster {
 
     private double maxHitHealthRatio;
 
+    /** 라인에 남은 몬스터 수에서 빠지는지(정원사에게 지배당한 적 등). 이것만 남으면 라인이 정리된 것으로 봅니다. */
+    private boolean excludedFromLaneCount;
+
+    public boolean excludedFromLaneCount() {
+        return excludedFromLaneCount;
+    }
+
+    public void setExcludedFromLaneCount(boolean excluded) {
+        excludedFromLaneCount = excluded;
+    }
+
     /** 한 번에 받는 피해의 상한(최대 체력 비율). 0이면 상한이 없습니다. */
     public void setMaxHitHealthRatio(double ratio) {
         maxHitHealthRatio = Math.max(0.0, ratio);

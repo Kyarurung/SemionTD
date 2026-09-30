@@ -53,7 +53,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.packettweaker.PacketContext;
 
-public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity, HealingTarget {
+public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity, HealingTarget, LaneDefenseEntity {
     private static final double DEFAULT_MELEE_RANGE = 2.5;
     private static final double DEFAULT_FOLLOW_RANGE = 5.0;
     private static final double DEFAULT_MOVEMENT_SPEED = 0.42;
@@ -133,9 +133,49 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         }
     }
 
+    // ------------------------------------------------------------------ 지배(정원사)
+
+    /** 지배당해 편을 바꾼 동안, 지키는 레인 id. -1이면 지배당하지 않았습니다. */
+    private int dominatedLaneId = -1;
+
+    public boolean isDominated() {
+        return dominatedLaneId >= 0;
+    }
+
+    /**
+     * 정원사에게 지배당해 그 레인 편이 됩니다({@code laneId}, -1이면 풀림). 지배당한 동안에는 원래 편 몹이 공격 대상으로
+     * 고를 수 있고(방어 대상처럼 어그로를 끕니다), 아군 타워는 노리지 않습니다.
+     */
+    public void setDominatedFor(int laneId) {
+        dominatedLaneId = laneId;
+        if (laneId >= 0) {
+            setTarget(null);
+        }
+    }
+
+    @Override
+    public boolean defendsLane(int laneId) {
+        return dominatedLaneId >= 0 && dominatedLaneId == laneId;
+    }
+
+    @Override
+    public int aggroPriority() {
+        return 60;
+    }
+
+    @Override
+    public boolean drawsAggro() {
+        return dominatedLaneId >= 0;
+    }
+
     @Override
     protected void actuallyHurt(ServerLevel serverLevel, DamageSource damageSource, float amount) {
         if (damageSource.getEntity() instanceof ServerPlayer) {
+            return;
+        }
+        // 지배당한 몹이 원래 편에게 맞으면 바닐라 체력이 아니라 런타임 체력이 깎입니다.
+        if (isDominated() && damageSource.getEntity() instanceof SemionMonsterEntity && runtimeMonster != null) {
+            applyRuntimeDamage(damageSource, amount, DamageType.PHYSICAL);
             return;
         }
         super.actuallyHurt(serverLevel, damageSource, amount);

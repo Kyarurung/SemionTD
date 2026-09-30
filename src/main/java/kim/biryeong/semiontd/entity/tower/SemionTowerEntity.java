@@ -878,13 +878,15 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (animationState == null) {
             return;
         }
-        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL)) {
+        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
+                || animationState == SemionAnimationState.SKILL)) {
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 if (state != animationState) {
                     holder.getAnimator().pauseAnimation(state.animationId());
                 }
             }
-            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL ? 10 : 1, true);
+            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
+                    || animationState == SemionAnimationState.SKILL ? 10 : 1, true);
         }
         this.animationState = animationState;
     }

@@ -695,6 +695,95 @@ public final class PlantIntegrationGameTest {
         }
     }
 
+    /**
+     * 정원사 스킬: 한 틱에 세 스킬이 모두 조건을 만나면 모두 나갑니다. 가장 다친 아군 자리에 회복 장판(초당 회복),
+     * 체력이 가장 높은 적은 지배(라인 수 제외 + 원래 편이 노릴 수 있음), 주변 적은 생기 흡수로 깎입니다.
+     */
+    @GameTest
+    public void gardenerSkillsHealDominateAndDrain(GameTestHelper context) {
+        UUID owner = stableUuid("plant-gardener-skills");
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            var gardener = new kim.biryeong.semiontd.tower.plant.GardenerTower(
+                    TowerBalanceRuntime.resolve(PlantTowers.GARDENER_TOWER), owner, TeamId.RED, 1, position(context, 3, 1, 3));
+            lane.addTower(gardener);
+            var ally = new kim.biryeong.semiontd.tower.plant.PandaTower(
+                    TowerBalanceRuntime.resolve(PlantTowers.T1_PANDA_TOWER), owner, TeamId.RED, 1, position(context, 2, 1, 2));
+            lane.addTower(ally);
+            ally.syncHealth(ally.currentMaxHealth() * 0.3);
+            double allyBefore = ally.health();
+
+            Monster strong = spawnMonster(context, lane, "gardener-strong", position(context, 4, 1, 3));
+            Monster weak = spawnMonster(context, lane, "gardener-weak", position(context, 4, 1, 4));
+            weak.damage(500.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            SemionMonsterEntity strongEntity = entity(context, strong);
+            SemionMonsterEntity weakEntity = entity(context, weak);
+            double weakBefore = weak.health();
+
+            gardener.tick(lane);
+
+            require(strongEntity.isDominated(), "The highest-health enemy must be dominated.");
+            require(strong.excludedFromLaneCount(), "A dominated enemy must not count toward the lane's remaining monsters.");
+            require(strongEntity.defendsLane(weak.targetLaneId()) && strongEntity.drawsAggro(),
+                    "The dominated enemy's former allies must be able to pick it as a target.");
+            require(!weakEntity.isDominated(), "Only one enemy is dominated.");
+            require(weak.health() < weakBefore, "Life drain must hurt nearby enemies.");
+            require(ally.health() > allyBefore, "Life drain must heal a hurt ally tower.");
+            SemionTowerEntity allyEntity = (SemionTowerEntity) context.getLevel().getEntity(ally.entityId().getAsInt());
+            require(allyEntity.activeTimedEffectMagnitude(TimedEffectType.TOWER_HEALTH_REGEN_PER_SECOND) > 0.0,
+                    "The heal field must put regeneration on the hurt ally inside it.");
+            require(lane.activeMonsters().stream().filter(monster -> !monster.excludedFromLaneCount()).count() == 1,
+                    "Only the undominated enemy still counts toward clearing the lane.");
+
+            kim.biryeong.semiontd.game.PlayerEconomy economy =
+                    new kim.biryeong.semiontd.game.PlayerEconomy(EconomyConfig.defaultConfig());
+            economy.overrideStartingValues(1_000, 0, 0, 0);
+            long cost = gardener.upgradeCost(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL);
+            require(gardener.upgrade(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL, economy)
+                            == kim.biryeong.semiontd.tower.plant.GardenerTower.UpgradeResult.SUCCESS
+                            && gardener.level(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL) == 2
+                            && economy.diamond() == 1_000 - cost,
+                    "Upgrading a skill must spend diamonds and raise its level.");
+
+            lane.resetForRound();
+            require(!strongEntity.isDominated() && strongEntity.isRemoved(),
+                    "A dominated enemy left at round end must wither away instead of rejoining the next round.");
+            context.succeed();
+        } finally {
+            group.closeRuntime();
+            PlantSoilStates.clear(owner);
+        }
+    }
+
+    /** 정원사는 한 명에 하나이고, 지형 없이 어디에나 섭니다. 받는 지형 효과에서 균사만 빠집니다. */
+    @GameTest
+    public void gardenerIsUniqueNeedsNoSoilAndTakesEverySoilButMycelium(GameTestHelper context) {
+        UUID owner = stableUuid("plant-gardener-unique");
+        SemionGame game = null;
+        try {
+            game = startedPlantGame(context, owner);
+            game.players().get(owner).economy().addMineral(5_000);
+            PlayerLane lane = game.playerLane(owner).orElseThrow();
+            BlockPos first = BlockPos.containing(lane.laneLayout().positionAt(0.3));
+            BlockPos second = BlockPos.containing(lane.laneLayout().positionAt(0.6));
+            require(ProductionTowerService.placeTower(game, owner, first, PlantTowers.GARDENER_TOWER.id())
+                    == TowerPlacementResult.SUCCESS, "The gardener must stand without any soil.");
+            require(ProductionTowerService.placeTower(game, owner, second, PlantTowers.GARDENER_TOWER.id())
+                    == TowerPlacementResult.TOWER_LIMIT_REACHED, "A second gardener must be refused.");
+            var gardener = (kim.biryeong.semiontd.tower.plant.GardenerTower) lane.towerAt(GridPosition.from(first));
+            require(gardener.adjustAttackRange(10.0) > 10.0, "The gardener must get the podzol range bonus anywhere.");
+            context.succeed();
+        } finally {
+            if (game != null) {
+                game.close();
+            }
+            PlantSoilStates.clear(owner);
+        }
+    }
+
     private static SemionGame startedPlantGame(GameTestHelper context, UUID owner) {
         SemionGame game = new SemionGame(
                 EconomyConfig.defaultConfig(),

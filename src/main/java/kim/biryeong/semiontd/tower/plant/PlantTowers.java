@@ -401,6 +401,22 @@ public final class PlantTowers {
                     PANDA_NO_SOIL_LINE
             ));
 
+    // 정원사 - 식물 빌더의 단일 엘리트 타워. 한 명에 하나, 티어 업그레이드 대신 스킬 세 개를 강화합니다.
+    // 지형이 필요 없고, 어디에 서 있든 잔디·사암·회백토 지형 효과를 모두 받습니다(균사는 적에게 거는 것이라 빼고).
+    public static final String GARDENER_MODEL = "semion-td:tower/gardener";
+    public static final TowerType GARDENER_TOWER = gardenerTower(
+            "plant_gardener", "정원사", 400, 900, 10.0, 40, 20, 45,
+            EntityVisual.modeled("minecraft:zombie", GARDENER_MODEL),
+            List.of(
+                    "<gray>식물 빌더의 단일 엘리트 타워입니다. 한 명에 하나만 세울 수 있습니다.</gray>",
+                    "<gray>티어가 오르지 않는 대신 스킬 세 개를 각각 3단계까지 강화합니다.</gray>",
+                    "<green>지형 없이 어디에나 서고, 서 있는 곳과 상관없이 잔디·사암·회백토 지형 효과를 모두 받습니다.</green>",
+                    "<green>평타는 대상 너머 사거리 끝까지 일직선으로 가시가 솟아 줄의 적을 모두 찌릅니다.</green>",
+                    "<green><yellow>꽃밭 치유</yellow>: 가장 다친 아군 타워 자리에 회복 장판을 깔아 그 안의 아군을 계속 치유합니다.</green>",
+                    "<green><yellow>지배</yellow>: 체력이 가장 높은 적을 지배해 멈춰 세우고 제 편을 공격하게 합니다.</green>",
+                    "<green><yellow>생기 흡수</yellow>: 주변 적의 체력을 빨아들여 다친 아군 타워에게 나눠 줍니다.</green>"
+            ));
+
     public static final List<TowerType> PANDA_TOWERS = List.of(
             T1_PANDA_TOWER, T2_PANDA_TOWER, T3_PANDA_TOWER, T4_PANDA_TOWER
     );
@@ -425,6 +441,7 @@ public final class PlantTowers {
         TERRAFORM_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
         COMBAT_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
         PANDA_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
+        TowerDescriptionRegistry.registerTemplate(GARDENER_TOWER, GARDENER_TOWER.description());
     }
 
     private PlantTowers() {
@@ -444,10 +461,20 @@ public final class PlantTowers {
         return definition != null && !definition.terraformer();
     }
 
-    /** 판다 계열인지. 지형에 묶이지 않는 유일한 식물 타워라 따로 물어볼 일이 많습니다. */
+    /** 판다 계열인지. 지형에 묶이지 않는 식물 타워라 따로 물어볼 일이 많습니다(정원사는 따로 봅니다). */
     public static boolean isPandaTower(TowerType type) {
         Definition definition = definition(type);
-        return definition != null && !definition.terraformer() && definition.soil() == null;
+        return definition != null && !definition.terraformer() && definition.soil() == null && !isGardener(type);
+    }
+
+    /** 정원사(식물 빌더의 단일 엘리트 타워)인지. */
+    public static boolean isGardener(TowerType type) {
+        return type != null && GARDENER_TOWER.id().equals(type.id());
+    }
+
+    /** 지형 계열에 묶이지 않는 특수 타워(판다·정원사)인지. 상점에서 한 묶음으로 보입니다. */
+    public static boolean isSpecialTower(TowerType type) {
+        return isPandaTower(type) || isGardener(type);
     }
 
     public static PlantSoil soilOf(TowerType type) {
@@ -541,6 +568,25 @@ public final class PlantTowers {
                 id, displayName, mineralCost, maxHealth, range, damage,
                 attackIntervalTicks, aggroPriority, visual, List.copyOf(description));
         DEFINITIONS.put(id, new Definition(null, tier, false));
+        return type;
+    }
+
+    private static TowerType gardenerTower(
+            String id,
+            String displayName,
+            long mineralCost,
+            double maxHealth,
+            double range,
+            double damage,
+            int attackIntervalTicks,
+            int aggroPriority,
+            EntityVisual visual,
+            List<String> description
+    ) {
+        TowerType type = tower(
+                id, displayName, mineralCost, maxHealth, range, damage,
+                attackIntervalTicks, aggroPriority, visual, List.copyOf(description));
+        DEFINITIONS.put(id, new Definition(null, 1, false));
         return type;
     }
 

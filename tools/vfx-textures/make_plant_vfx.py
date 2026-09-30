@@ -27,6 +27,8 @@ SPORE = [hexc(c) for c in ("2a1f33", "4e3a5e", "7c6390", "b09cc4", "e2d8ee", "ff
 MUSHROOM = [hexc(c) for c in ("4a0808", "8e1414", "d83030", "ff7060", "ffd0c8", "ffffff")]
 EARTH = [hexc(c) for c in ("2a1d12", "4f3a26", "7d6243", "a88c68", "d6c3a3", "f3eadb")]
 WIND = [hexc(c) for c in ("2f4a3a", "5f8f72", "9fcfae", "d4f2dc", "f2fff6", "ffffff")]
+MIND = [hexc(c) for c in ("2a0d33", "5a1f6e", "a33fb8", "e07ae0", "ffc4f4", "ffffff")]
+THORN = [hexc(c) for c in ("1c2a10", "34511c", "5a8a2c", "8cc24a", "c8ec84")]
 BAMBOO = [hexc(c) for c in ("1d3a12", "3a6a1e", "5f9a2e", "92c850", "d0f08c")]
 
 
@@ -307,6 +309,48 @@ def wind_arc():
     return c.save("wind_arc")
 
 
+def thorn_spike():
+    """러커식 가시(교차 판). 아래가 굵고 위로 뾰족하며, 옆으로 작은 가시가 돋고 끝이 붉게 물듭니다."""
+    c = Canvas(16, 32)
+
+    def fn(x, y):
+        t = y / 32.0                                     # 0 = 끝(위), 1 = 뿌리(아래)
+        half = 0.4 + 6.0 * t ** 1.3
+        dx = abs(x - 8.0)
+        notch = (int(y) % 7 == 3) and dx <= half + 1.6 and dx > half
+        if dx > half and not notch:
+            return None
+        if t < 0.18:
+            return ramp(MUSHROOM, 0.55 + (0.18 - t) * 2), 255
+        light = 0.3 + 0.55 * (1.0 - dx / max(half, 0.5))
+        if notch:
+            light = 0.2
+        return ramp(THORN, light), 255
+    c.field(fn)
+    return c.save("thorn_spike")
+
+
+def mind_flower():
+    """지배의 꽃(빌보드). 보라 꽃잎 다섯 장과 노란 꽃술."""
+    c = Canvas(16, 16)
+
+    def fn(x, y):
+        dx, dy = x - 8.0, y - 8.0
+        r = math.hypot(dx, dy)
+        a = math.atan2(dy, dx)
+        petal = 5.2 + 1.8 * math.cos(a * 5.0)
+        if r > petal:
+            return None
+        if r < 1.8:
+            return hexc("ffe46a"), 255
+        if r < 2.6:
+            return hexc("e0a020"), 255
+        light = 0.35 + 0.55 * (1.0 - r / petal)
+        return ramp(MIND, light + 0.2), 255
+    c.field(fn)
+    return c.save("mind_flower")
+
+
 TEXTURES = [
     water_drop, water_ring, vine_ring,
     lambda: petal("petal_tulip", TULIP),
@@ -328,6 +372,12 @@ TEXTURES = [
     lambda: base.beam("pollen_streak", LILAC),
     lambda: base.beam("wind_streak", WIND),
     wind_arc,
+    thorn_spike, mind_flower,
+    lambda: base.beam("mind_beam", MIND),
+    lambda: base.beam("life_beam", LEAF),
+    lambda: petal_ring("mind_ring", MIND),
+    lambda: base.flash("mind_flash", MIND),
+    lambda: base.wall("wall_mind", MIND, "mind"),
 ]
 
 

@@ -356,6 +356,11 @@ public abstract class Tower {
         return waveStartedAfterPlacement;
     }
 
+    /** 설치 뒤에 이 타워에 더 쓴 다이아(스킬 강화 등). 판매 환불에 함께 들어갑니다. */
+    public void addPaidMineralCost(long extra) {
+        this.paidMineralCost = Math.max(0, this.paidMineralCost + Math.max(0, extra));
+    }
+
     public void recordPlacementEconomy(long paidMineralCost, int currentRound) {
         this.paidMineralCost = Math.max(0, paidMineralCost);
         this.placedRound = currentRound;

@@ -350,6 +350,8 @@ public final class SemionCommands {
                                                                         IntegerArgumentType.getInteger(context, "z")
                                                                 )
                                                         )))))))
+                .then(literal("gardener")
+                        .executes(context -> gardenerSkills(context.getSource(), gameManager)))
                 .then(literal("hero")
                         .then(literal("skin")
                                 .executes(context -> heroSkin(context.getSource(), gameManager)))
@@ -3465,6 +3467,28 @@ public final class SemionCommands {
             return 0;
         }
         new DeveloperPatchGui(player, game, developerTower).open();
+        return 1;
+    }
+
+    private static int gardenerSkills(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        ServerPlayer player = source.getPlayerOrException();
+        if (game == null) {
+            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
+            return 0;
+        }
+        var gardener = game.playerLane(player.getUUID()).stream()
+                .flatMap(lane -> lane.towers().stream())
+                .filter(tower -> tower instanceof kim.biryeong.semiontd.tower.plant.GardenerTower
+                        && player.getUUID().equals(tower.ownerPlayer()) && !tower.isTemporaryCopy())
+                .map(kim.biryeong.semiontd.tower.plant.GardenerTower.class::cast)
+                .findFirst();
+        if (gardener.isEmpty()) {
+            failure(source, "정원사를 설치해야 스킬을 강화할 수 있습니다.");
+            return 0;
+        }
+        new kim.biryeong.semiontd.tower.plant.GardenerSkillGui(player, game, gardener.get()).open();
         return 1;
     }
 

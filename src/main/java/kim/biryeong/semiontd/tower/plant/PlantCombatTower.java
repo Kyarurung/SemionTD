@@ -104,6 +104,7 @@ public class PlantCombatTower extends ProductionTower {
     // 개화 - 계열 지형 칸 수에 비례한 피해 증가
     // ------------------------------------------------------------------
 
+    /** 개화 피해: 계열 지형 위에 서 있으면 그 계열 칸 수에 비례합니다. */
     public double bloomBonus() {
         PlantSoil soil = family();
         if (soil == null || standingSoil() != soil) {
@@ -185,9 +186,14 @@ public class PlantCombatTower extends ProductionTower {
      * 자기 지형 위에서 라운드를 넘길 때마다 성장 스택이 쌓입니다. 잔디는 최대 체력으로, 회백토는
      * 피해로 환산됩니다.
      */
+    /** 라운드를 넘길 때 성장 스택이 쌓이는지. 기본은 지형 위에 서 있을 때입니다. */
+    protected boolean growsThisRound() {
+        return standingSoil() != null;
+    }
+
     @Override
     public void resetForRound(PlayerLane lane) {
-        if (standingSoil() != null) {
+        if (growsThisRound()) {
             setData(GROWTH_ROUNDS, growthRounds() + 1);
         }
         super.resetForRound(lane);
@@ -658,7 +664,8 @@ public class PlantCombatTower extends ProductionTower {
                 ? family() : PlantSoilStates.soilAt(ownerPlayer(), position());
     }
 
-    private boolean standsOn(PlantSoil soil) {
+    /** 이 지형의 효과를 받는지. 기본은 그 지형 위에 서 있을 때이고, 정원사는 균사를 뺀 모든 지형입니다. */
+    protected boolean standsOn(PlantSoil soil) {
         return standingSoil() == soil;
     }
 
@@ -669,7 +676,7 @@ public class PlantCombatTower extends ProductionTower {
     /**
      * Soil values are shared by the whole family; {@code soilPower} scales them per tier.
      */
-    private double scaled(PlantSoil soil, String key) {
+    protected double scaled(PlantSoil soil, String key) {
         return soilValue(soil, key) * Math.max(0.0, TowerBalanceRuntime.ability(type().id(), "soilPower", 1.0));
     }
 
@@ -693,7 +700,7 @@ public class PlantCombatTower extends ProductionTower {
         return TowerBalanceRuntime.abilityInt(soil.configId(), key);
     }
 
-    private double global(String key) {
+    protected double global(String key) {
         return TowerBalanceRuntime.ability(PlantTowers.GLOBAL_CONFIG_ID, key);
     }
 
