@@ -323,7 +323,7 @@ final class PlantTowerCatalogTest {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         assertEquals(20.0, defaults.ability(PlantTowers.GLOBAL_CONFIG_ID, "environmentTickIntervalTicks", -1), EPSILON);
         assertEquals(0.15, defaults.ability(PlantSoil.MYCELIUM.configId(), "environmentWeakness", -1), EPSILON);
-        assertEquals(0.005, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", -1), EPSILON);
+        assertEquals(0.006, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", -1), EPSILON);
         assertEquals(0.25, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", -1), EPSILON);
         assertEquals(0.15, defaults.ability(PlantSoil.DESERT.configId(), "environmentAttackSpeedReduction", -1), EPSILON);
         assertEquals(0.0075, defaults.ability(PlantSoil.DESERT.configId(), "environmentMaxHealthDamagePerSecond", -1), EPSILON);
