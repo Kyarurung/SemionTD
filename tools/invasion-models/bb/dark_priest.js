@@ -68,7 +68,7 @@
     box('head', 'skull', [-4, 26, -4], [4, 32, 4], 'skin', {
         px: {
             // 앞머리 사이로 비치는 속머리: 세로 가닥 결을 긋고 아래로 갈수록 앞머리 그늘로 어두워지게 칠해 구멍처럼 보이지 않게 합니다.
-            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'ssssssss', 'LWissiWL'],
+            north: ['hhbhhbhh', 'ddcddcdd', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'LWissiWL'],
             up: (u) => (u === 3 ? 'hair:1' : 'hair:2'),
             east: INNER_STRANDS, west: INNER_STRANDS, south: INNER_STRANDS,
             key: HEAD_KEY,
@@ -97,7 +97,7 @@
     const SW = 1.2, SD = 0.8, ROOT = 32.3;
     // 앞머리: 가운데를 가르고 양옆으로 흘려 이마가 조금 보입니다.
     group('bangs', [0, ROOT, -3.7], 'head', [16, 0, 0]);
-    [[-3.6, 5.2, -8], [-2.4, 4.0, -10], [-1.2, 2.6, -14], [1.2, 2.6, 14], [2.4, 4.0, 10], [3.6, 5.4, 8]]
+    [[-3.6, 6.2, -8], [-2.4, 5.0, -10], [-1.2, 3.6, -14], [1.2, 3.6, 14], [2.4, 5.0, 10], [3.6, 6.4, 8]]
         .forEach(([x, len, rz], i) => {
             box('bangs', 'bang_' + i, [x - SW / 2, ROOT - len, -3.7 - SD], [x + SW / 2, ROOT + 0.1, -3.7], i % 3 === 0 ? 'hairShade' : 'hair',
                 { rot: [0, 0, rz], pivot: [x, ROOT + 0.1, -3.7 - SD / 2] });
