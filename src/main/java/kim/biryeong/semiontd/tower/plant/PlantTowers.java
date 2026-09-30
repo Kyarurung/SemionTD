@@ -405,7 +405,7 @@ public final class PlantTowers {
     // 지형이 필요 없고, 어디에 서 있든 잔디·사암·회백토 지형 효과를 모두 받습니다(균사는 적에게 거는 것이라 빼고).
     public static final String GARDENER_MODEL = "semion-td:tower/gardener";
     public static final TowerType GARDENER_TOWER = gardenerTower(
-            "plant_gardener", "정원사", 400, 900, 10.0, 40, 20, 45,
+            "plant_gardener", "정원사", 400, 900, 18.0, 40, 20, 45,
             EntityVisual.modeled("minecraft:zombie", GARDENER_MODEL),
             List.of(
                     "<gray>식물 빌더의 단일 엘리트 타워입니다. 한 명에 하나만 세울 수 있습니다.</gray>",

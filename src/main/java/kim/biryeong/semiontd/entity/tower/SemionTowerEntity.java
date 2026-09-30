@@ -24,6 +24,7 @@ import kim.biryeong.semiontd.tower.augment.AugmentTowers;
 import kim.biryeong.semiontd.entity.SemionEntityTypes;
 import kim.biryeong.semiontd.entity.defender.LaneDefenseEntity;
 import kim.biryeong.semiontd.entity.healing.HealingTarget;
+import kim.biryeong.semiontd.entity.model.BilDeathVisual;
 import kim.biryeong.semiontd.entity.model.SemionBilModelCache;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
@@ -116,6 +117,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private EntityType<?> polymerEntityType = EntityType.ARMOR_STAND;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
     private LivingEntityHolder<SemionTowerEntity> holder;
+    private boolean deathVisualShown;
     private EntityAttachment holderAttachment;
     private ElementHolder blockDisplayHolder;
     private BlockDisplayElement blockDisplayElement;
@@ -1123,6 +1125,22 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     @Override
     public void knockback(double strength, double x, double z) {
+    }
+
+    /**
+     * 모델에 사망 애니메이션(death)이 있으면 쓰러지는 기본 연출 대신 그 자리에 모델만 남겨 한 번 틀고 곧바로 치웁니다
+     * (몬스터와 같은 방식). 사망 애니메이션이 없는 모델은 예전처럼 옆으로 넘어갑니다.
+     */
+    @Override
+    protected void tickDeath() {
+        if (!deathVisualShown && holder != null && level() instanceof ServerLevel serverLevel) {
+            deathVisualShown = true;
+            if (BilDeathVisual.spawn(serverLevel, position(), yBodyRot, holder.getModel(), holder.getScale())) {
+                remove(RemovalReason.KILLED);
+                return;
+            }
+        }
+        super.tickDeath();
     }
 
     @Override
