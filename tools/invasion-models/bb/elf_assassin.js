@@ -84,17 +84,17 @@
     box('head', 'skull', [-4, 26, -4], [4, 32, 4], 'skin', {
         px: {
             // 앞머리 사이로 비치는 속머리: 세로 가닥 결을 긋고 아래로 갈수록 앞머리 그늘로 어두워지게 칠해 구멍처럼 보이지 않게 합니다.
-            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'LWissiWL', 'LwIssIwL'],
+            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'ssssssss', 'LWissiWL'],
             up: (u) => (u === 3 ? 'hair:1' : 'hair:2'),
             east: INNER_STRANDS, west: INNER_STRANDS, south: INNER_STRANDS,
             key: HEAD_KEY,
         },
     });
     // 아래턱: 머리통과 같은 폭의 네모난 턱(바닐라 머리 8×8의 아래 두 줄). 가장자리 칸만 살짝 그늘지게 칠합니다.
-    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['ssssssss', 'kssssssk'], key: HEAD_KEY } });
+    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['LwIssIwL', 'kssssssk'], key: HEAD_KEY } });
     // 눈썹: 3×1 판(한 칸 한 픽셀)을 눈꼬리 쪽이 살짝 올라가게 기울입니다.
-    both(() => 'head', 'brow', [1, 27.9, -4.03], [4, 28.9, -4.03], 'hairShade',
-        { plane: 'z', rot: [0, 0, 2.5], pivot: [2.5, 28.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
+    both(() => 'head', 'brow', [1, 26.9, -4.03], [4, 27.9, -4.03], 'hairShade',
+        { plane: 'z', rot: [0, 0, 2.5], pivot: [2.5, 27.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
 
     // 머리카락(ellen_fighter식): 정수리는 평평한 윗판과, 네 모서리를 대패로 민 듯 비스듬히 깎은 띠로 둥글게 만듭니다.
     // 윗면은 한 색으로 칠해 판과 띠가 한 면처럼 이어 보이게 하고, 가운데 가르마만 한 단 어둡게 둡니다.
