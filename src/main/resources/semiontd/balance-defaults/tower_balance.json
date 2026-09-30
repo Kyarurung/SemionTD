@@ -7832,6 +7832,39 @@
       "damage": 23.0,
       "damageIntervalTicks": 20.0
     },
+    "income_goblin_scout": {
+      "towerSlotCost": 1.0
+    },
+    "income_elf_assassin": {
+      "towerSlotCost": 1.0
+    },
+    "income_dark_priest": {
+      "towerSlotCost": 1.0
+    },
+    "income_dwarf_gunner": {
+      "towerSlotCost": 2.0
+    },
+    "income_troll_javelineer": {
+      "towerSlotCost": 2.0
+    },
+    "income_orc_warrior": {
+      "towerSlotCost": 2.0
+    },
+    "income_necromancer": {
+      "towerSlotCost": 2.0
+    },
+    "income_creaking": {
+      "towerSlotCost": 2.0
+    },
+    "income_siege_golem": {
+      "towerSlotCost": 2.0
+    },
+    "income_legion_commander": {
+      "towerSlotCost": 3.0
+    },
+    "income_ogre_champion": {
+      "towerSlotCost": 3.0
+    },
     "demon_lord_passive_blood_cleave": {
       "cost": 180.0,
       "cleaveRadius": 2.5,

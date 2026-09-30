@@ -5,9 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import kim.biryeong.semiontd.config.SummonConfig;
 import kim.biryeong.semiontd.config.WaveConfig;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class IncomeTowerBalanceTest {
+    @BeforeAll
+    static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
     @Test
     void levelCostsIncomeAndStatsGrowPerLevel() {
         assertEquals(100, IncomeTowerBalance.upgradeCost(100, 1));
@@ -39,6 +48,21 @@ class IncomeTowerBalanceTest {
         assertTrue(round10.health() > 1.5, "Lane monsters are clearly tougher by round 10.");
         assertTrue(round19.health() > round10.health(), "Scaling keeps rising into the late rounds.");
         assertTrue(round15.health() < 20.0, "A single boss round must not blow up the income unit scale.");
+    }
+
+    /** 비싼 유닛일수록 타워 수를 더 차지하고, 번들 설정과 코드 기본값이 같습니다. */
+    @Test
+    void expensiveIncomeTowersTakeMoreTowerSlots() {
+        kim.biryeong.semiontd.config.TowerBalanceConfig bundled = kim.biryeong.semiontd.config.TowerBalanceConfig.defaultConfig();
+        kim.biryeong.semiontd.config.TowerBalanceConfig code = kim.biryeong.semiontd.config.TowerBalanceConfig.codeDefaults();
+        for (String id : IncomeTowerBalance.UNIT_IDS) {
+            String towerId = IncomeTowerBalance.towerId(id);
+            double slots = bundled.ability(towerId, kim.biryeong.semiontd.tower.TowerCapacity.CONFIG_KEY, -1);
+            assertTrue(slots >= 1.0, id + " must take at least one slot");
+            assertEquals(code.abilities().get(towerId), bundled.abilities().get(towerId), id + " drifted between code and bundle");
+        }
+        assertEquals(1.0, bundled.ability(IncomeTowerBalance.towerId("goblin_scout"), "towerSlotCost", -1));
+        assertEquals(3.0, bundled.ability(IncomeTowerBalance.towerId("ogre_champion"), "towerSlotCost", -1));
     }
 
     @Test

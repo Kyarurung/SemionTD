@@ -50,6 +50,25 @@ public final class IncomeTowerBalance {
         return TOWER_ID_PREFIX + summonId;
     }
 
+    /**
+     * 인컴 타워가 차지하는 타워 수(인구)의 기본값. 비싼 유닛일수록 많이 차지해, 가장 비싼 유닛을 한도만큼
+     * 깔아 버리는 도배를 막습니다(T1·T2 1, T3·T4 2, T5 3). 실제 값은 {@code tower_balance.json}의
+     * {@code income_<유닛>.towerSlotCost}입니다.
+     */
+    public static final java.util.Map<String, Integer> DEFAULT_SLOT_COSTS = java.util.Map.ofEntries(
+            java.util.Map.entry("goblin_scout", 1),
+            java.util.Map.entry("elf_assassin", 1),
+            java.util.Map.entry("dark_priest", 1),
+            java.util.Map.entry("dwarf_gunner", 2),
+            java.util.Map.entry("troll_javelineer", 2),
+            java.util.Map.entry("orc_warrior", 2),
+            java.util.Map.entry("necromancer", 2),
+            java.util.Map.entry("creaking", 2),
+            java.util.Map.entry("siege_golem", 2),
+            java.util.Map.entry("legion_commander", 3),
+            java.util.Map.entry("ogre_champion", 3)
+    );
+
     /** 현재 레벨에서 다음 레벨로 올리는 비용. 1→2는 설치비, 이후 레벨마다 설치비의 절반씩 비싸집니다. */
     public static long upgradeCost(long buildCost, int currentLevel) {
         return Math.round(Math.max(0, buildCost) * 0.5 * (Math.max(1, currentLevel) + 1));
