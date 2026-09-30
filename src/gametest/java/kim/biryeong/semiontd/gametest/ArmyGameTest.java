@@ -62,8 +62,8 @@ public final class ArmyGameTest {
 
             require(ProductionTowerCatalog.all().stream()
                     .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
-                    .filter(ProductionTowerCatalog.CatalogEntry::starter).count() == 152,
-                    "Built-ins must include 152 starter entries including the ticket-gated joker.");
+                    .filter(ProductionTowerCatalog.CatalogEntry::starter).count() == 153,
+                    "Built-ins must include 153 starter entries including the ticket-gated joker.");
             require(ProductionTowerService.availableTowers(game, owner).stream()
                     .filter(entry -> ArmyTowers.isArmyTower(entry.type())).count() == 3,
                     "Army must expose headquarters, guard, and combat starters.");
