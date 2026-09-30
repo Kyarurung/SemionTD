@@ -28,7 +28,9 @@ final class BlueprintPersistenceTest {
         assertTrue(service.profile(null, playerId, "Legacy").blueprints().isEmpty());
 
         BlueprintDesign archer = BlueprintDesign.of("궁수",
-                new BlueprintStats(120.0, 12.0, 20, 7.0, 25, DamageType.MAGIC), "t1_cat_tower");
+                new BlueprintStats(120.0, 12.0, 20, 7.0, 25, DamageType.MAGIC).withModules(
+                        java.util.Map.of(kim.biryeong.semiontd.tower.blueprint.BlueprintModule.MULTISHOT, 2),
+                        kim.biryeong.semiontd.tower.blueprint.BlueprintTargetPriority.WEAKEST), "t1_cat_tower");
         BlueprintDesign tank = BlueprintDesign.of("방패",
                 new BlueprintStats(600.0, 4.0, 30, 2.0, 50, DamageType.PHYSICAL), "t1_golem_tower");
         assertTrue(service.saveBlueprints(playerId, "Legacy", List.of(archer, tank)));
@@ -37,6 +39,9 @@ final class BlueprintPersistenceTest {
                 .profile(null, playerId, "Legacy");
         assertEquals(List.of(archer, tank), saved.blueprints());
         assertEquals(DamageType.MAGIC, saved.blueprints().getFirst().stats().damageType());
+        assertEquals(2, saved.blueprints().getFirst().stats().level(kim.biryeong.semiontd.tower.blueprint.BlueprintModule.MULTISHOT));
+        assertEquals(kim.biryeong.semiontd.tower.blueprint.BlueprintTargetPriority.WEAKEST,
+                saved.blueprints().getFirst().stats().targetPriority());
 
         // 다른 프로필 변경(스카이박스 저장)이 설계도를 지우지 않아야 합니다.
         service.saveSelectedSkybox(null, playerId, "Legacy", "night");

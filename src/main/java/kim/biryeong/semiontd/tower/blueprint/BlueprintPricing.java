@@ -9,7 +9,9 @@ import kim.biryeong.semiontd.entity.monster.DamageType;
  *
  * <p>가격은 "위력" P를 초선형으로 올린 값입니다.
  * <pre>
- *   P     = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent + 체력 / healthUnit
+ *   공격  = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent × (1 + Σ 공격 모듈 가중치 × 단계)
+ *   생존  = 체력 / healthUnit × (1 + Σ 생존 모듈 가중치 × 단계)
+ *   P     = 공격 + 생존 + Σ 지원 모듈 위력 × 단계
  *   가격  = priceScale × P^priceExponent   (priceStep 단위로 반올림, 최소 minimumPrice)
  * </pre>
  * 기본 계수는 기존 빌더 타워의 가격대별 중앙값(가격 50·130·260 → 초당 피해 8·16.7·26.7, 체력 88·140·200)에
@@ -29,12 +31,28 @@ public final class BlueprintPricing {
         return Math.max((long) value("minimumPrice"), rounded);
     }
 
-    /** 가격 공식의 위력 P. 공격 쪽과 생존 쪽을 더합니다. */
+    /** 가격 공식의 위력 P. 공격 쪽, 생존 쪽, 지원 모듈을 더합니다. */
     public static double power(BlueprintStats stats) {
         double offense = stats.damagePerSecond() * damageTypeMultiplier(stats.damageType()) / value("dpsUnit");
         double rangeFactor = Math.pow(Math.max(0.1, stats.range()) / value("rangePivot"), value("rangeExponent"));
         double defense = stats.maxHealth() / value("healthUnit");
-        return offense * rangeFactor + defense;
+        double offenseBonus = 0.0;
+        double defenseBonus = 0.0;
+        double support = 0.0;
+        for (var module : stats.modules().entrySet()) {
+            double weighted = module.getKey().priceWeight() * module.getValue();
+            switch (module.getKey().kind()) {
+                case OFFENSE -> offenseBonus += weighted;
+                case DEFENSE -> defenseBonus += weighted;
+                case SUPPORT -> support += weighted;
+            }
+        }
+        return offense * rangeFactor * (1.0 + offenseBonus) + defense * (1.0 + defenseBonus) + support;
+    }
+
+    /** 한 설계도에 붙일 수 있는 모듈 수. */
+    public static int maxModules() {
+        return Math.max(0, (int) value("maxModules"));
     }
 
     /** 가격이 높을수록 타워 수(인구)를 더 차지합니다. */
@@ -66,6 +84,14 @@ public final class BlueprintPricing {
         }
         if (outside(stats.aggroPriority(), "minAggroPriority", "maxAggroPriority")) {
             return Optional.of(range("어그로", "minAggroPriority", "maxAggroPriority"));
+        }
+        if (stats.modules().size() > maxModules()) {
+            return Optional.of("모듈은 " + maxModules() + "개까지 붙일 수 있습니다.");
+        }
+        for (var module : stats.modules().entrySet()) {
+            if (module.getValue() < 1 || module.getValue() > BlueprintModule.MAX_LEVEL) {
+                return Optional.of(module.getKey().displayName() + " 단계는 1~" + BlueprintModule.MAX_LEVEL + "이어야 합니다.");
+            }
         }
         return Optional.empty();
     }

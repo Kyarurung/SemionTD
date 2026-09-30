@@ -47,9 +47,7 @@ public final class BlueprintLibrary {
     /** 검사를 통과한 설계를 더하고, 저장할 새 목록을 돌려줍니다. */
     public static synchronized List<BlueprintDesign> add(UUID owner, BlueprintDesign design) {
         List<BlueprintDesign> owned = DESIGNS.computeIfAbsent(owner, ignored -> new ArrayList<>());
-        owned.add(new BlueprintDesign(BlueprintStates.sanitizeName(design.name()), design.maxHealth(), design.damage(),
-                design.attackIntervalTicks(), design.range(), design.aggroPriority(), design.damageType(),
-                design.visualSourceId()));
+        owned.add(design.withName(BlueprintStates.sanitizeName(design.name())));
         return List.copyOf(owned);
     }
 

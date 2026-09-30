@@ -390,21 +390,27 @@ public final class SemionCommands {
                                                 .then(argument("interval", IntegerArgumentType.integer(1))
                                                         .then(argument("range", DoubleArgumentType.doubleArg(0.0))
                                                                 .executes(context -> blueprintPrice(
-                                                                        context.getSource(), blueprintStatsArgument(context))))))))
+                                                                        context.getSource(), blueprintStatsArgument(context, "-")))
+                                                                .then(argument("options", StringArgumentType.word())
+                                                                        .executes(context -> blueprintPrice(context.getSource(),
+                                                                                blueprintStatsArgument(context,
+                                                                                        StringArgumentType.getString(context, "options"))))))))))
                         .then(literal("create")
                                 .then(argument("health", DoubleArgumentType.doubleArg(1.0))
                                         .then(argument("damage", DoubleArgumentType.doubleArg(0.0))
                                                 .then(argument("interval", IntegerArgumentType.integer(1))
                                                         .then(argument("range", DoubleArgumentType.doubleArg(0.0))
                                                                 .then(argument("visual", StringArgumentType.word())
-                                                                        .then(argument("name", StringArgumentType.greedyString())
-                                                                                .executes(context -> blueprintCreate(
-                                                                                        context.getSource(),
-                                                                                        gameManager,
-                                                                                        blueprintStatsArgument(context),
-                                                                                        StringArgumentType.getString(context, "visual"),
-                                                                                        StringArgumentType.getString(context, "name")
-                                                                                ))))))))))
+                                                                        .then(argument("options", StringArgumentType.word())
+                                                                                .then(argument("name", StringArgumentType.greedyString())
+                                                                                        .executes(context -> blueprintCreate(
+                                                                                                context.getSource(),
+                                                                                                gameManager,
+                                                                                                blueprintStatsArgument(context,
+                                                                                                        StringArgumentType.getString(context, "options")),
+                                                                                                StringArgumentType.getString(context, "visual"),
+                                                                                                StringArgumentType.getString(context, "name")
+                                                                                        )))))))))))
                 .then(literal("demonlord")
                         .then(literal("skills")
                                 .executes(context -> demonLordSkills(context.getSource(), gameManager)))
@@ -3436,15 +3442,56 @@ public final class SemionCommands {
     /** 명령으로 만드는 설계도의 어그로(편집 창이 생기기 전 임시 기본값). */
     private static final int BLUEPRINT_DEFAULT_AGGRO = 25;
 
+    /**
+     * 명령으로 받은 설계 능력치. options는 '+'로 이은 항목들입니다(없으면 '-'): 대상 우선도(first, strongest, weakest,
+     * nearest, sent), 피해 유형(physical, magic, true), 모듈은 id.단계(예: multishot.2).
+     */
     private static kim.biryeong.semiontd.tower.blueprint.BlueprintStats blueprintStatsArgument(
-            com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, String options)
+            throws CommandSyntaxException {
+        var damageType = kim.biryeong.semiontd.entity.monster.DamageType.PHYSICAL;
+        var priority = kim.biryeong.semiontd.tower.blueprint.BlueprintTargetPriority.FIRST;
+        java.util.Map<kim.biryeong.semiontd.tower.blueprint.BlueprintModule, Integer> modules = new java.util.LinkedHashMap<>();
+        for (String token : options == null || options.equals("-") ? new String[0] : options.split("\\+")) {
+            String lower = token.trim().toLowerCase(java.util.Locale.ROOT);
+            if (lower.isEmpty()) {
+                continue;
+            }
+            var asPriority = kim.biryeong.semiontd.tower.blueprint.BlueprintTargetPriority.byId(lower);
+            if (asPriority.isPresent()) {
+                priority = asPriority.get();
+                continue;
+            }
+            if (lower.equals("physical") || lower.equals("magic") || lower.equals("true")) {
+                damageType = kim.biryeong.semiontd.entity.monster.DamageType.valueOf(lower.toUpperCase(java.util.Locale.ROOT));
+                continue;
+            }
+            int dot = lower.lastIndexOf('.');
+            var module = kim.biryeong.semiontd.tower.blueprint.BlueprintModule.byId(dot < 0 ? lower : lower.substring(0, dot));
+            if (module.isEmpty()) {
+                throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(
+                        net.minecraft.network.chat.Component.literal("모르는 항목입니다: " + token)).create();
+            }
+            int level = 1;
+            if (dot >= 0) {
+                try {
+                    level = Integer.parseInt(lower.substring(dot + 1));
+                } catch (NumberFormatException exception) {
+                    throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(
+                            net.minecraft.network.chat.Component.literal("단계는 숫자여야 합니다: " + token)).create();
+                }
+            }
+            modules.put(module.get(), level);
+        }
         return new kim.biryeong.semiontd.tower.blueprint.BlueprintStats(
                 DoubleArgumentType.getDouble(context, "health"),
                 DoubleArgumentType.getDouble(context, "damage"),
                 IntegerArgumentType.getInteger(context, "interval"),
                 DoubleArgumentType.getDouble(context, "range"),
                 BLUEPRINT_DEFAULT_AGGRO,
-                kim.biryeong.semiontd.entity.monster.DamageType.PHYSICAL
+                damageType,
+                modules,
+                priority
         );
     }
 

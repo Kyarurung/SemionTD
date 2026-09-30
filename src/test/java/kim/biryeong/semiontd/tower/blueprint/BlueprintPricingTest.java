@@ -140,6 +140,46 @@ class BlueprintPricingTest {
         }
     }
 
+    @Test
+    void everyModuleIsPricedAndMoreLevelsCostMore() {
+        BlueprintStats base = stats(200, 15.0, 6.0);
+        long plain = BlueprintPricing.price(base);
+        for (BlueprintModule module : BlueprintModule.values()) {
+            assertTrue(module.priceWeight() > 0.0, module.id() + " must have a price weight.");
+            long one = BlueprintPricing.price(base.withModules(java.util.Map.of(module, 1), BlueprintTargetPriority.FIRST));
+            long three = BlueprintPricing.price(base.withModules(java.util.Map.of(module, 3), BlueprintTargetPriority.FIRST));
+            assertTrue(one > plain, module.id() + " level 1 must cost more than no module.");
+            assertTrue(three > one, module.id() + " level 3 must cost more than level 1.");
+        }
+        assertEquals(plain, BlueprintPricing.price(base.withModules(java.util.Map.of(), BlueprintTargetPriority.STRONGEST)),
+                "Target priority is a choice, not power, and must not change the price.");
+    }
+
+    @Test
+    void moduleCountAndLevelsAreCapped() {
+        BlueprintStats base = stats(200, 15.0, 6.0);
+        java.util.Map<BlueprintModule, Integer> five = new java.util.LinkedHashMap<>();
+        for (BlueprintModule module : java.util.List.of(BlueprintModule.CRIT, BlueprintModule.SLOW, BlueprintModule.STUN,
+                BlueprintModule.POISON, BlueprintModule.ARMOR)) {
+            five.put(module, 1);
+        }
+        assertTrue(BlueprintPricing.validate(base.withModules(five, BlueprintTargetPriority.FIRST)).isPresent());
+        assertTrue(BlueprintPricing.validate(base.withModules(java.util.Map.of(BlueprintModule.CRIT, 0), BlueprintTargetPriority.FIRST)).isPresent());
+        assertTrue(BlueprintPricing.validate(base.withModules(java.util.Map.of(BlueprintModule.CRIT, 3), BlueprintTargetPriority.FIRST)).isEmpty());
+    }
+
+    @Test
+    void designsKeepModulesAndPriorityAndDropUnknownModules() {
+        BlueprintStats armed = stats(200, 15.0, 6.0).withModules(
+                java.util.Map.of(BlueprintModule.MULTISHOT, 2, BlueprintModule.SLOW, 1), BlueprintTargetPriority.STRONGEST);
+        BlueprintDesign design = BlueprintDesign.of("저격", armed, "t1_cat_tower");
+        assertEquals(armed, design.stats());
+        BlueprintDesign withUnknown = new BlueprintDesign("x", 200, 15, 20, 6, 25, "PHYSICAL", "t1_cat_tower",
+                java.util.Map.of("multishot", 1, "no_such_module", 2), "no_such_priority");
+        assertEquals(java.util.Map.of(BlueprintModule.MULTISHOT, 1), withUnknown.stats().modules());
+        assertEquals(BlueprintTargetPriority.FIRST, withUnknown.stats().targetPriority());
+    }
+
     private static void assertBetween(long min, long max, long actual) {
         assertTrue(actual >= min && actual <= max, "Expected " + min + ".." + max + " but was " + actual);
     }

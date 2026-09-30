@@ -9,6 +9,7 @@
       "kim.biryeong.semiontd.gametest.BugReportGameTest",
       "kim.biryeong.semiontd.gametest.BalanceRuntimeGameTest",
       "kim.biryeong.semiontd.gametest.BlueprintBuilderGameTest",
+      "kim.biryeong.semiontd.gametest.BlueprintModuleGameTest",
       "kim.biryeong.semiontd.gametest.SemionParticipantGameTest",
       "kim.biryeong.semiontd.gametest.SemionVillagerAdvGameTest",
       "kim.biryeong.semiontd.gametest.SemionEmeraldIncomeBoostGameTest",
