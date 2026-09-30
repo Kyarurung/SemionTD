@@ -783,14 +783,33 @@ public final class PlantIntegrationGameTest {
                     == TowerPlacementResult.TOWER_LIMIT_REACHED, "A second gardener must be refused.");
             var gardener = (kim.biryeong.semiontd.tower.plant.GardenerTower) lane.towerAt(GridPosition.from(first));
             require(gardener.adjustAttackRange(10.0) > 10.0, "The gardener must get the podzol range bonus anywhere.");
-            require(kim.biryeong.semiontd.entity.model.SemionBilModelCache.load(PlantTowers.GARDENER_MODEL).isPresent(),
-                    "The gardener's Blockbench model must load through BIL.");
-            context.succeed();
+            var model = kim.biryeong.semiontd.entity.model.SemionBilModelCache.load(PlantTowers.GARDENER_MODEL);
+            require(model.isPresent(), "The gardener's Blockbench model must load through BIL.");
+            require(model.get().animations().containsKey("walk") && model.get().animations().containsKey("death"),
+                    "The gardener model must have walk and death animations.");
+            require(gardener.type().range() == 18.0, "The gardener's range sits mid podzol line (18).");
+
+            // 사망 애니메이션이 있는 모델의 타워는 쓰러지는 기본 연출 대신 모델 껍데기를 남기고 엔티티를 바로 치웁니다.
+            var entity = (kim.biryeong.semiontd.entity.tower.SemionTowerEntity)
+                    context.getLevel().getEntity(gardener.entityId().getAsInt());
+            gardener.syncHealth(0.0);
+            entity.setHealth(0.0F);
+            SemionGame running = game;
+            game = null;
+            context.runAfterDelay(3, () -> {
+                try {
+                    require(entity.isRemoved(), "A tower whose model has a death animation must leave a corpse and be removed at once.");
+                    context.succeed();
+                } finally {
+                    running.close();
+                    PlantSoilStates.clear(owner);
+                }
+            });
         } finally {
             if (game != null) {
                 game.close();
+                PlantSoilStates.clear(owner);
             }
-            PlantSoilStates.clear(owner);
         }
     }
 

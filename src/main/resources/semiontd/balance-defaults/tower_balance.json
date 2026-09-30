@@ -4229,7 +4229,7 @@
     "plant_gardener": {
       "mineralCost": 400,
       "maxHealth": 900.0,
-      "range": 10.0,
+      "range": 18.0,
       "damage": 40.0,
       "attackIntervalTicks": 20,
       "aggroPriority": 45
