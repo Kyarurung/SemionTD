@@ -775,6 +775,8 @@ public final class PlantIntegrationGameTest {
                     == TowerPlacementResult.TOWER_LIMIT_REACHED, "A second gardener must be refused.");
             var gardener = (kim.biryeong.semiontd.tower.plant.GardenerTower) lane.towerAt(GridPosition.from(first));
             require(gardener.adjustAttackRange(10.0) > 10.0, "The gardener must get the podzol range bonus anywhere.");
+            require(kim.biryeong.semiontd.entity.model.SemionBilModelCache.load(PlantTowers.GARDENER_MODEL).isPresent(),
+                    "The gardener's Blockbench model must load through BIL.");
             context.succeed();
         } finally {
             if (game != null) {
