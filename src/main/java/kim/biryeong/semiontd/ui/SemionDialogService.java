@@ -1046,6 +1046,9 @@ public final class SemionDialogService {
                 }
                 actionColumns = 3;
             }
+            if (tower instanceof kim.biryeong.semiontd.tower.plant.GardenerTower) {
+                actions.add(actionButton("스킬 강화", "/semiontd gardener", "꽃밭 치유·지배·생기 흡수를 강화합니다."));
+            }
             if (tower instanceof HeroTower) {
                 actions.add(actionButton("용사 상점", "/semiontd hero shop", "장비를 구매·강화·교체합니다."));
                 actions.add(actionButton("현재 퀘스트", "/semiontd hero quest", "현재 웨이브 퀘스트를 확인합니다."));

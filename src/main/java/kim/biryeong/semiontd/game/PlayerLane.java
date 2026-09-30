@@ -634,7 +634,9 @@ public final class PlayerLane {
             }
         }
 
-        if (!clearedThisRound && activeMonsters.isEmpty()
+        // 지배당한 적처럼 라인 수에서 빠지는 몬스터만 남았다면 라인이 정리된 것으로 봅니다. 그대로 두면 지배가
+        // 끝날 때까지 라운드가 끝나지 않습니다. 남은 것은 지배한 쪽(정원사)이 미드로 데려가고, 지배가 풀리면 치웁니다.
+        if (!clearedThisRound && activeMonsters.stream().allMatch(Monster::excludedFromLaneCount)
                 && waveMonsterSpawnQueue.isEmpty() && summonedMonsterSpawnQueue.isEmpty()) {
             for (Tower tower : List.copyOf(towers)) {
                 tower.onLaneCleared(this);

@@ -291,7 +291,8 @@ public final class DemonLordPassives {
         if (type.damage() <= 0.0 || !tower.countsForLaneDefense() || !tower.targetableByMonsters()) {
             return false;
         }
-        if (tower instanceof HeroPartyTower || tower instanceof EndTower || tower instanceof DemonLordFiend) {
+        if (tower instanceof HeroPartyTower || tower instanceof EndTower || tower instanceof DemonLordFiend
+                || tower instanceof kim.biryeong.semiontd.tower.plant.GardenerTower) {
             return false;
         }
         if (WarlockTowers.isWarlockCore(type) || BodyTowers.isHeart(type) || EngineerTowers.isGolem(type)

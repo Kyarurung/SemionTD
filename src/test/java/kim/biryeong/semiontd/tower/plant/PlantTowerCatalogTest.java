@@ -80,8 +80,9 @@ final class PlantTowerCatalogTest {
                 PlantTowers.T1_MYCELIUM_TOWER.id(),
                 PlantTowers.T1_DESERT_TOWER.id(),
                 PlantTowers.T1_PODZOL_TOWER.id(),
-                // 판다는 지형이 없어 계열 묶음 밖이지만, 시작 타워인 것은 같습니다.
-                PlantTowers.T1_PANDA_TOWER.id()
+                // 판다와 정원사는 지형이 없어 계열 묶음 밖이지만, 시작 타워인 것은 같습니다.
+                PlantTowers.T1_PANDA_TOWER.id(),
+                PlantTowers.GARDENER_TOWER.id()
         ), starters);
     }
 
@@ -114,7 +115,8 @@ final class PlantTowerCatalogTest {
         assertUpgrade(PlantTowers.T1_PANDA_TOWER, PlantTowers.T2_PANDA_TOWER, 150);
         assertUpgrade(PlantTowers.T2_PANDA_TOWER, PlantTowers.T3_PANDA_TOWER, 260);
         assertUpgrade(PlantTowers.T3_PANDA_TOWER, PlantTowers.T4_PANDA_TOWER, 400);
-        assertEquals("판다", new PlantTowerJob().towerGroup(PlantTowers.T1_PANDA_TOWER));
+        assertEquals("특수 타워", new PlantTowerJob().towerGroup(PlantTowers.T1_PANDA_TOWER));
+        assertEquals("특수 타워", new PlantTowerJob().towerGroup(PlantTowers.GARDENER_TOWER));
     }
 
     /**

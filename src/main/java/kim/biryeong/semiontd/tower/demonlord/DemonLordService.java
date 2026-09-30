@@ -206,7 +206,7 @@ public final class DemonLordService {
             if (state == null || !state.inCombat() || !(target instanceof SemionMonsterEntity monsterEntity)) {
                 return InteractionResult.PASS;
             }
-            if (monsterEntity.isStealthed()) {
+            if (monsterEntity.isStealthed() || monsterEntity.isDominated()) {
                 // 은신한 몬스터는 지정해서 벨 수 없습니다.
                 return InteractionResult.FAIL;
             }

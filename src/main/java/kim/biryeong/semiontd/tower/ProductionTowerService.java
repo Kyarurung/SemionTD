@@ -74,6 +74,12 @@ public final class ProductionTowerService {
                 && !PlantSoilStates.canPlantAt(laneContext.lane, laneContext.player.uuid(), position, towerType)) {
             return TowerPlacementResult.OCCUPIED;
         }
+        // 정원사는 한 명에 하나입니다.
+        if (PlantTowers.isGardener(towerType) && laneContext.lane.towers().stream().anyMatch(existing ->
+                PlantTowers.isGardener(existing.type()) && laneContext.player.uuid().equals(existing.ownerPlayer())
+                        && !existing.isTemporaryCopy())) {
+            return TowerPlacementResult.TOWER_LIMIT_REACHED;
+        }
         if (!canUseTower(game, laneContext.player, towerType)) {
             return TowerPlacementResult.TOWER_NOT_ALLOWED;
         }

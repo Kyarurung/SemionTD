@@ -42,7 +42,7 @@ final class MageTowerRuntime {
     /** 마법을 걸 대상을 고르는 순서. 은신한 몬스터는 고를 수 없습니다. */
     static List<SemionMonsterEntity> prioritizedMonsters(PlayerLane lane) {
         return liveMonsters(lane).stream()
-                .filter(entity -> !entity.isStealthed())
+                .filter(entity -> !entity.isStealthed() && !entity.isDominated())
                 .sorted(Comparator
                         .comparing((SemionMonsterEntity entity) -> isIncome(entity.runtimeMonster()))
                         .thenComparingDouble(entity -> -entity.runtimeMonster().laneProgress()))

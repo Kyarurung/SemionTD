@@ -1400,6 +1400,7 @@ public record TowerBalanceConfig(
     private static void addPlantTowers(LinkedHashMap<String, TowerStats> towers) {
         PlantTowers.TERRAFORM_TOWERS.forEach(type -> addTower(towers, type));
         PlantTowers.COMBAT_TOWERS.forEach(type -> addTower(towers, type));
+        addTower(towers, PlantTowers.GARDENER_TOWER);
     }
 
     private static void putPlantUpgrades(LinkedHashMap<String, Long> upgradeCosts) {
@@ -1617,6 +1618,50 @@ public record TowerBalanceConfig(
         putPlantMine(abilities, PlantTowers.T1_MYCELIUM_TOWER, 1.5, 3.0, 0.35, 40.0, 8.0);
         putPlantMine(abilities, PlantTowers.T2_MYCELIUM_TOWER, 1.8, 3.5, 0.45, 60.0, 10.0);
         putPlantMine(abilities, PlantTowers.T3_MYCELIUM_TOWER, 2.0, 4.0, 0.55, 80.0, 12.0);
+        // 정원사: 스킬 수치는 <키>_<단계>(1~3)입니다. 평타는 러커식 일직선 가시입니다.
+        LinkedHashMap<String, Double> gardener = new LinkedHashMap<>();
+        gardener.put("lineSplashRatio", 0.6);
+        gardener.put("lineWidth", 1.0);
+        gardener.put("skillRange", 10.0);
+        gardener.put("upgradeCost_2", 150.0);
+        gardener.put("upgradeCost_3", 250.0);
+        gardener.put("healRadius_1", 3.0);
+        gardener.put("healRadius_2", 3.5);
+        gardener.put("healRadius_3", 4.0);
+        gardener.put("healPerSecond_1", 0.02);
+        gardener.put("healPerSecond_2", 0.03);
+        gardener.put("healPerSecond_3", 0.04);
+        gardener.put("healDurationTicks_1", 100.0);
+        gardener.put("healDurationTicks_2", 120.0);
+        gardener.put("healDurationTicks_3", 140.0);
+        gardener.put("healCooldownTicks_1", 300.0);
+        gardener.put("healCooldownTicks_2", 280.0);
+        gardener.put("healCooldownTicks_3", 260.0);
+        gardener.put("dominateDurationTicks_1", 60.0);
+        gardener.put("dominateDurationTicks_2", 80.0);
+        gardener.put("dominateDurationTicks_3", 100.0);
+        gardener.put("dominatePulseRadius_1", 2.5);
+        gardener.put("dominatePulseRadius_2", 2.5);
+        gardener.put("dominatePulseRadius_3", 3.0);
+        gardener.put("dominatePulseRatio_1", 1.0);
+        gardener.put("dominatePulseRatio_2", 1.5);
+        gardener.put("dominatePulseRatio_3", 2.0);
+        gardener.put("dominateCooldownTicks_1", 400.0);
+        gardener.put("dominateCooldownTicks_2", 360.0);
+        gardener.put("dominateCooldownTicks_3", 320.0);
+        gardener.put("drainRadius_1", 4.0);
+        gardener.put("drainRadius_2", 4.5);
+        gardener.put("drainRadius_3", 5.0);
+        gardener.put("drainDamageRatio_1", 1.2);
+        gardener.put("drainDamageRatio_2", 1.6);
+        gardener.put("drainDamageRatio_3", 2.0);
+        gardener.put("drainHealRatio_1", 0.5);
+        gardener.put("drainHealRatio_2", 0.7);
+        gardener.put("drainHealRatio_3", 0.9);
+        gardener.put("drainCooldownTicks_1", 200.0);
+        gardener.put("drainCooldownTicks_2", 180.0);
+        gardener.put("drainCooldownTicks_3", 160.0);
+        putAbilities(abilities, PlantTowers.GARDENER_TOWER.id(), gardener);
         // 판다는 지형 계열이 아니라 soilPower 가 없습니다. 돌진 수치만 가집니다.
         putPanda(abilities, PlantTowers.T1_PANDA_TOWER, 200.0, 6.0, 1.6, 0.08, 1.0, 60.0, 0.30, 0.30);
         putPanda(abilities, PlantTowers.T2_PANDA_TOWER, 180.0, 7.0, 1.8, 0.10, 1.2, 70.0, 0.35, 0.35);

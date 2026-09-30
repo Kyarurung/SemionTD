@@ -49,12 +49,21 @@ public final class PlantDisplayVfx {
     static final DisplaySprite POLLEN_STREAK = DisplaySprite.cross("pollen_streak", DIR);
     static final DisplaySprite WIND_STREAK = DisplaySprite.cross("wind_streak", DIR);
     static final DisplaySprite WIND_ARC = DisplaySprite.flat("wind_arc", DIR);
+    // 정원사
+    static final DisplaySprite THORN_SPIKE = DisplaySprite.cross("thorn_spike", DIR);
+    static final DisplaySprite MIND_FLOWER = DisplaySprite.billboard("mind_flower", DIR);
+    static final DisplaySprite MIND_BEAM = DisplaySprite.cross("mind_beam", DIR);
+    static final DisplaySprite LIFE_BEAM = DisplaySprite.cross("life_beam", DIR);
+    static final DisplaySprite MIND_RING = DisplaySprite.flat("mind_ring", DIR);
+    static final DisplaySprite MIND_FLASH = DisplaySprite.billboard("mind_flash", DIR);
+    static final DisplaySprite WALL_MIND = DisplaySprite.cylinder("wall_mind", DIR);
 
     /** 리소스팩에 넣을 텍스처. */
     public static final List<DisplaySprite> SPRITES = List.of(
             WATER_DROP, WATER_RING, WATER_FLASH, VINE_RING, PETAL_TULIP, PETAL_LILAC, PETAL_RING, TULIP_FLASH, POLLEN,
             LEAF, LEAF_FLASH, HEAL_RING, SAND_PUFF, DUST_PUFF, SPORE, SPORE_RING, SPORE_FLASH, BAMBOO_LEAF,
-            WALL_WATER, WALL_TULIP, WALL_LEAF, WALL_SPORE, POLLEN_STREAK, WIND_STREAK, WIND_ARC);
+            WALL_WATER, WALL_TULIP, WALL_LEAF, WALL_SPORE, POLLEN_STREAK, WIND_STREAK, WIND_ARC,
+            THORN_SPIKE, MIND_FLOWER, MIND_BEAM, LIFE_BEAM, MIND_RING, MIND_FLASH, WALL_MIND);
 
     // 침공군 흙먼지 고리를 그대로 빌려 씁니다(리소스팩에는 침공군 목록으로 이미 들어갑니다).
     private static final DisplaySprite DUST_RING = DisplaySprite.flat("dust_ring", INVASION_DIR);
@@ -265,6 +274,132 @@ public final class PlantDisplayVfx {
             effect.part(DUST_PUFF, Pose.of(foot, roll, vec(0, 0, 1)))
                     .to(at, 2, Pose.of(foot, roll, vec(0.8, 0.8, 1)))
                     .to(at + 2, 8, Pose.of(risen, roll, vec(0, 0, 1)));
+        }
+        return effect;
+    }
+
+    // ------------------------------------------------------------------ 정원사
+
+    /**
+     * 정원사 평타(러커식): 정원사 앞에서 {@code yaw} 방향으로 {@code length}칸까지 가시가 한 줄로 차례차례 솟았다
+     * 가라앉습니다. 가까운 가시부터 틱마다 두 개씩 솟아 땅 밑으로 무언가가 달려가는 것처럼 보입니다. 기준점은 정원사 발밑입니다.
+     */
+    public static DisplayEffect thornLine(float yaw, double length, long seed) {
+        int count = Math.max(2, Math.min(12, (int) Math.ceil(length / 0.9)));
+        DisplayEffect effect = effect("thorn_line", 2 + count / 2 + 10);
+        DisplayShapes shapes = new DisplayShapes(effect, yaw, seed);
+        for (int index = 0; index < count; index++) {
+            double along = 0.8 + (length - 0.8) * index / (count - 1);
+            Vector3f base = shapes.local(shapes.random(-0.15, 0.15), 0.0, along);
+            int start = 2 + index / 2;
+            shapes.spike(THORN_SPIKE, base, yaw + shapes.random(-0.4, 0.4), shapes.random(6, 16), 0.55,
+                    shapes.random(1.1, 1.5), start, 2, start + 4, 3);
+        }
+        return effect;
+    }
+
+    /**
+     * 꽃밭 치유: 새싹 고리와 낮은 새싹 벽이 {@code durationTicks} 동안 깔려 있고, 잎이 1초마다 솟아오릅니다.
+     * 기준점은 장판 가운데 발밑입니다.
+     */
+    public static DisplayEffect healField(double radius, int durationTicks, long seed) {
+        int end = Math.max(20, durationTicks);
+        DisplayEffect effect = effect("heal_field", end + 8);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        double diameter = radius * 2.0;
+        shapes.decal(HEAL_RING, vec(0, ground(1), 0), 0.8, diameter, 2, 6, end, 6, 60, 0.0);
+        shapes.cylinderHold(WALL_LEAF, vec(0, ground(0), 0), diameter, 0.9, 2, 6, end, 6, 20);
+        shapes.pop(LEAF_FLASH, vec(0, 1.0, 0), 1.6, 2, 2, 5, 4);
+        for (int index = 0; index < 6; index++) {
+            double angle = Math.PI * 2.0 * index / 6 + shapes.random(-0.3, 0.3);
+            double reach = radius * shapes.random(0.3, 0.85);
+            Vector3f foot = vec(Math.sin(angle) * reach, 0.3, Math.cos(angle) * reach);
+            Quaternionf roll = new Quaternionf().rotateZ((float) shapes.random(0, Math.PI * 2));
+            DisplayEffect.Part leaf = effect.part(LEAF, Pose.of(foot, roll, vec(0, 0, 1)));
+            for (int tick = 4 + index * 3; tick + 16 <= end; tick += 20) {
+                leaf.to(tick, 0, Pose.of(foot, roll, vec(0.4, 0.4, 1)))
+                        .to(tick + 1, 14, Pose.of(new Vector3f(foot).add(0, 1.4F, 0), new Quaternionf(roll).rotateZ(1.5F), vec(0.3, 0.3, 1)))
+                        .to(tick + 15, 0, Pose.of(foot, roll, vec(0, 0, 1)));
+            }
+        }
+        return effect;
+    }
+
+    /**
+     * 지배당한 적의 머리 위: 보라 꽃 다섯 송이가 화관처럼 돌고, 발밑에 보라 꽃잎 고리가 깔립니다. 엔티티에 붙여 띄웁니다.
+     */
+    public static DisplayEffect dominationCrown(int durationTicks, long seed) {
+        int end = Math.max(10, durationTicks);
+        DisplayEffect effect = effect("domination_crown", end + 6);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        shapes.cylinderHold(WALL_MIND, vec(0, ground(0), 0), 1.6, 1.1, 2, 4, end, 5, 45);
+        int flowers = 5;
+        for (int index = 0; index < flowers; index++) {
+            double angle = Math.PI * 2.0 * index / flowers;
+            DisplayEffect.Part flower = effect.part(MIND_FLOWER,
+                    Pose.of(vec(Math.sin(angle) * 0.5, 2.3, Math.cos(angle) * 0.5), new Quaternionf(), vec(0, 0, 1)));
+            double turn = angle;
+            for (int tick = 2; tick + 10 <= end; tick += 10) {
+                turn += Math.PI / 3.0;
+                flower.to(tick, 10, Pose.of(vec(Math.sin(turn) * 0.5, 2.3, Math.cos(turn) * 0.5), new Quaternionf(), vec(0.45, 0.45, 1)));
+            }
+            flower.to(end, 4, Pose.of(vec(0, 2.6, 0), new Quaternionf(), vec(0, 0, 1)));
+        }
+        return effect;
+    }
+
+    /** 지배하는 순간: 정원사에서 대상({@code to}, 기준점에서의 상대 위치)까지 보라 빛줄기가 뻗고 대상에서 섬광이 터집니다. */
+    public static DisplayEffect dominationLink(Vector3f to, long seed) {
+        DisplayEffect effect = effect("domination_link", 14);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        Vector3f from = vec(0, 1.8, 0);
+        Vector3f target = new Vector3f(to).add(0, 1.3F, 0);
+        shapes.beam(MIND_BEAM, from, target, 0.7, 2, 2, 6, 5);
+        shapes.pop(MIND_FLASH, target, 2.0, 4, 1, 6, 4);
+        shapes.decal(MIND_RING, new Vector3f(to).add(0, ground(3), 0), 0.4, 2.4, 4, 3, 8, 4, 60, 1.1);
+        return effect;
+    }
+
+    /** 지배당한 적이 제 편을 칠 때: 발밑에서 보라 꽃잎 고리와 짧은 벽이 반경까지 번집니다. 맞은 적이 있으면 섬광이 더해집니다. */
+    public static DisplayEffect dominationPulse(double radius, boolean hit, long seed) {
+        DisplayEffect effect = effect("domination_pulse", 12);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        shapes.decal(MIND_RING, vec(0, ground(4), 0), 0.5, radius * 2.0, 2, 3, 6, 3, 40, 1.1);
+        shapes.cylinder(WALL_MIND, vec(0, ground(2), 0), 0.5, radius * 2.0, 0.8, 2, 3, 6, 3, 40, 1.1);
+        if (hit) {
+            shapes.pop(MIND_FLASH, vec(0, 1.0, 0), 1.4, 2, 1, 4, 3);
+        }
+        return effect;
+    }
+
+    /**
+     * 생기 흡수: 반경의 새싹 고리가 안쪽으로 오므라들고, 맞은 적들({@code sources})에서 초록 빛줄기와 잎이 정원사에게 빨려
+     * 들어온 뒤, 다친 아군({@code targets})에게 잎이 날아가 초록 반짝임으로 터집니다. 좌표는 모두 정원사 발밑 기준입니다.
+     */
+    public static DisplayEffect lifeDrain(double radius, List<Vector3f> sources, List<Vector3f> targets, long seed) {
+        DisplayEffect effect = effect("life_drain", 22);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        effect.part(HEAL_RING, Pose.of(vec(0, ground(2), 0), new Quaternionf(), vec(radius * 2.0, 1, radius * 2.0)))
+                .to(2, 8, Pose.of(vec(0, ground(2), 0), new Quaternionf().rotateY(1.5F), vec(0.4, 1, 0.4)))
+                .to(10, 0, Pose.of(vec(0, ground(2), 0), new Quaternionf(), vec(0, 1, 0)));
+        Vector3f core = vec(0, 1.3, 0);
+        for (Vector3f source : sources.subList(0, Math.min(5, sources.size()))) {
+            Quaternionf roll = new Quaternionf().rotateZ((float) shapes.random(0, Math.PI * 2));
+            effect.part(LEAF, Pose.of(source, roll, vec(0.45, 0.45, 1)))
+                    .to(2, 6, Pose.of(core, new Quaternionf(roll).rotateZ(2.0F), vec(0.35, 0.35, 1)))
+                    .to(8, 0, Pose.of(core, roll, vec(0, 0, 1)));
+        }
+        if (!sources.isEmpty()) {
+            shapes.beam(LIFE_BEAM, sources.getFirst(), core, 0.45, 2, 2, 6, 3);
+        }
+        shapes.pop(LEAF_FLASH, core, 1.6, 8, 1, 10, 3);
+        for (Vector3f target : targets.subList(0, Math.min(4, targets.size()))) {
+            Quaternionf roll = new Quaternionf().rotateZ((float) shapes.random(0, Math.PI * 2));
+            effect.part(LEAF, Pose.of(core, roll, vec(0, 0, 1)))
+                    .to(9, 0, Pose.of(core, roll, vec(0.4, 0.4, 1)))
+                    .to(10, 6, Pose.of(target, new Quaternionf(roll).rotateZ(2.0F), vec(0.4, 0.4, 1)))
+                    .to(16, 0, Pose.of(target, roll, vec(0, 0, 1)));
+            shapes.pop(LEAF_FLASH, target, 1.0, 16, 1, 18, 3);
         }
         return effect;
     }
