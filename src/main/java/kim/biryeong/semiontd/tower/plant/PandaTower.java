@@ -38,10 +38,16 @@ import net.minecraft.world.phys.Vec3;
  */
 public class PandaTower extends ProductionTower {
     /**
-     * 돌진이 몇 틱에 걸쳐 진행되는지. 바닐라 판다의 구르기 한 바퀴(클라이언트 {@code rollCounter} 32틱)와 같습니다.
-     * 짧게 끊으면 구르다 만 자세(옆으로 눕거나 뒤집힌 채)에서 갑자기 일어서 보입니다.
+     * 바닐라 판다의 구르기 한 바퀴(클라이언트 {@code rollCounter} 32틱). 돌진은 이 시간 동안 이어집니다. 짧게 끊으면
+     * 구르다 만 자세(옆으로 눕거나 뒤집힌 채)에서 갑자기 일어서 보입니다.
+     *
+     * <p>클라이언트 틱이라 전투 배속 때는 서버 틱으로 환산합니다({@link #dashTicks}). 서버가 초당 40틱이어도 클라이언트
+     * 판다는 초당 20틱으로 구르므로, 서버 32틱에서 끊으면 반 바퀴만 돈 채 멈춥니다.
      */
-    static final int DASH_TICKS = 32;
+    static final int ROLL_CLIENT_TICKS = 32;
+
+    /** 이번 돌진의 길이(서버 틱). 돌진을 시작할 때의 배속으로 정합니다. */
+    private int dashTotalTicks = ROLL_CLIENT_TICKS;
 
     /** 바닐라 판다 상태 비트 중 구르기. */
     private static final byte ROLL_FLAG = 4;
@@ -162,7 +168,8 @@ public class PandaTower extends ProductionTower {
 
     private void beginDash(SemionTowerEntity source, SemionMonsterEntity target) {
         dashDirection = horizontal(target.position().subtract(source.position()));
-        dashTicksLeft = DASH_TICKS;
+        dashTotalTicks = dashTicks(source);
+        dashTicksLeft = dashTotalTicks;
         dashHits.clear();
         // 달리는 동안 경로 탐색이 끼어들면 방향이 꺾여 돌진이 아니라 추적이 됩니다.
         source.getNavigation().stop();
@@ -188,6 +195,11 @@ public class PandaTower extends ProductionTower {
                         rolling ? ROLL_FLAG : (byte) 0))));
     }
 
+    /** 구르기 한 바퀴를 서버 틱으로. 배속이 아니면 32틱, 서버가 초당 40틱이면 64틱입니다. */
+    static int dashTicks(SemionTowerEntity source) {
+        return Math.max(1, kim.biryeong.semiontd.game.ClientTickScale.toServerTicks(source.getServer(), ROLL_CLIENT_TICKS));
+    }
+
     private void endDash() {
         dashTicksLeft = 0;
         dashHits.clear();
@@ -200,7 +212,7 @@ public class PandaTower extends ProductionTower {
      * 맡기기 때문에, 아레나 밖으로 뚫고 나갈 일이 없습니다.
      */
     private void advanceDash(SemionTowerEntity source) {
-        double step = ability("chargeDistance") / DASH_TICKS;
+        double step = ability("chargeDistance") / Math.max(1, dashTotalTicks);
         source.move(net.minecraft.world.entity.MoverType.SELF, dashDirection.scale(step));
         source.hurtMarked = true;
         sweep(source);
