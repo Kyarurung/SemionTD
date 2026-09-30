@@ -29,6 +29,19 @@ public final class BlueprintTexts {
             case HEAL_AURA -> "3초마다 반경 " + num(module.value("radius", level)) + " 아군에 내 최대 체력 "
                     + pct(module.value("maxHealthRatio", level)) + " 치유";
             case HASTE_AURA -> "반경 " + num(module.value("radius", level)) + " 아군 공격 속도 +" + pct(module.value("attackSpeedBonus", level));
+            case DETECTION -> "사거리 +" + num(module.value("radiusBonus", level)) + " 안의 은신한 적을 드러냄";
+            case BOSS_SLAYER -> "보스 피해 +" + pct(module.value("bossBonus", level)) + " · 탱커 +"
+                    + pct(module.value("bossBonus", level) * module.value("tankRatio", level));
+            case FOCUS -> "같은 적 연속 공격마다 +" + pct(module.value("perStack", level)) + " (최대 "
+                    + whole(module.value("maxStacks", level)) + "번)";
+            case FRENZY -> "공격마다 공격 속도 +" + pct(module.value("perStack", level)) + " (최대 "
+                    + whole(module.value("maxStacks", level)) + "번, 라운드마다 초기화)";
+            case KNOCKBACK -> "확률 " + pct(module.value("chance", level)) + " · " + num(module.value("distance", level)) + "칸 밀어냄";
+            case PLUNDER -> "처치 시 " + pct(module.value("chance", level)) + " 확률로 다이아 " + whole(module.value("diamonds", level));
+            case TAUNT -> "어그로 +" + whole(module.value("aggroBonus", level)) + " · 받는 피해 -" + pct(module.value("reduction", level));
+            case RANGE_AURA -> "반경 " + num(module.value("radius", level)) + " 아군 사거리 +" + num(module.value("rangeBonus", level));
+            case SUMMON -> num(module.value("intervalTicks", level) / 20.0) + "초마다 하수인(능력치 " + pct(module.value("statRatio", level))
+                    + ") · 최대 " + whole(module.value("count", level)) + "기";
         };
     }
 

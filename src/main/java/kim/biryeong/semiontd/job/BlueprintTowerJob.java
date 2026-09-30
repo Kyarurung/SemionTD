@@ -50,6 +50,7 @@ public final class BlueprintTowerJob extends SemionJob {
     @Override
     public void onMatchStarted(JobContext context) {
         List<String> skipped = BlueprintLibrary.installForMatch(context.player().uuid());
+        BlueprintStates.bindPlayer(context.player());
         if (!skipped.isEmpty()) {
             kim.biryeong.semiontd.SemionTd.LOGGER.info("Skipped {} blueprint(s) for {}: {}",
                     skipped.size(), context.player().uuid(), skipped);

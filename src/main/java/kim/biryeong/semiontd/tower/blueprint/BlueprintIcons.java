@@ -27,6 +27,15 @@ final class BlueprintIcons {
             case REGEN -> Items.GLISTERING_MELON_SLICE;
             case HEAL_AURA -> Items.BEACON;
             case HASTE_AURA -> Items.SUGAR;
+            case DETECTION -> Items.ENDER_EYE;
+            case BOSS_SLAYER -> Items.WITHER_SKELETON_SKULL;
+            case FOCUS -> Items.CROSSBOW;
+            case FRENZY -> Items.BLAZE_POWDER;
+            case KNOCKBACK -> Items.PISTON;
+            case PLUNDER -> Items.GOLD_INGOT;
+            case TAUNT -> Items.BELL;
+            case RANGE_AURA -> Items.SPYGLASS;
+            case SUMMON -> Items.ZOMBIE_HEAD;
         };
     }
 }

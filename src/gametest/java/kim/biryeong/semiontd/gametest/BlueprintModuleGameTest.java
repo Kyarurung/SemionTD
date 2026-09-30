@@ -224,6 +224,73 @@ public final class BlueprintModuleGameTest {
         }
     }
 
+    /**
+     * 새 모듈 묶음: 집중 사격은 같은 적을 이어 때릴수록 피해가, 광란은 공격할수록 공격 속도가 오르고, 도발은 어그로를,
+     * 보스 사냥은 보스에게 피해를 올리며, 넉백은 적을 레인 뒤로 밀고, 소환은 하수인을 불렀다가 라운드가 끝나면 치웁니다.
+     */
+    @GameTest
+    public void focusFrenzyTauntBossKnockbackAndSummonWork(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-more".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            BlueprintStats stats = new BlueprintStats(300.0, 50.0, 20, 6.0, 25, DamageType.PHYSICAL).withModules(Map.of(
+                    BlueprintModule.FOCUS, 1,
+                    BlueprintModule.FRENZY, 1,
+                    BlueprintModule.TAUNT, 1,
+                    BlueprintModule.BOSS_SLAYER, 1
+            ), BlueprintTargetPriority.FIRST);
+            var creation = BlueprintStates.create(owner, "사냥꾼", stats, BlueprintVisuals.options().getFirst().sourceTowerId());
+            require(creation.success(), creation.message());
+            BlueprintTower tower = (BlueprintTower) ProductionTowerCatalog.find(creation.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 1, 1, 1));
+            lane.addTower(tower);
+            SemionTowerEntity towerEntity = (SemionTowerEntity) context.getLevel().getEntity(tower.entityId().getAsInt());
+            require(tower.aggroPriority() > 25, "Taunt must raise the aggro priority.");
+
+            Monster target = spawnMonster(context, lane, "more-target", position(context, 5, 1, 5));
+            SemionMonsterEntity targetEntity = entity(context, target);
+            double first = tower.modifyAttackDamage(towerEntity, targetEntity, 100.0);
+            int intervalBefore = tower.adjustAttackInterval(20);
+            tower.onAttackResolved(towerEntity, targetEntity, 1.0, 1.0, 1.0, false);
+            tower.onAttackResolved(towerEntity, targetEntity, 1.0, 1.0, 1.0, false);
+            tower.onAttackResolved(towerEntity, targetEntity, 1.0, 1.0, 1.0, false);
+            require(tower.modifyAttackDamage(towerEntity, targetEntity, 100.0) > first,
+                    "Focus must raise damage after hitting the same enemy again.");
+            require(tower.adjustAttackInterval(20) < intervalBefore, "Frenzy must shorten the attack interval as hits pile up.");
+
+            Monster boss = spawnMonster(context, lane, "boss_test", position(context, 5, 1, 6));
+            double normal = tower.modifyOutgoingDamage(towerEntity, targetEntity, 100.0);
+            double versusBoss = tower.modifyOutgoingDamage(towerEntity, entity(context, boss), 100.0);
+            require(versusBoss > normal, "Boss slayer must add damage against a boss.");
+
+            var layout = lane.laneLayout();
+            double progressBefore = layout.progressAt(targetEntity.position());
+            tower.knockBack(towerEntity, targetEntity);
+            require(layout.progressAt(targetEntity.position()) < progressBefore, "Knockback must push the enemy back along the lane.");
+
+            BlueprintStats summonStats = new BlueprintStats(300.0, 20.0, 20, 6.0, 25, DamageType.PHYSICAL)
+                    .withModules(Map.of(BlueprintModule.SUMMON, 1), BlueprintTargetPriority.FIRST);
+            var summoner = BlueprintStates.create(owner, "소환사", summonStats, BlueprintVisuals.options().getFirst().sourceTowerId());
+            require(summoner.success(), summoner.message());
+            BlueprintTower summonTower = (BlueprintTower) ProductionTowerCatalog.find(summoner.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 2, 1, 2));
+            lane.addTower(summonTower);
+            for (int tick = 0; tick < 240; tick++) {
+                summonTower.tick(lane);
+            }
+            require(summonTower.runtimeDetailLines().contains("하수인 1기"), "Summon must call a minion: " + summonTower.runtimeDetailLines());
+            summonTower.resetForRound(lane);
+            require(summonTower.runtimeDetailLines().contains("하수인 0기"), "Minions must be dismissed when the round resets.");
+            context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
     private static PlayerLane testLane(GameTestHelper context, UUID owner) {
         BlockPos min = context.absolutePos(new BlockPos(0, 1, 0));
         BlockPos max = context.absolutePos(new BlockPos(7, 4, 7));

@@ -47,7 +47,25 @@ public enum BlueprintModule {
     /** 주변 아군 타워를 주기적으로 치유합니다. */
     HEAL_AURA("heal_aura", "치유 오라", Kind.SUPPORT),
     /** 주변 아군 타워의 공격 속도를 올립니다. */
-    HASTE_AURA("haste_aura", "가속 오라", Kind.SUPPORT);
+    HASTE_AURA("haste_aura", "가속 오라", Kind.SUPPORT),
+    /** 주변 은신한 적을 주기적으로 드러내 모든 타워가 노릴 수 있게 합니다. */
+    DETECTION("detection", "탐지", Kind.SUPPORT),
+    /** 보스에게 피해가 크게, 탱커 역할 몹에게는 그 절반만큼 늘어납니다. */
+    BOSS_SLAYER("boss_slayer", "보스 사냥", Kind.OFFENSE),
+    /** 같은 적을 이어서 때릴수록 피해가 쌓여 오릅니다. 대상을 바꾸면 처음부터. */
+    FOCUS("focus", "집중 사격", Kind.OFFENSE),
+    /** 웨이브 동안 공격할수록 공격 속도가 쌓여 오릅니다. 라운드가 끝나면 초기화. */
+    FRENZY("frenzy", "광란", Kind.OFFENSE),
+    /** 일정 확률로 맞은 적을 레인 뒤로 밀어냅니다(보스·같은 적 연속은 제외). */
+    KNOCKBACK("knockback", "넉백", Kind.UTILITY),
+    /** 처치할 때 일정 확률로 다이아를 얻습니다. */
+    PLUNDER("plunder", "약탈", Kind.SUPPORT),
+    /** 몹이 이 타워를 먼저 노리게 하고 받는 피해를 줄입니다. */
+    TAUNT("taunt", "도발", Kind.DEFENSE),
+    /** 주변 아군 타워의 사거리를 늘립니다. */
+    RANGE_AURA("range_aura", "사거리 오라", Kind.SUPPORT),
+    /** 주기적으로 약한 하수인을 불러 잠시 함께 싸웁니다. */
+    SUMMON("summon", "소환", Kind.OFFENSE);
 
     public static final int MAX_LEVEL = 3;
 

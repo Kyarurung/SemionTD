@@ -11,13 +11,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
 
-/** 모듈 고르기(9×3). 클릭하면 1단계로 붙이고 편집 창으로 돌아갑니다. */
+/** 모듈 고르기(9×4). 클릭하면 1단계로 붙이고 편집 창으로 돌아갑니다. */
 public final class BlueprintModuleGui extends SimpleGui {
     private final ServerPlayer player;
     private final SemionGameManager gameManager;
 
     public BlueprintModuleGui(ServerPlayer player, SemionGameManager gameManager) {
-        super(MenuType.GENERIC_9x3, player, false);
+        super(MenuType.GENERIC_9x4, player, false);
         this.player = player;
         this.gameManager = gameManager;
         setTitle(Component.literal("모듈 고르기"));
@@ -43,7 +43,7 @@ public final class BlueprintModuleGui extends SimpleGui {
             }
             setSlot(slot++, builder);
         }
-        setSlot(22, new GuiElementBuilder(Items.ARROW)
+        setSlot(31, new GuiElementBuilder(Items.ARROW)
                 .setName(text("편집 창으로", ChatFormatting.YELLOW))
                 .setCallback((index, type, action) -> new BlueprintEditorGui(player, gameManager).open()));
     }

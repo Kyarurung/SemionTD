@@ -47,9 +47,19 @@ public class BlueprintTower extends ProductionTower {
     private static final int PULSE_TICKS = 20;
     private static final int AURA_EVERY_PULSES = 3;
 
+    private static final kim.biryeong.semiontd.entity.monster.MonsterDataKey<Long> KNOCKBACK_IMMUNE_UNTIL =
+            kim.biryeong.semiontd.entity.monster.MonsterDataKey.of(
+                    ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_knockback_immune_until"), Long.class);
+
     private BlueprintStats cachedStats;
     private long lastThornsTick = Long.MIN_VALUE;
     private int pulseCount;
+    private UUID focusTarget;
+    private int focusStacks;
+    private int frenzyStacks;
+    private int summonPulses;
+    /** 불러낸 하수인: 엔티티 id → 남은 틱. */
+    private final java.util.LinkedHashMap<Integer, Integer> minions = new java.util.LinkedHashMap<>();
 
     public BlueprintTower(
             TowerType type,
@@ -106,11 +116,47 @@ public class BlueprintTower extends ProductionTower {
                 damage *= 1.0 + value(BlueprintModule.EXECUTE, "damageBonus");
             }
         }
+        if (level(BlueprintModule.BOSS_SLAYER) > 0 && target != null && target.runtimeMonster() != null) {
+            Monster monster = target.runtimeMonster();
+            double bonus = value(BlueprintModule.BOSS_SLAYER, "bossBonus");
+            if (monster.id().toLowerCase(java.util.Locale.ROOT).contains("boss")) {
+                damage *= 1.0 + bonus;
+            } else if (monster.summonRoles().contains(kim.biryeong.semiontd.summon.SummonRole.TANK)) {
+                damage *= 1.0 + bonus * value(BlueprintModule.BOSS_SLAYER, "tankRatio");
+            }
+        }
         if (level(BlueprintModule.CRIT) > 0 && towerEntity != null
                 && towerEntity.getRandom().nextDouble() < value(BlueprintModule.CRIT, "chance")) {
             damage *= value(BlueprintModule.CRIT, "multiplier");
         }
         return damage;
+    }
+
+    /** 집중 사격: 같은 적을 이어 때린 횟수만큼 기본 공격 피해가 오릅니다. */
+    @Override
+    public double modifyAttackDamage(SemionTowerEntity towerEntity, SemionMonsterEntity target, double damageAmount) {
+        double damage = super.modifyAttackDamage(towerEntity, target, damageAmount);
+        if (level(BlueprintModule.FOCUS) > 0 && target != null && target.getUUID().equals(focusTarget)) {
+            damage *= 1.0 + focusStacks * value(BlueprintModule.FOCUS, "perStack");
+        }
+        return damage;
+    }
+
+    /** 광란: 쌓인 만큼 공격 간격이 짧아집니다. */
+    @Override
+    public int adjustAttackInterval(int baseIntervalTicks) {
+        int base = super.adjustAttackInterval(baseIntervalTicks);
+        if (level(BlueprintModule.FRENZY) <= 0 || frenzyStacks <= 0) {
+            return base;
+        }
+        return Math.max(1, (int) Math.round(base / (1.0 + frenzyStacks * value(BlueprintModule.FRENZY, "perStack"))));
+    }
+
+    /** 도발: 몹이 더 먼저 노립니다. */
+    @Override
+    protected int builderAggroPriority() {
+        int aggro = super.builderAggroPriority();
+        return level(BlueprintModule.TAUNT) > 0 ? aggro + (int) value(BlueprintModule.TAUNT, "aggroBonus") : aggro;
     }
 
     // ------------------------------------------------------------------ on hit
@@ -128,9 +174,25 @@ public class BlueprintTower extends ProductionTower {
         if (towerEntity == null || target == null) {
             return;
         }
+        stackOnPrimaryHit(target);
         hitPackage(towerEntity, target, attemptedDamage, resolvedOutgoingDamage, dealtDamage, killedTarget);
         if (level(BlueprintModule.MULTISHOT) > 0) {
             multishot(towerEntity, target, attemptedDamage);
+        }
+    }
+
+    /** 기본 공격 한 번마다: 집중 사격(같은 대상이면 쌓임, 바뀌면 처음부터)과 광란을 쌓습니다. */
+    private void stackOnPrimaryHit(SemionMonsterEntity target) {
+        if (level(BlueprintModule.FOCUS) > 0) {
+            if (target.getUUID().equals(focusTarget)) {
+                focusStacks = Math.min((int) value(BlueprintModule.FOCUS, "maxStacks"), focusStacks + 1);
+            } else {
+                focusTarget = target.getUUID();
+                focusStacks = 0;
+            }
+        }
+        if (level(BlueprintModule.FRENZY) > 0) {
+            frenzyStacks = Math.min((int) value(BlueprintModule.FRENZY, "maxStacks"), frenzyStacks + 1);
         }
     }
 
@@ -161,6 +223,11 @@ public class BlueprintTower extends ProductionTower {
     @Override
     public void onKill(SemionTowerEntity towerEntity, SemionMonsterEntity target, double damageAmount) {
         super.onKill(towerEntity, target, damageAmount);
+        if (level(BlueprintModule.PLUNDER) > 0 && towerEntity != null
+                && towerEntity.getRandom().nextDouble() < value(BlueprintModule.PLUNDER, "chance")) {
+            long diamonds = Math.round(value(BlueprintModule.PLUNDER, "diamonds"));
+            BlueprintStates.player(ownerPlayer()).ifPresent(player -> player.economy().addDiamond(diamonds));
+        }
         if (level(BlueprintModule.KILL_EXPLOSION) <= 0 || towerEntity == null || target == null || damageAmount <= 0.0) {
             return;
         }
@@ -192,6 +259,9 @@ public class BlueprintTower extends ProductionTower {
             target.applyBeePoison(ownerPlayer(), this, perTick, Math.max(1, (int) value(BlueprintModule.POISON, "maxStacks")),
                     duration, interval);
         }
+        if (level(BlueprintModule.KNOCKBACK) > 0 && towerEntity.getRandom().nextDouble() < value(BlueprintModule.KNOCKBACK, "chance")) {
+            knockBack(towerEntity, target);
+        }
         if (level(BlueprintModule.STUN) > 0 && towerEntity.getRandom().nextDouble() < value(BlueprintModule.STUN, "chance")
                 && target.applyTimedEffect(TimedEffectType.MONSTER_STUN_IMMUNITY, source("stun_immunity"), 1.0,
                 (int) value(BlueprintModule.STUN, "immunityTicks"))) {
@@ -199,6 +269,35 @@ public class BlueprintTower extends ProductionTower {
             TowerVfxService.showAreaEffect(towerEntity, AreaEffectIds.tower(this, "stun"), AreaVfxStyles.DEBUFF,
                     target.position(), 0.8, List.of(target.position()), 1, 1, 0);
         }
+    }
+
+    /**
+     * 넉백: 레인 경로를 따라 뒤로 밀어냅니다(진행도도 함께 되돌림). 보스, 미드 전투 중인 적, 방금 밀린 적은 밀지 않습니다.
+     */
+    public void knockBack(SemionTowerEntity towerEntity, SemionMonsterEntity target) {
+        Monster monster = target.runtimeMonster();
+        PlayerLane lane = attachedLane();
+        if (monster == null || lane == null || monster.inFinalDefenseCombat()
+                || monster.id().toLowerCase(java.util.Locale.ROOT).contains("boss")) {
+            return;
+        }
+        long now = towerEntity.level().getGameTime();
+        if (monster.getData(KNOCKBACK_IMMUNE_UNTIL).orElse(0L) > now) {
+            return;
+        }
+        var layout = lane.laneLayout();
+        double length = layout.pathLength();
+        if (length <= 0.0) {
+            return;
+        }
+        double progress = layout.progressAt(target.position());
+        double pushed = Math.max(0.0, progress - value(BlueprintModule.KNOCKBACK, "distance") / length);
+        net.minecraft.world.phys.Vec3 destination = layout.positionAt(pushed);
+        monster.setData(KNOCKBACK_IMMUNE_UNTIL, now + (long) value(BlueprintModule.KNOCKBACK, "immunityTicks"));
+        monster.syncLaneProgress(pushed);
+        target.getNavigation().stop();
+        target.teleportTo(destination.x, target.getY(), destination.z);
+        TowerVfxService.showSecondaryAttack(towerEntity, target);
     }
 
     /** 스켈레톤 계열처럼 사거리 안의 다른 적(가까운 순)에게 같은 공격을 한 번 더 겁니다. */
@@ -304,10 +403,14 @@ public class BlueprintTower extends ProductionTower {
 
     @Override
     public double modifyIncomingDamage(SemionTowerEntity towerEntity, DamageSource damageSource, double damageAmount) {
-        if (level(BlueprintModule.ARMOR) <= 0) {
-            return damageAmount;
+        double damage = damageAmount;
+        if (level(BlueprintModule.ARMOR) > 0) {
+            damage *= Math.max(0.0, 1.0 - value(BlueprintModule.ARMOR, "reduction"));
         }
-        return damageAmount * Math.max(0.0, 1.0 - value(BlueprintModule.ARMOR, "reduction"));
+        if (level(BlueprintModule.TAUNT) > 0) {
+            damage *= Math.max(0.0, 1.0 - value(BlueprintModule.TAUNT, "reduction"));
+        }
+        return damage;
     }
 
     @Override
@@ -335,7 +438,8 @@ public class BlueprintTower extends ProductionTower {
     @Override
     protected boolean execute(PlayerLane lane) {
         boolean periodic = level(BlueprintModule.REGEN) > 0 || level(BlueprintModule.HEAL_AURA) > 0
-                || level(BlueprintModule.HASTE_AURA) > 0;
+                || level(BlueprintModule.HASTE_AURA) > 0 || level(BlueprintModule.DETECTION) > 0
+                || level(BlueprintModule.RANGE_AURA) > 0 || level(BlueprintModule.SUMMON) > 0;
         if (!periodic) {
             return super.execute(lane);
         }
@@ -346,12 +450,21 @@ public class BlueprintTower extends ProductionTower {
         if (level(BlueprintModule.REGEN) > 0 && health() < currentMaxHealth()) {
             healTarget(entity, currentMaxHealth() * value(BlueprintModule.REGEN, "maxHealthPerSecond") * PULSE_TICKS / 20.0);
         }
+        if (level(BlueprintModule.DETECTION) > 0) {
+            reveal(entity);
+        }
+        if (level(BlueprintModule.SUMMON) > 0) {
+            tickMinions(lane, entity);
+        }
         if (pulseCount++ % AURA_EVERY_PULSES == 0) {
             if (level(BlueprintModule.HEAL_AURA) > 0) {
                 healAura(entity);
             }
             if (level(BlueprintModule.HASTE_AURA) > 0) {
                 hasteAura(entity);
+            }
+            if (level(BlueprintModule.RANGE_AURA) > 0) {
+                rangeAura(entity);
             }
         }
         return true;
@@ -391,12 +504,122 @@ public class BlueprintTower extends ProductionTower {
                 .orElse(AreaEffectOutcome.UNCHANGED));
     }
 
+    /** 탐지: 반경 안의 은신한 적을 잠시 드러냅니다(모든 타워가 노릴 수 있게). */
+    private void reveal(SemionTowerEntity source) {
+        double radius = source.attackRange() + value(BlueprintModule.DETECTION, "radiusBonus");
+        int ticks = (int) value(BlueprintModule.DETECTION, "revealTicks");
+        for (SemionMonsterEntity monster : source.level().getEntitiesOfClass(SemionMonsterEntity.class,
+                source.getBoundingBox().inflate(radius, 3.0, radius),
+                monster -> monster.isAlive() && monster.runtimeMonster() != null
+                        && source.defendsLane(monster.runtimeMonster().targetLaneId())
+                        && monster.distanceToSqr(source) <= radius * radius)) {
+            monster.revealFor(ticks);
+        }
+    }
+
+    private void rangeAura(SemionTowerEntity source) {
+        double bonus = value(BlueprintModule.RANGE_AURA, "rangeBonus");
+        int duration = PULSE_TICKS * AURA_EVERY_PULSES + PULSE_TICKS;
+        TowerAreaEffectRequest request = TowerAreaEffectRequest.aroundTower(
+                AreaEffectIds.tower(this, "range_aura"), source, value(BlueprintModule.RANGE_AURA, "radius"),
+                TowerAreaTargetMode.REGISTERED, AreaVfxSpec.onChange(AreaVfxStyles.BUFF));
+        SemionTdApi.areaEffects().applyToTowers(request, target -> target.entity()
+                .filter(allyEntity -> allyEntity.applyTimedEffect(TimedEffectType.TOWER_FLAT_RANGE_BONUS,
+                        source("range_aura"), bonus, duration))
+                .map(ignored -> AreaEffectOutcome.APPLIED)
+                .orElse(AreaEffectOutcome.UNCHANGED));
+    }
+
+    /**
+     * 소환: 정한 주기마다 이 타워의 능력치 일부를 가진 하수인을 곁에 불러냅니다(모듈 없음, 판매·보상 없음). 하수인은 정한 시간이
+     * 지나거나 쓰러지면 사라지고, 라운드가 끝나거나 이 타워가 사라지면 함께 사라집니다.
+     */
+    private void tickMinions(PlayerLane lane, SemionTowerEntity source) {
+        var world = lane.arenaWorld();
+        var iterator = minions.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            var entity = world.getEntity(entry.getKey());
+            int remaining = entry.getValue() - PULSE_TICKS;
+            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || remaining <= 0
+                    || minion.runtimeTower() == null || minion.runtimeTower().health() <= 0.0) {
+                if (entity != null && !entity.isRemoved()) {
+                    entity.discard();
+                }
+                iterator.remove();
+                continue;
+            }
+            entry.setValue(remaining);
+        }
+        int interval = Math.max(1, (int) value(BlueprintModule.SUMMON, "intervalTicks") / PULSE_TICKS);
+        if (++summonPulses < interval || minions.size() >= (int) value(BlueprintModule.SUMMON, "count")) {
+            return;
+        }
+        summonPulses = 0;
+        double ratio = value(BlueprintModule.SUMMON, "statRatio");
+        TowerType source0 = type();
+        TowerType minionType = new TowerType(source0.id(), source0.displayName() + " 하수인", source0.category(), 0,
+                Math.max(1.0, currentMaxHealth() * ratio), source0.range(), source0.damage() * ratio,
+                source0.attackIntervalTicks(), source0.aggroPriority(), List.of(), source0.visual().withScale(0.7),
+                List.of(), source0.primaryDamageType());
+        double angle = source.getRandom().nextDouble() * Math.PI * 2.0;
+        net.minecraft.world.phys.Vec3 spawn = source.position().add(Math.cos(angle) * 1.2, 0.0, Math.sin(angle) * 1.2);
+        GridPosition grid = GridPosition.from(net.minecraft.core.BlockPos.containing(spawn.x, spawn.y - 1.0, spawn.z));
+        Tower minionTower = new kim.biryeong.semiontd.tower.legion.IllusionRuntimeTower(minionType, ownerPlayer(), teamId(), laneId(), grid);
+        minionTower.markTemporaryCopy(UUID.randomUUID());
+        minionTower.attachToLane(lane, lane.traitLoadout());
+        SemionTowerEntity minion = new SemionTowerEntity(kim.biryeong.semiontd.entity.SemionEntityTypes.TOWER, world);
+        minion.configure(minionTower, lane.laneLayout());
+        minion.markIllusionClone();
+        minion.setPos(spawn.x, spawn.y, spawn.z);
+        if (world.addFreshEntity(minion)) {
+            minions.put(minion.getId(), (int) value(BlueprintModule.SUMMON, "durationTicks"));
+        }
+    }
+
+    private void dismissMinions(PlayerLane lane) {
+        if (lane != null) {
+            for (int id : minions.keySet()) {
+                var entity = lane.arenaWorld().getEntity(id);
+                if (entity != null && !entity.isRemoved()) {
+                    entity.discard();
+                }
+            }
+        }
+        minions.clear();
+        summonPulses = 0;
+    }
+
+    @Override
+    public void resetForRound(PlayerLane lane) {
+        dismissMinions(lane);
+        focusTarget = null;
+        focusStacks = 0;
+        frenzyStacks = 0;
+        super.resetForRound(lane);
+    }
+
+    @Override
+    public void onRemoved(PlayerLane lane) {
+        dismissMinions(lane);
+        super.onRemoved(lane);
+    }
+
     @Override
     public List<String> runtimeDetailLines() {
         BlueprintStats stats = blueprintStats();
         List<String> lines = new ArrayList<>();
         lines.add("대상 우선도: " + stats.targetPriority().displayName());
         stats.modules().forEach((module, moduleLevel) -> lines.add(module.displayName() + " " + moduleLevel + "단계"));
+        if (level(BlueprintModule.FOCUS) > 0) {
+            lines.add("집중 사격 " + focusStacks + "/" + (int) value(BlueprintModule.FOCUS, "maxStacks"));
+        }
+        if (level(BlueprintModule.FRENZY) > 0) {
+            lines.add("광란 " + frenzyStacks + "/" + (int) value(BlueprintModule.FRENZY, "maxStacks"));
+        }
+        if (level(BlueprintModule.SUMMON) > 0) {
+            lines.add("하수인 " + minions.size() + "기");
+        }
         return lines;
     }
 }

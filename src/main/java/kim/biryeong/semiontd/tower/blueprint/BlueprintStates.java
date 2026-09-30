@@ -22,6 +22,8 @@ public final class BlueprintStates {
     private static final Map<UUID, List<Blueprint>> BY_OWNER = new LinkedHashMap<>();
     private static final Map<String, Blueprint> BY_TOWER_ID = new HashMap<>();
     private static final Map<UUID, Integer> NEXT_NUMBER = new HashMap<>();
+    /** 약탈 모듈이 다이아를 줄 참가자(경기 시작 때 묶고, 지울 때 풉니다). */
+    private static final Map<UUID, kim.biryeong.semiontd.game.SemionPlayer> PLAYERS = new HashMap<>();
     private static final int MAX_NAME_LENGTH = 16;
 
     private BlueprintStates() {
@@ -98,6 +100,7 @@ public final class BlueprintStates {
         synchronized (LOCK) {
             List<Blueprint> owned = BY_OWNER.remove(owner);
             NEXT_NUMBER.remove(owner);
+            PLAYERS.remove(owner);
             if (owned == null) {
                 return;
             }
@@ -124,6 +127,18 @@ public final class BlueprintStates {
                     register(blueprint);
                 }
             }
+        }
+    }
+
+    public static void bindPlayer(kim.biryeong.semiontd.game.SemionPlayer player) {
+        synchronized (LOCK) {
+            PLAYERS.put(player.uuid(), player);
+        }
+    }
+
+    public static Optional<kim.biryeong.semiontd.game.SemionPlayer> player(UUID owner) {
+        synchronized (LOCK) {
+            return Optional.ofNullable(PLAYERS.get(owner));
         }
     }
 
