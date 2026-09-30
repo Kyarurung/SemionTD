@@ -918,6 +918,7 @@ public record TowerBalanceConfig(
         putHeroPartyAbilities(abilities);
         putAtlantisAbilities(abilities);
         putPlantAbilities(abilities);
+        putIncomeTowerAbilities(abilities);
         putArmyAbilities(abilities);
         putThunderAbilities(abilities);
         putDemonLordAbilities(abilities);
@@ -1505,6 +1506,13 @@ public record TowerBalanceConfig(
                 "splashDamageRatio", 0.70,
                 "splashRadius", 4.0
         ));
+    }
+
+    /** 마왕 인컴 타워의 타워 수(인구). 비싼 유닛일수록 많이 차지합니다. */
+    private static void putIncomeTowerAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
+        kim.biryeong.semiontd.tower.income.IncomeTowerBalance.DEFAULT_SLOT_COSTS.forEach((unit, slots) ->
+                putAbilities(abilities, kim.biryeong.semiontd.tower.income.IncomeTowerBalance.towerId(unit),
+                        Map.of(TowerCapacity.CONFIG_KEY, (double) slots)));
     }
 
     private static void putPlantAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
