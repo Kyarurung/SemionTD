@@ -68,16 +68,16 @@
     box('head', 'skull', [-4, 26, -4], [4, 32, 4], 'skin', {
         px: {
             // 앞머리 사이로 비치는 속머리: 세로 가닥 결을 긋고 아래로 갈수록 앞머리 그늘로 어두워지게 칠해 구멍처럼 보이지 않게 합니다.
-            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'LWissiWL', 'LwIssIwL'],
+            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'ssssssss', 'LWissiWL'],
             up: (u) => (u === 3 ? 'hair:1' : 'hair:2'),
             east: INNER_STRANDS, west: INNER_STRANDS, south: INNER_STRANDS,
             key: HEAD_KEY,
         },
     });
     // 아래턱: 머리통과 같은 폭의 네모난 턱(바닐라 머리 8×8의 아래 두 줄).
-    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['ssssssss', 'kssssssk'], key: HEAD_KEY } });
-    both(inG('head'), 'brow', [1, 27.9, -4.03], [4, 28.9, -4.03], 'hairShade',
-        { plane: 'z', rot: [0, 0, -3], pivot: [2.5, 28.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
+    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['LwIssIwL', 'kssssssk'], key: HEAD_KEY } });
+    both(inG('head'), 'brow', [1, 26.9, -4.03], [4, 27.9, -4.03], 'hairShade',
+        { plane: 'z', rot: [0, 0, -3], pivot: [2.5, 27.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
     // 사람 귀: 머리 옆 작은 살 큐브
     both(inG('head'), 'ear', [4, 26.6, -0.8], [4.6, 28.8, 0.6], 'skin');
 
