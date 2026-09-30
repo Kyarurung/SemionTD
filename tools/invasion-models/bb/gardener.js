@@ -165,11 +165,11 @@
     both(inG('torso'), 'flank', [3.2, 17.2, -1.8], [3.9, 20.4, 1.8], 'plaid', { rot: [0, 0, -20], pivot: [3.9, 20.4, 0], px: PLAID });
     // 가슴(암흑 신관과 같은 모양)
     group('right_bust', [2.08702, 23.36808, -2.77873], 'torso', [90, -70, -90]);
-    box('right_bust', 'right_bust', [2.38027, 20.3643, -4.18253], [4.63027, 23.6143, -0.53253], 'plaid',
-        { rot: [-0.88045, -9.96156, 5.07673], pivot: [3.83702, 21.61808, -2.77873], px: PLAID });
+    box('right_bust', 'right_bust', [2.38027, 20.3643, -4.18253], [4.63027, 23.6143, -0.53253], 'blouse',
+        { rot: [-0.88045, -9.96156, 5.07673], pivot: [3.83702, 21.61808, -2.77873] });
     group('left_bust', [-2.08702, 23.36808, -2.77873], 'torso', [115.50555, 67.73126, 117.27317]);
-    box('left_bust', 'left_bust', [-4.58702, 20.36808, -4.42873], [-2.33702, 23.61808, -0.77873], 'plaid',
-        { rot: [0, 0, -5], pivot: [-3.83702, 21.61808, -2.77873], px: PLAID });
+    box('left_bust', 'left_bust', [-4.58702, 20.36808, -4.42873], [-2.33702, 23.61808, -0.77873], 'blouse',
+        { rot: [0, 0, -5], pivot: [-3.83702, 21.61808, -2.77873] });
     box('torso', 'bust_centre', [-0.225, 19.86492, -3.45185], [0.225, 22.76492, -0.45185], 'blouse',
         { rot: [14.75, 0, 0], pivot: [0, 20.83992, -1.05185] });
     // 조끼: 앞판 좌우(가운데가 트여 블라우스가 보임), 뒤판, 옆판. 앞판 가장자리에 금 단추.
@@ -178,6 +178,25 @@
     box('torso', 'vest_back', [-4.1, 15.2, 1.85], [4.1, 24, 2.15], 'plaid', { px: PLAID });
     both(inG('torso'), 'vest_side', [3.85, 15.2, -2.0], [4.15, 24, 2.0], 'plaid', { px: PLAID });
     box('torso', 'vest_waist', [-3.1, 15.0, -1.85], [3.1, 16.0, 1.85], 'plaid', { px: PLAID });
+    // 가슴 위 조끼: 흰 블라우스 가슴을 바깥쪽에서 감싸며 굴곡을 따라 덮습니다. 가슴 앞면 윤곽(아래 선반 → 가장 나온 곳 →
+    // 어깨로 비스듬히 들어감)을 판 몇 장으로 이어 붙이고, 안쪽 가장자리는 위로 갈수록 바깥으로 물러나 V자 앞섶이 됩니다.
+    // 윤곽점 [y, z(앞면)]과 판마다 안쪽 가장자리 x. 판은 아래 점에서 위 점으로 x축 회전해 눕습니다.
+    const BUST_PROFILE = [[19.6, -2.15], [20.1, -3.45], [20.7, -3.55], [22.1, -3.2], [23.5, -2.8], [24.1, -2.1]];
+    const LAPEL_INNER = [1.6, 2.1, 2.4, 2.8, 3.15];
+    const VEST_T = 0.25, VEST_GAP = 0.04;
+    for (let k = 0; k + 1 < BUST_PROFILE.length; k++) {
+        const [y1, z1] = BUST_PROFILE[k], [y2, z2] = BUST_PROFILE[k + 1];
+        const len = Math.hypot(y2 - y1, z2 - z1) + 0.08, th = Math.atan2(z2 - z1, y2 - y1) * 180 / Math.PI;
+        const front = z1 - VEST_GAP;
+        both(inG('torso'), 'vest_lapel_' + k, [LAPEL_INNER[k], y1, front - VEST_T], [4.12, y1 + len, front], 'plaid',
+            { rot: [th, 0, 0], pivot: [0, y1, front], px: k === 0 ? Object.assign({}, PLAID, { up: () => 'plaid:1' }) : PLAID });
+        // 옆면: 가슴 옆구리가 흰색으로 비치지 않게 판 바깥 끝에서 뒤(옆판)까지 채웁니다.
+        const depth = -2.0 - Math.min(z1, z2);
+        if (depth > 0.3) {
+            both(inG('torso'), 'vest_wrap_' + k, [3.84, y1, front - VEST_T], [4.12, y1 + len, front + depth], 'plaid',
+                { rot: [th, 0, 0], pivot: [0, y1, front], px: PLAID });
+        }
+    }
     // 깃: 흰 블라우스 깃이 조끼 위로 접혀 나옵니다.
     both(inG('torso'), 'collar', [0.4, 23.1, -2.3], [2.6, 24.2, -2.0], 'blouse', { rot: [0, 0, -18], pivot: [0.4, 24.2, -2.15] });
     // 스카프 타이: 목의 큰 매듭에서 가슴 앞으로 두 자락이 벌어져 늘어집니다(가슴보다 앞이라 정면에서 잘 보입니다).
