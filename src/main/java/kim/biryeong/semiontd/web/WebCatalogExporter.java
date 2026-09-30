@@ -97,7 +97,9 @@ public final class WebCatalogExporter {
             long generatedAtEpochMillis, WaveConfig waves, EconomyConfig economy, SummonConfig summonBalance,
             AugmentConfig augmentConfig
     ) {
+        // 빌더 빌더 설계도는 경기 중에만 있는 플레이어 설계라 카탈로그 내보내기에 넣지 않습니다.
         List<ProductionTowerCatalog.CatalogEntry> catalogEntries = ProductionTowerCatalog.all().stream()
+                .filter(entry -> !kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintTower(entry.type()))
                 .sorted(Comparator.comparing(entry -> entry.type().id()))
                 .toList();
         List<SemionJob> jobs = JobRegistry.all().stream()

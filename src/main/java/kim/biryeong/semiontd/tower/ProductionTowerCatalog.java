@@ -38,6 +38,12 @@ public final class ProductionTowerCatalog {
         UPGRADES.clear();
     }
 
+    /** 경기 중에 만든 타워(빌더 빌더 설계도)를 내립니다. 기본 타워에는 쓰지 않습니다. */
+    public static synchronized void unregister(String towerId) {
+        ENTRIES.remove(towerId);
+        UPGRADES.remove(towerId);
+    }
+
     public record Snapshot(Map<String, CatalogEntry> entries, Map<String, List<TowerUpgradeOption>> upgrades) {
         public Snapshot {
             entries = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(entries));
@@ -70,6 +76,8 @@ public final class ProductionTowerCatalog {
         ENTRIES.putAll(snapshot.entries());
         UPGRADES.clear();
         snapshot.upgrades().forEach((id, options) -> UPGRADES.put(id, new ArrayList<>(options)));
+        // 스냅숏을 뜬 뒤 만들어진 설계도가 있으면 다시 올립니다.
+        kim.biryeong.semiontd.tower.blueprint.BlueprintStates.reinstall();
     }
 
     public static synchronized CatalogEntry registerStarter(TowerType type) {

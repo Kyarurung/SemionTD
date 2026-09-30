@@ -919,6 +919,7 @@ public record TowerBalanceConfig(
         putAtlantisAbilities(abilities);
         putPlantAbilities(abilities);
         putIncomeTowerAbilities(abilities);
+        putBlueprintAbilities(abilities);
         putArmyAbilities(abilities);
         putThunderAbilities(abilities);
         putDemonLordAbilities(abilities);
@@ -1514,6 +1515,38 @@ public record TowerBalanceConfig(
         kim.biryeong.semiontd.tower.income.IncomeTowerBalance.DEFAULT_SLOT_COSTS.forEach((unit, slots) ->
                 putAbilities(abilities, kim.biryeong.semiontd.tower.income.IncomeTowerBalance.towerId(unit),
                         Map.of(TowerCapacity.CONFIG_KEY, (double) slots)));
+    }
+
+    /**
+     * 빌더 빌더 설계도의 가격 계수와 한도. 가격 = priceScale × P^priceExponent, P = 초당 피해/dpsUnit × (사거리/rangePivot)^rangeExponent
+     * + 체력/healthUnit. 기본값은 기존 타워의 가격대별 중앙값에 맞췄습니다.
+     */
+    private static void putBlueprintAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
+        putAbilities(abilities, kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.CONFIG_ID, Map.ofEntries(
+                Map.entry("priceScale", 16.5),
+                Map.entry("priceExponent", 1.6),
+                Map.entry("dpsUnit", 8.0),
+                Map.entry("healthUnit", 88.0),
+                Map.entry("rangePivot", 6.0),
+                Map.entry("rangeExponent", 0.8),
+                Map.entry("magicDamageMultiplier", 1.0),
+                Map.entry("trueDamageMultiplier", 1.3),
+                Map.entry("priceStep", 5.0),
+                Map.entry("minimumPrice", 10.0),
+                Map.entry("twoSlotPrice", 150.0),
+                Map.entry("threeSlotPrice", 350.0),
+                Map.entry("maxBlueprintsPerPlayer", 30.0),
+                Map.entry("minHealth", 30.0),
+                Map.entry("maxHealth", 3000.0),
+                Map.entry("minDamage", 0.0),
+                Map.entry("maxDamage", 400.0),
+                Map.entry("minAttackIntervalTicks", 5.0),
+                Map.entry("maxAttackIntervalTicks", 100.0),
+                Map.entry("minRange", 1.5),
+                Map.entry("maxRange", 16.0),
+                Map.entry("minAggroPriority", 0.0),
+                Map.entry("maxAggroPriority", 60.0)
+        ));
     }
 
     private static void putPlantAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {

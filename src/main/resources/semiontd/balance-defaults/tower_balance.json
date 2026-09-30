@@ -7841,6 +7841,31 @@
       "damage": 23.0,
       "damageIntervalTicks": 20.0
     },
+    "builder_blueprint": {
+      "priceScale": 16.5,
+      "priceExponent": 1.6,
+      "dpsUnit": 8.0,
+      "healthUnit": 88.0,
+      "rangePivot": 6.0,
+      "rangeExponent": 0.8,
+      "magicDamageMultiplier": 1.0,
+      "trueDamageMultiplier": 1.3,
+      "priceStep": 5.0,
+      "minimumPrice": 10.0,
+      "twoSlotPrice": 150.0,
+      "threeSlotPrice": 350.0,
+      "maxBlueprintsPerPlayer": 30.0,
+      "minHealth": 30.0,
+      "maxHealth": 3000.0,
+      "minDamage": 0.0,
+      "maxDamage": 400.0,
+      "minAttackIntervalTicks": 5.0,
+      "maxAttackIntervalTicks": 100.0,
+      "minRange": 1.5,
+      "maxRange": 16.0,
+      "minAggroPriority": 0.0,
+      "maxAggroPriority": 60.0
+    },
     "income_goblin_scout": {
       "towerSlotCost": 1.0
     },

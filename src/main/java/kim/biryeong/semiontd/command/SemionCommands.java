@@ -372,6 +372,35 @@ public final class SemionCommands {
                                                 gameManager,
                                                 StringArgumentType.getString(context, "role")
                                         )))))
+                .then(literal("blueprint")
+                        .then(literal("list")
+                                .executes(context -> blueprintList(context.getSource(), gameManager)))
+                        .then(literal("visuals")
+                                .executes(context -> blueprintVisuals(context.getSource(), null))
+                                .then(argument("filter", StringArgumentType.greedyString())
+                                        .executes(context -> blueprintVisuals(
+                                                context.getSource(), StringArgumentType.getString(context, "filter")))))
+                        .then(literal("price")
+                                .then(argument("health", DoubleArgumentType.doubleArg(1.0))
+                                        .then(argument("damage", DoubleArgumentType.doubleArg(0.0))
+                                                .then(argument("interval", IntegerArgumentType.integer(1))
+                                                        .then(argument("range", DoubleArgumentType.doubleArg(0.0))
+                                                                .executes(context -> blueprintPrice(
+                                                                        context.getSource(), blueprintStatsArgument(context))))))))
+                        .then(literal("create")
+                                .then(argument("health", DoubleArgumentType.doubleArg(1.0))
+                                        .then(argument("damage", DoubleArgumentType.doubleArg(0.0))
+                                                .then(argument("interval", IntegerArgumentType.integer(1))
+                                                        .then(argument("range", DoubleArgumentType.doubleArg(0.0))
+                                                                .then(argument("visual", StringArgumentType.word())
+                                                                        .then(argument("name", StringArgumentType.greedyString())
+                                                                                .executes(context -> blueprintCreate(
+                                                                                        context.getSource(),
+                                                                                        gameManager,
+                                                                                        blueprintStatsArgument(context),
+                                                                                        StringArgumentType.getString(context, "visual"),
+                                                                                        StringArgumentType.getString(context, "name")
+                                                                                ))))))))))
                 .then(literal("demonlord")
                         .then(literal("skills")
                                 .executes(context -> demonLordSkills(context.getSource(), gameManager)))
@@ -3398,6 +3427,109 @@ public final class SemionCommands {
         SemionGame game = playableGame(source, gameManager);
         gameManager.dialogService().showDemonLordIncome(player, game);
         return 1;
+    }
+
+    /** 명령으로 만드는 설계도의 어그로(편집 창이 생기기 전 임시 기본값). */
+    private static final int BLUEPRINT_DEFAULT_AGGRO = 25;
+
+    private static kim.biryeong.semiontd.tower.blueprint.BlueprintStats blueprintStatsArgument(
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
+        return new kim.biryeong.semiontd.tower.blueprint.BlueprintStats(
+                DoubleArgumentType.getDouble(context, "health"),
+                DoubleArgumentType.getDouble(context, "damage"),
+                IntegerArgumentType.getInteger(context, "interval"),
+                DoubleArgumentType.getDouble(context, "range"),
+                BLUEPRINT_DEFAULT_AGGRO,
+                kim.biryeong.semiontd.entity.monster.DamageType.PHYSICAL
+        );
+    }
+
+    private static SemionPlayer blueprintParticipant(CommandSourceStack source, SemionGameManager gameManager)
+            throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        if (game == null) {
+            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
+            return null;
+        }
+        SemionPlayer semionPlayer = game.players().get(source.getPlayerOrException().getUUID());
+        if (semionPlayer == null || !(semionPlayer.job().orElse(null) instanceof kim.biryeong.semiontd.job.BlueprintTowerJob)) {
+            failure(source, "빌더 빌더만 쓸 수 있습니다.");
+            return null;
+        }
+        return semionPlayer;
+    }
+
+    private static int blueprintCreate(
+            CommandSourceStack source,
+            SemionGameManager gameManager,
+            kim.biryeong.semiontd.tower.blueprint.BlueprintStats stats,
+            String visual,
+            String name
+    ) throws CommandSyntaxException {
+        SemionPlayer player = blueprintParticipant(source, gameManager);
+        if (player == null) {
+            return 0;
+        }
+        var creation = kim.biryeong.semiontd.tower.blueprint.BlueprintStates.create(player.uuid(), name, stats, visual);
+        if (!creation.success()) {
+            failure(source, creation.message());
+            return 0;
+        }
+        var blueprint = creation.blueprint();
+        success(source, "설계도 '" + blueprint.name() + "'를 만들었습니다. 가격 " + blueprint.price()
+                + ", 타워 수 " + blueprint.slotCost() + " (" + blueprint.towerId() + ")");
+        return 1;
+    }
+
+    private static int blueprintPrice(CommandSourceStack source, kim.biryeong.semiontd.tower.blueprint.BlueprintStats stats) {
+        var invalid = kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.validate(stats);
+        if (invalid.isPresent()) {
+            failure(source, invalid.get());
+            return 0;
+        }
+        long price = kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.price(stats);
+        success(source, String.format(java.util.Locale.ROOT, "가격 %d, 타워 수 %d (초당 피해 %.1f, 위력 %.2f)",
+                price,
+                kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.slotCost(price),
+                stats.damagePerSecond(),
+                kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.power(stats)));
+        return 1;
+    }
+
+    private static int blueprintList(CommandSourceStack source, SemionGameManager gameManager) throws CommandSyntaxException {
+        SemionPlayer player = blueprintParticipant(source, gameManager);
+        if (player == null) {
+            return 0;
+        }
+        var blueprints = kim.biryeong.semiontd.tower.blueprint.BlueprintStates.of(player.uuid());
+        if (blueprints.isEmpty()) {
+            success(source, "아직 만든 설계도가 없습니다. /semiontd blueprint create 로 만드세요.");
+            return 1;
+        }
+        for (var blueprint : blueprints) {
+            success(source, blueprint.name() + " - 가격 " + blueprint.price() + ", 타워 수 " + blueprint.slotCost()
+                    + " (" + blueprint.towerId() + ")");
+        }
+        return blueprints.size();
+    }
+
+    private static int blueprintVisuals(CommandSourceStack source, String filter) {
+        String needle = filter == null ? "" : filter.strip();
+        var options = kim.biryeong.semiontd.tower.blueprint.BlueprintVisuals.options().stream()
+                .filter(option -> needle.isEmpty() || option.sourceName().contains(needle) || option.sourceTowerId().contains(needle))
+                .toList();
+        int shown = 0;
+        for (var option : options) {
+            if (shown++ >= 40) {
+                success(source, "... 외 " + (options.size() - 40) + "개. 이름 일부로 좁혀 보세요.");
+                break;
+            }
+            success(source, option.sourceName() + " - " + option.sourceTowerId());
+        }
+        if (options.isEmpty()) {
+            failure(source, "맞는 겉모습이 없습니다.");
+        }
+        return options.size();
     }
 
     private static SemionPlayer demonLordParticipant(CommandSourceStack source, SemionGameManager gameManager)

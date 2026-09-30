@@ -16,6 +16,10 @@ public final class TowerCapacity {
         if (AugmentTowers.isAugment(type)) {
             return AugmentTowers.slots(type);
         }
+        if (kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintTower(type)) {
+            // 설계도 타워는 설정에 항목이 없고, 가격대가 타워 수를 정합니다.
+            return kim.biryeong.semiontd.tower.blueprint.BlueprintPricing.slotCost(type.mineralCost());
+        }
         return Math.max(0, TowerBalanceRuntime.abilityInt(type.id(), CONFIG_KEY, 1));
     }
 
