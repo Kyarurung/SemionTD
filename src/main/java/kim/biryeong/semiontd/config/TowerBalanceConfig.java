@@ -1509,8 +1509,11 @@ public record TowerBalanceConfig(
 
     private static void putPlantAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
         // 테라포밍 반경. 타워가 자기 칸을 차지하므로 T1 도 최소 3x3 은 열어야 전투 타워를 놓을 수 있습니다.
+        // 테라포머는 지형만 까는 설비라 타워 수(인구)를 차지하지 않습니다.
         for (TowerType type : PlantTowers.TERRAFORM_TOWERS) {
-            putAbilities(abilities, type.id(), Map.of("terraformRadius", (double) PlantTowers.tierOf(type)));
+            putAbilities(abilities, type.id(), Map.of(
+                    "terraformRadius", (double) PlantTowers.tierOf(type),
+                    TowerCapacity.CONFIG_KEY, 0.0));
         }
         // 개화: T3 테라포머가 만든 7x7 지형에서 상한(+60%)에 도달합니다.
         putAbilities(abilities, PlantTowers.GLOBAL_CONFIG_ID, Map.of(
@@ -2350,6 +2353,7 @@ public record TowerBalanceConfig(
 
         for (TowerType type : PlantTowers.TERRAFORM_TOWERS) {
             validateIntegral(type.id(), false, "terraformRadius");
+            validateIntegral(type.id(), true, TowerCapacity.CONFIG_KEY);
         }
         for (TowerType type : PlantTowers.COMBAT_TOWERS) {
             String id = type.id();
