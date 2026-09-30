@@ -74,15 +74,15 @@
     const INNER_STRANDS = (u) => (u % 3 === 1 ? 'hair:0' : 'hair:1');
     box('head', 'skull', [-4, 26, -4], [4, 32, 4], 'skin', {
         px: {
-            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'LWissiWL', 'LwIssIwL'],
+            north: ['hhbhhbhh', 'ddcddcdd', 'bbcbbcbb', 'hkkkkkkh', 'ssssssss', 'LWissiWL'],
             up: (u) => (u === 3 ? 'hair:1' : 'hair:2'),
             east: INNER_STRANDS, west: INNER_STRANDS, south: INNER_STRANDS,
             key: HEAD_KEY,
         },
     });
-    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['ssssssss', 'kssssssk'], key: HEAD_KEY } });
-    both(inG('head'), 'brow', [1, 27.9, -4.03], [4, 28.9, -4.03], 'hairShade',
-        { plane: 'z', rot: [0, 0, 3], pivot: [2.5, 28.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
+    box('head', 'jaw', [-4, 24, -4], [4, 26, 4], 'skin', { px: { north: ['LwIssIwL', 'kssssssk'], key: HEAD_KEY } });
+    both(inG('head'), 'brow', [1, 26.9, -4.03], [4, 27.9, -4.03], 'hairShade',
+        { plane: 'z', rot: [0, 0, 3], pivot: [2.5, 27.4, -4.03], px: { north: ['BBB'], south: null, key: { B: 'hairShade:1' } } });
     both(inG('head'), 'ear', [4, 26.6, -0.8], [4.6, 28.8, 0.6], 'skin');
 
     // 머리카락: 평평한 정수리 + 깎은 띠

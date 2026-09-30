@@ -8,9 +8,9 @@
 (function (global) {
     function gardenerAnimations(B) {
         const A = (name, length, loop, tracks) => InvasionBB.animation(B, name, length, loop, tracks);
-        // 양산을 어깨에 걸친 자세: 팔을 조금 앞으로 굽혀 자루를 쥐고, 덮개가 머리 뒤로 기웁니다. 왼손은 허리 앞에.
+        // 양산을 곧게 세워 든 자세: 팔을 조금 앞으로 굽혀 자루를 쥐고, 손목으로 되돌려 자루가 수직으로 섭니다. 왼손은 허리 앞에.
         const hold = {
-            right_arm: [20, 0, 6], right_forearm: [45, 0, 0], right_hand: [-30, 0, -30],
+            right_arm: [20, 0, 6], right_forearm: [45, 0, 0], right_hand: [-65, 0, -6],
             left_arm: [18, -20, 0], left_forearm: [50, 0, 0],
         };
         const keep = (len) => Object.fromEntries(Object.entries(hold).map(([k, v]) => [k, { rotation: [[0, v], [len, v]] }]));
@@ -26,7 +26,7 @@
         const A2 = (name, length, loop, tracks) => A(name, length, loop, withSkirt(tracks));
 
         // ------------------------------------------------------------ idle
-        // 느긋하게 서서 숨 쉬고, 양산을 어깨 위에서 천천히 돌립니다.
+        // 느긋하게 서서 숨 쉬고, 곧게 세운 양산을 천천히 돌립니다.
         A2('idle', 3.0, 'loop', Object.assign(keep(3.0), {
             body: { position: [[0, [0, 0, 0]], [1.5, [0, -0.3, 0]], [3.0, [0, 0, 0]]] },
             torso: { rotation: [[0, [0, 0, 0]], [1.5, [-2, 0, 0]], [3.0, [0, 0, 0]]] },
