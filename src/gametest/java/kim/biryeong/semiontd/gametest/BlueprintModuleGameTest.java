@@ -132,6 +132,50 @@ public final class BlueprintModuleGameTest {
         }
     }
 
+    /**
+     * 모듈 겹치기: 다중 사격 화살도 광역이 터지고, 처치 폭발은 죽은 적 자리에서 주변 적을 칩니다.
+     * C는 첫 대상 A의 광역 반경 밖이고 다중 사격 대상도 아니지만, 다중 사격으로 맞은 B의 광역에 맞아야 합니다.
+     */
+    @GameTest
+    public void multishotArrowsSplashAndKillsExplode(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-combo".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            BlueprintStats stats = new BlueprintStats(300.0, 50.0, 20, 6.0, 25, DamageType.PHYSICAL).withModules(Map.of(
+                    BlueprintModule.MULTISHOT, 1,
+                    BlueprintModule.SPLASH, 1,
+                    BlueprintModule.KILL_EXPLOSION, 1
+            ), BlueprintTargetPriority.FIRST);
+            var creation = BlueprintStates.create(owner, "연계", stats, BlueprintVisuals.options().getFirst().sourceTowerId());
+            require(creation.success(), creation.message());
+            BlueprintTower tower = (BlueprintTower) ProductionTowerCatalog.find(creation.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 1, 1, 1));
+            lane.addTower(tower);
+            SemionTowerEntity towerEntity = (SemionTowerEntity) context.getLevel().getEntity(tower.entityId().getAsInt());
+
+            Monster a = spawnMonster(context, lane, "combo-a", position(context, 4, 1, 3));
+            Monster b = spawnMonster(context, lane, "combo-b", position(context, 4, 1, 5));
+            Monster c = spawnMonster(context, lane, "combo-c", position(context, 5, 1, 6));
+            double cBefore = c.health();
+            tower.onAttackResolved(towerEntity, entity(context, a), 50.0, 50.0, 50.0, false);
+            require(b.health() < 1_000.0, "Multishot must hit the nearest other enemy.");
+            require(c.health() < cBefore, "The multishot arrow must splash onto the enemy next to its target.");
+
+            Monster corpse = spawnMonster(context, lane, "combo-corpse", position(context, 2, 1, 6));
+            Monster bystander = spawnMonster(context, lane, "combo-bystander", position(context, 2, 1, 7));
+            double bystanderBefore = bystander.health();
+            tower.onKill(towerEntity, entity(context, corpse), 100.0);
+            require(bystander.health() < bystanderBefore, "A killed enemy must explode onto the enemy beside it.");
+            context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
     private static PlayerLane testLane(GameTestHelper context, UUID owner) {
         BlockPos min = context.absolutePos(new BlockPos(0, 1, 0));
         BlockPos max = context.absolutePos(new BlockPos(7, 4, 7));

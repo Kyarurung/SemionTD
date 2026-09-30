@@ -9,8 +9,8 @@ import kim.biryeong.semiontd.entity.monster.DamageType;
  *
  * <p>가격은 "위력" P를 초선형으로 올린 값입니다.
  * <pre>
- *   공격  = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent × (1 + Σ 공격 모듈 가중치 × 단계)
- *   생존  = 체력 / healthUnit × (1 + Σ 생존 모듈 가중치 × 단계)
+ *   공격  = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent × Π(1 + 공격 모듈 가중치 × 단계)
+ *   생존  = 체력 / healthUnit × Π(1 + 생존 모듈 가중치 × 단계)
  *   P     = 공격 + 생존 + Σ 지원 모듈 위력 × 단계
  *   가격  = priceScale × P^priceExponent   (priceStep 단위로 반올림, 최소 minimumPrice)
  * </pre>
@@ -36,18 +36,19 @@ public final class BlueprintPricing {
         double offense = stats.damagePerSecond() * damageTypeMultiplier(stats.damageType()) / value("dpsUnit");
         double rangeFactor = Math.pow(Math.max(0.1, stats.range()) / value("rangePivot"), value("rangeExponent"));
         double defense = stats.maxHealth() / value("healthUnit");
-        double offenseBonus = 0.0;
-        double defenseBonus = 0.0;
+        // 모듈은 서로 겹쳐 세지므로(다중 사격 화살마다 광역·연쇄가 터짐) 같은 쪽 모듈끼리는 곱합니다.
+        double offenseMultiplier = 1.0;
+        double defenseMultiplier = 1.0;
         double support = 0.0;
         for (var module : stats.modules().entrySet()) {
             double weighted = module.getKey().priceWeight() * module.getValue();
             switch (module.getKey().kind()) {
-                case OFFENSE -> offenseBonus += weighted;
-                case DEFENSE -> defenseBonus += weighted;
+                case OFFENSE -> offenseMultiplier *= 1.0 + weighted;
+                case DEFENSE -> defenseMultiplier *= 1.0 + weighted;
                 case SUPPORT -> support += weighted;
             }
         }
-        return offense * rangeFactor * (1.0 + offenseBonus) + defense * (1.0 + defenseBonus) + support;
+        return offense * rangeFactor * offenseMultiplier + defense * defenseMultiplier + support;
     }
 
     /** 한 설계도에 붙일 수 있는 모듈 수. */

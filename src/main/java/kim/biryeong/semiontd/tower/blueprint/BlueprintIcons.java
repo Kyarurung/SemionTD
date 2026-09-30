@@ -19,6 +19,7 @@ final class BlueprintIcons {
             case VULNERABILITY -> Items.FERMENTED_SPIDER_EYE;
             case CRIT -> Items.DIAMOND_SWORD;
             case EXECUTE -> Items.NETHERITE_AXE;
+            case KILL_EXPLOSION -> Items.TNT;
             case LIFESTEAL -> Items.REDSTONE;
             case THORNS -> Items.CACTUS;
             case ARMOR -> Items.SHIELD;

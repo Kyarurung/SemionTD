@@ -8,8 +8,9 @@ import java.util.Optional;
  * 설계도에 붙이는 능력 모듈. 모듈마다 1~3단계가 있고, 수치는 {@link BlueprintTowers#CONFIG_ID} 아래
  * {@code <id>.<항목>} 키로 설정에서 바꿉니다. 단계 값은 {@code base + perLevel × (단계 - 1)}로 셉니다.
  *
- * <p>가격에는 세 갈래로 들어갑니다. 공격 모듈은 공격 쪽 위력에 {@code offenseWeight × 단계}만큼 배율을 더하고,
- * 생존 모듈은 생존 쪽에 {@code defenseWeight × 단계}를, 지원 모듈은 위력에 {@code powerPerLevel × 단계}를 더합니다.
+ * <p>가격에는 세 갈래로 들어갑니다. 공격 모듈마다 공격 쪽 위력에 {@code (1 + offenseWeight × 단계)}를 곱하고,
+ * 생존 모듈마다 생존 쪽에 {@code (1 + defenseWeight × 단계)}를 곱하며, 지원 모듈은 위력에 {@code powerPerLevel × 단계}를
+ * 더합니다. 모듈끼리 서로 겹쳐 세지므로(다중 사격 화살도 광역·연쇄가 터짐) 곱으로 셉니다.
  */
 public enum BlueprintModule {
     /** 기본 공격 때 주변 적 몇에게 같은 공격을 한 번 더(스켈레톤 계열). */
@@ -30,6 +31,8 @@ public enum BlueprintModule {
     CRIT("crit", "치명타", Kind.OFFENSE),
     /** 체력이 적게 남은 적에게 피해가 늘어납니다. */
     EXECUTE("execute", "처형", Kind.OFFENSE),
+    /** 처치한 적이 터져 주변 적에게 피해를 줍니다(라클 캣). 폭발로 죽은 적은 다시 터지지 않습니다. */
+    KILL_EXPLOSION("kill_explosion", "처치 폭발", Kind.OFFENSE),
     /** 준 피해의 일부만큼 체력을 회복합니다. */
     LIFESTEAL("lifesteal", "흡혈", Kind.DEFENSE),
     /** 맞으면 주변 적에게 받은 피해의 일부를 돌려줍니다. */

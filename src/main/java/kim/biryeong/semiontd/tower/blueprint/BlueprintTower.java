@@ -124,21 +124,48 @@ public class BlueprintTower extends ProductionTower {
         if (towerEntity == null || target == null) {
             return;
         }
-        if (!killedTarget && target.isAlive()) {
-            applyOnHitEffects(towerEntity, target, dealtDamage);
-        }
+        hitPackage(towerEntity, target, attemptedDamage, resolvedOutgoingDamage, dealtDamage, killedTarget);
         if (level(BlueprintModule.MULTISHOT) > 0) {
             multishot(towerEntity, target, attemptedDamage);
         }
+    }
+
+    /**
+     * 한 번 맞힐 때마다 도는 모듈 묶음: 맞은 적 디버프, 광역, 연쇄, 흡혈. 기본 공격과 다중 사격 화살 하나하나가 모두
+     * 이 묶음을 탑니다(그래서 광역+다중 사격+연쇄가 함께 터짐). 광역·연쇄로 맞은 적은 이 묶음을 다시 타지 않습니다.
+     */
+    private void hitPackage(SemionTowerEntity towerEntity, SemionMonsterEntity target, double baseDamage,
+            double outgoingDamage, double dealtDamage, boolean killed) {
+        if (!killed && target.isAlive()) {
+            applyOnHitEffects(towerEntity, target, dealtDamage);
+        }
         if (level(BlueprintModule.SPLASH) > 0) {
-            splash(towerEntity, target, attemptedDamage);
+            splash(towerEntity, target, baseDamage);
         }
         if (level(BlueprintModule.CHAIN) > 0) {
-            chain(towerEntity, target, resolvedOutgoingDamage);
+            chain(towerEntity, target, outgoingDamage);
         }
         if (level(BlueprintModule.LIFESTEAL) > 0 && dealtDamage > 0.0) {
             healTarget(towerEntity, dealtDamage * value(BlueprintModule.LIFESTEAL, "ratio"));
         }
+    }
+
+    /** 처치 폭발(라클 캣): 처치한 적 자리에서 터져 주변 적에게 마지막 피해의 일부를 줍니다. 폭발로 죽은 적은 터지지 않습니다. */
+    @Override
+    public void onKill(SemionTowerEntity towerEntity, SemionMonsterEntity target, double damageAmount) {
+        super.onKill(towerEntity, target, damageAmount);
+        if (level(BlueprintModule.KILL_EXPLOSION) <= 0 || towerEntity == null || target == null || damageAmount <= 0.0) {
+            return;
+        }
+        double explosionDamage = damageAmount * value(BlueprintModule.KILL_EXPLOSION, "damageRatio");
+        MonsterAreaEffectRequest request = new MonsterAreaEffectRequest(
+                AreaEffectIds.tower(this, "kill_explosion"), towerEntity, target.position(),
+                value(BlueprintModule.KILL_EXPLOSION, "radius"), Set.of(target.getUUID()), null,
+                AreaVfxSpec.onTrigger(AreaVfxStyles.CORPSE_EXPLOSION));
+        TowerAreaDamage.applyResolved(this, towerEntity, request,
+                monster -> resolveBasicAttackOutgoingDamage(towerEntity, monster, explosionDamage), false,
+                (monster, damage, killed) -> {
+                }, primaryDamageType());
     }
 
     private void applyOnHitEffects(SemionTowerEntity towerEntity, SemionMonsterEntity target, double dealtDamage) {
@@ -183,12 +210,15 @@ public class BlueprintTower extends ProductionTower {
                         && towerEntity.defendsLane(monster.runtimeMonster().targetLaneId())
                         && towerEntity.distanceToSqr(monster) <= range * range));
         candidates.sort(Comparator.comparingDouble(primary::distanceToSqr));
+        double shotDamage = baseDamage * ratio;
         for (SemionMonsterEntity extra : candidates.subList(0, Math.min(count, candidates.size()))) {
-            boolean killed = towerEntity.damageBasicAttackSecondaryTargetResult(extra, baseDamage * ratio).killed();
+            Tower.DamageResult result = towerEntity.damageBasicAttackSecondaryTargetResult(extra, shotDamage);
             TowerVfxService.showSecondaryAttack(towerEntity, extra);
-            if (killed) {
-                onKill(towerEntity, extra, baseDamage * ratio);
+            if (result.killed()) {
+                onKill(towerEntity, extra, shotDamage);
             }
+            // 다중 사격 화살도 광역·연쇄·디버프·흡혈을 모두 탑니다.
+            hitPackage(towerEntity, extra, shotDamage, result.outgoingDamage(), result.dealtDamage(), result.killed());
         }
     }
 
@@ -226,7 +256,10 @@ public class BlueprintTower extends ProductionTower {
                 AreaEffectIds.tower(this, "chain"), towerEntity, target.position(), radius,
                 Set.of(target.getUUID()), null, AreaVfxSpec.onTrigger(ThunderVfx.ARC));
         TowerAreaDamage.applyResolved(this, towerEntity, request,
-                monster -> remaining.getAndDecrement() > 0 ? chainDamage : 0.0, true, (monster, damage, killed) -> {
+                monster -> remaining.getAndDecrement() > 0 ? chainDamage : 0.0, false, (monster, damage, killed) -> {
+                    if (killed) {
+                        onKill(towerEntity, monster, damage);
+                    }
                 }, primaryDamageType());
     }
 

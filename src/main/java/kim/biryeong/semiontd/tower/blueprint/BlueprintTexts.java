@@ -18,6 +18,8 @@ public final class BlueprintTexts {
             case VULNERABILITY -> "받는 피해 +" + pct(module.value("amount", level)) + " · " + seconds(module.value("durationTicks", level));
             case CRIT -> "확률 " + pct(module.value("chance", level)) + " · ×" + num(module.value("multiplier", level));
             case EXECUTE -> "체력 " + pct(module.value("threshold", level)) + " 이하 적 피해 +" + pct(module.value("damageBonus", level));
+            case KILL_EXPLOSION -> "처치한 적이 반경 " + num(module.value("radius", level)) + " 폭발 · 마지막 피해의 "
+                    + pct(module.value("damageRatio", level));
             case LIFESTEAL -> "준 피해의 " + pct(module.value("ratio", level)) + " 회복";
             case THORNS -> "받은 피해의 " + pct(module.value("reflectRatio", level)) + " 반사 · 반경 " + num(module.value("radius", level));
             case ARMOR -> "받는 피해 -" + pct(module.value("reduction", level));
