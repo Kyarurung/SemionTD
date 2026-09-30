@@ -155,6 +155,24 @@ public final class DisplayShapes {
                 .to(fadeAt, fade, Pose.of(new Vector3f(centre), end, vec(last, 0, last)));
     }
 
+    /**
+     * 장판처럼 오래 머무는 원기둥 벽. {@code start}에 솟아 {@code grow}틱 만에 지름 {@code size}·높이 {@code height}가
+     * 되고, {@code end}까지 10틱마다 {@code spinDeg}씩 천천히 돌며 버티다가 {@code fade}틱 동안 내려앉아 사라집니다.
+     */
+    public DisplayEffect.Part cylinderHold(DisplaySprite sprite, Vector3f centre, double size, double height,
+            int start, int grow, int end, int fade, double spinDeg) {
+        float turn = rad(random(0, 360));
+        Vector3f middle = new Vector3f(centre).add(0, (float) height / 2.0F, 0);
+        Vector3f full = vec(size, height, size);
+        DisplayEffect.Part part = effect.part(sprite, Pose.of(new Vector3f(centre), new Quaternionf().rotateY(turn), vec(size * 0.6, 0, size * 0.6)))
+                .to(start, grow, Pose.of(middle, new Quaternionf().rotateY(turn), full));
+        for (int tick = start + grow; tick + 10 <= end; tick += 10) {
+            turn += rad(spinDeg);
+            part.to(tick, 10, Pose.of(middle, new Quaternionf().rotateY(turn), full));
+        }
+        return part.to(end, fade, Pose.of(new Vector3f(centre), new Quaternionf().rotateY(turn), vec(size, 0, size)));
+    }
+
     /** 제자리에서 커졌다 사라지는 빌보드 한 장(섬광·룬). */
     public void pop(DisplaySprite sprite, Vector3f at, double size, int start, int grow, int fadeAt, int fade) {
         Quaternionf roll = new Quaternionf().rotateZ(rad(random(0, 90)));

@@ -737,6 +737,30 @@ def blade_wave():
     return c.save("blade_wave")
 
 
+def wall(name, colors, seed):
+    """원기둥 벽(CYLINDER) 텍스처. 가로가 둘레 한 바퀴(판 16장, 한 장에 4px), 세로가 높이(위가 꼭대기)입니다.
+    밑동이 가장 밝고 위로 갈수록 투명해지며, 높이가 제각각인 빛줄기가 솟아 있습니다. 위 끝은 끊긴 점으로 흩어집니다."""
+    rnd = random.Random(seed)
+    w, h = 64, 32
+    c = Canvas(w, h)
+    streak = [rnd.uniform(0.35, 1.0) for _ in range(w)]
+    for x in range(w):                                   # 이웃과 섞어 줄기를 몇 px 굵기로
+        streak[x] = max(streak[x], (streak[x - 1] + streak[(x + 1) % w]) * 0.45)
+    for y in range(h):
+        up = 1.0 - (y + 0.5) / h                          # 0 = 바닥, 1 = 꼭대기
+        for x in range(w):
+            reach = streak[x]
+            if up > reach:
+                if up < reach + 0.12 and (x * 7 + y * 3) % 5 == 0:
+                    c.put(x, y, colors[3], 130)
+                continue
+            fade = 1.0 - up / reach
+            heat = 0.25 + 0.6 * fade + (0.25 if up < 0.12 else 0.0)
+            alpha = alpha_step(0.25 + 0.55 * fade + (0.25 if up < 0.08 else 0.0))
+            c.put(x, y, ramp(colors, heat), alpha)
+    return c.save(name)
+
+
 TEXTURES = [
     slash, rift, vortex, void_core, wing, spike_block, spike_core, claw, blade, crack, rune, shard, barrier, chain, bolt, feather,
     lambda: swing_arc_frames("swing_arc", CRIMSON, 4),
@@ -752,6 +776,10 @@ TEXTURES = [
     lambda: flame("soul", SOUL),
     lambda: flash("flash_crimson", CRIMSON),
     lambda: flash("flash_arcane", MAGENTA),
+    lambda: wall("wall_crimson", CRIMSON, "crimson"),
+    lambda: wall("wall_violet", VIOLET, "violet"),
+    lambda: wall("wall_arcane", MAGENTA, "arcane"),
+    lambda: wall("wall_fire", FIRE, "fire"),
 ]
 
 

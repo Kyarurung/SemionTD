@@ -59,12 +59,17 @@ public final class DemonLordDisplayVfx {
     static final DisplaySprite SOUL = DisplaySprite.billboard("soul", DIR);
     static final DisplaySprite FLASH_CRIMSON = DisplaySprite.billboard("flash_crimson", DIR);
     static final DisplaySprite FLASH_ARCANE = DisplaySprite.billboard("flash_arcane", DIR);
+    /** 바닥 원형 연출에 겹치는 반투명 원기둥 벽. */
+    static final DisplaySprite WALL_CRIMSON = DisplaySprite.cylinder("wall_crimson", DIR);
+    static final DisplaySprite WALL_VIOLET = DisplaySprite.cylinder("wall_violet", DIR);
+    static final DisplaySprite WALL_ARCANE = DisplaySprite.cylinder("wall_arcane", DIR);
+    static final DisplaySprite WALL_FIRE = DisplaySprite.cylinder("wall_fire", DIR);
 
     /** 리소스팩에 넣을 스프라이트 전부. */
     public static final List<DisplaySprite> SPRITES = List.of(
             SLASH, RIFT, SWING_ARC_FRAMES.get(0), SWING_ARC_FRAMES.get(1), SWING_ARC_FRAMES.get(2), SWING_ARC_FRAMES.get(3), VORTEX, VOID_CORE, SHOCKWAVE_CRIMSON, SHOCKWAVE_VIOLET, CRACK, SIGIL, CIRCLE_ARCANE, WING, BLADE, BARRIER,
             BEAM_CRIMSON, BEAM_ARCANE, BEAM_SOUL, SPIKE_BLOCK, SPIKE_CORE, CLAW, CHAIN, RUNE, SHARD, BOLT, FEATHER, FLAME, SOUL,
-            FLASH_CRIMSON, FLASH_ARCANE, BLADE_WAVE
+            FLASH_CRIMSON, FLASH_ARCANE, BLADE_WAVE, WALL_CRIMSON, WALL_VIOLET, WALL_ARCANE, WALL_FIRE
     );
 
     private DemonLordDisplayVfx() {
@@ -151,6 +156,7 @@ public final class DemonLordDisplayVfx {
         DisplayEffect effect = new DisplayEffect("demon_wings_shockwave", 16);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(3), 0), 1.0, radius * 2.0, 2, 5, 7, 4, 40, 1.15);
+        shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 1.0, radius * 2.0, 1.5, 2, 5, 7, 5, 40, 1.15);
         shapes.decal(CRACK, vec(0, ground(1), 0), 1.0, radius, 2, 3, 11, 5, 0, 0.0);
         shapes.burst(FEATHER, 6, vec(0, 0.4, 0), radius * 0.75, 0.4, 1.0, 0.8, 2, 6, 10, 5);
         return effect;
@@ -179,6 +185,7 @@ public final class DemonLordDisplayVfx {
         }
         Vector3f landing = new Vector3f(end).add(0, ground(3), 0);
         shapes.decal(SHOCKWAVE_CRIMSON, landing, 1.0, (hitRadius + 0.5) * 2.0, 4, 4, 8, 4, 30, 1.15);
+        shapes.cylinder(WALL_CRIMSON, new Vector3f(end).add(0, ground(0), 0), 1.0, (hitRadius + 0.5) * 2.0, 1.6, 4, 4, 8, 5, 30, 1.15);
         shapes.decal(CRACK, new Vector3f(end).add(0, ground(1), 0), 1.0, 4.4, 4, 3, 20, 6, 0, 0.0);
         shapes.pop(FLASH_CRIMSON, new Vector3f(end).add(0, 1.0F, 0), 3.0, 4, 2, 6, 4);
         return effect;
@@ -212,6 +219,7 @@ public final class DemonLordDisplayVfx {
         shapes.beam(BEAM_ARCANE, vec(0, 12, 0), vec(0, 0.4, 0), 1.2, 2, 3, 5, 5);
         shapes.pop(FLASH_ARCANE, vec(0, 1.0, 0), blastRadius * 1.6, 5, 2, 7, 4);
         shapes.decal(SHOCKWAVE_VIOLET, vec(0, ground(4), 0), 1.0, (blastRadius + 0.4) * 2.0, 5, 5, 10, 4, 40, 1.15);
+        shapes.cylinder(WALL_VIOLET, vec(0, ground(1), 0), 1.0, (blastRadius + 0.4) * 2.0, 2.2, 5, 5, 10, 5, 40, 1.15);
         shapes.decal(CIRCLE_ARCANE, vec(0, ground(2), 0), 1.0, blastRadius * 1.6, 5, 3, 12, 6, 90, 0.0);
         shapes.decal(CRACK, vec(0, ground(0), 0), 1.0, blastRadius * 1.3, 5, 3, 18, 6, 0, 0.0);
         shapes.burst(FLAME, 10, vec(0, 0.8, 0), blastRadius * 1.1, 0.7, 2.2, 1.4, 5, 6, 12, 6);
@@ -235,6 +243,7 @@ public final class DemonLordDisplayVfx {
         }
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(CIRCLE_ARCANE, vec(0, ground(3), 0), 1.0, 3.0, 2, 4, 32, 8, 240, 0.0);
+        shapes.cylinderHold(WALL_ARCANE, vec(0, ground(1), 0), 3.0, 2.4, 2, 4, 34, 6, 60);
         for (int index = 0; index < 3; index++) {
             double angle = Math.PI * 2.0 * index / 3.0;
             DisplayEffect.Part rune = effect.part(RUNE, Pose.of(vec(0, 2.2, 0), new Quaternionf(), vec(0, 0, 1)));
@@ -276,6 +285,7 @@ public final class DemonLordDisplayVfx {
             sigil.to(tick, 10, Pose.of(vec(0, ground(2), 0), new Quaternionf().rotateY(turn), vec(diameter, 1, diameter)));
         }
         sigil.to(end, 6, Pose.of(vec(0, ground(2), 0), new Quaternionf().rotateY(turn + 0.6F), vec(0, 1, 0)));
+        shapes.cylinderHold(WALL_FIRE, vec(0, ground(1), 0), diameter, 1.0, 2, 5, end, 6, 25);
         // 피해 박자마다 퍼지는 충격파
         for (int pulse = 20; pulse + 8 <= end; pulse += 20) {
             effect.part(SHOCKWAVE_CRIMSON, Pose.of(vec(0, ground(5), 0), new Quaternionf(), vec(0, 1, 0)))
@@ -350,6 +360,7 @@ public final class DemonLordDisplayVfx {
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         double diameter = radius * 2.0;
         shapes.decal(SHOCKWAVE_VIOLET, vec(0, ground(4), 0), 1.0, diameter, 2, 5, 7, 4, 30, 1.12);
+        shapes.cylinder(WALL_VIOLET, vec(0, ground(1), 0), 1.0, diameter, 2.0, 2, 5, 8, 5, 30, 1.12);
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, 0.6, 0), 0.8, diameter * 0.85, 4, 5, 9, 4, -30, 1.12);
         shapes.decal(SHOCKWAVE_VIOLET, vec(0, 1.2, 0), 0.6, diameter * 0.7, 6, 5, 11, 4, 20, 1.12);
         shapes.decal(CRACK, vec(0, ground(1), 0), 1.0, diameter * 0.75, 2, 3, 13, 6, 0, 0.0);
@@ -383,6 +394,7 @@ public final class DemonLordDisplayVfx {
         if (executed) {
             shapes.pop(FLASH_CRIMSON, vec(0, 1.1, 0), 3.4, 8, 2, 11, 4);
             shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(4), 0), 1.0, (blastRadius + 0.3) * 2.0, 8, 5, 13, 4, 30, 1.15);
+            shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 1.0, (blastRadius + 0.3) * 2.0, 1.8, 8, 5, 13, 5, 30, 1.15);
             shapes.burst(SHARD, 12, vec(0, 1.0, 0), blastRadius, 0.6, 1.8, 1.2, 8, 6, 16, 6);
             shapes.burst(FLAME, 6, vec(0, 0.8, 0), blastRadius * 0.7, 0.6, 1.4, 0.6, 8, 5, 14, 5);
         }
@@ -403,6 +415,7 @@ public final class DemonLordDisplayVfx {
         shapes.beam(BEAM_CRIMSON, vec(0, 10.0, 0), vec(0, 0.3, 0), 0.8, 2, 3, 5, 4);
         shapes.pop(FLASH_CRIMSON, vec(0, 0.8, 0), 3.2, 5, 2, 7, 4);
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(4), 0), 1.0, radius * 2.0, 5, 4, 9, 4, 20, 1.12);
+        shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 1.0, radius * 2.0, 1.8, 5, 4, 9, 5, 20, 1.12);
         shapes.decal(CRACK, vec(0, ground(1), 0), 1.0, radius * 1.6, 5, 3, 18, 6, 0, 0.0);
         int spikes = 10;
         for (int index = 0; index < spikes; index++) {
@@ -449,6 +462,7 @@ public final class DemonLordDisplayVfx {
         Vector3f slam = shapes.local(0, 0, slamOffset);
         shapes.pop(FLASH_CRIMSON, new Vector3f(slam).add(0, 1.0F, 0), 4.2, slamTick, 1, slamTick + 2, 4);
         shapes.decal(SHOCKWAVE_CRIMSON, new Vector3f(slam).add(0, ground(4), 0), 0.6, slamRadius * 2.0, slamTick, 4, slamTick + 4, 3, 30, 1.12);
+        shapes.cylinder(WALL_CRIMSON, new Vector3f(slam).add(0, ground(1), 0), 0.6, slamRadius * 2.0, 1.5, slamTick, 4, slamTick + 4, 4, 30, 1.12);
         shapes.decal(CRACK, new Vector3f(slam).add(0, ground(1), 0), 0.8, slamRadius * 1.6, slamTick, 2, lastWave + 8, 6, 0, 0.0);
 
         if (count > 0) {
@@ -499,6 +513,7 @@ public final class DemonLordDisplayVfx {
             disk.to(tick, 6, Pose.of(vec(0, ground(3), 0), new Quaternionf().rotateY(turn), vec(diameter, 1, diameter)));
         }
         disk.to(end, 5, Pose.of(vec(0, ground(3), 0), new Quaternionf().rotateY(turn - 2.0F), vec(0, 1, 0)));
+        shapes.cylinderHold(WALL_VIOLET, vec(0, ground(1), 0), diameter, 1.4, 2, 5, end, 5, -60);
         // 두 번째, 작고 반대로 도는 원반
         DisplayEffect.Part inner = effect.part(VORTEX, Pose.of(vec(0, ground(6), 0), new Quaternionf(), vec(0, 1, 0)));
         inner.to(3, 5, Pose.of(vec(0, ground(6), 0), new Quaternionf().rotateY(1.0F), vec(diameter * 0.5, 1, diameter * 0.5)));
@@ -555,6 +570,7 @@ public final class DemonLordDisplayVfx {
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(SIGIL, vec(0, ground(2), 0), 0.5, 3.6, 2, 4, 18, 7, 200, 0.0);
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(5), 0), 0.5, 4.4, 6, 4, 10, 3, 40, 1.12);
+        shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 0.5, 4.4, 2.2, 6, 4, 10, 5, 40, 1.12);
         shapes.beam(BEAM_CRIMSON, vec(0, 0, 0), vec(0, 5.0, 0), 2.2, 3, 3, 7, 5);
         shapes.beam(BEAM_ARCANE, vec(0, 0, 0), vec(0, 5.5, 0), 0.9, 3, 3, 8, 5);
         shapes.pop(FLASH_CRIMSON, vec(0, 1.1, 0), 3.2, 6, 2, 8, 4);
@@ -568,6 +584,7 @@ public final class DemonLordDisplayVfx {
         DisplayEffect effect = new DisplayEffect("fiend_dismiss", 14);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(SHOCKWAVE_VIOLET, vec(0, ground(4), 0), 0.5, 3.0, 2, 4, 6, 3, 30, 1.1);
+        shapes.cylinder(WALL_VIOLET, vec(0, ground(1), 0), 0.5, 3.0, 1.4, 2, 4, 6, 4, 30, 1.1);
         shapes.pop(FLASH_ARCANE, vec(0, 1.0, 0), 2.2, 2, 2, 4, 4);
         shapes.burst(FEATHER, 5, vec(0, 1.0, 0), 1.4, 0.35, 1.2, 1.0, 2, 6, 9, 5);
         return effect;
@@ -580,6 +597,7 @@ public final class DemonLordDisplayVfx {
         DisplayEffect effect = new DisplayEffect("blood_cleave", 10);
         DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
         shapes.decal(SHOCKWAVE_CRIMSON, vec(0, ground(7), 0), 0.5, radius * 2.0, 2, 3, 5, 3, 25, 1.08);
+        shapes.cylinder(WALL_CRIMSON, vec(0, ground(1), 0), 0.5, radius * 2.0, 0.9, 2, 3, 5, 3, 25, 1.08);
         shapes.pop(FLASH_CRIMSON, vec(0, 1.0, 0), 1.4, 2, 1, 3, 3);
         shapes.burst(SHARD, 4, vec(0, 1.0, 0), radius * 0.6, 0.35, 0.8, 0.5, 2, 4, 6, 3);
         return effect;
@@ -620,7 +638,9 @@ public final class DemonLordDisplayVfx {
     /** 옥좌 증강의 재시전(메아리) 표시: 작은 자홍 마법진이 한 번 돌며 퍼집니다. */
     public static DisplayEffect echo(long seed) {
         DisplayEffect effect = new DisplayEffect("echo", 14);
-        new DisplayShapes(effect, 0.0F, seed).decal(CIRCLE_ARCANE, vec(0, ground(3), 0), 0.6, 3.0, 2, 4, 8, 5, 120, 0.0);
+        DisplayShapes shapes = new DisplayShapes(effect, 0.0F, seed);
+        shapes.decal(CIRCLE_ARCANE, vec(0, ground(3), 0), 0.6, 3.0, 2, 4, 8, 5, 120, 0.0);
+        shapes.cylinder(WALL_ARCANE, vec(0, ground(1), 0), 0.6, 3.0, 1.2, 2, 4, 8, 5, 120, 1.0);
         return effect;
     }
 }
