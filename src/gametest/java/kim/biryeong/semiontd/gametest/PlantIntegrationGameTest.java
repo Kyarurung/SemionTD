@@ -697,10 +697,10 @@ public final class PlantIntegrationGameTest {
             panda.tick(lane);
             require(panda.dashing(), "돌진이 시작돼야 합니다.");
             require(!panda.canChaseTargets(), "돌진 중 일반 추적 이동이 끼어들면 안 됩니다.");
-            for (int tick = 1; tick < 8; tick++) {
+            for (int tick = 1; tick < 32; tick++) {
                 panda.tick(lane);
             }
-            require(!panda.dashing(), "돌진은 정확히 8틱 안에 끝나야 합니다.");
+            require(!panda.dashing(), "돌진은 정확히 32틱(구르기 한 바퀴) 안에 끝나야 합니다.");
             require(panda.canChaseTargets(), "돌진 후에는 일반 추적 이동이 복구돼야 합니다.");
 
             require(pandaEntity.getX() - startX > 1.0,

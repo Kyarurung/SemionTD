@@ -16,4 +16,10 @@ public interface PandaAccessor {
     static EntityDataAccessor<Byte> semiontd$hiddenGeneId() {
         throw new AssertionError();
     }
+
+    /** 판다 상태 비트(재채기 2, 구르기 4, 앉기 8, 등 대고 눕기 16). */
+    @Accessor("DATA_ID_FLAGS")
+    static EntityDataAccessor<Byte> semiontd$dataIdFlags() {
+        throw new AssertionError();
+    }
 }
