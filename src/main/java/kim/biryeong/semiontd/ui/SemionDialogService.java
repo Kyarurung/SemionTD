@@ -1515,7 +1515,8 @@ public final class SemionDialogService {
             Component tooltip = Component.literal(unit.displayName() + " · " + unit.tier().name()
                     + "\n설치 " + cost + " 에메랄드 · 레벨당 인컴 +" + unit.incomeGain()
                     + " · 타워 수 " + kim.biryeong.semiontd.tower.TowerCapacity.slotCost(IncomeTowerService.towerType(unit))
-                    + "\n체력 " + Math.round(unit.maxHealth()) + " · 공격력 " + Math.round(unit.attackDamage())
+                    + "\n체력 " + Math.round(unit.maxHealth() * IncomeTowerBalance.statMultiplier(1))
+                    + " · 공격력 " + Math.round(unit.attackDamage() * IncomeTowerBalance.statMultiplier(1))
                     + (unit.description().isEmpty() ? "" : "\n" + unit.description().getFirst()));
             actions.add(actionButton(label, "/semiontd income build " + unit.id(), tooltip, COMPACT_BUTTON_WIDTH));
         }
