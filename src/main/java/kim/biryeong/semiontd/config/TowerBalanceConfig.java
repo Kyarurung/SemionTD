@@ -1011,7 +1011,7 @@ public record TowerBalanceConfig(
 
     private static void putPirateAbilities(Map<String, Map<String, Double>> abilities) {
         putAbilities(abilities, PirateTowers.ADMIRAL.id(), Map.ofEntries(
-                Map.entry("spendThreshold", 300.0), Map.entry("paybackLow", 50.0),
+                Map.entry("spendThreshold", 200.0), Map.entry("paybackLow", 50.0),
                 Map.entry("paybackHigh", 75.0), Map.entry("maxHealthBonusLow", 2.0),
                 Map.entry("maxHealthBonusHigh", 4.0), Map.entry("damageBonus", 0.5),
                 Map.entry("effectCount", 1.0)));
@@ -1784,6 +1784,9 @@ public record TowerBalanceConfig(
         validateRatios(IllagerRaidStates.RAID_CONFIG_ID,
                 "attackSpeedPercentPerTower", "damagePercentPerTower",
                 "attackSpeedBonusCap", "damageBonusCap");
+        for (TowerType type : AncientCityTowers.all()) {
+            validateRatios(type.id(), "currentHealthDamageRatio", "missingHealthDamageRatio");
+        }
         validateMageBalance();
         validateEngineerBalance();
         validateInsectBalance();
@@ -3570,6 +3573,7 @@ public record TowerBalanceConfig(
         values.put("giantGrowthTargetCapMultiplier", 2.0);
         values.put("queenMaxHealthPerRound", 8.0);
         values.put("queenPokerHealthBonusCap", 3.0);
+        values.put("cardPokerFlatHealthBonusCap", 300.0);
         values.put("giantContactRadius", 4.0);
         values.put("giantSpeed", 0.65);
         values.put("giantSlow", 0.55);
@@ -4370,6 +4374,7 @@ public record TowerBalanceConfig(
     ) {
         putAbilities(abilities, type.id(), Map.of(
                 "magicDamage", damage,
+                "currentHealthDamageRatio", new double[] {0.025, 0.05, 0.075}[AncientCityTowers.tier(type) - 1],
                 "magicCooldownTicks", cooldown,
                 "magicRadius", radius,
                 "slowMagnitude", slow,
@@ -4388,6 +4393,7 @@ public record TowerBalanceConfig(
     ) {
         putAbilities(abilities, type.id(), Map.of(
                 "magicDamage", damage,
+                "missingHealthDamageRatio", new double[] {0.05, 0.10, 0.15, 0.20}[AncientCityTowers.tier(type) - 1],
                 "magicCooldownTicks", cooldown,
                 "targetCount", targets,
                 "sculkExtraTargets", extraTargets,

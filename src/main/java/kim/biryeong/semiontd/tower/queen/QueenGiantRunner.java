@@ -141,9 +141,7 @@ final class QueenGiantRunner {
                     return AreaEffectOutcome.KILLED;
                 }
             }
-            target.applyTimedEffect(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION,
-                    QueenBalance.giantSlow(), QueenBalance.giantSlowTicks());
-            target.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION,
+            target.refreshTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, QueenShrink.GIANT_DEBUFF_SOURCE,
                     QueenBalance.giantSlow(), QueenBalance.giantSlowTicks());
             return AreaEffectOutcome.APPLIED;
         });

@@ -30,10 +30,10 @@ class JobAugmentCatalogTest {
     }
 
     @Test
-    void all124ReviewIdsKeepTheirExactRegisteredBuilderAndFourRarities() {
+    void allReviewIdsKeepTheirRegisteredBuilderAndOriginalCards() {
         var entries = JobAugmentCatalog.entries();
-        assertEquals(124, entries.size());
-        assertEquals(124, entries.stream().map(JobAugmentCatalog.Entry::reviewId).distinct().count());
+        assertEquals(126, entries.size());
+        assertEquals(126, entries.stream().map(JobAugmentCatalog.Entry::reviewId).distinct().count());
         for (int index = 0; index < JOBS.size(); index++) {
             String job = JOBS.get(index);
             String owner = "semion-td:" + switch (job) {
@@ -75,7 +75,25 @@ class JobAugmentCatalogTest {
         assertFalse(changed.isEnabled("job_mage_towers_p"));
         assertTrue(changed.isEnabled("job_mage_towers_s"));
         assertEquals(changed, AugmentConfig.fromJson(changed.toJson()));
-        assertEquals(124, changed.parameters().keySet().stream().filter(id -> id.startsWith("semiontd:job_")).count());
+        assertEquals(126, changed.parameters().keySet().stream().filter(id -> id.startsWith("semiontd:job_")).count());
+    }
+
+    @Test
+    void larvaRoundBudgetIsRetiredAndEvolutionCardsDoNotConflict() {
+        var config = AugmentConfig.fromJson(com.google.gson.JsonParser.parseString("""
+                {"parameters":{"job_insect_towers_g2":{"roundCap":6,"statRatio":0.5}}}
+                """).getAsJsonObject());
+        assertEquals(8, config.parameter("job_insect_towers_g2", "activeCap", -1));
+        assertEquals(.5, config.parameter("job_insect_towers_g2", "statRatio", -1));
+        assertFalse(config.parametersFor("job_insect_towers_g2").containsKey("roundCap"));
+        assertEquals(config, AugmentConfig.fromJson(config.toJson()));
+        var first = AugmentCatalog.find("job_insect_towers_s2").orElseThrow();
+        var second = AugmentCatalog.find("job_insect_towers_g3").orElseThrow();
+        assertFalse(first.familyKey().equals(second.familyKey()));
+        assertFalse(first.conflicts().contains(second.id()));
+        assertFalse(second.conflicts().contains(first.id()));
+        assertEquals(AugmentRarity.SILVER, first.rarity());
+        assertEquals(AugmentRarity.GOLD, second.rarity());
     }
 
     @Test

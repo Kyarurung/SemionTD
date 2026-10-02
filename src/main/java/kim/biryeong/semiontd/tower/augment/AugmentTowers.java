@@ -34,7 +34,7 @@ public final class AugmentTowers {
     private static TowerType tower(String id, String name, long cost, double health, double range, double damage,
             int interval, String visual, DamageType damageType) {
         return new TowerType("augment_" + id, name, TowerCategory.DIRECT, cost, health, range, damage, interval,
-                0,
+                "folding_barricade".equals(id) ? 500 : 0,
                 List.of("증강 전용 · 외부 회복/전투 버프/복제 불가", "R5 T1 → R15 T2 → R25 T3 자동 강화 · 일반 승급 없음", "파괴 시 긍정적인 사망 효과 없음"),
                 EntityVisual.vanilla(visual), List.of(), damageType);
     }

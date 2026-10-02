@@ -12,6 +12,7 @@ import kim.biryeong.semiontd.tower.ProductionTower;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.damagesource.DamageSource;
 
 public final class InsectSpawnerTower extends ProductionTower {
     private int radiusPulseTicks;
@@ -26,6 +27,16 @@ public final class InsectSpawnerTower extends ProductionTower {
             GridPosition currentPosition
     ) {
         super(type, ownerPlayer, teamId, laneId, originalPosition, currentPosition);
+    }
+
+    @Override
+    public double modifyIncomingDamage(SemionTowerEntity entity, DamageSource source, double damage) {
+        return damage * (1 + InsectAugments.evolutionBonus(this, "incomingDamageBonus"));
+    }
+
+    @Override
+    public double modifyIncomingDamageIgnoringReductions(SemionTowerEntity entity, DamageSource source, double damage) {
+        return modifyIncomingDamage(entity, source, damage);
     }
 
     @Override

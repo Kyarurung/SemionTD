@@ -488,13 +488,18 @@ public final class Monster {
      * retained independently so later survival-scaling updates do not erase the effect.
      */
     public void applyPermanentStatScale(double factor, double minimumVisualScale) {
+        applyPermanentStatScale(factor, factor, minimumVisualScale);
+    }
+
+    public void applyPermanentStatScale(double factor, double healthFactor, double minimumVisualScale) {
         if (!Double.isFinite(factor) || factor <= 0.0 || factor > 1.0
+                || !Double.isFinite(healthFactor) || healthFactor <= 0.0 || healthFactor > 1.0
                 || !Double.isFinite(minimumVisualScale) || minimumVisualScale <= 0.0 || minimumVisualScale > 1.0) {
             throw new IllegalArgumentException("Permanent monster stat and visual scales must be in (0, 1].");
         }
         double previousMaxHealth = Math.max(0.000001, maxHealth);
         double healthRatio = Math.max(0.0, Math.min(1.0, health / previousMaxHealth));
-        maxHealth = Math.max(0.000001, maxHealth * factor);
+        maxHealth = Math.max(0.000001, maxHealth * healthFactor);
         health = Math.max(0.000001, maxHealth * healthRatio);
         permanentStatScale = Math.max(Double.MIN_NORMAL, permanentStatScale * factor);
         this.minimumVisualScale = minimumVisualScale;

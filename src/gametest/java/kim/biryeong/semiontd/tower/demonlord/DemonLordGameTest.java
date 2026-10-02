@@ -72,14 +72,14 @@ public final class DemonLordGameTest {
                     new PlayerAugmentState.Selection(15, AugmentRarity.PRISMATIC, "tactical_designation_3_assault",
                             PlayerAugmentState.Outcome.SELECTED, null, AugmentChoice.none()))));
             lane.markWaveStarted(15);
-            requireClose(baseline * 2, state.maxHealth(), "The chosen health bonus belongs to the Demon Lord, not the altar.");
+            requireClose(baseline * 1.2, state.maxHealth(), "The reduced health bonus belongs to the Demon Lord, not the altar.");
             target = spawnTarget(context, lane, new BlockPos(5, 2, 5), 10000, 0);
             for (DemonLordSkillTower source : java.util.Arrays.asList(null, altar)) {
                 double health = target.runtime().health();
                 target.entity().invulnerableTime = 0;
                 var result = DemonLordService.dealDamage(player, lane, source, target.entity(), 20, DamageType.MAGIC);
-                requireClose(80, result.dealtDamage(), "Blade and skill damage must each receive the same 4x modifier once.");
-                requireClose(health - 80, target.runtime().health(), "Actual enemy HP must match the reported damage.");
+                requireClose(32, result.dealtDamage(), "Blade and skill damage must each receive the reduced 1.6x modifier once.");
+                requireClose(health - 32, target.runtime().health(), "Actual enemy HP must match the reported damage.");
             }
         } finally {
             if (target != null) target.entity().discard();

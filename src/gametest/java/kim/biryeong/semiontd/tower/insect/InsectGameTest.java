@@ -103,14 +103,17 @@ public final class InsectGameTest {
     }
 
     @GameTest
-    public void larvaeReserveSixPerPlayerAndKeepOnlyNativeExplosions(GameTestHelper context) {
+    public void larvaeReuseEightConcurrentSlotsOnEveryOriginalDeath(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         PlayerLane lane = testLane(context, owner);
-        lane.assignAugmentSnapshot(augmentSnapshot(InsectAugments.MARCH, InsectAugments.COLONY));
+        lane.assignAugmentSnapshot(augmentSnapshot(InsectAugments.MARCH, InsectAugments.EVOLUTION_I, InsectAugments.EVOLUTION_II));
         ArrayList<InsectUnitTower> originals = new ArrayList<>();
         AreaEffectLaneIndex.register(lane);
         SemionMonsterEntity target = null;
         try {
+            GridPosition spawnerAt = floor(context, 2, 2, 5);
+            prepareFloor(context, spawnerAt);
+            lane.addTower(new InsectSpawnerTower(InsectTowers.SPAWNER, owner, TeamId.RED, 1, spawnerAt, spawnerAt));
             for (int i = 0; i < 4; i++) {
                 GridPosition at = floor(context, 3 + i, 2, 5);
                 prepareFloor(context, at);
@@ -123,14 +126,24 @@ public final class InsectGameTest {
                 towerEntity(context, unit).setHealth(0);
                 unit.isDestroyed(lane);
             }
-            require(InsectAugments.reserved(owner) == 6, "Unflushed reservations must already consume the player round cap.");
+            require(InsectAugments.activeLarvae(lane) == 8, "Unflushed reservations must consume the concurrent cap.");
             InsectAugments.flush(lane);
             List<InsectUnitTower> larvae = lane.towers().stream().filter(InsectUnitTower.class::isInstance)
                     .map(InsectUnitTower.class::cast).filter(InsectUnitTower::isLarva).toList();
-            require(larvae.size() == 6, "Four original deaths may create only six larvae total.");
+            require(larvae.size() == 8, "Four original deaths must create eight larvae.");
+            InsectUnitTower original = originals.getFirst();
+            int wait = original.reviveTicksRemaining();
+            for (int tick = 0; tick < wait; tick++) original.tick(lane);
+            towerEntity(context, original).setHealth(0);
+            original.isDestroyed(lane);
+            InsectAugments.flush(lane);
+            require(InsectAugments.activeLarvae(lane) == 8 && lane.towers().size() == 13,
+                    "A death at eight living larvae must create nothing.");
             InsectUnitTower larva = larvae.getFirst();
             require(close(larva.currentMaxHealth(), maxHealth * .4) && larva.slotWeight() == 0 && !larva.canBeSold(),
                     "Larvae must snapshot forty-percent health and remain temporary slot-free units.");
+            require(close(larva.modifyIncomingDamageIgnoringReductions(null, null, 100), 325),
+                    "Larvae must inherit the evolution penalty together with the already-amplified parent health.");
             SemionTowerEntity entity = towerEntity(context, larva);
             target = spawnTarget(context, lane, entity.position().add(1, 0, 0), 1000, 0, 1);
             larva.detonateOnContact(entity, target);
@@ -138,8 +151,23 @@ public final class InsectGameTest {
                     "Bee larvae must retain contact-triggered native death explosion at their own health scale.");
             require(larva.reviveTicksRemaining() == -1, "Larvae must never reserve revival.");
             InsectAugments.flush(lane);
-            require(InsectAugments.reserved(owner) == 6 && lane.towers().size() == 10,
-                    "Larval death must neither reproduce nor refund its reservation.");
+            require(InsectAugments.activeLarvae(lane) == 7,
+                    "Larval death must free one slot without self-reproduction.");
+            for (int cycle = 0; cycle < 3; cycle++) {
+                wait = original.reviveTicksRemaining();
+                for (int tick = 0; tick < wait; tick++) original.tick(lane);
+                towerEntity(context, original).setHealth(0);
+                original.isDestroyed(lane);
+                int before = lane.towers().size();
+                require(InsectAugments.activeLarvae(lane) == 8, "At seven, only one queued larva may claim the final slot.");
+                original.isDestroyed(lane);
+                InsectAugments.flush(lane);
+                require(lane.towers().size() == before + 1, "Repeated original deaths must spawn again, without duplicate death processing.");
+                var latest = lane.towers().getLast();
+                ((kim.biryeong.semiontd.tower.EntityBackedTower) latest).runtimeEntity(lane).orElseThrow().setHealth(0);
+                latest.isDestroyed(lane);
+                require(InsectAugments.activeLarvae(lane) == 7, "A dead larva must release its concurrent slot.");
+            }
             lane.resetForRound();
             require(lane.towers().stream().noneMatch(tower -> tower instanceof InsectUnitTower unit && unit.isLarva()),
                     "Round cleanup must remove every larva.");

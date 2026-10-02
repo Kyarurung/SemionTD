@@ -21,16 +21,16 @@ class AugmentCatalogStateTest {
     private static final Predicate<AugmentDefinition> ALL = card -> true;
 
     @Test
-    void approvedCatalogHas166NormalNineReserveAndNineTowerCards() {
-        assertEquals(175, AugmentCatalog.definitions().size());
-        assertEquals(166, AugmentCatalog.normalDefinitions().size());
+    void approvedCatalogHas168NormalNineReserveAndNineTowerCards() {
+        assertEquals(177, AugmentCatalog.definitions().size());
+        assertEquals(168, AugmentCatalog.normalDefinitions().size());
         assertEquals(9, AugmentCatalog.reserveDefinitions().size());
         assertEquals(9, AugmentCatalog.normalDefinitions().stream().filter(AugmentDefinition::towerAugment).count());
-        assertEquals(175, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
+        assertEquals(177, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
         assertTrue(AugmentCatalog.find("honorable_retirement").isEmpty());
         assertTrue(AugmentCatalog.find("overcapacity_permit").isEmpty());
         assertTrue(AugmentCatalog.find("decisive_delivery").isEmpty());
-        assertEquals(List.of(44L, 79L, 43L), List.of(SILVER, GOLD, PRISMATIC).stream()
+        assertEquals(List.of(45L, 80L, 43L), List.of(SILVER, GOLD, PRISMATIC).stream()
                 .map(rarity -> AugmentCatalog.normalDefinitions().stream().filter(card -> card.rarity() == rarity).count()).toList());
         for (AugmentDefinition card : AugmentCatalog.definitions()) {
             for (String conflict : card.conflicts()) {
@@ -83,7 +83,7 @@ class AugmentCatalogStateTest {
     @Test
     void allJobCardsKeepStableOwnershipAndMergeValidatedDefaults() {
         var jobs = AugmentCatalog.definitions().stream().filter(card -> card.requiredJobId() != null).toList();
-        assertEquals(124, jobs.size());
+        assertEquals(126, jobs.size());
         assertEquals(31, jobs.stream().map(AugmentDefinition::requiredJobId).distinct().count());
         for (String job : jobs.stream().map(AugmentDefinition::requiredJobId).distinct().toList()) {
             List<AugmentDefinition> owned = jobs.stream().filter(card -> job.equals(card.requiredJobId())).toList();
@@ -94,9 +94,11 @@ class AugmentCatalogStateTest {
                 default -> job.substring("semion-td:".length());
             };
             String prefix = "semiontd:job_" + key + "_";
-            assertEquals(Set.of(prefix + "s", prefix + "g1", prefix + "g2", prefix + "p"),
+            boolean insect = key.equals("insect_towers");
+            assertEquals(insect ? Set.of(prefix + "s", prefix + "g1", prefix + "g2", prefix + "p", prefix + "s2", prefix + "g3")
+                            : Set.of(prefix + "s", prefix + "g1", prefix + "g2", prefix + "p"),
                     owned.stream().map(AugmentDefinition::id).collect(java.util.stream.Collectors.toSet()), job);
-            assertEquals(List.of(1L, 2L, 1L), List.of(SILVER, GOLD, PRISMATIC).stream()
+            assertEquals(insect ? List.of(2L, 3L, 1L) : List.of(1L, 2L, 1L), List.of(SILVER, GOLD, PRISMATIC).stream()
                     .map(rarity -> owned.stream().filter(card -> card.rarity() == rarity).count()).toList(), job);
         }
         for (var card : jobs) {

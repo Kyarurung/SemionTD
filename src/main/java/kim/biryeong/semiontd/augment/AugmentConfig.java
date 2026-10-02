@@ -37,6 +37,8 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
                 Map<String, Double> defaults = DEFAULT_PARAMETERS.get(normalized);
                 if (defaults == null) {throw new IllegalArgumentException("Unknown augment: " + id);}
                 values.forEach((key, value) -> {
+                    // The retired per-round budget must not become a concurrent population limit.
+                    if (normalized.equals("semiontd:job_insect_towers_g2") && key.equals("roundCap")) {return;}
                     if (!defaults.containsKey(key)) {throw new IllegalArgumentException("Unknown augment parameter: " + id + "." + key);}
                     validateParameter(key, value);
                     copy.get(normalized).put(key, value);
@@ -238,7 +240,7 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
                 "maxAdditional", "maxAllies", "maxAttempts", "maxCopies", "maxDepth", "maxGeneration", "maxNeighbors",
                 "maxRelays", "maxShots", "maxSources", "maxTargets", "maxTowers", "maxExtraAttacks", "maxChainDepth",
                 "normalBeats", "openingAttacks", "openingWater", "requiredKinds", "requiredLeaderKinds", "requiredLinks",
-                "revivalCount", "roundCap", "roundReduction", "shots", "spawnCount", "stacks", "survivorCap",
+                "revivalCount", "roundCap", "activeCap", "roundReduction", "shots", "spawnCount", "stacks", "survivorCap",
                 "targets", "targetsPerRelay", "tickets", "transfersPerCharge", "waterPerCharge", "yardRadius", "gaugePerVolley").contains(key);
         boolean positive = Set.of("echoRatio", "bodyMultiplier", "healthMultiplier", "attackMultiplier", "costMultiplier", "damagePerHitCap").contains(key);
         boolean integer = positiveInteger || Set.of("amount", "ticketValue", "advanceCap", "incomeBonus", "matchIncomeCap", "roundBonusCap", "neighborCount").contains(key);

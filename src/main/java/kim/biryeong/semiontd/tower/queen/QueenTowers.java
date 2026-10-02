@@ -12,7 +12,8 @@ public final class QueenTowers {
             .mineralCost(70).maxHealth(60).range(9).damage(0).attackIntervalTicks(120).aggroPriority(1)
             .visual(EntityVisual.builder(EntityTypeUtil.byId(EntityType.EVOKER)).build())
             .description(List.of(
-                    "가장 강한 적을 고른 뒤 처형에 필요한 외형 {ability.queen_global.giantExecutionVisualShrink:percent} 축소까지 집중합니다. 공격마다 축소 {ability.queen_global.queenShrinkPoints:number}(1점당 ×{ability.queen_global.shrinkFactorPerPoint:number})을 가해 능력치와 이동속도를 원본의 {ability.queen_global.minimumStatScale:percent}까지, 공격속도는 그 감소량의 절반만큼 낮추며 외형은 {ability.queen_global.minimumVisualScale:percent}까지 낮춥니다.",
+                    "공격마다 축소 {ability.queen_global.queenShrinkPoints:number}(1점당 ×{ability.queen_global.shrinkFactorPerPoint:number})을 가합니다. 공격력은 원본의 {ability.queen_global.minimumStatScale:percent}까지, 외형은 {ability.queen_global.minimumVisualScale:percent}까지 감소합니다. 공격속도는 최대 70% 감소하며 이동속도는 유지됩니다. 체력은 다른 감소 한도와 별개로 처형선까지 줄어듭니다.",
+                    "피해 증가 1%를 공격속도 0.7%로 전환합니다. 고정 공격력 +1도 공격속도 +0.7%로 전환합니다.",
                     "적이 남아 있는 동안 <gold>저놈의 목을 쳐라!</gold>가 {ability.queen_global.giantChargeTicks:seconds} 동안 충전됩니다. 반경 {ability.queen_global.giantAccelerationRadius:blocks}에서 카드병정이 교전하면 2배로 충전됩니다.",
                     "자이언트가 원본보다 외형이 {ability.queen_global.giantExecutionVisualShrink:percent} 이상 작아지고 현재 체력이 {ability.queen_global.giantInitialExecutionHealth:number} 이하인 적을 <dark_red>처형</dark_red>합니다. 처형선은 저체력 적에게도 최소 성장하며, 고체력 적의 증가량은 제한됩니다.",
                     "본체 체력은 라운드마다 {ability.queen_global.queenMaxHealthPerRound:health} 증가하고, 완성한 족보 보너스가 웨이브마다 누적되어 최대 +{ability.queen_global.queenPokerHealthBonusCap:percent} 증가합니다. 플레이어당 1기이며 판매할 수 없습니다."
@@ -23,7 +24,9 @@ public final class QueenTowers {
             .visual(EntityVisual.builder(EntityTypeUtil.byId(EntityType.VINDICATOR)).build())
             .description(List.of(
                     "설치할 때 표준 52장 중 한 장을 복원 추첨합니다.",
-                    "공격할 때 축소 {ability.queen_global.cardShrinkPoints:number}(1점당 ×{ability.queen_global.shrinkFactorPerPoint:number})을 누적해 능력치와 이동속도를 {ability.queen_global.minimumStatScale:percent}까지, 공격속도는 그 감소량의 절반만큼 낮추며 외형은 {ability.queen_global.minimumVisualScale:percent}까지 낮춥니다. 반경 {ability.queen_global.cardSplashRadius:blocks}의 추가 적 {ability.queen_global.cardSplashExtraTargets:int}기도 약화하며 사망 시 반경 {ability.queen_global.cardDeathRadius:blocks}에 축소 {ability.queen_global.cardDeathShrinkPoints:number}을 남깁니다.",
+                    "공격마다 축소 {ability.queen_global.cardShrinkPoints:number}(1점당 ×{ability.queen_global.shrinkFactorPerPoint:number})을 가합니다. 공격력은 원본의 {ability.queen_global.minimumStatScale:percent}까지, 외형은 {ability.queen_global.minimumVisualScale:percent}까지 감소합니다. 공격속도는 최대 70% 감소하며 이동속도는 유지됩니다. 체력은 별도로 처형선까지 줄어듭니다. 반경 {ability.queen_global.cardSplashRadius:blocks}의 추가 적 {ability.queen_global.cardSplashExtraTargets:int}기도 약화하며 사망 시 반경 {ability.queen_global.cardDeathRadius:blocks}에 축소 {ability.queen_global.cardDeathShrinkPoints:number}을 남깁니다.",
+                    "피해 증가 1%와 고정 공격력 +1을 각각 공격속도 +0.7%로 전환합니다.",
+                    "현재 족보 보너스 × {ability.queen_global.cardPokerFlatHealthBonusCap:health}만큼 최대 체력이 추가 증가합니다. 최대 +{ability.queen_global.cardPokerFlatHealthBonusCap:health}이며 라운드마다 누적되지 않습니다.",
                     "하트는 치유, 다이아는 속공, 클로버는 탱킹, 스페이드는 더 넓은 범위 약체화를 담당합니다. 역할에 따라 하트·다이아는 낮게, 클로버는 가장 높게, 스페이드는 중간 어그로를 받으며 직접 처치하지 못합니다.",
                     "라인에 수직인 가로 5장을 맞추면 <light_purple>포커 족보</light_purple>가 해당 카드병정의 체력·공속·치유·축소를 강화하고, 클로버 고유 방어력과 합산해 받는 피해를 최대 {ability.queen_global.pokerDamageReductionCap:percent} 감소시킵니다."
             )).build();
@@ -32,7 +35,9 @@ public final class QueenTowers {
             .mineralCost(0).maxHealth(45).range(8).damage(0).attackIntervalTicks(10).aggroPriority(0)
             .visual(RANDOM_CARD_SOLDIER.visual())
             .description(List.of("궁정 광대 배치권으로 설치합니다. 판매 환급과 승급이 없습니다.",
-                    "족보를 가장 높게 만드는 카드로 계산하며, 대신한 문양의 능력을 얻습니다.")).build();
+                    "족보를 가장 높게 만드는 카드로 계산하며, 대신한 문양의 능력을 얻습니다.",
+                    "현재 족보 보너스 × {ability.queen_global.cardPokerFlatHealthBonusCap:health}만큼 최대 체력이 추가 증가합니다. 최대 +{ability.queen_global.cardPokerFlatHealthBonusCap:health}이며 라운드마다 누적되지 않습니다.",
+                    "피해 증가 1%와 고정 공격력 +1을 각각 공격속도 +0.7%로 전환합니다.")).build();
 
     private static final List<TowerType> ALL = List.of(QUEEN, RANDOM_CARD_SOLDIER, JOKER);
 

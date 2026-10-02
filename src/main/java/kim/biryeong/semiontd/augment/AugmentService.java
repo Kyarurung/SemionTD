@@ -210,9 +210,22 @@ public final class AugmentService {
     }
 
     static Component cardWithHover(AugmentDefinition card, AugmentConfig config) {
+        return cardWithHover(card, config, null);
+    }
+
+    private static Component cardWithHover(AugmentDefinition card, AugmentConfig config, SemionPlayer player) {
         return SemionText.mini(rarityLabel(card.rarity()) + " 증강 " + cardLabel(card))
                 .copy().withStyle(style -> style.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
-                        Component.literal(AugmentDescriptions.describe(card, config)))));
+                        Component.literal(AugmentDescriptions.describe(card, config) + designationNotice(player, card)))));
+    }
+
+    static String designationNotice(SemionPlayer player, AugmentDefinition card) {
+        if (player == null || card.requiredJobId() != null || targetCount(card.id()) == 0) return "";
+        boolean reduced = player.job().map(job -> switch (job.id().getPath()) {
+            case "demon_lord_towers", "warlock_towers", "end_towers", "hero_party" -> true;
+            default -> false;
+        }).orElse(false);
+        return reduced ? "\n이 빌더의 지정형 강화·패널티는 표시 수치의 20% 적용. 중첩 한도·발동 조건은 동일합니다." : "";
     }
 
     static String selectionCountLabel(PlayerAugmentState state) {
@@ -405,7 +418,7 @@ public final class AugmentService {
             AugmentDefinition card = AugmentCatalog.find(offer.cardIds().get(slot)).orElseThrow();
             cards.add(new CardLine(card.category().name(), card.rarity().markup("[" + (slot + 1) + "] " + card.displayName())
                     + jobLabel(card) + " [" + rarityLabel(card.rarity()) + " · " + categoryName(card.category()) + "]\n"
-                    + offerSummary(card, game.augmentConfig())));
+                    + offerSummary(card, game.augmentConfig()) + designationNotice(player, card)));
             buttons.add(new Button((slot + 1) + "번 카드 선택",
                     COMMAND + "draft " + offer.revision() + " " + slot + " " + requestId(),
                     SemionText.mini(preview(game, player, card, AugmentChoice.none())).getString() + "\n\n"
@@ -506,6 +519,7 @@ public final class AugmentService {
 
     private String preview(SemionGame game, SemionPlayer player, AugmentDefinition card, AugmentChoice choice) {
         StringBuilder body = new StringBuilder(AugmentDescriptions.describe(card, game.augmentConfig()));
+        body.append(designationNotice(player, card));
         if (selfTargeted(player, card.id())) {
             body.append("\n대상: 마왕 자신 · 자동 적용");
             var demonLord = kim.biryeong.semiontd.tower.demonlord.DemonLordStates.get(player.uuid());
@@ -1562,7 +1576,7 @@ public final class AugmentService {
         }
         var card = AugmentCatalog.find(selection.augmentId()).orElseThrow();
         Component message = SemionText.prefixed(Component.literal(player.name() + " · ")
-                .append(cardWithHover(card, game.augmentConfig()))
+                .append(cardWithHover(card, game.augmentConfig(), player))
                 .append(Component.literal(" 확정")));
         for (ServerPlayer viewer : online.getServer().getPlayerList().getPlayers()) {
             if (game.isActiveParticipant(viewer.getUUID()) || game.isMatchSpectator(viewer.getUUID())) {
@@ -1777,7 +1791,7 @@ public final class AugmentService {
             if (online != null) {
                 activateTargetTool(game, online, player);
                 online.sendSystemMessage(SemionText.prefixed(Component.literal("선택 시간이 끝나 ")
-                        .append(cardWithHover(AugmentCatalog.find(selected.augmentId()).orElseThrow(), game.augmentConfig()))
+                        .append(cardWithHover(AugmentCatalog.find(selected.augmentId()).orElseThrow(), game.augmentConfig(), player))
                         .append(Component.literal("을 무작위로 받았습니다. /증강"))));
                 announceSelection(game, online, player);
             }

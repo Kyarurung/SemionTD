@@ -184,7 +184,7 @@ public final class AncientCityTowers {
     private static List<String> shriekerDescription(String grade) {
         return List.of(
                 "<gray>비명 파동으로 적 무리를 제압하는 " + grade + " 범위 공격 타워입니다.</gray>",
-                "<green>{ability.magicCooldownTicks:seconds}마다 대상 주변 {ability.magicRadius:blocks}에 마법 피해 {ability.magicDamage:number}를 줍니다.</green>",
+                "<green>{ability.magicCooldownTicks:seconds}마다 대상 주변 {ability.magicRadius:blocks}에 마법 피해 {ability.magicDamage:number} + 각 적의 현재 체력 {ability.currentHealthDamageRatio:percent}를 줍니다.</green>",
                 "<green>적의 이동속도를 {ability.slowMagnitude:percent}만큼 {ability.slowDurationTicks:seconds} 동안 감소시킵니다.</green>",
                 resonanceRule()
         );
@@ -193,7 +193,7 @@ public final class AncientCityTowers {
     private static List<String> wardenDescription(String grade) {
         return List.of(
                 "<gray>최대 체력이 높은 적을 우선해 소닉 붐을 발사하는 " + grade + " 마법 공격 타워입니다.</gray>",
-                "<green>{ability.magicCooldownTicks:seconds}마다 최대 체력이 높은 적부터 {ability.targetCount:integer}기에게 주 대상 마법 피해 {ability.magicDamage:number}를 줍니다.</green>",
+                "<green>{ability.magicCooldownTicks:seconds}마다 최대 체력이 높은 적부터 {ability.targetCount:integer}기에게 마법 피해 {ability.magicDamage:number} + 각 적의 잃은 체력 {ability.missingHealthDamageRatio:percent}를 줍니다.</green>",
                 "<green>보조 대상은 {ability.secondaryDamageRatio:percent}의 피해를 받고 감지 표식 증폭은 받지 않습니다. 스컬크 공명 활성 중에는 대상이 {ability.sculkExtraTargets:integer}기 증가합니다.</green>",
                 resonanceRule()
         );

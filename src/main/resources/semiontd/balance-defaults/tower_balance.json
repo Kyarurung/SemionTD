@@ -6,7 +6,7 @@
       "range": 0.0,
       "damage": 0.0,
       "attackIntervalTicks": 20,
-      "aggroPriority": 0
+      "aggroPriority": 500
     },
     "augment_pulse_relay": {
       "mineralCost": 220,
@@ -4523,7 +4523,7 @@
     "pirate_deep_anchor->pirate_ancient_anchor": 1200
   },
   "abilities": {
-    "pirate_admiral": { "spendThreshold": 300.0, "paybackLow": 50.0, "paybackHigh": 75.0, "maxHealthBonusLow": 2.0, "maxHealthBonusHigh": 4.0, "damageBonus": 0.5, "effectCount": 1.0 },
+    "pirate_admiral": { "spendThreshold": 200.0, "paybackLow": 50.0, "paybackHigh": 75.0, "maxHealthBonusLow": 2.0, "maxHealthBonusHigh": 4.0, "damageBonus": 0.5, "effectCount": 1.0 },
     "pirate_golden_admiral": { "effectCount": 2.0 },
     "pirate_deckhand": { "incomeMin": 1.0, "incomeMax": 3.0, "openingDamageBonus": 0.5, "openingDamageTicks": 120.0 },
     "pirate_lookout_deckhand": { "incomeMin": 2.0, "incomeMax": 3.0, "splashRadius": 1.5, "splashRatio": 0.5, "openingDamageBonus": 0.5, "openingDamageTicks": 120.0 },
@@ -5839,6 +5839,7 @@
     },
     "ancient_city_shrieker_t1": {
       "magicDamage": 4.0,
+      "currentHealthDamageRatio": 0.025,
       "magicCooldownTicks": 60.0,
       "magicRadius": 1.5,
       "slowMagnitude": 0.1,
@@ -5846,6 +5847,7 @@
     },
     "ancient_city_shrieker_t2": {
       "magicDamage": 8.0,
+      "currentHealthDamageRatio": 0.05,
       "magicCooldownTicks": 50.0,
       "magicRadius": 2.0,
       "slowMagnitude": 0.15,
@@ -5853,6 +5855,7 @@
     },
     "ancient_city_shrieker_t3": {
       "magicDamage": 34.0,
+      "currentHealthDamageRatio": 0.075,
       "magicCooldownTicks": 40.0,
       "magicRadius": 2.25,
       "slowMagnitude": 0.2,
@@ -5860,6 +5863,7 @@
     },
     "ancient_city_warden_t1": {
       "magicDamage": 10.0,
+      "missingHealthDamageRatio": 0.05,
       "magicCooldownTicks": 60.0,
       "targetCount": 2.0,
       "sculkExtraTargets": 1.0,
@@ -5867,6 +5871,7 @@
     },
     "ancient_city_warden_t2": {
       "magicDamage": 16.0,
+      "missingHealthDamageRatio": 0.1,
       "magicCooldownTicks": 50.0,
       "targetCount": 3.0,
       "sculkExtraTargets": 1.0,
@@ -5874,6 +5879,7 @@
     },
     "ancient_city_warden_t3": {
       "magicDamage": 55.0,
+      "missingHealthDamageRatio": 0.15,
       "magicCooldownTicks": 50.0,
       "targetCount": 4.0,
       "sculkExtraTargets": 2.0,
@@ -5881,6 +5887,7 @@
     },
     "ancient_city_warden_t4": {
       "magicDamage": 68.0,
+      "missingHealthDamageRatio": 0.2,
       "magicCooldownTicks": 46.0,
       "targetCount": 5.0,
       "sculkExtraTargets": 2.0,
@@ -6415,6 +6422,7 @@
       "giantGrowthTargetCapMultiplier": 2.0,
       "queenMaxHealthPerRound": 8.0,
       "queenPokerHealthBonusCap": 3.0,
+      "cardPokerFlatHealthBonusCap": 300.0,
       "giantContactRadius": 4.0,
       "giantSpeed": 0.65,
       "giantSlow": 0.55,

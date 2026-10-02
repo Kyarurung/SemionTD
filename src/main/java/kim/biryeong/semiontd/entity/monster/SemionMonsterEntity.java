@@ -161,11 +161,15 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     /** Applies a persistent max-health, attack-damage, and entity-size reduction. */
     public void applyPermanentStatScale(double factor, double minimumVisualScale) {
+        applyPermanentStatScale(factor, factor, minimumVisualScale);
+    }
+
+    public void applyPermanentStatScale(double factor, double healthFactor, double minimumVisualScale) {
         if (runtimeMonster == null) {
             return;
         }
         runtimeMonster.syncHealth(Math.min(runtimeMonster.health(), getHealth()));
-        runtimeMonster.applyPermanentStatScale(factor, minimumVisualScale);
+        runtimeMonster.applyPermanentStatScale(factor, healthFactor, minimumVisualScale);
         syncAttributesFromRuntimeMonster();
         setHealth((float) runtimeMonster.health());
         refreshDimensions();
@@ -434,7 +438,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
                 ? WaveMonsterEntry.DEFAULT_ATTACK_INTERVAL_TICKS
                 : runtimeMonster.attackIntervalTicks();
         double speedBonus = timedEffects.magnitude(TimedEffectType.MONSTER_ATTACK_SPEED_BONUS);
-        double speedReduction = timedEffects.magnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION);
+        double speedReduction = activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION);
         return Math.max(1, (int) Math.ceil(baseInterval / Math.max(0.01, 1.0 + speedBonus - speedReduction)));
     }
 
@@ -477,8 +481,19 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         return timedEffects.apply(type, sourceId, magnitude, durationTicks);
     }
 
+    public boolean refreshTimedEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude, int durationTicks) {
+        return timedEffects.refresh(type, sourceId, magnitude, durationTicks);
+    }
+
     public double activeTimedEffectMagnitude(TimedEffectType type) {
-        return timedEffects.magnitude(type);
+        double magnitude = timedEffects.magnitude(type);
+        if (type == TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION) {
+            double queen = timedEffects.persistentMagnitude(type,
+                    kim.biryeong.semiontd.tower.queen.QueenShrink.SHRINK_DEBUFF_SOURCE)
+                    + timedEffects.magnitude(type, kim.biryeong.semiontd.tower.queen.QueenShrink.GIANT_DEBUFF_SOURCE);
+            magnitude -= Math.max(0.0, queen - 0.70);
+        }
+        return magnitude;
     }
 
     public int activeTimedEffectTicks(TimedEffectType type) {

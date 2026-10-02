@@ -32,6 +32,7 @@ public final class QueenBalance {
     public static double giantGrowthTargetCapMultiplier() {return ability("giantGrowthTargetCapMultiplier", 2.0);}
     public static double queenMaxHealthPerRound() {return ability("queenMaxHealthPerRound", 8.0);}
     public static double queenPokerHealthBonusCap() {return ability("queenPokerHealthBonusCap", 3.0);}
+    public static double cardPokerFlatHealthBonusCap() {return ability("cardPokerFlatHealthBonusCap", 300.0);}
     public static double giantContactRadius() {return ability("giantContactRadius", 4.0);}
     public static double giantSpeed() {return ability("giantSpeed", 0.65);}
     public static double giantSlow() {return ability("giantSlow", 0.55);}

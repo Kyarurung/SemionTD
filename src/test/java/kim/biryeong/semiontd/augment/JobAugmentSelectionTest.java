@@ -31,12 +31,12 @@ class JobAugmentSelectionTest {
     }
 
     @Test
-    void everyBuilderHasExactlyFourJobCards() {
+    void everyBuilderKeepsFourCardsAndInsectHasTwoAdditionalEvolutionCards() {
         List<AugmentDefinition> cards = jobCards();
-        assertEquals(124, cards.size());
+        assertEquals(126, cards.size());
         var counts = cards.stream().collect(Collectors.groupingBy(AugmentDefinition::requiredJobId, Collectors.counting()));
         assertEquals(31, counts.size());
-        counts.forEach((job, count) -> assertEquals(4L, count.longValue(), job));
+        counts.forEach((job, count) -> assertEquals(job.equals("semion-td:insect_towers") ? 6L : 4L, count.longValue(), job));
     }
 
     @TestFactory

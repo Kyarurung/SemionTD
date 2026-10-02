@@ -401,6 +401,9 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     public double attackDamageAmount(SemionMonsterEntity target) {
+        if (convertsDamageToAttackSpeed()) {
+            return Math.max(0.0, attackDamage - timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_REDUCTION));
+        }
         double baseDamage = attackDamage + (runtimeTower == null ? 0.0 : runtimeTower.permanentFlatDamageBonus());
         double damageAmount = baseDamage * (1.0 + timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_BONUS))
                 + timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_BONUS)
@@ -455,6 +458,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             double damageAmount,
             double conditionalBonus
     ) {
+        if (convertsDamageToAttackSpeed()) return Math.max(0.0, damageAmount);
         return Math.max(0.0, damageAmount)
                 * (1.0 + traitAdditiveDamageBonus(target) + Math.max(0.0, conditionalBonus))
                 * traitFinalDamageMultiplier();
@@ -464,7 +468,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (!Double.isFinite(damageAmount) || damageAmount <= 0.0) {
             return 0.0;
         }
-        double finalDamage = damageAmount * towerFinalDamageMultiplier();
+        double finalDamage = damageAmount * (convertsDamageToAttackSpeed() ? 1.0 : towerFinalDamageMultiplier());
         return Double.isFinite(finalDamage) && finalDamage > 0.0 ? finalDamage : 0.0;
     }
 
@@ -506,12 +510,39 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     public int attackIntervalTicks() {
         int adjustedInterval = runtimeTower == null ? attackIntervalTicks : runtimeTower.adjustAttackInterval(attackIntervalTicks);
         double attackSpeedMultiplier = 1.0
+                + convertedQueenAttackSpeedBonus()
                 + AugmentCombat.beneficialBonus(runtimeTower, "attackSpeedBonus")
                 + timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION);
         int minimumInterval = runtimeTower == null ? 1 : Math.max(1, runtimeTower.minimumAttackIntervalTicks());
         int resolvedInterval = (int) Math.ceil(adjustedInterval / Math.max(0.01, attackSpeedMultiplier));
         return Math.max(minimumInterval, resolvedInterval);
+    }
+
+    public boolean convertsDamageToAttackSpeed() {
+        return runtimeTower != null && kim.biryeong.semiontd.tower.queen.QueenTowers.isQueenTower(runtimeTower.type());
+    }
+
+    private double convertedQueenAttackSpeedBonus() {
+        if (!convertsDamageToAttackSpeed()) return 0.0;
+        SemionMonsterEntity target = currentAttackTarget();
+        Monster monster = target == null ? null : target.runtimeMonster();
+        double bonus = timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_BONUS)
+                + traitAdditiveDamageBonus(monster)
+                + TraitEffects.conditionalTargetDamageBonus(runtimeTower.traitLoadout(), monster,
+                        target != null && target.hasDebuff())
+                + activeEffectMagnitude(TimedEffectType.TOWER_FINAL_DAMAGE_BONUS)
+                + runtimeTower.finalDamageBonus()
+                + AugmentCombat.damageBonus(runtimeTower, this)
+                + AugmentCombat.primaryDamageBonus(runtimeTower, target);
+        if (monster != null) {
+            bonus += timedEffects.magnitude(monster.senderTeam().isPresent()
+                    ? TimedEffectType.TOWER_INCOME_DAMAGE_BONUS : TimedEffectType.TOWER_WAVE_DAMAGE_BONUS);
+        }
+        double flat = runtimeTower.permanentFlatDamageBonus()
+                + timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_BONUS)
+                + timedEffects.magnitude(TimedEffectType.TOWER_FLAT_MAGIC_DAMAGE_BONUS);
+        return Math.max(0.0, bonus) * 0.70 + Math.max(0.0, flat) * 0.007;
     }
 
     private double resolvedMovementSpeed() {

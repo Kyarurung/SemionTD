@@ -808,7 +808,7 @@
           "id": "infinite_cow_tank",
           "health": 250.0,
           "armor": 14.0,
-          "attackDamage": 25,
+          "attackDamage": 20,
           "attackKind": "MELEE",
           "entityType": "minecraft:cow",
           "dimensions": {
@@ -826,7 +826,7 @@
           "id": "infinite_llama_ranged",
           "health": 132.14,
           "armor": 4.0,
-          "attackDamage": 45,
+          "attackDamage": 36,
           "attackKind": "RANGED",
           "entityType": "minecraft:llama",
           "dimensions": {
@@ -844,7 +844,7 @@
           "id": "wave_healer_allay_infinite",
           "health": 132.14,
           "armor": 4,
-          "attackDamage": 5,
+          "attackDamage": 4,
           "attackKind": "RANGED",
           "entityType": "minecraft:allay",
           "dimensions": {
@@ -882,7 +882,7 @@
             "id": "infinite_cow_tank",
             "health": 250.0,
             "armor": 14.0,
-            "attackDamage": 25,
+            "attackDamage": 20,
             "attackKind": "MELEE",
             "entityType": "minecraft:cow",
             "dimensions": {
@@ -900,7 +900,7 @@
             "id": "infinite_llama_ranged",
             "health": 132.14,
             "armor": 4.0,
-            "attackDamage": 45,
+            "attackDamage": 36,
             "attackKind": "RANGED",
             "entityType": "minecraft:llama",
             "dimensions": {
@@ -918,7 +918,7 @@
             "id": "wave_healer_allay_infinite",
             "health": 132.14,
             "armor": 4,
-            "attackDamage": 5,
+            "attackDamage": 4,
             "attackKind": "RANGED",
             "entityType": "minecraft:allay",
             "dimensions": {
@@ -957,7 +957,7 @@
             "id": "infinite_husk_tank",
             "health": 300.0,
             "armor": 14.0,
-            "attackDamage": 25,
+            "attackDamage": 20,
             "attackKind": "MELEE",
             "entityType": "minecraft:husk",
             "dimensions": {
@@ -975,7 +975,7 @@
             "id": "infinite_spider_rush",
             "health": 150.0,
             "armor": 7.0,
-            "attackDamage": 25,
+            "attackDamage": 20,
             "attackKind": "MELEE",
             "entityType": "minecraft:spider",
             "dimensions": {
@@ -993,7 +993,7 @@
             "id": "infinite_pillager_artillery",
             "health": 96.67,
             "armor": 4.0,
-            "attackDamage": 45,
+            "attackDamage": 36,
             "attackKind": "RANGED",
             "entityType": "minecraft:pillager",
             "dimensions": {
@@ -1011,7 +1011,7 @@
             "id": "wave_healer_allay_infinite",
             "health": 150,
             "armor": 7,
-            "attackDamage": 5,
+            "attackDamage": 4,
             "attackKind": "RANGED",
             "entityType": "minecraft:allay",
             "dimensions": {
@@ -1048,7 +1048,7 @@
             "id": "infinite_piglin_brute_tank",
             "health": 350.0,
             "armor": 14.0,
-            "attackDamage": 25,
+            "attackDamage": 20,
             "attackKind": "MELEE",
             "entityType": "minecraft:piglin_brute",
             "dimensions": {
@@ -1066,7 +1066,7 @@
             "id": "infinite_zombified_piglin_rush",
             "health": 140.0,
             "armor": 7.0,
-            "attackDamage": 25,
+            "attackDamage": 20,
             "attackKind": "MELEE",
             "entityType": "minecraft:zombified_piglin",
             "dimensions": {
@@ -1084,7 +1084,7 @@
             "id": "infinite_blaze_ranged",
             "health": 113.33,
             "armor": 4.0,
-            "attackDamage": 45,
+            "attackDamage": 36,
             "attackKind": "RANGED",
             "entityType": "minecraft:blaze",
             "dimensions": {
@@ -1102,7 +1102,7 @@
             "id": "wave_healer_allay_infinite",
             "health": 140,
             "armor": 7,
-            "attackDamage": 5,
+            "attackDamage": 4,
             "attackKind": "RANGED",
             "entityType": "minecraft:allay",
             "dimensions": {

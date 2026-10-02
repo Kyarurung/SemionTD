@@ -75,12 +75,12 @@ final class DemonLordAugments {
 
     double maxHealthBonus(AugmentSnapshot snapshot) {
         return AugmentCombat.beneficialBonus(snapshot, "maxHealthBonus") + masteryBonus(snapshot) + (snapshot.has("one_man_show")
-                ? snapshot.parameter("one_man_show", "maxHealthBonus", .30) : 0);
+                ? AugmentCombat.reducedTargetedParameter(snapshot, "one_man_show", "maxHealthBonus", .30) : 0);
     }
 
     private double masteryBonus(AugmentSnapshot snapshot) {
         return snapshot.has("battlefield_mastery")
-                ? targeted.mastery() * snapshot.parameter("battlefield_mastery", "bonusPerStack", .04) : 0;
+                ? targeted.mastery() * AugmentCombat.reducedTargetedParameter(snapshot, "battlefield_mastery", "bonusPerStack", .04) : 0;
     }
 
     private static double tacticalBonus(AugmentSnapshot snapshot, String mode) {
@@ -88,7 +88,7 @@ final class DemonLordAugments {
         for (int tier = 1; tier <= 3; tier++) {
             String id = "tactical_designation_" + tier;
             if (snapshot.has(id) && mode.equals(snapshot.choice(id).mode())) {
-                bonus += snapshot.parameter(id, mode.equals("ASSAULT") ? "damageBonus" : "damageReduction", 0);
+                bonus += AugmentCombat.reducedTargetedParameter(snapshot, id, mode.equals("ASSAULT") ? "damageBonus" : "damageReduction", 0);
             }
         }
         return bonus;
@@ -127,9 +127,9 @@ final class DemonLordAugments {
 
     double damageMultiplier(AugmentSnapshot snapshot, long now) {
         double bonus = AugmentCombat.beneficialBonus(snapshot, "damageBonus") + tacticalBonus(snapshot, "ASSAULT") + masteryBonus(snapshot)
-                - targeted.heat() * snapshot.parameter("overheat_core", "penaltyPerStack", .06);
-        if (targeted.overheated()) bonus += snapshot.parameter("overheat_core", "damageBonus", .40);
-        if (snapshot.has("one_man_show")) bonus += snapshot.parameter("one_man_show", "damageBonus", 1.0);
+                - targeted.heat() * AugmentCombat.reducedTargetedParameter(snapshot, "overheat_core", "penaltyPerStack", .06);
+        if (targeted.overheated()) bonus += AugmentCombat.reducedTargetedParameter(snapshot, "overheat_core", "damageBonus", .40);
+        if (snapshot.has("one_man_show")) bonus += AugmentCombat.reducedTargetedParameter(snapshot, "one_man_show", "damageBonus", 1.0);
         double multiplier = Math.max(0, 1.0 + bonus)
                 * (now < phaseUntil ? 1.0 + snapshot.parameter(PHASE, "damageBonus", 0.8) : 1.0);
         if ((currentAltar != null || replaying) && now < comboUntil) {

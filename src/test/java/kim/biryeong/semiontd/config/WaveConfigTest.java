@@ -151,7 +151,7 @@ final class WaveConfigTest {
     }
 
     @Test
-    void defaultAttackRampStartsAtFirstAugmentAndReachesTwoPointFiveTimesAtRoundTwenty() {
+    void defaultAttackRampIsPreservedBeforeRoundTwentyAndUsesDoubleDamageAfterward() {
         WaveConfig config = WaveConfig.defaultConfig();
         double[][] previousDamage = {
                 {1}, {1}, {1}, {1.5}, {0.5}, {1.25}, {2}, {1, 1.5}, {2}, {2.5},
@@ -171,7 +171,7 @@ final class WaveConfigTest {
             for (RoundWaveConfig wave : config.candidatesForRound(round)) {
                 for (WaveMonsterEntry entry : wave.entriesForLane("lane_1")) {
                     double previous = entry.healing() != null ? 2.0 : entry.attackKind() == AttackKind.RANGED ? 18.0 : 10.0;
-                    assertEquals(previous * 2.5 * (1.0 + (round - 20) * 0.03), entry.attackDamage(),
+                    assertEquals(previous * 2.0 * (1.0 + (round - 20) * 0.03), entry.attackDamage(),
                             0.000001, "round " + round + " " + entry.id());
                 }
             }
@@ -205,7 +205,7 @@ final class WaveConfigTest {
         for (int index = 0; index < rounds.length; index++) {
             WaveMonsterEntry entry = config.configForRound(rounds[index]).orElseThrow().entriesForLane("lane_1").getFirst();
             assertEquals(250.0 * healthMultipliers[index], entry.health(), 0.0001, "round " + rounds[index] + " health");
-            assertEquals(25.0 * attackMultipliers[index], entry.attackDamage(), 0.0001, "round " + rounds[index] + " attack");
+            assertEquals(20.0 * attackMultipliers[index], entry.attackDamage(), 0.0001, "round " + rounds[index] + " attack");
         }
     }
 
@@ -313,7 +313,7 @@ final class WaveConfigTest {
         assertEquals(450, healer.health());
         assertEquals(480, healer.healing().amount());
         assertEquals(5, healer.count());
-        assertEquals(5.75, healer.attackDamage(), 0.001);
+        assertEquals(4.6, healer.attackDamage(), 0.001);
         assertEquals(55, scaled.mineralRewardBudget());
         assertEquals(72, totalCount(scaled.entriesForLane("lane_1")));
         assertEquals(config.selectForRound(27, new Random(12)), config.selectForRound(27, new Random(12)));

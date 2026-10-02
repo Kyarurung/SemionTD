@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -130,6 +131,35 @@ final class AncientCityTowerCatalogTest {
         assertEquals(1.75, merged.ability(AncientCityStates.CONFIG_ID, "incomeMagicDamageMultiplier", -1), EPSILON);
         assertTrue(merged.towers().containsKey(AncientCityTowers.WARDEN_T3.id()));
         assertTrue(merged.towers().containsKey(AncientCityTowers.WARDEN_T4.id()));
+    }
+
+    @Test
+    void healthDamageRatiosMatchTiersMergeReloadAndValidate() {
+        TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
+        try {
+            for (TowerType type : AncientCityTowers.all()) {
+                AncientCityRole role = AncientCityTowers.roleOf(type);
+                if (role != AncientCityRole.SHRIEKER && role != AncientCityRole.WARDEN) continue;
+                String key = role == AncientCityRole.SHRIEKER ? "currentHealthDamageRatio" : "missingHealthDamageRatio";
+                double expected = AncientCityTowers.tier(type) * (role == AncientCityRole.SHRIEKER ? .025 : .05);
+                assertEquals(expected, defaults.ability(type.id(), key, -1), EPSILON);
+                var old = new TowerBalanceConfig(Map.of(), Map.of(), Map.of(type.id(), Map.of("magicDamage", 123.0)))
+                        .withMissingDefaults(defaults);
+                assertEquals(123, old.ability(type.id(), "magicDamage", -1));
+                assertEquals(expected, old.ability(type.id(), key, -1), EPSILON);
+                var configured = new TowerBalanceConfig(Map.of(), Map.of(), Map.of(type.id(), Map.of(key, .123)))
+                        .withMissingDefaults(defaults);
+                configured.validateForRuntime();
+                TowerBalanceRuntime.apply(configured);
+                String description = String.join(" ", TowerBalanceRuntime.resolve(type).description());
+                assertTrue(description.contains("12.3%"), description);
+                assertFalse(description.contains("{ability."), description);
+                for (double invalid : new double[] {-.01, 1.01, Double.NaN}) {
+                    assertThrows(IllegalArgumentException.class, () -> new TowerBalanceConfig(Map.of(), Map.of(),
+                            Map.of(type.id(), Map.of(key, invalid))).withMissingDefaults(defaults).validateForRuntime());
+                }
+            }
+        } finally {TowerBalanceRuntime.apply(defaults);}
     }
 
     @Test
