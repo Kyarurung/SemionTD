@@ -23,7 +23,10 @@ public class BalanceRevisionStore {
     public record Receipt(String idempotencyKey, String fingerprint, BalancePatch patch, String candidateRevision,
                           String validationHash, String scope, String targetGameId, BalanceDeployment deployment) {}
 
-    public record Index(int schemaVersion, String activeRevision, List<Receipt> receipts, String writeBlocked) {
+    public record Index(int schemaVersion, String activeRevision, List<Receipt> receipts, String writeBlocked, String legacyRevision) {
+        public Index(int schemaVersion, String activeRevision, List<Receipt> receipts, String writeBlocked) {
+            this(schemaVersion, activeRevision, receipts, writeBlocked, null);
+        }
         public Index {receipts = List.copyOf(receipts);}
     }
 
@@ -46,6 +49,7 @@ public class BalanceRevisionStore {
                 throw new IOException("Unsupported balance store format.");
             }
             readRevision(loaded.activeRevision());
+            if (loaded.legacyRevision() != null) {readRevision(loaded.legacyRevision());}
             java.util.HashSet<String> keys = new java.util.HashSet<>();
             java.util.HashSet<String> requests = new java.util.HashSet<>();
             String lastApplied = null;
@@ -88,6 +92,10 @@ public class BalanceRevisionStore {
     }
 
     public BalanceBundle readRevision(String revision) throws IOException {
+        return readRevision(revision, null);
+    }
+
+    public BalanceBundle readRevision(String revision, BalanceBundle serverConfig) throws IOException {
         if (revision == null || !revision.matches("[a-f0-9]{64}")) {throw new IOException("Invalid revision identifier.");}
         try {
             JsonObject stored = JsonParser.parseString(Files.readString(
@@ -96,7 +104,7 @@ public class BalanceRevisionStore {
             if (!BalanceBundle.digest(BalanceBundle.canonical(stored)).equals(revision)) {
                 throw new IOException("Balance revision checksum mismatch.");
             }
-            return BalanceBundle.fromJson(stored);
+            return serverConfig == null ? BalanceBundle.fromJson(stored) : BalanceBundle.fromJson(stored, serverConfig);
         } catch (RuntimeException exception) {
             throw new IOException("Invalid balance revision.", exception);
         }

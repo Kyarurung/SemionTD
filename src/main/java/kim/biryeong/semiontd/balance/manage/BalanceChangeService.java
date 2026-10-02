@@ -35,6 +35,8 @@ public final class BalanceChangeService implements AutoCloseable {
         default String afterApplied() {return "SYNCED";}
         /** Called once on the main thread, after successful application is durably recorded. */
         default void broadcastApplied(BalanceDeployment deployment) {}
+        /** Public, immutable changelog export on the persistence worker; never exposes request credentials. */
+        default void publishUpdates(List<BalanceDeployment> deployments, List<BalanceField> fields) {}
     }
 
     public static final class FatalRollbackException extends IllegalStateException {
@@ -45,6 +47,7 @@ public final class BalanceChangeService implements AutoCloseable {
     private final BalanceRevisionStore store;
     private final BalanceFieldRegistry registry;
     private final Runtime runtime;
+    private final BalanceBundle serverConfig;
     private final ReentrantLock lock = new ReentrantLock();
     private final ExecutorService persistence = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "semion-balance-persistence");
@@ -77,15 +80,16 @@ public final class BalanceChangeService implements AutoCloseable {
         this.serverId = Objects.requireNonNull(serverId);
         this.registry = Objects.requireNonNull(registry);
         this.runtime = Objects.requireNonNull(runtime);
+        this.serverConfig = Objects.requireNonNull(initial);
         active = initial;
         activeRevision = initial.revision();
         legacyRevision = activeRevision;
         try {
             Index index = store.loadOrCreate(initial);
-            active = store.readRevision(index.activeRevision());
+            active = store.readRevision(index.activeRevision(), serverConfig);
             activeRevision = index.activeRevision();
-            legacyRevision = index.receipts().isEmpty() ? activeRevision
-                    : index.receipts().getFirst().patch().baseRevision();
+            legacyRevision = index.legacyRevision() != null ? index.legacyRevision()
+                    : index.receipts().isEmpty() ? activeRevision : index.receipts().getFirst().patch().baseRevision();
             writeBlocked = index.writeBlocked();
             boolean recovered = false;
             for (Receipt receipt : index.receipts()) {
@@ -97,11 +101,60 @@ public final class BalanceChangeService implements AutoCloseable {
                 }
                 receipts.put(receipt.idempotencyKey(), receipt);
             }
+            if (writeBlocked == null && adoptServerSettings()) {recovered = true;}
             if (recovered) {store.saveIndex(index());}
         } catch (IOException | RuntimeException exception) {
             recoveryFailure = exception;
             writeBlocked = "밸런스 저장소 복구에 실패했습니다. 운영자 확인이 필요합니다.";
         }
+    }
+
+    private boolean adoptServerSettings() throws IOException {
+        BalanceBundle baseline = store.readRevision(legacyRevision, serverConfig);
+        JsonObject reconciled = baseline.toJson();
+        Map<String, Double> previous = BalanceFieldRegistry.flatten(reconciled);
+        Map<String, Double> current = BalanceFieldRegistry.flatten(active.toJson());
+        List<BalanceChange> edits = new ArrayList<>();
+        for (BalanceField field : registry.fields(serverConfig, null)) {
+            Double before = previous.get(field.id());
+            Double managed = current.get(field.id());
+            if (!field.editable() || before == null || managed == null || Double.compare(before, field.value()) == 0) {continue;}
+            BalanceFieldRegistry.set(reconciled, field.id(), field.value());
+            if (Double.compare(managed, field.value()) != 0) {edits.add(new BalanceChange(field.id(), managed, field.value()));}
+        }
+        List<BalanceChange> imported = List.of();
+        // Changed file values win; unchanged file fields retain web edits. Import no partial structural delta.
+        if (BalanceBundle.canonical(reconciled).equals(BalanceBundle.canonical(serverConfig.toJson()))) {
+            try {
+                if (!edits.isEmpty()) {
+                    var patch = new BalancePatch(activeRevision, ApplyMode.NEXT_MATCH,
+                            "서버 파일 변경 동기화 (변경된 항목은 파일 우선)", "server-config-migration", edits, false);
+                    Candidate candidate = validateCandidate(patch, "system", "system:startup", new Snapshot(active, activeRevision, true));
+                    if (!candidate.validation().warnings().isEmpty()) {throw new BalanceException(422, "파일 값을 자동 반올림하지 않습니다.");}
+                    active = candidate.bundle();
+                    imported = candidate.normalized().changes();
+                }
+                baseline = serverConfig;
+            } catch (BalanceException invalid) {
+                // Keep the old baseline so runtime conflict checking blocks writes without importing a partial patch.
+            }
+        }
+        String nextActive = active.revision();
+        String nextLegacy = baseline.revision();
+        if (nextActive.equals(activeRevision) && nextLegacy.equals(legacyRevision)) {return false;}
+        store.saveRevision(active);
+        store.saveRevision(baseline);
+        String key = UUID.randomUUID().toString();
+        BalancePatch patch = new BalancePatch(activeRevision, ApplyMode.NEXT_MATCH,
+                "서버 설정 동기화 (변경된 항목은 파일 우선)", "server-config-migration", imported, false);
+        long appliedAt = lastAppliedAt = Math.max(System.currentTimeMillis(), lastAppliedAt + 1);
+        BalanceDeployment deployment = new BalanceDeployment(key, DeploymentState.APPLIED, activeRevision, nextActive,
+                patch.applyMode(), patch.reason(), "system", "startup", appliedAt, appliedAt, "STARTUP", "NOT_REQUESTED", null, imported);
+        String hash = fingerprint("server-config-migration", activeRevision, nextActive, nextLegacy);
+        receipts.put(key, new Receipt(key, hash, patch, nextActive, hash, "system:startup", null, deployment));
+        activeRevision = nextActive;
+        legacyRevision = nextLegacy;
+        return true;
     }
 
     public BalanceBundle currentBundle() {return locked(() -> active);}
@@ -154,7 +207,7 @@ public final class BalanceChangeService implements AutoCloseable {
         return fingerprint("fields-v2", fieldsEpoch, activeRevision, pendingDeployments(), isIdle());
     }
     public BalanceBundle revision(String revision) {
-        try {return store.readRevision(revision);}
+        try {return store.readRevision(revision, serverConfig);}
         catch (IOException exception) {throw new BalanceException(404, "설정 버전을 읽을 수 없습니다.");}
     }
 
@@ -437,9 +490,10 @@ public final class BalanceChangeService implements AutoCloseable {
                 Index snapshot = locked(() -> {
                     Map<String, Receipt> journal = new LinkedHashMap<>(receipts);
                     durable.forEach(receipt -> journal.put(receipt.idempotencyKey(), receipt));
-                    return new Index(1, activeRevision, List.copyOf(journal.values()), writeBlocked);
+                    return new Index(1, activeRevision, List.copyOf(journal.values()), writeBlocked, legacyRevision);
                 });
                 store.saveIndex(snapshot);
+                publishUpdates(durable.stream().map(Receipt::deployment).toList());
                 locked(() -> {
                     for (Receipt receipt : durable) {
                         receipts.put(receipt.idempotencyKey(), receipt);
@@ -464,7 +518,20 @@ public final class BalanceChangeService implements AutoCloseable {
         });
     }
 
-    private Index index() {return new Index(1, activeRevision, List.copyOf(receipts.values()), writeBlocked);}
+    private Index index() {return new Index(1, activeRevision, List.copyOf(receipts.values()), writeBlocked, legacyRevision);}
+
+    void publishUpdates(List<BalanceDeployment> deployments) {
+        List<BalanceDeployment> applied = deployments.stream()
+                .filter(result -> result.state() == DeploymentState.APPLIED && !result.changes().isEmpty()).toList();
+        if (applied.isEmpty()) {return;}
+        try {
+            BalanceBundle snapshot = locked(() -> active);
+            runtime.publishUpdates(applied, registry.fields(snapshot, null));
+        } catch (RuntimeException failure) {
+            org.slf4j.LoggerFactory.getLogger(BalanceChangeService.class)
+                    .warn("Failed to export public balance updates; startup will retry", failure);
+        }
+    }
     private BalanceDeployment replay(String key, String fingerprint) {
         required(key, "중복 요청 키");
         if (key.length() > 200) {throw new BalanceException(422, "중복 요청 키가 너무 깁니다.");}

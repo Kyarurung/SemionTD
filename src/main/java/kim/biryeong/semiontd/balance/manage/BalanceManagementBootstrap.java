@@ -30,7 +30,7 @@ public final class BalanceManagementBootstrap implements AutoCloseable {
         int port = enabled ? Integer.parseInt(env.getOrDefault("SEMION_BALANCE_API_PORT", "8091")) : 0;
         if (enabled && (port < 1024 || port > 65535)) { throw new IllegalStateException("Invalid balance management port"); }
         BalanceBundle initial = manager.captureBalanceBundle();
-        BalanceGameRuntime runtime = new BalanceGameRuntime(server, manager);
+        BalanceGameRuntime runtime = new BalanceGameRuntime(server, manager, configDir);
         var catalog = WebCatalogExporter.snapshot(System.currentTimeMillis(), initial.wave(), initial.economy(), initial.summon(), initial.augment());
         BalanceFieldRegistry fields = new BalanceFieldRegistry(BalanceBundle.defaults(), catalog, BalanceGameRuntime.verifiedLiveTowerIds());
         BalanceChangeService service = new BalanceChangeService(directory, serverId, initial, fields, runtime);
@@ -45,6 +45,7 @@ public final class BalanceManagementBootstrap implements AutoCloseable {
             runtime.bootstrap(service.currentBundle(), service.currentRevision());
             // Startup waits before accepting requests; regular match ticks never do this disk write.
             CompletableFuture.supplyAsync(runtime::afterApplied).join();
+            CompletableFuture.runAsync(() -> service.publishUpdates(service.history())).join();
             manager.attachManagedBalance(runtime, service::onBoundary);
             service.onBoundary(BalanceChangeService.Boundary.TICK);
             if (enabled) {

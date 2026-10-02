@@ -125,7 +125,7 @@ class BalanceChangeServiceTest {
         try (var service = service(new FakeRuntime())) {
             var fields = service.fields().stream().filter(field ->
                     field.id().startsWith("augment:/parameters/") || field.domain().equals("trait")).toList();
-            assertEquals(433, fields.stream().filter(field -> field.domain().equals("augment")).count());
+            assertEquals(437, fields.stream().filter(field -> field.domain().equals("augment")).count());
             assertEquals(32, fields.stream().filter(field -> field.domain().equals("trait")).count());
             var changes = fields.stream().map(field -> {
                 assertTrue(field.editable(), field.id());
@@ -599,9 +599,10 @@ class BalanceChangeServiceTest {
 
         try (var service = service(new FakeRuntime())) {
             assertNull(service.state().writeBlocked());
-            assertEquals(originalRevision, service.currentRevision());
-            assertEquals(before, service.legacyRevision());
-            assertEquals(List.of(original), service.history());
+            assertEquals(BalanceBundle.fromJson(active, defaults).revision(), service.currentRevision());
+            assertEquals(BalanceBundle.fromJson(baseline, defaults).revision(), service.legacyRevision());
+            assertEquals(original, service.deployment(originalKey));
+            assertEquals(2, service.history().size());
             assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
             JsonObject recovered = service.currentBundle().toJson();
             for (String domain : List.of("tower", "economy", "wave", "summon", "trait", "monsterScaling")) {
@@ -612,7 +613,7 @@ class BalanceChangeServiceTest {
             assertFalse(parameters.has("semiontd:decisive_delivery"));
             assertEquals(.15, parameters.getAsJsonObject("semiontd:beneficial_effect_3").get("damageBonus").getAsDouble());
             assertEquals(Set.of("semiontd:folding_barricade_blueprint"), service.currentBundle().augment().disabledIds());
-            assertEquals(index, Files.readString(directory.resolve("index.json")), "Reading must not rewrite the journal");
+            assertNotEquals(index, Files.readString(directory.resolve("index.json")), "Startup records the adopted configuration as a new revision");
             assertEquals(stored, Files.readString(directory.resolve("revisions").resolve(originalRevision + ".json")));
             String next = key();
             submit(service, next, ApplyMode.NOW, 10);
@@ -673,7 +674,7 @@ class BalanceChangeServiceTest {
             assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(pending).state());
             service.onBoundary(Boundary.BEFORE_MATCH);
             assertEquals(0, runtime.applied);
-            assertEquals(before, service.currentRevision());
+            assertEquals(BalanceBundle.fromJson(baseline, defaults).revision(), service.currentRevision());
             service.cancel(pending, "operator");
             assertEquals(DeploymentState.CANCELLED, service.deployment(pending).state());
             String next = key();
@@ -699,6 +700,109 @@ class BalanceChangeServiceTest {
         return json;
     }
 
+    @Test
+    void startupAdoptsNewServerFieldsPreservesManagedValuesAndPersistsWithoutRewritingHistory() throws Exception {
+        JsonObject baseline = legacyAugmentJson();
+        JsonObject tower = baseline.getAsJsonObject("tower");
+        tower.getAsJsonObject("towers").remove("gamble_poker_table");
+        tower.getAsJsonObject("upgradeCosts").remove("gamble_king->spin_slots");
+        tower.getAsJsonObject("abilities").getAsJsonObject("gamble_king").remove("baseMagicDamage");
+        JsonObject spectator = tower.getAsJsonObject("abilities").getAsJsonObject("gamble_spectator_t2");
+        spectator.remove("jackpotDiamondReward");
+        spectator.addProperty("faceSixDiamondReward", 7.5);
+        spectator.addProperty("minimumRoll", 4);
+        spectator.addProperty("supportPowerMultiplier", 2);
+        String before = saveLegacyRevision(baseline);
+        JsonObject managed = baseline.deepCopy();
+        managed.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("t1_pig_tower").addProperty("damage", 9);
+        managed.getAsJsonObject("tower").getAsJsonObject("abilities").getAsJsonObject("gamble_spectator_t2").addProperty("faceSixDiamondReward", 10);
+        String saved = saveLegacyRevision(managed);
+        String oldKey = key();
+        BalancePatch oldPatch = new BalancePatch(before, ApplyMode.NEXT_MATCH, "existing web patch", null,
+                List.of(new BalanceChange(DAMAGE, defaults.tower().towers().get("t1_pig_tower").damage(), 9)));
+        BalanceDeployment oldDeployment = new BalanceDeployment(oldKey, DeploymentState.APPLIED, before, saved,
+                ApplyMode.NEXT_MATCH, oldPatch.reason(), "operator", "web", 1L, 2L, "NEXT_MATCH", "SYNCED", null, oldPatch.changes());
+        var oldReceipt = new BalanceRevisionStore.Receipt(oldKey, "a".repeat(64), oldPatch, saved, "b".repeat(64), SCOPE, null, oldDeployment);
+        new BalanceRevisionStore(directory).saveIndex(new BalanceRevisionStore.Index(1, saved, List.of(oldReceipt), null));
+        String original = Files.readString(directory.resolve("revisions").resolve(saved + ".json"));
+
+        BalanceBundle old = BalanceBundle.fromJson(baseline);
+        JsonObject serverJson = new BalanceBundle(old.tower().withMissingDefaults(defaults.tower()), old.augment(), old.wave(),
+                old.summon(), old.trait(), old.economy(), old.monsterScaling()).toJson();
+        serverJson.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("gamble_poker_table").addProperty("maxHealth", 777);
+        serverJson.getAsJsonObject("augment").getAsJsonObject("parameters").getAsJsonObject("semiontd:beneficial_effect_1").addProperty("damageBonus", .17);
+        BalanceBundle serverConfig = BalanceBundle.fromJson(serverJson);
+        String adopted;
+        try (var service = new BalanceChangeService(directory, "test", serverConfig, registry(), new FakeRuntime())) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(777, service.currentBundle().tower().towers().get("gamble_poker_table").maxHealth());
+            assertEquals(.17, service.currentBundle().toJson().getAsJsonObject("augment").getAsJsonObject("parameters")
+                    .getAsJsonObject("semiontd:beneficial_effect_1").get("damageBonus").getAsDouble());
+            assertEquals(120, service.currentBundle().tower().abilities().get("gamble_spectator_t2").get("jackpotDiamondReward"));
+            assertFalse(service.currentBundle().tower().abilities().get("gamble_spectator_t2").containsKey("minimumRoll"));
+            assertEquals(serverConfig.revision(), service.revision(service.legacyRevision()).revision(), "Automatic additions must not cause a manual-config conflict");
+            assertEquals(oldDeployment, service.deployment(oldKey));
+            assertEquals(2, service.history().size());
+            assertEquals("startup", service.history().getFirst().source());
+            adopted = service.currentRevision();
+            assertNotEquals(saved, adopted);
+            assertEquals(service.currentBundle().revision(), adopted);
+        }
+        String index = Files.readString(directory.resolve("index.json"));
+        try (var service = new BalanceChangeService(directory, "test", serverConfig, registry(), new FakeRuntime())) {
+            assertNull(service.state().writeBlocked());
+            assertEquals(adopted, service.currentRevision());
+            assertEquals(2, service.history().size());
+            assertEquals(index, Files.readString(directory.resolve("index.json")), "Second startup must not migrate again");
+        }
+        serverJson.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("gamble_poker_table").addProperty("maxHealth", 999);
+        BalanceBundle editedServer = BalanceBundle.fromJson(serverJson);
+        try (var service = new BalanceChangeService(directory, "test", editedServer, registry(), new FakeRuntime())) {
+            assertEquals(999, service.currentBundle().tower().towers().get("gamble_poker_table").maxHealth(), "File-only edits are imported when the web has not changed that field");
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage(), "Unrelated web changes survive the file import");
+            assertEquals(editedServer.revision(), service.revision(service.legacyRevision()).revision());
+        }
+        assertEquals(original, Files.readString(directory.resolve("revisions").resolve(saved + ".json")));
+    }
+
+    @Test
+    void serverDefaultsNeverReplaceStoredArraysOrExistingScalars() {
+        JsonObject stored = defaults.toJson();
+        stored.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("t1_pig_tower").addProperty("damage", 19);
+        stored.getAsJsonObject("augment").getAsJsonArray("disabledIds").add("semiontd:folding_barricade_blueprint");
+        stored.getAsJsonObject("wave").getAsJsonArray("rounds").get(4).getAsJsonObject().getAsJsonObject("lanes")
+                .getAsJsonArray("default").get(0).getAsJsonObject().addProperty("attackDamage", 123);
+        BalanceBundle result = BalanceBundle.fromJson(stored, defaults);
+        assertEquals(BalanceBundle.fromJson(stored).revision(), result.revision());
+        assertEquals(19, result.tower().towers().get("t1_pig_tower").damage());
+        stored.remove("tower");
+        assertThrows(IllegalArgumentException.class, () -> BalanceBundle.fromJson(stored, defaults));
+    }
+
+    @Test
+    void failedAutomaticRegistrationKeepsOriginalIndexAndBlocksRuntimeWrites() throws Exception {
+        JsonObject old = legacyAugmentJson();
+        String revision = saveLegacyRevision(old);
+        FailingStore store = new FailingStore(directory);
+        store.saveIndex(new BalanceRevisionStore.Index(1, revision, List.of(), null));
+        String originalIndex = Files.readString(directory.resolve("index.json"));
+        store.fail = true;
+        FakeRuntime runtime = new FakeRuntime();
+        try (var service = new BalanceChangeService(store, "test", defaults, registry(), runtime)) {
+            assertNotNull(service.state().writeBlocked());
+            assertInstanceOf(IOException.class, service.recoveryFailure());
+            service.onBoundary(Boundary.BEFORE_MATCH);
+            assertEquals(0, runtime.applied);
+        }
+        assertEquals(originalIndex, Files.readString(directory.resolve("index.json")));
+        store.fail = false;
+        try (var recovered = new BalanceChangeService(store, "test", defaults, registry(), runtime)) {
+            assertNull(recovered.state().writeBlocked());
+            assertEquals(1, recovered.history().size());
+        }
+    }
+
     private String saveLegacyRevision(JsonObject json) throws IOException {
         String contents = BalanceBundle.canonical(json);
         String revision = BalanceBundle.digest(contents);
@@ -708,14 +812,14 @@ class BalanceChangeServiceTest {
     }
 
     @Test
-    void legacyBaselineSurvivesOfflineEditsBeforeAndAfterManagedChanges() throws Exception {
+    void legacyBaselineTracksImportedOfflineEditsWithoutReplacingManagedChanges() throws Exception {
         try (var service = service(new FakeRuntime())) {assertEquals(defaults.revision(), service.legacyRevision());}
         JsonObject edited = defaults.toJson();
         edited.getAsJsonObject("economy").addProperty("startingDiamond", defaults.economy().startingDiamond() + 1);
         BalanceBundle offlineEdit = BalanceBundle.fromJson(edited);
         try (var service = new BalanceChangeService(directory, "test", offlineEdit, registry(), new FakeRuntime())) {
-            assertEquals(defaults.revision(), service.legacyRevision());
-            assertNotEquals(offlineEdit.revision(), service.legacyRevision());
+            assertEquals(offlineEdit.revision(), service.legacyRevision());
+            assertEquals(offlineEdit.economy().startingDiamond(), service.currentBundle().economy().startingDiamond());
             String key = key();
             submit(service, key, ApplyMode.NOW, 6);
             service.onBoundary(Boundary.TICK);
@@ -723,9 +827,91 @@ class BalanceChangeServiceTest {
             assertNotEquals(service.currentRevision(), service.legacyRevision());
         }
         try (var service = new BalanceChangeService(directory, "test", offlineEdit, registry(), new FakeRuntime())) {
-            assertEquals(defaults.revision(), service.legacyRevision());
+            assertEquals(offlineEdit.revision(), service.legacyRevision());
             assertEquals(6, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
             assertNotEquals(service.currentRevision(), service.legacyRevision());
+        }
+    }
+
+    @Test
+    void startupImportsBarricadeFileChangePreservingWebPatchPendingReviewAndAudit() throws Exception {
+        JsonObject json = defaults.toJson();
+        String aggro = "tower:/towers/augment_folding_barricade/aggroPriority";
+        BalanceFieldRegistry.set(json, aggro, 0);
+        BalanceBundle baseline = BalanceBundle.fromJson(json);
+        String applied = key();
+        String pending = key();
+        BalanceDeployment original;
+        try (var service = new BalanceChangeService(directory, "test", baseline, registry(), new FakeRuntime())) {
+            submit(service, applied, ApplyMode.NOW, 9);
+            service.onBoundary(Boundary.TICK);
+            awaitTerminal(service, applied);
+            original = service.deployment(applied);
+            submit(service, pending, ApplyMode.NEXT_MATCH, 12);
+        }
+        String originalSnapshot = Files.readString(directory.resolve("revisions").resolve(original.effectiveRevision() + ".json"));
+        BalanceFieldRegistry.set(json, aggro, 500);
+        BalanceBundle serverConfig = BalanceBundle.fromJson(json);
+        try (var service = new BalanceChangeService(directory, "test", serverConfig, registry(), new FakeRuntime())) {
+            assertEquals(500, service.currentBundle().tower().towers().get("augment_folding_barricade").aggroPriority());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(serverConfig.revision(), service.legacyRevision());
+            assertEquals(original, service.deployment(applied));
+            assertEquals(DeploymentState.REQUIRES_REVIEW, service.deployment(pending).state());
+            assertEquals(1, service.history().getFirst().changes().size());
+            assertEquals(aggro, service.history().getFirst().changes().getFirst().fieldId());
+            assertEquals(0, service.history().getFirst().changes().getFirst().expectedValue());
+            assertEquals(500, service.history().getFirst().changes().getFirst().value());
+        }
+        assertEquals(originalSnapshot, Files.readString(directory.resolve("revisions").resolve(original.effectiveRevision() + ".json")));
+        // If the file later catches up with the same web value, only the comparison baseline changes.
+        BalanceFieldRegistry.set(json, DAMAGE, 9);
+        serverConfig = BalanceBundle.fromJson(json);
+        String active;
+        try (var service = new BalanceChangeService(directory, "test", serverConfig, registry(), new FakeRuntime())) {
+            assertEquals(serverConfig.revision(), service.legacyRevision());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertTrue(service.history().getFirst().changes().isEmpty());
+            active = service.currentRevision();
+        }
+        String index = Files.readString(directory.resolve("index.json"));
+        try (var service = new BalanceChangeService(directory, "test", serverConfig, registry(), new FakeRuntime())) {
+            assertEquals(active, service.currentRevision());
+            assertEquals(index, Files.readString(directory.resolve("index.json")), "Repeated startup is a no-op");
+        }
+    }
+
+    @Test
+    void changedServerValueWinsOverWebValueButStructuralEditsAreNotPartiallyImported() throws Exception {
+        JsonObject json = defaults.toJson();
+        String aggro = "tower:/towers/augment_folding_barricade/aggroPriority";
+        BalanceFieldRegistry.set(json, aggro, 0);
+        BalanceBundle baseline = BalanceBundle.fromJson(json);
+        try (var service = new BalanceChangeService(directory, "test", baseline, registry(), new FakeRuntime())) {
+            String request = key();
+            submit(service, request, ApplyMode.NOW, 9);
+            service.onBoundary(Boundary.TICK);
+            awaitTerminal(service, request);
+        }
+        String originalIndex = Files.readString(directory.resolve("index.json"));
+        BalanceFieldRegistry.set(json, aggro, 500);
+        BalanceFieldRegistry.set(json, DAMAGE, 10);
+        JsonObject structural = json.deepCopy();
+        structural.getAsJsonObject("augment").getAsJsonArray("disabledIds").add("semiontd:folding_barricade_blueprint");
+        BalanceBundle edited = BalanceBundle.fromJson(structural);
+        try (var service = new BalanceChangeService(directory, "test", edited, registry(), new FakeRuntime())) {
+            assertEquals(baseline.revision(), service.legacyRevision(), "Unresolved delta remains visible to the runtime conflict guard");
+            assertNotEquals(edited.revision(), service.legacyRevision());
+            assertEquals(9, service.currentBundle().tower().towers().get("t1_pig_tower").damage());
+            assertEquals(0, service.currentBundle().tower().towers().get("augment_folding_barricade").aggroPriority());
+            assertEquals(originalIndex, Files.readString(directory.resolve("index.json")));
+        }
+        BalanceBundle changedFile = BalanceBundle.fromJson(json);
+        try (var service = new BalanceChangeService(directory, "test", changedFile, registry(), new FakeRuntime())) {
+            assertEquals(10, service.currentBundle().tower().towers().get("t1_pig_tower").damage(), "Changed server value wins even over a web edit");
+            assertEquals(500, service.currentBundle().tower().towers().get("augment_folding_barricade").aggroPriority());
+            assertEquals(changedFile.revision(), service.legacyRevision());
+            assertEquals(2, service.history().getFirst().changes().size());
         }
     }
 
@@ -830,19 +1016,24 @@ class BalanceChangeServiceTest {
                     String hash = service.validate(patch, "operator", SCOPE).validationHash();
                     String key = key();
                     int before = runtime.announced;
+                    int publishedBefore = runtime.published.size();
                     service.submit(key, patch, hash, "operator", "web", SCOPE);
                     assertEquals(before, runtime.announced, "Scheduling must not announce");
+                    assertEquals(publishedBefore, runtime.published.size(), "Scheduling must not publish");
                     Boundary boundary = mode == ApplyMode.NEXT_MATCH ? Boundary.BEFORE_MATCH
                             : mode == ApplyMode.NEXT_PREPARE ? Boundary.BEFORE_PREPARE : Boundary.TICK;
                     service.onBoundary(boundary);
                     awaitTerminal(service, key);
                     assertEquals(DeploymentState.APPLIED, service.deployment(key).state());
+                    assertEquals(publishedBefore + 1, runtime.published.size(), "Silent updates are still public history");
+                    assertEquals(service.deployment(key).changes(), runtime.published.getLast().changes());
                     assertEquals(before, runtime.announced, "Persistence worker must not broadcast");
                     service.onBoundary(Boundary.TICK);
                     assertEquals(before + (Boolean.TRUE.equals(notify) ? 1 : 0), runtime.announced);
                     assertEquals(DeploymentState.APPLIED, service.submit(key, patch, hash, "operator", "web", SCOPE).state());
                     service.onBoundary(Boundary.TICK);
                     assertEquals(before + (Boolean.TRUE.equals(notify) ? 1 : 0), runtime.announced, "Replay must not announce again");
+                    assertEquals(publishedBefore + 1, runtime.published.size(), "Replay must not republish");
                 }
             }
         }
@@ -900,6 +1091,7 @@ class BalanceChangeServiceTest {
                 assertEquals(diskFailure ? DeploymentState.REQUIRES_REVIEW : DeploymentState.FAILED, service.deployment(key).state());
                 service.onBoundary(Boundary.TICK);
                 assertEquals(0, runtime.announced);
+                assertTrue(runtime.published.isEmpty(), "Failed changes must never be published");
             }
         }
     }
@@ -923,6 +1115,12 @@ class BalanceChangeServiceTest {
     private static class FakeRuntime implements BalanceChangeService.Runtime {
         int applied;
         int announced;
+        final List<BalanceDeployment> published = new java.util.concurrent.CopyOnWriteArrayList<>();
+        public void publishUpdates(List<BalanceDeployment> deployments, List<BalanceField> fields) {
+            assertFalse(fields.isEmpty());
+            assertTrue(deployments.stream().allMatch(result -> result.state() == DeploymentState.APPLIED));
+            published.addAll(deployments);
+        }
         final Thread mainThread = Thread.currentThread();
         public void broadcastApplied(BalanceDeployment deployment) {
             assertSame(mainThread, Thread.currentThread());
