@@ -277,7 +277,7 @@ public final class AncientCityTower extends EntityBackedTower {
                 this,
                 towerEntity,
                 request,
-                target -> magicDamage(target, baseDamage, true),
+                target -> magicDamage(target, baseDamage + healthBonusDamage(target), true),
                 true,
                 (target, dealtDamage, killed) -> {
                     if (!killed && target.isAlive() && slow > 0.0 && slowTicks > 0) {
@@ -303,7 +303,7 @@ public final class AncientCityTower extends EntityBackedTower {
         for (int index = 0; index < targets.size(); index++) {
             SemionMonsterEntity target = targets.get(index);
             boolean primary = index == 0;
-            double targetBaseDamage = primary ? baseDamage : baseDamage * secondaryRatio;
+            double targetBaseDamage = (baseDamage + healthBonusDamage(target)) * (primary ? 1.0 : secondaryRatio);
             DamageResult result = damageTargetResult(
                     towerEntity,
                     target,
@@ -316,6 +316,16 @@ public final class AncientCityTower extends EntityBackedTower {
         }
         AncientCityVfx.showWarden(towerEntity, targets);
         return true;
+    }
+
+    private double healthBonusDamage(SemionMonsterEntity target) {
+        Monster monster = target.runtimeMonster();
+        double health = Math.max(0.0, monster == null ? target.getHealth() : monster.health());
+        return switch (role()) {
+            case SHRIEKER -> health * ability("currentHealthDamageRatio");
+            case WARDEN -> Math.max(0.0, maxHealth(target) - health) * ability("missingHealthDamageRatio");
+            default -> 0.0;
+        };
     }
 
     private SemionMonsterEntity primaryTarget(

@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.balance.manage;
 
 import com.google.gson.JsonObject;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -26,15 +27,17 @@ import net.minecraft.ChatFormatting;
 public final class BalanceGameRuntime implements BalanceChangeService.Runtime {
     private final MinecraftServer server;
     private final SemionGameManager manager;
+    private final Path configDir;
     private String legacyConfigRevision;
     private String revision;
     private String manualConfigConflict;
     private volatile SemionGameManager.PreparedBalanceCatalog pendingCatalog;
     private volatile String catalogStatus = "DISABLED";
 
-    public BalanceGameRuntime(MinecraftServer server, SemionGameManager manager) {
+    public BalanceGameRuntime(MinecraftServer server, SemionGameManager manager, Path configDir) {
         this.server = server;
         this.manager = manager;
+        this.configDir = configDir;
         revision = manager.captureBalanceBundle().revision();
         legacyConfigRevision = revision;
     }
@@ -58,7 +61,13 @@ public final class BalanceGameRuntime implements BalanceChangeService.Runtime {
     public void broadcastApplied(BalanceDtos.BalanceDeployment deployment) {
         server.getPlayerList().broadcastSystemMessage(Component.literal("[밸런스] ").withStyle(ChatFormatting.GOLD)
                 .append(Component.literal("밸런스가 업데이트되었습니다. (" + deployment.changes().size() + "개 항목)")
-                        .withStyle(ChatFormatting.WHITE)), false);
+                        .withStyle(ChatFormatting.WHITE))
+                .append(BalanceUpdateLog.link(deployment.requestId())), false);
+    }
+
+    @Override
+    public void publishUpdates(List<BalanceDtos.BalanceDeployment> deployments, List<BalanceDtos.BalanceField> fields) {
+        BalanceUpdateLog.export(configDir, deployments, fields);
     }
 
     public String writeBlocked() {

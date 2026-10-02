@@ -134,15 +134,29 @@ final class QueenTowerCatalogTest {
         card.assignCard(new QueenCard(QueenCard.Suit.HEART, 2));
 
         card.applyPokerSnapshot(PokerHand.ONE_PAIR);
+        assertEquals(96.0, card.currentMaxHealth(), 0.0001);
+        card.syncHealth(card.health() - 10);
+        double damagedHealth = card.health();
+        card.applyPokerSnapshot(PokerHand.ONE_PAIR);
+        assertEquals(96.0, card.currentMaxHealth(), 0.0001);
+        assertEquals(damagedHealth, card.health(), 0.0001, "Repeated snapshots must not grant health twice");
         assertEquals(90.0, card.modifyIncomingDamage(null, null, 100.0), 0.0001);
         card.applyPokerSnapshot(PokerHand.FIVE_OF_A_KIND);
 
-        assertEquals(QueenBalance.cardMaxHealth(QueenCard.Suit.HEART) * 2.0, card.currentMaxHealth(), 0.0001);
+        assertEquals(QueenBalance.cardMaxHealth(QueenCard.Suit.HEART) * 2.0 + 300, card.currentMaxHealth(), 0.0001);
         assertEquals(QueenBalance.cardInterval(QueenCard.Suit.HEART) / 2, card.adjustAttackInterval(999));
         assertEquals(60.0, card.modifyIncomingDamage(null, null, 100.0), 0.0001);
         for (QueenCard.Suit suit : QueenCard.Suit.values()) {
             card.assignCard(new QueenCard(suit, 2));
             assertEquals(QueenBalance.cardAggro(suit), card.aggroPriority());
+            for (PokerHand hand : PokerHand.values()) {
+                card.applyPokerSnapshot(hand);
+                double bonus = QueenBalance.handBonus(hand);
+                assertEquals(QueenBalance.cardMaxHealth(suit) * (1 + bonus) + Math.min(1, bonus) * 300,
+                        card.currentMaxHealth(), 0.0001, "Current hand replaces the previous hand: " + hand);
+            }
+            card.applyPokerSnapshot(PokerHand.HIGH_CARD);
+            assertEquals(QueenBalance.cardMaxHealth(suit), card.currentMaxHealth(), 0.0001);
         }
     }
 
@@ -221,6 +235,19 @@ final class QueenTowerCatalogTest {
         for (int i = 0; i < 200; i++) monster.applyPermanentStatScale(0.5, 0.10);
         assertTrue(monster.health() > 0.0);
         assertEquals(0.10, monster.visualScale(), 0.0001);
+    }
+
+    @Test
+    void healthCanShrinkIndependentlyWithoutChangingAttackOrVisualScale() {
+        Monster monster = new Monster("queen-health", TeamId.RED, 1, Optional.empty(), Optional.empty(),
+                1000, 0, 100, AttackKind.MELEE, "minecraft:zombie", 0);
+        monster.syncHealth(500);
+        monster.applyPermanentStatScale(0.2, 0.01, 0.5);
+        assertEquals(10, monster.maxHealth(), 0.0001);
+        assertEquals(5, monster.health(), 0.0001);
+        assertEquals(20, monster.attackDamage(), 0.0001);
+        assertEquals(0.5, monster.visualScale(), 0.0001);
+        assertThrows(IllegalArgumentException.class, () -> monster.applyPermanentStatScale(1, 0, 0.5));
     }
 
     @Test

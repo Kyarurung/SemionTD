@@ -50,9 +50,12 @@ public final class BalanceFieldRegistry {
     }
 
     public List<BalanceField> fields(BalanceBundle active, BalanceBundle scheduled, boolean idle) {
+        return fieldsWithScheduledValues(active, scheduled == null ? Map.of() : flatten(scheduled.toJson()), idle);
+    }
+
+    public List<BalanceField> fieldsWithScheduledValues(BalanceBundle active, Map<String, Double> scheduledValues, boolean idle) {
         Map<String, Double> values = flatten(active.toJson());
         Map<String, Double> defaultValues = flatten(defaults);
-        Map<String, Double> scheduledValues = scheduled == null ? Map.of() : flatten(scheduled.toJson());
         List<BalanceField> fields = new ArrayList<>();
         values.forEach((id, value) -> {
             String domain = id.substring(0, id.indexOf(':'));
@@ -263,7 +266,7 @@ public final class BalanceFieldRegistry {
                     "chargedDamageRatio", "childRatio", "chill", "copyRatio", "damageBonus", "damageCapRatio", "damageRatio",
                     "damageReduction", "damageThreshold", "decayReduction", "dreamBonus", "echoRatio", "experienceRatio", "followupRatio",
                     "growthBonus", "healRatio", "healthBonus", "healthCapRatio", "healthDamageRatio", "healthLossRatio", "healthPerTier",
-                    "healthRatio", "healthThreshold", "inheritRatio", "intervalRatio", "jackpotDamageRatio", "longDamageBonus",
+                    "healthRatio", "healthThreshold", "incomingDamageBonus", "inheritRatio", "intervalRatio", "jackpotDamageRatio", "longDamageBonus",
                     "longDamageReduction", "markDamageBonus", "maxHealthBonus", "maxHealthDamageRatio", "oppositeEffectRatio",
                     "otherDamagePenalty", "overflowRatio", "overkillRatio", "penaltyPerStack", "powerPerTier", "quickDamageBonus",
                     "redirectRatio", "refundRatio", "repeatDamageRatio", "reviveHealthRatio", "rewardBonus", "scalePerClone",
@@ -278,6 +281,8 @@ public final class BalanceFieldRegistry {
         return switch (key) {
             case "damageBonus" -> "추가 피해 비율";
             case "damageReduction" -> "받는 피해 감소율";
+            case "incomingDamageBonus" -> "받는 피해 증가율";
+            case "activeCap" -> "동시 생존·생성 대기 상한";
             case "maxHealthBonus", "healthBonus" -> "최대 체력 증가율";
             case "damageRatio" -> "공격력 비례 피해";
             case "healRatio" -> "회복 비율";

@@ -780,11 +780,19 @@ public abstract class Tower {
             SemionTowerEntity source, SemionMonsterEntity target, double baseDamage
     ) {
         double builderOutgoing = resolveBuilderOutgoingDamage(source, target, baseDamage);
-        double globalBonus = AugmentCombat.damageBonus(this, source);
-        double outgoing = builderOutgoing * Math.max(0.0, 1.0 + globalBonus + AugmentCombat.primaryDamageBonus(this, target));
-        DamageResult result = damageResolvedTargetResult(source, target, outgoing, primaryDamageType());
+        boolean converted = source != null && source.convertsDamageToAttackSpeed();
+        double globalBonus = converted ? 0.0 : AugmentCombat.damageBonus(this, source);
+        double primaryBonus = converted ? 0.0 : AugmentCombat.primaryDamageBonus(this, target);
+        double outgoing = builderOutgoing * Math.max(0.0, 1.0 + globalBonus + primaryBonus);
+        DamageResult result = damageResolvedBasicAttackTargetResult(source, target, outgoing);
         return new DamageResult(result.killed(), result.dealtDamage(), result.outgoingDamage(),
                 result.healthDamageAttempted(), result.healthBeforeHit(), builderOutgoing * Math.max(0.0, 1.0 + globalBonus));
+    }
+
+    protected DamageResult damageResolvedBasicAttackTargetResult(
+            SemionTowerEntity source, SemionMonsterEntity target, double outgoingDamage
+    ) {
+        return damageResolvedTargetResult(source, target, outgoingDamage, primaryDamageType());
     }
 
     public double resolveOutgoingDamage(
@@ -795,8 +803,8 @@ public abstract class Tower {
         if (towerEntity == null || !Double.isFinite(baseDamage)) {
             return 0.0;
         }
-        double damageWithTimedBonus = baseDamage * (1.0
-                + towerEntity.activeEffectMagnitude(TimedEffectType.TOWER_DAMAGE_BONUS));
+        double damageWithTimedBonus = baseDamage * (1.0 + (towerEntity.convertsDamageToAttackSpeed()
+                ? 0.0 : towerEntity.activeEffectMagnitude(TimedEffectType.TOWER_DAMAGE_BONUS)));
         return resolveBasicAttackOutgoingDamage(towerEntity, target, damageWithTimedBonus);
     }
 
@@ -806,7 +814,8 @@ public abstract class Tower {
             double baseDamage
     ) {
         return resolveBuilderOutgoingDamage(towerEntity, target, baseDamage)
-                * Math.max(0.0, 1.0 + AugmentCombat.damageBonus(this, towerEntity));
+                * Math.max(0.0, 1.0 + (towerEntity != null && towerEntity.convertsDamageToAttackSpeed()
+                        ? 0.0 : AugmentCombat.damageBonus(this, towerEntity)));
     }
 
     private double resolveBuilderOutgoingDamage(
@@ -1041,6 +1050,11 @@ public abstract class Tower {
 
     public double adjustAttackRange(double baseRange) {
         return baseRange;
+    }
+
+    /** Non-attacking towers remain unable to attack when allies grant flat range or damage. */
+    public boolean canUseBasicAttacks() {
+        return true;
     }
 
     public double adjustMovementSpeed(double baseSpeed) {return baseSpeed;}

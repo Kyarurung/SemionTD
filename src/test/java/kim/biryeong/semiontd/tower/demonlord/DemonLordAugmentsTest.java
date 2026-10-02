@@ -61,13 +61,13 @@ class DemonLordAugmentsTest {
         var snapshot = snapshot("one_man_show", "tactical_designation_3_assault");
         state.syncAugments(snapshot);
         state.enterCombat();
-        assertEquals(baseline * 2, state.maxHealth(), 1e-6);
-        assertEquals(4, state.augments().damageMultiplier(snapshot, 0), 1e-6);
+        assertEquals(baseline * 1.2, state.maxHealth(), 1e-6);
+        assertEquals(1.6, state.augments().damageMultiplier(snapshot, 0), 1e-6);
         snapshot = snapshot("tactical_designation_3_cover");
         state.syncAugments(snapshot);
         state.enterCombat();
         state.applyDamage(100, snapshot, 0, true);
-        assertEquals(baseline - 60, state.health(), 1e-6);
+        assertEquals(baseline - 92, state.health(), 1e-6);
 
         snapshot = snapshot("overheat_core", "battlefield_mastery");
         state.syncAugments(snapshot);
@@ -82,7 +82,7 @@ class DemonLordAugmentsTest {
         state.settleTargetedAugments(5);
         assertEquals(1, state.augments().targetedProgress().mastery());
         assertEquals(1, state.augments().targetedProgress().heat());
-        assertEquals(baseline * 1.2, state.maxHealth(), 1e-6);
+        assertEquals(baseline * 1.04, state.maxHealth(), 1e-6);
 
         state.enterCombat();
         state.augments().beginTargeted(snapshot, 6, state.maxHealth());
@@ -104,7 +104,7 @@ class DemonLordAugmentsTest {
         }
         assertEquals(5, state.augments().targetedProgress().heat());
         assertEquals(1, state.augments().targetedProgress().mastery(), "Non-enemy damage cannot build mastery");
-        assertEquals(.9, state.augments().damageMultiplier(snapshot, 0), 1e-6);
+        assertEquals(.98, state.augments().damageMultiplier(snapshot, 0), 1e-6);
         DemonLordStates.clear(owner);
         DemonLordStates.resetProgression(owner);
         assertEquals(0, DemonLordStates.getOrCreate(owner).augments().targetedProgress().heat());

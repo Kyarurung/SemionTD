@@ -45,7 +45,9 @@ public final class BalanceDtos {
 
     public record BalanceState(String serverId, boolean online, String revision, String catalogVersion,
                                GameState game, BalanceDeployment pending, long updatedAt, String writeBlocked,
-                               String fieldsVersion) {}
+                               String fieldsVersion, List<BalanceDeployment> pendingDeployments) {
+        public BalanceState {pendingDeployments = List.copyOf(pendingDeployments);}
+    }
 
     public static final class BalanceException extends RuntimeException {
         private final int status;

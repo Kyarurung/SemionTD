@@ -41,6 +41,68 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class QueenGameTest {
     @GameTest
+    public void damageBonusesBecomeAttackSpeedForQueenCardsAndJokers(GameTestHelper context) {
+        var previousBalance = kim.biryeong.semiontd.config.TowerBalanceRuntime.current();
+        kim.biryeong.semiontd.tower.ProductionTowerCatalogs.reloadBuiltIns(
+                kim.biryeong.semiontd.config.TowerBalanceConfig.defaultConfig());
+        UUID owner = UUID.randomUUID();
+        PlayerLane lane = augmentLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        prepareFloor(context, 7);
+        try {
+            QueenTower queen = createQueen(context, owner, new BlockPos(2, 2, 2));
+            QueenCardTower card = createCard(context, owner, new BlockPos(3, 2, 2),
+                    new QueenCard(QueenCard.Suit.HEART, 2));
+            GridPosition position = GridPosition.from(context.absolutePos(new BlockPos(4, 2, 2)));
+            QueenCardTower joker = new QueenCardTower(QueenTowers.JOKER, owner, TeamId.RED, 1, position, position);
+            for (Tower tower : List.of(queen, card, joker)) lane.addTower(tower);
+            var target = spawnTarget(context, lane, Vec3.atCenterOf(context.absolutePos(new BlockPos(5, 2, 2))),
+                    "queen-conversion").entity();
+            var source = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("semion-td", "queen_conversion_test");
+            for (Tower tower : List.of(queen, card, joker)) {
+                SemionTowerEntity entity = towerEntity(context, tower);
+                int baseInterval = entity.attackIntervalTicks();
+                entity.setPersistentEffect(TimedEffectType.TOWER_DAMAGE_BONUS, source, 1.0);
+                require(entity.attackIntervalTicks() == (int) Math.ceil(baseInterval / 1.7),
+                        "Damage +100% must become attack speed +70% for every Queen body.");
+                entity.setPersistentEffect(TimedEffectType.TOWER_TRAIT_DAMAGE_BONUS, source, 0.20);
+                entity.setPersistentEffect(TimedEffectType.TOWER_FINAL_DAMAGE_BONUS, source, 0.30);
+                entity.setPersistentEffect(TimedEffectType.TOWER_FLAT_DAMAGE_BONUS, source, 10.0);
+                tower.addPermanentFlatDamageBonus(10.0, lane);
+                require(entity.attackIntervalTicks() == (int) Math.ceil(baseInterval / 2.19),
+                        "Trait/final damage and both temporary and permanent flat damage must convert once.");
+                requireClose(0, entity.attackDamageAmount(target), "Converted flat damage must not enable direct damage.");
+                requireClose(100, tower.resolveOutgoingDamage(entity, target, 100),
+                        "Converted bonuses must not also amplify outgoing damage.");
+                entity.recordCurrentAttackTarget(target);
+                entity.setPersistentEffect(TimedEffectType.TOWER_WAVE_DAMAGE_BONUS, source, 1.0);
+                require(entity.attackIntervalTicks() == (int) Math.ceil(baseInterval / 2.89),
+                        "Wave-only bonuses must convert while attacking a wave monster.");
+                entity.recordCurrentAttackTarget(null);
+                require(entity.attackIntervalTicks() == (int) Math.ceil(baseInterval / 2.19),
+                        "Conditional bonuses must stop when their target is cleared.");
+                entity.setPersistentEffect(TimedEffectType.TOWER_DAMAGE_BONUS, source, 0.0);
+                require(entity.attackIntervalTicks() == (int) Math.ceil(baseInterval / 1.49),
+                        "Removing a damage buff must immediately remove its converted attack speed.");
+            }
+            lane.assignAugmentSnapshot(new AugmentSnapshot(AugmentConfig.defaults(), List.of(
+                    new PlayerAugmentState.Selection(5, AugmentRarity.SILVER, "beneficial_effect_1",
+                            PlayerAugmentState.Outcome.SELECTED, null, AugmentChoice.none()))));
+            double damageBonus = queen.augmentSnapshot().parameter("beneficial_effect_1", "damageBonus", 0.05);
+            double speedBonus = queen.augmentSnapshot().parameter("beneficial_effect_1", "attackSpeedBonus", 0.05);
+            require(towerEntity(context, queen).attackIntervalTicks()
+                            == (int) Math.ceil(QueenTowers.QUEEN.attackIntervalTicks() / (1.49 + damageBonus * .7 + speedBonus)),
+                    "A common augment must supply native speed plus converted damage, without double conversion.");
+            context.succeed();
+        } finally {
+            group.closeRuntime();
+            QueenStates.clear(owner);
+            kim.biryeong.semiontd.tower.ProductionTowerCatalogs.reloadBuiltIns(previousBalance);
+        }
+    }
+
+    @GameTest
     public void jokerTicketsGuardAuraAndRowBonusUseTheNativeCards(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("queen-augment-cards".getBytes(StandardCharsets.UTF_8));
         PlayerLane lane = augmentLane(context, owner);
@@ -70,7 +132,8 @@ public final class QueenGameTest {
             require(!QueenStates.state(owner).consumeJokerTicket(), "No fourth ticket may be consumed.");
             QueenPoker.snapshot(lane, owner);
             QueenCardTower joker = row.getFirst();
-            requireClose(90, joker.currentMaxHealth(), "Five-of-a-kind must double the joker's native 45 health.");
+            requireClose(390, joker.currentMaxHealth(), "Five-of-a-kind must add 300 health after doubling the joker's native 45 health.");
+            requireClose(390, towerEntity(context, joker).getMaxHealth(), "Joker entity health must match the logical tower.");
             require(joker.adjustAttackInterval(100) == 4, "Poker +100%, row +40% once and guard +50% must combine.");
             require(joker.sellRefundAmount() == 0, "Free joker refund must remain zero.");
             queen.syncHealth(0);
@@ -136,6 +199,9 @@ public final class QueenGameTest {
 
     @GameTest(maxTicks = 120)
     public void shrinkPreservesHealthAndGiantExecutesContactedEnemy(GameTestHelper context) {
+        var previousBalance = kim.biryeong.semiontd.config.TowerBalanceRuntime.current();
+        kim.biryeong.semiontd.tower.ProductionTowerCatalogs.reloadBuiltIns(
+                kim.biryeong.semiontd.config.TowerBalanceConfig.defaultConfig());
         UUID owner = UUID.nameUUIDFromBytes("queen-runtime".getBytes(StandardCharsets.UTF_8));
         QueenStates.clear(owner);
         PlayerLane lane = testLane(context, owner);
@@ -206,12 +272,12 @@ public final class QueenGameTest {
             requireClose(80.0 * factor, monster.maxHealth(), "Queen shrink must reduce max health.");
             requireClose(40.0 * factor, monster.health(), "Queen shrink must preserve current health ratio.");
             requireClose(20.0 * factor, monster.attackDamage(), "Queen shrink must reduce attack damage.");
-            requireClose(1.0 - factor,
+            requireClose(0.0,
                     target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION),
-                    "Queen shrink must reduce movement speed by the accumulated stat loss.");
-            requireClose((1.0 - factor) * 0.5,
+                    "Queen shrink must not reduce movement speed.");
+            requireClose(1.0 - factor,
                     target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
-                    "Queen shrink must reduce attack speed by half the movement-speed reduction.");
+                    "Queen shrink must reduce attack speed by the accumulated stat loss.");
             require(monster.isAlive(), "Shrink must never kill its target directly.");
             require(queen.selectForcedAttackTarget(queenEntity, List.of(target, nearby)).orElseThrow() == target,
                     "The Queen must keep focusing a partially weakened target.");
@@ -249,25 +315,32 @@ public final class QueenGameTest {
             for (int hit = 0; hit < 200; hit++) {
                 QueenShrink.apply(target, QueenBalance.queenShrinkPoints());
             }
-            requireClose(16.0, monster.maxHealth(), "Queen shrink must stop at the configured stat floor.");
-            requireClose(8.0, monster.health(), "The shrink floor must preserve the current health ratio.");
+            requireClose(10.0, monster.maxHealth(), "Health must continue shrinking past the attack floor.");
+            requireClose(5.0, monster.health(), "Health must reach the initial execution threshold without manual damage.");
             requireClose(4.0, monster.attackDamage(), "Queen shrink must stop at the configured attack floor.");
-            requireClose(0.80,
+            requireClose(0.0,
                     target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION),
-                    "Movement reduction must track the final stat scale.");
-            requireClose(0.40,
+                    "Movement speed must remain unchanged at full shrink.");
+            requireClose(0.70,
                     target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
-                    "Attack-speed reduction must remain half the movement reduction.");
+                    "Queen attack-speed reduction must cap at 70%.");
+            target.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION,
+                    QueenShrink.GIANT_DEBUFF_SOURCE, QueenBalance.giantSlow(), QueenBalance.giantSlowTicks());
+            requireClose(0.70, target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
+                    "Giant and shrink together must not exceed the Queen cap.");
+            target.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, 0.10, 40);
+            requireClose(0.80, target.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
+                    "The Queen cap must not consume another builder's debuff.");
             requireClose(0.50, monster.visualScale(), "Queen shrink must preserve the separate visual floor.");
             double appliedPoints = QueenShrink.points(target);
-            requireClose(Math.log(QueenBalance.minimumStatScale()) / Math.log(QueenBalance.shrinkFactorPerPoint()),
+            requireClose(Math.log(0.125) / Math.log(QueenBalance.shrinkFactorPerPoint()),
                     appliedPoints, "Only effective shrink points must be recorded.");
             require(!QueenShrink.apply(target, QueenBalance.queenShrinkPoints()),
                     "Shrink at the floor must report no state change.");
             requireClose(appliedPoints, QueenShrink.points(target),
                     "Rejected shrink must not increase the recorded points.");
-            monster.syncHealth(4.0);
-            target.setHealth(4.0F);
+            require(QueenGiantRunner.canExecute(monster, QueenBalance.giantInitialExecutionHealth()),
+                    "Shrink alone must make the first execution possible.");
 
             QueenStates.PlayerState state = QueenStates.state(owner);
             state.addCharge(QueenBalance.giantChargeTicks());
@@ -298,13 +371,12 @@ public final class QueenGameTest {
             require(queen.roundPhysicalDamageDealt() > 0.0,
                     "Giant TRUE damage must be included in tower damage statistics.");
             require(nearbyMonster.isAlive(), "Enemies above the execution threshold must survive the Giant.");
-            requireClose(QueenBalance.giantSlow() + 1.0 - nearbyMonster.permanentStatScale(),
+            requireClose(0.0,
                     nearby.activeTimedEffectMagnitude(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION),
-                    "Survivors must receive the configured movement slow.");
-            requireClose(QueenBalance.giantSlow()
-                            + (1.0 - nearbyMonster.permanentStatScale()) * 0.5,
+                    "The Giant must not apply movement slow to survivors.");
+            requireClose(Math.min(0.70, QueenBalance.giantSlow() + 1.0 - nearbyMonster.permanentStatScale()),
                     nearby.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
-                    "Survivors must receive the configured attack-speed slow.");
+                    "Giant and shrink attack-speed reductions must share the 70% cap.");
 
             state.endRunner();
             queen.resetForRound(lane);
@@ -339,9 +411,12 @@ public final class QueenGameTest {
             requireClose(teamBossHealth, group.boss().health(),
                     "The final-defense Giant must not damage its own team's boss.");
             context.succeed();
+        } catch (AssertionError | RuntimeException failure) {
+            context.fail(net.minecraft.network.chat.Component.literal("Queen shrink regression: " + failure.getMessage()));
         } finally {
             group.closeRuntime();
             QueenStates.clear(owner);
+            kim.biryeong.semiontd.tower.ProductionTowerCatalogs.reloadBuiltIns(previousBalance);
         }
     }
 
@@ -485,7 +560,8 @@ public final class QueenGameTest {
             lane.markWaveStarted(2);
             QueenCardTower firstCard = hand.getFirst();
             double pairHealth = QueenBalance.cardMaxHealth(QueenCard.Suit.HEART)
-                    * (1.0 + QueenBalance.handBonus(PokerHand.ONE_PAIR));
+                    * (1.0 + QueenBalance.handBonus(PokerHand.ONE_PAIR))
+                    + QueenBalance.handBonus(PokerHand.ONE_PAIR) * QueenBalance.cardPokerFlatHealthBonusCap();
             requireClose(pairHealth, firstCard.currentMaxHealth(),
                     "Poker hands must increase card maximum health.");
             requireClose((QueenTowers.QUEEN.maxHealth() + QueenBalance.queenMaxHealthPerRound())

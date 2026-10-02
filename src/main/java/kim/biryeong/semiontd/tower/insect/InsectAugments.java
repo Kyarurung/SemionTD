@@ -8,15 +8,27 @@ import java.util.UUID;
 import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.TowerType;
+import kim.biryeong.semiontd.tower.Tower;
 
 public final class InsectAugments {
     static final String SHELL = "job_insect_towers_s";
     static final String HATCH = "job_insect_towers_g1";
     static final String MARCH = "job_insect_towers_g2";
     static final String COLONY = "job_insect_towers_p";
+    static final String EVOLUTION_I = "job_insect_towers_s2";
+    static final String EVOLUTION_II = "job_insect_towers_g3";
     private static final Map<UUID, Round> ROUNDS = new HashMap<>();
 
     private InsectAugments() {}
+
+    public static double evolutionBonus(Tower tower, String parameter) {
+        if (!(tower instanceof InsectUnitTower) && !(tower instanceof InsectSpawnerTower)) return 0;
+        double bonus = 0;
+        for (String card : List.of(EVOLUTION_I, EVOLUTION_II)) {
+            if (tower.augmentSnapshot().has(card)) bonus += tower.augmentSnapshot().parameter(card, parameter, 0);
+        }
+        return bonus;
+    }
 
     static void beginWave(UUID owner, int currentRound) {
         Round round = ROUNDS.get(owner);
@@ -32,9 +44,8 @@ public final class InsectAugments {
                 || !source.augmentSnapshot().has(MARCH)) return;
         Round round = ROUNDS.computeIfAbsent(source.ownerPlayer(), ignored -> new Round());
         int count = Math.min((int) source.augmentSnapshot().parameter(MARCH, "spawnCount", 2),
-                Math.max(0, (int) source.augmentSnapshot().parameter(MARCH, "roundCap", 6) - round.reserved));
+                Math.max(0, (int) source.augmentSnapshot().parameter(MARCH, "activeCap", 8) - activeLarvae(lane)));
         if (count <= 0) return;
-        round.reserved += count;
         double ratio = source.augmentSnapshot().parameter(MARCH, "statRatio", .4);
         double attack = source.runtimeEntity(lane).map(entity -> entity.attackDamageAmount(null)).orElse(source.type().damage());
         TowerType old = source.type();
@@ -71,14 +82,18 @@ public final class InsectAugments {
         ROUNDS.remove(owner);
     }
 
-    static int reserved(UUID owner) {
-        Round round = ROUNDS.get(owner);
-        return round == null ? 0 : round.reserved;
+    static int activeLarvae(PlayerLane lane) {
+        if (lane == null) return 0;
+        int living = (int) lane.towers().stream().filter(tower -> tower instanceof InsectUnitTower unit
+                && unit.isLarva() && unit.ownerPlayer().equals(lane.ownerPlayer())
+                && unit.runtimeEntity(lane).map(entity -> entity.isAlive()).orElse(unit.health() > 0)).count();
+        Round round = ROUNDS.get(lane.ownerPlayer());
+        return living + (round == null ? 0 : (int) round.pending.stream()
+                .filter(spawn -> spawn.lane == lane && lane.towers().contains(spawn.source)).count());
     }
 
     private static final class Round {
         private int number;
-        private int reserved;
         private final List<Pending> pending = new ArrayList<>();
     }
 

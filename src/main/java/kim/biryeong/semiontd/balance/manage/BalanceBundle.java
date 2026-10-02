@@ -70,6 +70,31 @@ public record BalanceBundle(TowerBalanceConfig tower, AugmentConfig augment, Wav
                 GSON.fromJson(json.get("monsterScaling"), MonsterScalingConfig.class));
     }
 
+    /** Preserve stored values; adopt only missing settings from the server's loaded configuration. */
+    public static BalanceBundle fromJson(JsonObject json, BalanceBundle serverConfig) {
+        JsonObject fallback = serverConfig.toJson();
+        if (!json.keySet().equals(fallback.keySet())) {
+            throw new IllegalArgumentException("Balance bundle must contain exactly seven domains.");
+        }
+        requireFinite(json);
+        JsonObject merged = json.deepCopy();
+        // Use the same tower migration as the legacy file loader (including retired Gamble keys).
+        TowerBalanceConfig tower = GSON.fromJson(merged.get("tower"), TowerBalanceConfig.class);
+        merged.add("tower", GSON.toJsonTree(tower.withMissingDefaults(serverConfig.tower())));
+        addMissing(merged, fallback);
+        return fromJson(merged);
+    }
+
+    private static void addMissing(JsonObject stored, JsonObject fallback) {
+        fallback.entrySet().forEach(entry -> {
+            JsonElement current = stored.get(entry.getKey());
+            if (current == null) {stored.add(entry.getKey(), entry.getValue().deepCopy());}
+            else if (current.isJsonObject() && entry.getValue().isJsonObject()) {
+                addMissing(current.getAsJsonObject(), entry.getValue().getAsJsonObject());
+            }
+        });
+    }
+
     public String revision() {
         return digest(canonical(toJson()));
     }

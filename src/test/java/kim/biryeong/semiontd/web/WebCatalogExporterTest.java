@@ -66,7 +66,7 @@ final class WebCatalogExporterTest {
         assertEquals(ProductionTowerCatalog.all().size(), first.towers().size());
         assertEquals(TraitRegistry.all().size(), first.traits().size());
         assertEquals(SummonRegistry.all().size(), first.summons().size());
-        assertEquals(124, first.augments().stream().filter(card -> card.requiredJobId() != null).count());
+        assertEquals(126, first.augments().stream().filter(card -> card.requiredJobId() != null).count());
         assertTrue(first.augments().stream().filter(card -> card.requiredJobId() != null)
                 .allMatch(card -> first.builders().stream().anyMatch(builder -> builder.id().equals(card.requiredJobId()))));
         assertTrue(first.traits().stream().allMatch(trait -> !trait.displayName().equals(trait.id())));
@@ -127,8 +127,8 @@ final class WebCatalogExporterTest {
         EconomyConfig economy = EconomyConfig.defaultConfig();
         AugmentConfig config = AugmentConfig.defaults();
         var document = WebCatalogExporter.snapshot(1, waves, economy, summons, config);
-        assertEquals(175, document.augments().size());
-        assertEquals(166, document.augments().stream().filter(augment -> !augment.reserve()).count());
+        assertEquals(177, document.augments().size());
+        assertEquals(168, document.augments().stream().filter(augment -> !augment.reserve()).count());
         assertTrue(document.augments().stream().noneMatch(card -> card.id().equals("semiontd:decisive_delivery")));
         assertEquals(3, document.augments().stream().filter(card -> card.id().startsWith("semiontd:beneficial_effect_")).count());
         assertEquals(9, document.augments().stream().filter(WebCatalogExporter.AugmentEntry::reserve).count());

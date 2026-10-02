@@ -394,7 +394,7 @@ public final class BalanceRuntimeGameTest {
             require(scene.runtime.writeBlocked() != null, "Actual manual legacy edit is surfaced");
             SemionGameManager restarted = new SemionGameManager();
             restarted.installBalanceBundle(changed);
-            BalanceGameRuntime restartedRuntime = new BalanceGameRuntime(context.getLevel().getServer(), restarted);
+            BalanceGameRuntime restartedRuntime = new BalanceGameRuntime(context.getLevel().getServer(), restarted, java.nio.file.Path.of("test-balance-logs"));
             restartedRuntime.configureLegacyBaseline(original.revision(), changed);
             require(restartedRuntime.writeBlocked() != null, "Persisted baseline detects offline legacy edits on restart");
             restartedRuntime.configureLegacyBaseline(original.revision(), original);
@@ -414,7 +414,11 @@ public final class BalanceRuntimeGameTest {
         Files.createDirectories(directory.resolve("revisions"));
         try {
             var manager = new SemionGameManager();
-            JsonObject old = manager.captureBalanceBundle().toJson();
+            BalanceBundle serverConfig = manager.captureBalanceBundle();
+            JsonObject old = serverConfig.toJson();
+            old.getAsJsonObject("tower").getAsJsonObject("towers").getAsJsonObject("augment_folding_barricade").addProperty("aggroPriority", 0);
+            old.getAsJsonObject("tower").getAsJsonObject("towers").remove("gamble_poker_table");
+            old.getAsJsonObject("tower").getAsJsonObject("upgradeCosts").remove("gamble_king->spin_slots");
             JsonObject parameters = old.getAsJsonObject("augment").getAsJsonObject("parameters");
             for (int tier = 1; tier <= 3; tier++) {parameters.remove("semiontd:beneficial_effect_" + tier);}
             JsonObject retired = new JsonObject();
@@ -430,15 +434,22 @@ public final class BalanceRuntimeGameTest {
             Files.writeString(storedFile, contents);
             new BalanceRevisionStore(directory).saveIndex(new BalanceRevisionStore.Index(1, revision, List.of(), null));
             String index = Files.readString(directory.resolve("index.json"));
-            BalanceBundle initial = BalanceBundle.fromJson(old);
+            BalanceBundle initial = change(BalanceBundle.fromJson(old, serverConfig), "augment_folding_barricade", "aggroPriority", 500);
             manager.installBalanceBundle(initial);
             try (var bootstrap = BalanceManagementBootstrap.start(context.getLevel().getServer(), manager, config)) {
                 var runtime = (BalanceGameRuntime) get(manager, "managedBalance");
                 require(bootstrap != null && runtime != null, "Managed startup succeeds with a legacy snapshot");
                 require(runtime.writeBlocked() == null, "Schema normalization is not a manual edit");
-                require(runtime.revision().equals(revision), "Stored revision remains the audit identity");
+                require(manager.captureBalanceBundle().tower().towers().get("augment_folding_barricade").aggroPriority() == 500,
+                        "A file-only barricade change reaches the managed runtime without a false conflict");
+                require(runtime.revision().equals(initial.revision()), "Startup adopts the normalized configuration as a new revision");
+                require(!runtime.revision().equals(revision), "New fields receive a new revision without rewriting the old one");
                 require(Files.readString(storedFile).equals(contents), "Original snapshot stays byte-for-byte intact");
-                require(Files.readString(directory.resolve("index.json")).equals(index), "Startup does not rewrite history");
+                require(!Files.readString(directory.resolve("index.json")).equals(index), "Startup records automatic registration");
+                var adopted = new BalanceRevisionStore(directory).loadOrCreate(initial);
+                require(adopted.receipts().size() == 1 && adopted.receipts().getFirst().patch().baseRevision().equals(revision),
+                        "Registration retains the original revision in the audit trail");
+                require(manager.captureBalanceBundle().tower().towers().containsKey("gamble_poker_table"), "New server tower settings reach the runtime");
                 runtime.checkManualConfigConflict(change(initial, AnimalTowers.T1_PIG_TOWER.id(), "damage", 32));
                 require(runtime.writeBlocked() != null, "A real manual edit still blocks writes");
                 runtime.checkManualConfigConflict(initial);
@@ -499,7 +510,7 @@ public final class BalanceRuntimeGameTest {
         Scene(GameTestHelper context) throws Exception {
             this.context = context;
             ProductionTowerCatalogs.reloadBuiltIns(manager.captureBalanceBundle().tower());
-            runtime = new BalanceGameRuntime(context.getLevel().getServer(), manager);
+            runtime = new BalanceGameRuntime(context.getLevel().getServer(), manager, java.nio.file.Path.of("test-balance-logs"));
             game = newGame();
             field(manager, "activeGame", game);
             manager.attachManagedBalance(runtime, ignored -> {});

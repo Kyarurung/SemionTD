@@ -319,11 +319,13 @@ public final class AugmentTowerGameTest {
         PlayerLane lane = lane(context);
         try {
             TowerType high = TowerType.builder("augment_test_high_aggro", "우선 대상").mineralCost(1)
-                    .maxHealth(200).range(5).damage(10).aggroPriority(80).build();
+                    .maxHealth(200).range(5).damage(10).aggroPriority(600).build();
             TowerType highest = TowerType.builder("augment_test_highest_aggro", "최우선 대상").mineralCost(1)
-                    .maxHealth(200).range(5).damage(10).aggroPriority(100).build();
+                    .maxHealth(200).range(5).damage(10).aggroPriority(700).build();
             ProductionTowerCatalog.registerStarter(high); ProductionTowerCatalog.registerStarter(highest);
             AugmentTower barricade = augment(lane, AugmentTowers.FOLDING_BARRICADE, pos(context, 3, 1, 5));
+            require(barricade.runtimeEntity(lane).orElseThrow().aggroPriority() == 500,
+                    "The live barricade entity must use the configured 500 aggro priority.");
             Tower normal = ordinary(lane, high, pos(context, 7, 1, 5));
             Tower farther = ordinary(lane, highest, pos(context, 5, 1, 8));
             SemionMonsterEntity enemy = monster(context, lane,

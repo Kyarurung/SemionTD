@@ -500,6 +500,10 @@
       "maxTargets": 20
     },
     "semiontd:job_insect_towers_s": {},
+    "semiontd:job_insect_towers_s2": {
+      "maxHealthBonus": 0.5,
+      "incomingDamageBonus": 0.75
+    },
     "semiontd:job_insect_towers_g1": {
       "revivalCount": 3,
       "waitReduction": 0.5,
@@ -510,7 +514,11 @@
     "semiontd:job_insect_towers_g2": {
       "statRatio": 0.4,
       "spawnCount": 2,
-      "roundCap": 6
+      "activeCap": 8
+    },
+    "semiontd:job_insect_towers_g3": {
+      "maxHealthBonus": 1.0,
+      "incomingDamageBonus": 1.5
     },
     "semiontd:job_insect_towers_p": {},
     "semiontd:job_future_agency_towers_s": {

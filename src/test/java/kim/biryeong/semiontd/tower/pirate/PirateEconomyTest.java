@@ -281,7 +281,7 @@ class PirateEconomyTest {
     }
 
     @Test
-    void admiralWaitsForThreeHundredSpentDiamonds() {
+    void admiralWaitsForTwoHundredSpentDiamonds() {
         PirateTower admiral = buy(PirateTowers.ADMIRAL, 1, 1_000);
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         Map<String, Map<String, Double>> abilities = new LinkedHashMap<>(defaults.abilities());
@@ -289,10 +289,10 @@ class PirateEconomyTest {
         settings.put("effectCount", 3.0);
         abilities.put(PirateTowers.ADMIRAL.id(), settings);
         TowerBalanceRuntime.apply(new TowerBalanceConfig(defaults.towers(), defaults.upgradeCosts(), abilities));
-        long remaining = 300 - PirateStates.admiralProgress(owner);
+        long remaining = 200 - PirateStates.admiralProgress(owner);
         double damage = admiral.permanentFlatDamageBonus();
         PirateStates.recordDiamondSpend(player, remaining - 1);
-        assertEquals(299, PirateStates.admiralProgress(owner));
+        assertEquals(199, PirateStates.admiralProgress(owner));
         assertEquals(damage, admiral.permanentFlatDamageBonus(), 1e-9);
         PirateStates.recordDiamondSpend(player, 1);
         assertEquals(0, PirateStates.admiralProgress(owner));
@@ -314,9 +314,9 @@ class PirateEconomyTest {
         TowerBalanceRuntime.apply(new TowerBalanceConfig(defaults.towers(), defaults.upgradeCosts(), abilities));
         long before = player.economy().diamond();
         long progressBefore = PirateStates.admiralProgress(owner);
-        assertTrue(player.economy().spendDiamond(300));
-        PirateStates.recordDiamondSpend(player, 300);
-        assertEquals(-223, player.economy().diamond() - before);
+        assertTrue(player.economy().spendDiamond(200));
+        PirateStates.recordDiamondSpend(player, 200);
+        assertEquals(-123, player.economy().diamond() - before);
         assertEquals(progressBefore, PirateStates.admiralProgress(owner));
     }
 

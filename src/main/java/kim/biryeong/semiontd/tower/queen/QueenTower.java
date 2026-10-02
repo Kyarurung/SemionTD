@@ -156,7 +156,8 @@ public final class QueenTower extends ProductionTower {
                         + "점 (점당 " + percentInteger(1.0 - QueenBalance.shrinkFactorPerPoint()) + " 감소)",
                 "족보 체력 누적: +" + percentInteger(state.pokerHealthBonus())
                         + " / +" + percentInteger(QueenBalance.queenPokerHealthBonusCap()),
-                "능력치 하한: 원본의 " + percentInteger(QueenBalance.minimumStatScale()),
+                "공격력 하한: 원본의 " + percentInteger(QueenBalance.minimumStatScale()),
+                "체력 감소: 처형선까지 별도 적용 · 공속 감소 최대 70%",
                 "외형 하한: 원본의 " + percentInteger(QueenBalance.minimumVisualScale()),
                 "처형 조건: 원본보다 외형 "
                         + percentInteger(QueenBalance.giantExecutionVisualShrink())

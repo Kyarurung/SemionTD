@@ -97,22 +97,28 @@ class AugmentCombatTest {
             assertEquals(.15, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
             assertEquals(.15, AugmentCombat.beneficialBonus(tower, "attackSpeedBonus"), 1e-9, type.id());
             lane.assignAugmentSnapshot(snapshot("tactical_designation_3_assault", choice(tower, "")));
-            assertEquals(1, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            assertEquals(.2, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
             lane.assignAugmentSnapshot(snapshot("tactical_designation_3_cover", choice(tower, "")));
-            assertEquals(60, AugmentCombat.incomingDamage(tower, null, null, 100, 100), 1e-9, type.id());
+            assertEquals(92, AugmentCombat.incomingDamage(tower, null, null, 100, 100), 1e-9, type.id());
             if (!AugmentCombat.isDesignatableAttacker(tower)) continue;
             double baseline = tower.currentMaxHealth();
             lane.assignAugmentSnapshot(snapshot("one_man_show", choice(tower, ""), "wartime_economy", AugmentChoice.none()));
-            assertEquals(baseline * 2, tower.currentMaxHealth(), 1e-6, type.id());
-            assertEquals(2, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            assertEquals(baseline * 1.2, tower.currentMaxHealth(), 1e-6, type.id());
+            assertEquals(.4, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            Tower other = ProductionTowerCatalog.entry(type).orElseThrow().create(OWNER, TeamId.RED, 1, new GridPosition(2, 0, 0));
+            lane.addTower(other);
+            assertEquals(-.04, AugmentCombat.damageBonus(other, null), 1e-9,
+                    "The unselected hypercarry body's one-man-show penalty must also scale");
             lane.assignAugmentSnapshot(snapshot("overheat_core", choice(tower, ""), "battlefield_mastery", choice(tower, "")));
             startCombat(lane, 5);
             setRecordedEnemyDamage(tower, tower.currentMaxHealth() * .5);
-            assertEquals(1, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            assertEquals(.2, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
             AugmentCombat.settleWave(lane, 5);
             AugmentCombat.settleWave(lane, 5);
             assertEquals(1, AugmentCombat.heatStacks(tower), type.id());
             assertEquals(1, AugmentCombat.masteryStacks(tower), type.id());
+            assertEquals(.028, AugmentCombat.damageBonus(tower, null), 1e-9,
+                    "One mastery stack +4% and one heat penalty -1.2% must settle once");
             Tower upgraded = ProductionTowerCatalog.entry(type).orElseThrow().create(OWNER, TeamId.RED, 1, tower.originalPosition());
             upgraded.copyFrom(tower, 0);
             lane.replaceTower(tower, upgraded);
@@ -121,6 +127,52 @@ class AugmentCombatTest {
             upgraded.markTemporaryCopy(UUID.randomUUID());
             assertFalse(AugmentCombat.isDesignatable(upgraded), type.id());
         }
+    }
+
+    @Test
+    void heroAndQueenAcceptDesignationsButNotTemporaryCopies() {
+        ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
+        var types = new ArrayList<>(kim.biryeong.semiontd.tower.queen.QueenTowers.all());
+        types.add(kim.biryeong.semiontd.tower.hero.HeroPartyTowers.HERO);
+        for (var type : types) {
+            PlayerLane lane = lane();
+            Tower tower = ProductionTowerCatalog.entry(type).orElseThrow().create(OWNER, TeamId.RED, 1, new GridPosition(0, 0, 0));
+            lane.addTower(tower);
+            assertTrue(AugmentCombat.isDesignatable(tower), type.id());
+            assertTrue(AugmentCombat.isDesignatableAttacker(tower), type.id());
+            assertFalse(AugmentCombat.isNormalPermanent(tower), type.id());
+            boolean hero = tower instanceof kim.biryeong.semiontd.tower.hero.HeroTower;
+            lane.assignAugmentSnapshot(snapshot("tactical_designation_3_assault", choice(tower, "")));
+            assertEquals(hero ? .2 : 1, AugmentCombat.damageBonus(tower, null), 1e-9, type.id());
+            lane.assignAugmentSnapshot(snapshot("tactical_designation_3_cover", choice(tower, "")));
+            assertEquals(hero ? 92 : 60, AugmentCombat.incomingDamage(tower, null, null, 100, 100), 1e-9, type.id());
+            double baseline = tower.currentMaxHealth();
+            lane.assignAugmentSnapshot(snapshot("one_man_show", choice(tower, "")));
+            assertEquals(baseline * (hero ? 1.2 : 2), tower.currentMaxHealth(), 1e-6, type.id());
+            tower.markTemporaryCopy(UUID.randomUUID());
+            assertFalse(AugmentCombat.isDesignatable(tower), type.id());
+        }
+    }
+
+    @Test
+    void targetedEfficiencyScalesOnlyStrengthAndKeepsMultiplierNeutralAtOne() {
+        AugmentSnapshot snapshot = AugmentSnapshot.none();
+        for (String id : List.of("tactical_designation_1_assault", "tactical_designation_2_cover",
+                "tactical_designation_3", "overheat_core", "battlefield_mastery", "one_man_show", "frontline_specialization")) {
+            for (var entry : snapshot.config().parametersFor(id).entrySet()) {
+                String key = entry.getKey();
+                double original = entry.getValue();
+                double expected = switch (key) {
+                    case "maxStacks", "damageThreshold" -> original;
+                    case "artilleryIncomingMultiplier" -> 1 + (original - 1) * .2;
+                    default -> original * .2;
+                };
+                assertEquals(expected, AugmentCombat.reducedTargetedParameter(snapshot, id, key, -1), 1e-9, id + "/" + key);
+            }
+        }
+        assertEquals(1.05, AugmentCombat.reducedTargetedParameter(snapshot, "frontline_specialization", "artilleryIncomingMultiplier", 0), 1e-9);
+        assertEquals(.15, AugmentCombat.reducedTargetedParameter(snapshot, "beneficial_effect_3", "damageBonus", 0), 1e-9);
+        assertEquals(2.0, AugmentCombat.reducedTargetedParameter(snapshot, "job_hero_party_p", "weaponDamageBonus", 0), 1e-9);
     }
 
     @Test

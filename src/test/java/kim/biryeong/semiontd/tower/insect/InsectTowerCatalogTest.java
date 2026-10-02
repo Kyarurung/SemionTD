@@ -51,6 +51,52 @@ final class InsectTowerCatalogTest {
     }
 
     @Test
+    void unstableEvolutionAddsBothBonusesAndPenaltiesIncludingSpawnerAndLarvae() {
+        ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
+        for (var cards : List.of(List.of(InsectAugments.EVOLUTION_I), List.of(InsectAugments.EVOLUTION_II),
+                List.of(InsectAugments.EVOLUTION_I, InsectAugments.EVOLUTION_II))) {
+            PlayerLane lane = testLane();
+            try {
+                var snapshot = new kim.biryeong.semiontd.augment.AugmentSnapshot(
+                        kim.biryeong.semiontd.augment.AugmentConfig.defaults(), cards.stream().map(card ->
+                        new kim.biryeong.semiontd.augment.PlayerAugmentState.Selection(5,
+                                kim.biryeong.semiontd.augment.AugmentRarity.GOLD, "semiontd:" + card,
+                                kim.biryeong.semiontd.augment.PlayerAugmentState.Outcome.SELECTED, null,
+                                kim.biryeong.semiontd.augment.AugmentChoice.none())).toList());
+                double healthBonus = cards.contains(InsectAugments.EVOLUTION_I) ? .5 : 0;
+                healthBonus += cards.contains(InsectAugments.EVOLUTION_II) ? 1 : 0;
+                double penalty = healthBonus * 1.5;
+                for (var type : List.of(InsectTowers.SILVERFISH, InsectTowers.ENHANCED_SPIDER, InsectTowers.SPAWNER)) {
+                    var tower = create(type);
+                    lane.addTower(tower);
+                    lane.assignAugmentSnapshot(kim.biryeong.semiontd.augment.AugmentSnapshot.none());
+                    double baseHealth = tower.currentMaxHealth();
+                    double baseDamage = tower.modifyIncomingDamage(null, null, 100);
+                    double baseIgnoringDamage = tower.modifyIncomingDamageIgnoringReductions(null, null, 100);
+                    lane.assignAugmentSnapshot(snapshot);
+                    assertEquals(baseHealth * (1 + healthBonus), tower.currentMaxHealth(), 1e-6);
+                    assertEquals(baseDamage * (1 + penalty), tower.modifyIncomingDamage(null, null, 100), 1e-6);
+                    assertEquals(baseIgnoringDamage * (1 + penalty), tower.modifyIncomingDamageIgnoringReductions(null, null, 100), 1e-6);
+                    lane.removeTower(tower);
+                }
+                InsectUnitTower original = unit(InsectTowers.BEE, 0);
+                lane.addTower(original);
+                InsectUnitTower larva = unit(InsectTowers.BEE, 1);
+                larva.markLarva(original);
+                lane.addTower(larva);
+                assertEquals(0, InsectAugments.evolutionBonus(larva, "maxHealthBonus"), "Copied health must not be amplified twice");
+                assertEquals(100 * (1 + penalty), larva.modifyIncomingDamageIgnoringReductions(null, null, 100), 1e-6);
+                var upgraded = unit(InsectTowers.ENHANCED_BEE, 0);
+                upgraded.copyFrom(original, 0);
+                lane.replaceTower(original, upgraded);
+                assertEquals(healthBonus, InsectAugments.evolutionBonus(upgraded, "maxHealthBonus"), 1e-6);
+                lane.assignAugmentSnapshot(kim.biryeong.semiontd.augment.AugmentSnapshot.none());
+                assertEquals(0, InsectAugments.evolutionBonus(upgraded, "maxHealthBonus"));
+            } finally {lane.clearTowers();}
+        }
+    }
+
+    @Test
     void catalogRegistersFourStartersAndSixUpgradeEdges() {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
 

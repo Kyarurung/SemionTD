@@ -87,9 +87,10 @@ public final class BalanceHttpServer implements AutoCloseable {
             if (bytes.length != 0) { throw new BalanceException(400, "GET 본문은 지원하지 않습니다."); }
             if (route.equals("/state")) {
                 BalanceState state = service.state();
-                return state.pending() == null || visible(actor, state.pending()) ? state
-                        : new BalanceState(state.serverId(), state.online(), state.revision(), state.catalogVersion(),
-                        state.game(), null, state.updatedAt(), "권한 범위 밖의 예약이 있습니다.", state.fieldsVersion());
+                var pending = state.pendingDeployments().stream().filter(value -> visible(actor, value)).toList();
+                return new BalanceState(state.serverId(), state.online(), state.revision(), state.catalogVersion(),
+                        state.game(), pending.isEmpty() ? null : pending.getFirst(), state.updatedAt(), state.writeBlocked(),
+                        state.fieldsVersion(), pending);
             }
             if (route.equals("/fields")) { return fields(exchange, actor); }
             if (route.equals("/history")) {

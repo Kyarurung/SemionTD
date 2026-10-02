@@ -98,18 +98,18 @@ public record WaveConfig(
         );
 
         RoundWaveConfig animalStampede = roundRobin(20,
-                monster("infinite_cow_tank", 250.0, 14.0, 25, AttackKind.MELEE, "minecraft:cow", 1, 27, 45, 0.95, 2.5, 20),
-                monster("infinite_llama_ranged", 132.14, 4.0, 45, AttackKind.RANGED, "minecraft:llama", 1, 28, 0, 0.95, 9.0, 16)
+                monster("infinite_cow_tank", 250.0, 14.0, 20, AttackKind.MELEE, "minecraft:cow", 1, 27, 45, 0.95, 2.5, 20),
+                monster("infinite_llama_ranged", 132.14, 4.0, 36, AttackKind.RANGED, "minecraft:llama", 1, 28, 0, 0.95, 9.0, 16)
         );
         RoundWaveConfig overworldAssault = roundRobin(20,
-                monster("infinite_husk_tank", 300.0, 14.0, 25, AttackKind.MELEE, "minecraft:husk", 1, 20, 45, 0.95, 2.5, 20),
-                monster("infinite_spider_rush", 150.0, 7.0, 25, AttackKind.MELEE, "minecraft:spider", 1, 20, 5, 1.3, 2.5, 10),
-                monster("infinite_pillager_artillery", 96.67, 4.0, 45, AttackKind.RANGED, "minecraft:pillager", 1, 15, 0, 0.95, 11.0, 24)
+                monster("infinite_husk_tank", 300.0, 14.0, 20, AttackKind.MELEE, "minecraft:husk", 1, 20, 45, 0.95, 2.5, 20),
+                monster("infinite_spider_rush", 150.0, 7.0, 20, AttackKind.MELEE, "minecraft:spider", 1, 20, 5, 1.3, 2.5, 10),
+                monster("infinite_pillager_artillery", 96.67, 4.0, 36, AttackKind.RANGED, "minecraft:pillager", 1, 15, 0, 0.95, 11.0, 24)
         );
         RoundWaveConfig zombifiedLegion = roundRobin(20,
-                monster("infinite_piglin_brute_tank", 350.0, 14.0, 25, AttackKind.MELEE, "minecraft:piglin_brute", 1, 15, 45, 0.95, 2.5, 20),
-                monster("infinite_zombified_piglin_rush", 140.0, 7.0, 25, AttackKind.MELEE, "minecraft:zombified_piglin", 1, 25, 5, 1.3, 2.5, 10),
-                monster("infinite_blaze_ranged", 113.33, 4.0, 45, AttackKind.RANGED, "minecraft:blaze", 1, 15, 0, 0.95, 9.0, 16)
+                monster("infinite_piglin_brute_tank", 350.0, 14.0, 20, AttackKind.MELEE, "minecraft:piglin_brute", 1, 15, 45, 0.95, 2.5, 20),
+                monster("infinite_zombified_piglin_rush", 140.0, 7.0, 20, AttackKind.MELEE, "minecraft:zombified_piglin", 1, 25, 5, 1.3, 2.5, 10),
+                monster("infinite_blaze_ranged", 113.33, 4.0, 36, AttackKind.RANGED, "minecraft:blaze", 1, 15, 0, 0.95, 9.0, 16)
         );
         animalStampede = withHealer(animalStampede, "animal_stampede");
         overworldAssault = withHealer(overworldAssault, "overworld_assault");
@@ -370,7 +370,7 @@ public record WaveConfig(
                                 case 17 -> 4.48;
                                 case 18 -> 4.653333;
                                 case 19 -> 4.826667;
-                                default -> 5.0;
+                                default -> 4.0;
                             }, AttackKind.RANGED, "minecraft:allay", null, null,
                             entry.mineralReward(), healerCount, 0, 0.85, 6, 13,
                             new WaveHealingConfig(6, original.round() < 20 ? 80 : 160, 3, 160, 20, 2));

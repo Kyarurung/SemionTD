@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.gametest;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,8 @@ import kim.biryeong.semiontd.entity.monster.KillSourceKind;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
+import kim.biryeong.semiontd.entity.visual.EntityVisual;
+import kim.biryeong.semiontd.entity.visual.EntityVisualApplierRegistry;
 import kim.biryeong.semiontd.game.AssignedParticipant;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.MatchMode;
@@ -35,8 +38,11 @@ import kim.biryeong.semiontd.game.TowerUpgradeResult;
 import kim.biryeong.semiontd.job.JobContext;
 import kim.biryeong.semiontd.job.PlantTowerJob;
 import kim.biryeong.semiontd.map.LaneRegionLayout;
+import kim.biryeong.semiontd.mixin.accessor.AgeableMobAccessor;
+import kim.biryeong.semiontd.mixin.accessor.PandaAccessor;
 import kim.biryeong.semiontd.tower.ProductionTowerCatalogs;
 import kim.biryeong.semiontd.tower.ProductionTowerService;
+import kim.biryeong.semiontd.tower.plant.PandaTower;
 import kim.biryeong.semiontd.tower.plant.PlantCombatTower;
 import kim.biryeong.semiontd.tower.plant.PlantMineTower;
 import kim.biryeong.semiontd.tower.plant.PlantSoil;
@@ -49,6 +55,10 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Panda;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
@@ -639,6 +649,133 @@ public final class PlantIntegrationGameTest {
                 owner, TeamId.RED, 1, position(context, x, 1, z));
     }
 
+    /**
+     * 판다 돌진은 제자리 폭발이 아니라 실제로 달려나가야 합니다.
+     *
+     * <p>한 번에 판정을 끝내고 끝점으로 옮기면 화면에서는 제자리 충격파로만 보입니다. 여러 틱에
+     * 걸쳐 실제로 이동하면서, 스친 적만 <b>한 번씩</b> 맞아야 "치고 들어간다" 가 성립합니다.
+     */
+    @GameTest(maxTicks = 60)
+    public void pandaChargeActuallyMovesAndHitsEachTargetOnce(GameTestHelper context) {
+        TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
+        UUID owner = stableUuid("panda-charge-owner");
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        PlayerLane lane = testLane(context, owner);
+        group.addLane(lane);
+        try {
+            TowerBalanceRuntime.apply(defaults);
+            fillFloor(context);
+            PandaTower panda = new PandaTower(
+                    TowerBalanceRuntime.resolve(PlantTowers.T4_PANDA_TOWER),
+                    owner, TeamId.RED, 1, position(context, 2, 1, 3));
+            lane.addTower(panda);
+            SemionTowerEntity pandaEntity = (SemionTowerEntity) context.getLevel()
+                    .getEntity(panda.entityId().orElseThrow());
+            require(pandaEntity != null, "판다 엔티티가 있어야 합니다.");
+
+            PlantTerraformTower tree = new PlantTerraformTower(PlantTowers.T1_OAK_SEED_TOWER,
+                    owner, TeamId.RED, 1, position(context, 1, 1, 3));
+            lane.addTower(tree);
+            double baseHealth = panda.currentMaxHealth();
+            double baseChargeDamage = panda.chargeDamage();
+            lane.assignAugmentSnapshot(plantSnapshot(tree.logicalId(), "p"));
+            requireClose(baseHealth * 1.8, panda.currentMaxHealth(),
+                    "판다 외형과 돌진 변경 후에도 세계수 최대 체력 보너스가 유지돼야 합니다.");
+            requireClose(18, panda.modifyAttackDamage(null, null, 10),
+                    "세계수 공격력 보너스가 유지돼야 합니다.");
+            requireClose(baseChargeDamage * 1.8, panda.chargeDamage(),
+                    "세계수 최대 체력 보너스가 돌진 피해에도 반영돼야 합니다.");
+
+            // 판다 정면(+X)에 몹을 세워 둡니다.
+            Monster monster = spawnMonster(context, lane, "panda-charge-target", position(context, 5, 1, 3));
+            SemionMonsterEntity monsterEntity = entity(context, monster);
+            double startX = pandaEntity.getX();
+            double fullHealth = monster.health();
+
+            // 첫 틱에 돌진이 시작되고, 이후 틱마다 한 걸음씩 나갑니다.
+            panda.tick(lane);
+            require(panda.dashing(), "돌진이 시작돼야 합니다.");
+            require(!panda.canChaseTargets(), "돌진 중 일반 추적 이동이 끼어들면 안 됩니다.");
+            requireClose(fullHealth, monster.health(),
+                    "돌진 연출을 합쳐도 아직 닿지 않은 전방 적에게 즉시 피해를 주면 안 됩니다.");
+            for (int tick = 1; tick < 32; tick++) {
+                panda.tick(lane);
+            }
+            require(!panda.dashing(), "돌진은 정확히 32틱(구르기 한 바퀴) 안에 끝나야 합니다.");
+            require(panda.canChaseTargets(), "돌진 후에는 일반 추적 이동이 복구돼야 합니다.");
+
+            require(pandaEntity.getX() - startX > 1.0,
+                    "판다가 실제로 앞으로 나가야 합니다. 이동량=" + (pandaEntity.getX() - startX));
+
+            double taken = fullHealth - monster.health();
+            require(taken > 0.0, "돌진 경로의 적은 맞아야 합니다.");
+            requireClose(panda.chargeDamage(), taken,
+                    "같은 적은 한 번만 치여야 합니다. 여러 번이면 지나치는 기술이 아니라 장판입니다.");
+
+            requireClose(defaults.ability(PlantTowers.T4_PANDA_TOWER.id(), "chargeAttackSpeedReduction", 0.0),
+                    monsterEntity.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION),
+                    "밀려난 적은 공격 속도가 깎여야 합니다.");
+            requireClose(defaults.ability(PlantTowers.T4_PANDA_TOWER.id(), "chargeRangeReduction", 0.0),
+                    monsterEntity.activeTimedEffectMagnitude(TimedEffectType.MONSTER_ATTACK_RANGE_REDUCTION),
+                    "밀려난 적은 사거리가 깎여야 합니다.");
+            require(monsterEntity.getTarget() == null, "밀려난 적은 노리던 대상을 잊어야 합니다.");
+            context.succeed();
+        } catch (RuntimeException | Error failure) {
+            failure.printStackTrace();
+            context.fail(Component.literal("Panda charge failed: " + failure.getMessage()));
+        } finally {
+            group.closeRuntime();
+            PlantSoilStates.clear(owner);
+            TowerBalanceRuntime.apply(defaults);
+        }
+    }
+
+    @GameTest
+    public void pandaChargeStopsOnRoundResetDeathRemovalAndFinalDefense(GameTestHelper context) {
+        UUID owner = stableUuid("panda-charge-lifecycle");
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+            fillFloor(context);
+            PandaTower panda = new PandaTower(TowerBalanceRuntime.resolve(PlantTowers.T4_PANDA_TOWER),
+                    owner, TeamId.RED, 1, position(context, 2, 1, 3));
+            lane.addTower(panda);
+            spawnMonster(context, lane, "panda-lifecycle-target", position(context, 5, 1, 3));
+
+            panda.tick(lane);
+            require(panda.dashing(), "돌진이 시작돼야 합니다.");
+            panda.resetForRound(lane);
+            require(!panda.dashing(), "이전 라운드 돌진이 다음 라운드에 이어지면 안 됩니다.");
+
+            panda.tick(lane);
+            require(panda.dashing(), "새 라운드에는 새 돌진을 시작할 수 있어야 합니다.");
+            panda.notifyDeath(lane);
+            require(!panda.dashing(), "죽으면 돌진 상태가 정리돼야 합니다.");
+
+            panda.resetForRound(lane);
+            panda.tick(lane);
+            require(panda.dashing(), "최종 방어 이동 전에 돌진 중이어야 합니다.");
+            panda.moveToFinalDefense(lane, position(context, 3, 1, 3));
+            require(!panda.dashing(), "최종 방어 위치로 이동하면 기존 돌진이 중단돼야 합니다.");
+
+            panda.resetForRound(lane);
+            panda.tick(lane);
+            require(panda.dashing(), "제거 전에 돌진 중이어야 합니다.");
+            lane.removeTower(panda);
+            require(!panda.dashing(), "제거된 판다는 돌진 상태를 남기면 안 됩니다.");
+            context.succeed();
+        } catch (RuntimeException | Error failure) {
+            failure.printStackTrace();
+            context.fail(Component.literal("Panda lifecycle failed: " + failure.getMessage()));
+        } finally {
+            group.closeRuntime();
+            PlantSoilStates.clear(owner);
+            TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+        }
+    }
+
     @GameTest(maxTicks = 30)
     public void desertTerrainDamageBelongsToItsLivingTerraformer(GameTestHelper context) {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
@@ -892,6 +1029,56 @@ public final class PlantIntegrationGameTest {
         monster.markMinecraftEntitySpawned(entity.getId(), entity.getX(), entity.getY(), entity.getZ());
         lane.activeMonsters().add(monster);
         return monster;
+    }
+
+    /**
+     * 판다 티어별 유전자가 실제로 클라이언트에 전달되는 동기화 데이터에 실리는지 봅니다.
+     *
+     * <p>카탈로그가 유전자를 들고 있어도 적용기가 그 값을 안 실으면 화면에는 여전히 평범한
+     * 판다가 섭니다. 카탈로그 단위 테스트만으로는 이 구멍이 안 잡힙니다.
+     *
+     * <p>갈색은 열성이라 숨은 유전자까지 같아야 드러납니다. 주 유전자만 확인하면 화면에는
+     * 흑백 판다가 서 있는데 테스트는 통과하는 상태가 됩니다.
+     */
+    @GameTest
+    public void pandaTiersSendTheirGenesToTheClient(GameTestHelper context) {
+        byte aggressive = (byte) Panda.Gene.AGGRESSIVE.getId();
+        byte brown = (byte) Panda.Gene.BROWN.getId();
+
+        require(Boolean.TRUE.equals(applied(context, PlantTowers.T1_PANDA_TOWER.visual(),
+                        AgeableMobAccessor.semiontd$dataBabyId()).orElse(null)),
+                "작은 판다는 새끼 상태로 전달돼야 합니다.");
+        require(Boolean.FALSE.equals(applied(context, PlantTowers.T2_PANDA_TOWER.visual(),
+                        AgeableMobAccessor.semiontd$dataBabyId()).orElse(null)),
+                "판다는 다 자란 상태로 전달돼야 합니다.");
+
+        require(applied(context, PlantTowers.T3_PANDA_TOWER.visual(), PandaAccessor.semiontd$mainGeneId())
+                        .filter(gene -> gene == aggressive).isPresent(),
+                "화난 판다는 공격적 유전자를 보내야 합니다.");
+        require(applied(context, PlantTowers.T4_PANDA_TOWER.visual(), PandaAccessor.semiontd$mainGeneId())
+                        .filter(gene -> gene == brown).isPresent(),
+                "갈색 판다는 갈색 유전자를 보내야 합니다.");
+        require(applied(context, PlantTowers.T4_PANDA_TOWER.visual(), PandaAccessor.semiontd$hiddenGeneId())
+                        .filter(gene -> gene == brown).isPresent(),
+                "열성 유전자는 숨은 쪽까지 같아야 화면에 드러납니다.");
+        context.succeed();
+    }
+
+    private static <T> Optional<T> applied(
+            GameTestHelper context,
+            EntityVisual visual,
+            EntityDataAccessor<T> accessor
+    ) {
+        List<SynchedEntityData.DataValue<?>> data = new ArrayList<>();
+        EntityVisualApplierRegistry.apply(visual, EntityType.PANDA, context.getLevel().registryAccess(), data);
+        for (SynchedEntityData.DataValue<?> value : data) {
+            if (value.id() == accessor.id()) {
+                @SuppressWarnings("unchecked")
+                T typed = (T) value.value();
+                return Optional.of(typed);
+            }
+        }
+        return Optional.empty();
     }
 
     private static SemionMonsterEntity entity(GameTestHelper context, Monster monster) {

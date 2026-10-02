@@ -64,13 +64,21 @@ public final class AugmentControllerGameTest {
 
     private static void checkSpecialBuilderDesignations(GameTestHelper context) {
         for (var type : List.of(kim.biryeong.semiontd.tower.warlock.WarlockTowers.BASE_WARLOCK_TOWER,
-                kim.biryeong.semiontd.tower.end.EndTowers.BASE_END_TOWER)) {
+                kim.biryeong.semiontd.tower.end.EndTowers.BASE_END_TOWER,
+                kim.biryeong.semiontd.tower.hero.HeroPartyTowers.HERO,
+                kim.biryeong.semiontd.tower.queen.QueenTowers.QUEEN,
+                kim.biryeong.semiontd.tower.queen.QueenTowers.RANDOM_CARD_SOLDIER,
+                kim.biryeong.semiontd.tower.queen.QueenTowers.JOKER)) {
             ServerPlayer online = context.makeMockServerPlayerInLevel();
             SemionGame game = prepare(context, online);
             try {
                 var player = game.players().get(online.getUUID());
                 player.assignJob(type == kim.biryeong.semiontd.tower.end.EndTowers.BASE_END_TOWER
-                        ? new kim.biryeong.semiontd.job.EndTowerJob() : new kim.biryeong.semiontd.job.WarlockTowerJob());
+                        ? new kim.biryeong.semiontd.job.EndTowerJob()
+                        : type == kim.biryeong.semiontd.tower.hero.HeroPartyTowers.HERO
+                        ? new kim.biryeong.semiontd.job.HeroPartyTowerJob()
+                        : kim.biryeong.semiontd.tower.queen.QueenTowers.all().contains(type)
+                        ? new kim.biryeong.semiontd.job.QueenTowerJob() : new kim.biryeong.semiontd.job.WarlockTowerJob());
                 var lane = game.playerLane(online.getUUID()).orElseThrow();
                 Tower tower = ProductionTowerCatalog.entry(type).orElseThrow().create(online.getUUID(), TeamId.RED, 1,
                         lane.laneLayout().finalDefenseTowerSlots().getFirst());
@@ -99,8 +107,9 @@ public final class AugmentControllerGameTest {
                 lane.markWaveStarted(5);
                 health = tower.health();
                 entity.hurt(entity.damageSources().generic(), 10);
-                require(Math.abs(health - tower.health() - baseline * .8) < .0001,
-                        "Cover must reduce actual damage after the body starts combat.");
+                double coverMultiplier = kim.biryeong.semiontd.tower.queen.QueenTowers.all().contains(type) ? .8 : .96;
+                require(Math.abs(health - tower.health() - baseline * coverMultiplier) < .0001,
+                        type.id() + " must apply cover, keeping hypercarry efficiency at 20%.");
                 game.augmentService().reopen(game, online);
                 require(tower.logicalId().equals(player.augments().snapshot().choice("tactical_designation_1").primaryTargetId()),
                         "Reopening cannot discard a special-body designation.");
@@ -148,7 +157,8 @@ public final class AugmentControllerGameTest {
                 require(demon.inCombat() && demon.maxHealth() == before, "Starting combat cannot lose or double the self bonus.");
                 if (id.equals("one_man_show")) {
                     var unaugmented = new kim.biryeong.semiontd.tower.demonlord.DemonLordState(UUID.randomUUID());
-                    require(Math.abs(before - unaugmented.maxHealth() * 2) < .0001, "Self health must include the chosen bonus.");
+                    require(Math.abs(before - unaugmented.maxHealth() * 1.2) < .0001,
+                            "Self health must include 20% of the chosen bonus.");
                 }
             } finally {
                 game.close();

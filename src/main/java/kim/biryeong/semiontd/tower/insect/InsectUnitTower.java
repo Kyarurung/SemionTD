@@ -35,6 +35,7 @@ public final class InsectUnitTower extends ProductionTower {
     private boolean waveActive;
     private boolean permanentDeath;
     private boolean larva;
+    private double larvaIncomingDamageBonus;
     private boolean shellReady;
 
     public InsectUnitTower(
@@ -73,6 +74,7 @@ public final class InsectUnitTower extends ProductionTower {
 
     void markLarva(InsectUnitTower source) {
         larva = true;
+        larvaIncomingDamageBonus = InsectAugments.evolutionBonus(source, "incomingDamageBonus");
         waveActive = true;
         markTemporaryCopy(source.logicalId());
     }
@@ -107,7 +109,8 @@ public final class InsectUnitTower extends ProductionTower {
 
     private double incomingDamageMultiplier() {
         return (freshPowerActive ? InsectBalance.freshDamageTakenMultiplier() : 1.0)
-                * (1.0 + revivalsThisRound * InsectBalance.deathDamageTakenPerStack());
+                * (1.0 + revivalsThisRound * InsectBalance.deathDamageTakenPerStack())
+                * (1.0 + (larva ? larvaIncomingDamageBonus : InsectAugments.evolutionBonus(this, "incomingDamageBonus")));
     }
 
     double deathExplosionDamage() {
@@ -177,7 +180,7 @@ public final class InsectUnitTower extends ProductionTower {
         }
         if (waveActive) {
             deathsThisRound++;
-            if (deathsThisRound == 1) InsectAugments.reserveLarvae(this, lane);
+            InsectAugments.reserveLarvae(this, lane);
             // Commit the dead/waiting state before damage callbacks can query isDestroyed again.
             if (source != null) {
                 MonsterAreaEffectRequest request = MonsterAreaEffectRequest.aroundTower(
@@ -246,6 +249,7 @@ public final class InsectUnitTower extends ProductionTower {
         waveActive = previous.waveActive;
         permanentDeath = previous.permanentDeath;
         larva = previous.larva;
+        larvaIncomingDamageBonus = previous.larvaIncomingDamageBonus;
         shellReady = previous.shellReady;
     }
 
@@ -259,8 +263,8 @@ public final class InsectUnitTower extends ProductionTower {
         lines.add("<red>이번 라운드 사망</red> <white>" + deathsThisRound + "회</white>");
         if (shellReady) lines.add("<aqua>알껍질 방패</aqua> <white>다음 피해 1회 차단</white>");
         if (augmentSnapshot().has(InsectAugments.MARCH)) {
-            lines.add("<green>유충 생성 예약</green> <white>" + InsectAugments.reserved(ownerPlayer())
-                    + "/" + (int) augmentSnapshot().parameter(InsectAugments.MARCH, "roundCap", 6) + "</white>");
+            lines.add("<green>현재 유충 (생성 대기 포함)</green> <white>" + InsectAugments.activeLarvae(attachedLane())
+                    + "/" + (int) augmentSnapshot().parameter(InsectAugments.MARCH, "activeCap", 8) + "</white>");
         }
         lines.add("<light_purple>폭발 기본 마법 피해</light_purple> <white>" + oneDecimal(deathExplosionDamage())
                 + "</white> · 반경 " + oneDecimal(InsectBalance.deathExplosionRadius(type())) + "칸");

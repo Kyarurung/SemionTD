@@ -135,12 +135,16 @@ public final class AugmentCombat {
         return isNormalPermanent(tower) && tower.type().damage() > 0.0 && tower.type().range() > 0.0;
     }
 
-    /** Designations also support permanent warlock/end bodies, without widening formation effects. */
+    /** Special builder bodies can be designated without widening formation effects. */
     private static boolean isDesignatableType(Tower tower) {
         return isNormalPermanentType(tower) || tower != null && !tower.isTemporaryCopy()
-                && !tower.invulnerable() && tower.canBeSold() && tower.slotWeight() > 0
+                && !tower.invulnerable()
+                && (tower.canBeSold() || tower instanceof kim.biryeong.semiontd.tower.queen.QueenTower)
+                && tower.slotWeight() > 0
                 && ProductionTowerCatalog.entry(tower.type()).isPresent()
-                && (tower instanceof WarlockTower || tower instanceof kim.biryeong.semiontd.tower.end.EndTower);
+                && (tower instanceof WarlockTower || tower instanceof kim.biryeong.semiontd.tower.end.EndTower
+                    || tower instanceof HeroTower || tower instanceof QueenCardTower
+                    || tower instanceof kim.biryeong.semiontd.tower.queen.QueenTower);
     }
 
     public static boolean isDesignatable(Tower tower) {
@@ -148,7 +152,9 @@ public final class AugmentCombat {
     }
 
     public static boolean isDesignatableAttacker(Tower tower) {
-        return isDesignatable(tower) && tower.type().damage() > 0.0 && tower.type().range() > 0.0;
+        return isDesignatable(tower) && tower.type().range() > 0.0
+                && (tower.type().damage() > 0.0 || tower instanceof QueenCardTower
+                    || tower instanceof kim.biryeong.semiontd.tower.queen.QueenTower);
     }
 
     public static boolean isOverheatEligible(Tower tower) {
@@ -293,6 +299,7 @@ public final class AugmentCombat {
 
     public static double maxHealthBonus(Tower tower) {
         double bonus = kim.biryeong.semiontd.tower.undead.UndeadAugments.maxHealthBonus(tower)
+                + kim.biryeong.semiontd.tower.insect.InsectAugments.evolutionBonus(tower, "maxHealthBonus")
                 + beneficialBonus(tower, "maxHealthBonus");
         if (tower.augmentSnapshot().selections().isEmpty() || !isDesignatableType(tower)) return bonus;
         if (selected(tower, "one_man_show")) bonus += parameter(tower, "one_man_show", "maxHealthBonus", .30);
@@ -659,7 +666,32 @@ public final class AugmentCombat {
     }
 
     private static double parameter(Tower tower, String id, String name, double fallback) {
-        return tower.augmentSnapshot().parameter(id, name, fallback);
+        return reducedDesignationEfficiency(tower)
+                ? reducedTargetedParameter(tower.augmentSnapshot(), id, name, fallback)
+                : tower.augmentSnapshot().parameter(id, name, fallback);
+    }
+
+    public static boolean reducedDesignationEfficiency(Tower tower) {
+        return tower != null && (tower instanceof HeroTower
+                || kim.biryeong.semiontd.tower.warlock.WarlockTowers.isWarlockTower(tower.type())
+                || EndTowers.isEndTower(tower.type()) || DemonLordTowers.isDemonLordTower(tower.type()));
+    }
+
+    /** Scale effect strength, not stack limits, qualification thresholds or durations. */
+    public static double reducedTargetedParameter(AugmentSnapshot snapshot, String id, String name, double fallback) {
+        double value = snapshot.parameter(id, name, fallback);
+        boolean scaled = switch (AugmentService.shortId(id)) {
+            case "tactical_designation_1", "tactical_designation_2", "tactical_designation_3" ->
+                    name.equals("damageBonus") || name.equals("damageReduction");
+            case "overheat_core" -> name.equals("damageBonus") || name.equals("penaltyPerStack");
+            case "battlefield_mastery" -> name.equals("bonusPerStack");
+            case "one_man_show" -> name.equals("damageBonus") || name.equals("maxHealthBonus")
+                    || name.equals("otherDamagePenalty");
+            case "frontline_specialization" -> name.equals("vanguardDamagePenalty") || name.equals("vanguardDamageReduction")
+                    || name.equals("artilleryDamageBonus") || name.equals("artilleryIncomingMultiplier");
+            default -> false;
+        };
+        return !scaled ? value : name.equals("artilleryIncomingMultiplier") ? 1.0 + (value - 1.0) * .2 : value * .2;
     }
 
     private static int integer(Tower tower, String id, String name, int fallback) {

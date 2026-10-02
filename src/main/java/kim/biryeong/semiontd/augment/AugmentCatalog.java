@@ -11,7 +11,7 @@ import java.util.Set;
 import static kim.biryeong.semiontd.augment.AugmentCategory.*;
 import static kim.biryeong.semiontd.augment.AugmentRarity.*;
 
-/** Forty-two common cards, 124 job cards and nine fallback rewards; old stance IDs remain readable. */
+/** Forty-two common cards, 126 job cards and nine fallback rewards; old stance IDs remain readable. */
 public final class AugmentCatalog {
     public static final int OFFER_RULES_VERSION = 5;
     public static final List<Integer> MILESTONES = List.of(5, 15, 25);

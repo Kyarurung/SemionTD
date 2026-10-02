@@ -26,6 +26,8 @@ class AugmentTowerCatalogTest {
                     .create(UUID.randomUUID(), TeamId.RED, 1, new GridPosition(0, 0, 0));
             for (int round : new int[]{5, 14, 15, 24, 25, 26}) {
                 tower.beginPrepare(null, round);
+                assertEquals(AugmentTowers.is(type, AugmentTowers.FOLDING_BARRICADE) ? 500 : 0,
+                        tower.aggroPriority(), "Only the barricade gains aggro, unchanged across growth tiers");
                 assertEquals(AugmentTowers.tierForRound(round), tower.growthTier());
                 assertEquals(type.maxHealth() * tower.growthTier(), tower.currentMaxHealth(), .001, type.id());
                 double mineDamage = AugmentTowers.is(type, AugmentTowers.AMBUSH_WORKSHOP) ? 240 : 100;

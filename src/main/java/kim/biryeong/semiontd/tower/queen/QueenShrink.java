@@ -9,8 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 public final class QueenShrink {
     private static final MonsterDataKey<Double> POINTS = new MonsterDataKey<>(
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "queen_shrink_points"), Double.class);
-    private static final ResourceLocation SHRINK_DEBUFF_SOURCE =
+    public static final ResourceLocation SHRINK_DEBUFF_SOURCE =
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "queen_shrink_debuff");
+    public static final ResourceLocation GIANT_DEBUFF_SOURCE =
+            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "queen_giant_debuff");
 
     private QueenShrink() {}
 
@@ -19,16 +21,19 @@ public final class QueenShrink {
                 || !Double.isFinite(points) || points <= 0.0) return false;
         double currentScale = target.runtimeMonster().permanentStatScale();
         double minimumScale = QueenBalance.minimumStatScale();
-        if (currentScale <= minimumScale) {
+        double requestedFactor = Math.pow(QueenBalance.shrinkFactorPerPoint(), points);
+        double factor = Math.min(1.0, Math.max(minimumScale, currentScale * requestedFactor) / currentScale);
+        double health = Math.min(target.getHealth(), target.runtimeMonster().health());
+        double healthFactor = Math.max(Math.min(1.0, QueenBalance.giantInitialExecutionHealth()
+                / Math.max(0.000001, health)), requestedFactor);
+        if (factor >= 1.0 && healthFactor >= 1.0) {
             syncDebuffs(target);
             return false;
         }
-        double requestedFactor = Math.pow(QueenBalance.shrinkFactorPerPoint(), points);
-        double factor = Math.max(minimumScale, currentScale * requestedFactor) / currentScale;
-        if (factor >= 1.0) return false;
-        target.applyPermanentStatScale(factor, QueenBalance.minimumVisualScale());
+        target.applyPermanentStatScale(factor, healthFactor, QueenBalance.minimumVisualScale());
         syncDebuffs(target);
-        double appliedPoints = Math.min(points, Math.log(factor) / Math.log(QueenBalance.shrinkFactorPerPoint()));
+        double appliedPoints = Math.min(points, Math.log(Math.min(factor, healthFactor))
+                / Math.log(QueenBalance.shrinkFactorPerPoint()));
         target.runtimeMonster().setData(POINTS, points(target) + appliedPoints);
         return true;
     }
@@ -39,10 +44,10 @@ public final class QueenShrink {
     }
 
     private static void syncDebuffs(SemionMonsterEntity target) {
-        double movementReduction = 1.0 - target.runtimeMonster().permanentStatScale();
         target.setPersistentEffect(
-                TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION, SHRINK_DEBUFF_SOURCE, movementReduction);
+                TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION, SHRINK_DEBUFF_SOURCE, 0.0);
         target.setPersistentEffect(
-                TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, SHRINK_DEBUFF_SOURCE, movementReduction * 0.5);
+                TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, SHRINK_DEBUFF_SOURCE,
+                Math.min(0.70, 1.0 - target.runtimeMonster().permanentStatScale()));
     }
 }

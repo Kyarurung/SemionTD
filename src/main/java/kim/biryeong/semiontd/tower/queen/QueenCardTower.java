@@ -238,9 +238,11 @@ public final class QueenCardTower extends ProductionTower {
                 "현재 족보: " + pokerHand.displayName(),
                 "축소 위력: " + oneDecimal(QueenBalance.cardShrinkPoints() * (1.0 + pokerBonus))
                         + "점 (점당 " + percentInteger(1.0 - QueenBalance.shrinkFactorPerPoint()) + " 감소)",
-                "능력치 하한: 원본의 " + percentInteger(QueenBalance.minimumStatScale()),
+                "공격력 하한: 원본의 " + percentInteger(QueenBalance.minimumStatScale()),
+                "체력 감소: 처형선까지 별도 적용 · 공속 감소 최대 70%",
                 "외형 하한: 원본의 " + percentInteger(QueenBalance.minimumVisualScale()),
                 "족보 보너스: " + percentInteger(pokerBonus),
+                "족보 추가 체력: +" + oneDecimal(pokerFlatHealthBonus()),
                 "받는 피해 감소: " + percentInteger(incomingDamageReduction())
         );
     }
@@ -254,8 +256,13 @@ public final class QueenCardTower extends ProductionTower {
     }
 
     private double desiredMaxHealth() {
-        return isJoker() ? type().maxHealth() * (1.0 + pokerBonus)
-                : card().map(value -> QueenBalance.cardMaxHealth(value.suit()) * (1.0 + pokerBonus)).orElse(type().maxHealth());
+        double base = isJoker() ? type().maxHealth()
+                : card().map(value -> QueenBalance.cardMaxHealth(value.suit())).orElse(type().maxHealth());
+        return base * (1.0 + pokerBonus) + pokerFlatHealthBonus();
+    }
+
+    private double pokerFlatHealthBonus() {
+        return Math.min(1.0, Math.max(0.0, pokerBonus)) * QueenBalance.cardPokerFlatHealthBonusCap();
     }
 
     private void shrinkNearbyTargets(SemionTowerEntity source, SemionMonsterEntity primary, double points) {

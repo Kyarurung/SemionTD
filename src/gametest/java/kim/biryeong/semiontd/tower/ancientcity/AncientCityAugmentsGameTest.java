@@ -37,6 +37,52 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class AncientCityAugmentsGameTest {
     @GameTest
+    public void healthDamageUsesEachTargetsPreHitHealthOnlyForNativeSpells(GameTestHelper context) {
+        for (TowerType type : List.of(AncientCityTowers.SHRIEKER_T1, AncientCityTowers.SHRIEKER_T2,
+                AncientCityTowers.SHRIEKER_T3, AncientCityTowers.WARDEN_T1, AncientCityTowers.WARDEN_T2,
+                AncientCityTowers.WARDEN_T3, AncientCityTowers.WARDEN_T4)) {
+            PlayerLane lane = lane(context, UUID.randomUUID());
+            List<SemionMonsterEntity> targets = new ArrayList<>();
+            try {
+                AncientCityTower tower = tower(context, lane, type, 3, 3);
+                SemionTowerEntity source = entity(context, tower);
+                SemionMonsterEntity primary = target(context, lane, 4, 3, 1);
+                SemionMonsterEntity secondary = target(context, lane, 4, 4, 1);
+                SemionMonsterEntity foreign = target(context, lane, 4, 3, 2);
+                targets.addAll(List.of(primary, secondary, foreign));
+                secondary.runtimeMonster().syncHealth(10000);
+                AncientCityMarks.apply(primary.runtimeMonster(), lane.ownerPlayer(), UUID.randomUUID(), .25, 100);
+                AncientCityMarks.apply(secondary.runtimeMonster(), lane.ownerPlayer(), UUID.randomUUID(), .25, 100);
+                boolean shrieker = tower.role() == AncientCityRole.SHRIEKER;
+                double ratio = AncientCityTowers.tier(type) * (shrieker ? .025 : .05);
+                for (int cast = 0; cast < 2; cast++) {
+                    double[] before = {primary.runtimeMonster().health(), secondary.runtimeMonster().health()};
+                    double[] expected = new double[2];
+                    for (int index = 0; index < 2; index++) {
+                        SemionMonsterEntity target = targets.get(index);
+                        double healthDamage = (shrieker ? before[index] : target.runtimeMonster().maxHealth() - before[index]) * ratio;
+                        double base = TowerBalanceRuntime.ability(type.id(), "magicDamage") + healthDamage;
+                        if (!shrieker && index > 0) base *= tower.sonicSecondaryRatio();
+                        expected[index] = tower.resolveOutgoingDamage(source, target,
+                                tower.magicDamage(target, base, shrieker || index == 0));
+                    }
+                    require(tower.execute(lane), type.id() + " must cast its native ability.");
+                    for (int index = 0; index < 2; index++) {
+                        require(close(before[index] - targets.get(index).runtimeMonster().health(), expected[index]),
+                                type.id() + " must use each target's pre-hit health, applying mark and secondary scaling once.");
+                    }
+                }
+                require(close(foreign.runtimeMonster().health(), 20000), "Health damage cannot cross lanes.");
+                double before = primary.runtimeMonster().health();
+                var basic = tower.damageBasicAttackTargetResult(source, primary, 10);
+                require(close(basic.outgoingDamage(), 10) && close(before - primary.runtimeMonster().health(), 10),
+                        "Basic attacks must not gain native-spell health damage or spell amplification.");
+            } finally {cleanup(lane, targets);}
+        }
+        context.succeed();
+    }
+
+    @GameTest
     public void detectionSharesWithTwoUnmarkedEnemiesForFullDuration(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         PlayerLane lane = lane(context, owner, "s");
@@ -109,12 +155,13 @@ public final class AncientCityAugmentsGameTest {
             AncientCityTower warden = tower(context, lane, AncientCityTowers.WARDEN_T1, 3, 3);
             for (int index = 0; index < 9; index++) {
                 SemionMonsterEntity target = target(context, lane, 4 + index % 3, 4 + index / 3, 1);
+                target.runtimeMonster().syncHealth(10000);
                 AncientCityMarks.apply(target.runtimeMonster(), owner, UUID.randomUUID(), .25, 100);
                 targets.add(target);
             }
             int count = warden.sonicTargetCount();
             require(warden.execute(lane), "Warden must cast sonic boom.");
-            List<Double> losses = targets.stream().map(target -> 20000 - target.runtimeMonster().health())
+            List<Double> losses = targets.stream().map(target -> 10000 - target.runtimeMonster().health())
                     .filter(loss -> loss > 0).toList();
             require(losses.size() == count, "Sonic boom must include exactly the native count plus three.");
             require(losses.stream().allMatch(loss -> close(loss, losses.getFirst())),
