@@ -57,7 +57,7 @@ public record Blueprint(
     private List<String> description() {
         List<String> lines = new java.util.ArrayList<>(List.of(
                 "<gray>빌더 빌더가 직접 설계한 타워입니다.</gray>",
-                "<white>초당 피해 " + one(stats.damagePerSecond()) + " · 체력 " + one(stats.maxHealth())
+                "<white>" + BlueprintTexts.basicDps(stats) + " · 체력 " + one(stats.maxHealth())
                         + " · 사거리 " + one(stats.range()) + "</white>"
         ));
         if (stats.targetPriority() != BlueprintTargetPriority.FIRST) {

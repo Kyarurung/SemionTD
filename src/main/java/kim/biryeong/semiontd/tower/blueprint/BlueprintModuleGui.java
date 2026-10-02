@@ -20,7 +20,7 @@ public final class BlueprintModuleGui extends SimpleGui {
         super(MenuType.GENERIC_9x4, player, false);
         this.player = player;
         this.gameManager = gameManager;
-        setTitle(Component.literal("모듈 고르기"));
+        setTitle(Component.literal("모듈 고르기 (" + BlueprintModule.values().length + "종)"));
         setLockPlayerInventory(true);
         BlueprintDraft draft = BlueprintDraft.of(player.getUUID());
         int slot = 0;
@@ -54,6 +54,7 @@ public final class BlueprintModuleGui extends SimpleGui {
             case DEFENSE -> "생존";
             case UTILITY -> "유틸";
             case SUPPORT -> "지원";
+            case SUMMON -> "소환";
         };
     }
 }

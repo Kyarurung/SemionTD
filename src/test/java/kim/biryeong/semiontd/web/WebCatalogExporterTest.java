@@ -220,7 +220,7 @@ final class WebCatalogExporterTest {
         IncomeSummons.reloadBuiltIns(SummonConfig.defaultConfig());
         var document = WebCatalogExporter.snapshot(1L);
         assertEquals(14, document.builders().stream().filter(builder -> "OFFICIAL".equals(builder.builderOrigin())).count());
-        assertEquals(17, document.builders().stream().filter(builder -> "CREATIVE".equals(builder.builderOrigin())).count());
+        assertEquals(18, document.builders().stream().filter(builder -> "CREATIVE".equals(builder.builderOrigin())).count());
         assertEquals("semion-td:pirate", PirateTowerJob.ID.toString());
         var pirate = document.builders().stream().filter(builder -> builder.id().equals(PirateTowerJob.ID.toString()))
                 .findFirst().orElseThrow();

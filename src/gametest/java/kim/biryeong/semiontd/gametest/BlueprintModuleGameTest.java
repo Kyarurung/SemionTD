@@ -27,6 +27,7 @@ import kim.biryeong.semiontd.tower.blueprint.BlueprintStats;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintTargetPriority;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintTower;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintVisuals;
+import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -285,6 +286,122 @@ public final class BlueprintModuleGameTest {
             summonTower.resetForRound(lane);
             require(summonTower.runtimeDetailLines().contains("하수인 0기"), "Minions must be dismissed when the round resets.");
             context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
+    /** The world clock must expire minions even while their summoner cannot execute abilities. */
+    @GameTest(maxTicks = 320)
+    public void reviewMinionLifetimeContinuesAfterSummonerDeath(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("review-blueprint-dead-summoner".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        Runnable cleanup = () -> {
+            SuccubusDreams.clearPlayer(owner);
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        };
+        try {
+            fillFloor(context);
+            BlueprintStats stats = new BlueprintStats(300, 0, 20, 6, 25, DamageType.PHYSICAL)
+                    .withModules(Map.of(BlueprintModule.SUMMON, 3), BlueprintTargetPriority.FIRST);
+            var creation = BlueprintStates.create(owner, "수명 검수", stats, BlueprintVisuals.options().getFirst().sourceTowerId());
+            require(creation.success(), creation.message());
+            BlueprintTower tower = (BlueprintTower) ProductionTowerCatalog.find(creation.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 2, 1, 2));
+            lane.addTower(tower);
+            BlueprintTower sleeper = (BlueprintTower) ProductionTowerCatalog.find(creation.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 5, 1, 2));
+            lane.addTower(sleeper);
+            for (int tick = 0; tick < 240; tick++) {
+                tower.tick(lane);
+                sleeper.tick(lane);
+            }
+            require(tower.runtimeDetailLines().contains("하수인 1기"), "Probe must spawn a minion first.");
+            require(sleeper.runtimeDetailLines().contains("하수인 1기"), "Sleeping source must start with a minion.");
+            require(SuccubusDreams.add(sleeper, lane, tower, 100), "Apply sleep through the actual dream path.");
+            require(SuccubusDreams.isAsleep(sleeper), "Source must be sleeping.");
+            tower.syncHealth(0);
+            tower.notifyDeath(lane);
+            long spawnedAt = context.getLevel().getGameTime();
+            context.onEachTick(() -> {
+                try {
+                    long elapsed = context.getLevel().getGameTime() - spawnedAt;
+                    tower.tick(lane);
+                    sleeper.tick(lane);
+                    if (elapsed < 300) {
+                        require(tower.runtimeDetailLines().contains("하수인 1기"), "Death must neither dismiss nor renew a minion.");
+                        require(sleeper.runtimeDetailLines().contains("하수인 1기"), "Sleep must prevent new summons without dismissing the old one.");
+                        return;
+                    }
+                    require(tower.runtimeDetailLines().contains("하수인 0기"), "Dead source minion must expire at 300 ticks.");
+                    require(sleeper.runtimeDetailLines().contains("하수인 0기"), "Sleeping source minion must expire at 300 ticks.");
+                    tower.syncHealth(tower.currentMaxHealth());
+                    for (int tick = 0; tick < 240; tick++) tower.tick(lane);
+                    require(tower.runtimeDetailLines().contains("하수인 1기"), "Revived source may summon again.");
+                    tower.onRemoved(lane);
+                    require(tower.runtimeDetailLines().contains("하수인 0기"), "Permanent removal must dismiss living minions.");
+                    cleanup.run();
+                    context.succeed();
+                } catch (RuntimeException | Error failure) {
+                    cleanup.run();
+                    context.fail(net.minecraft.network.chat.Component.literal(failure.toString()));
+                }
+            });
+        } catch (RuntimeException | Error failure) {
+            cleanup.run();
+            throw failure;
+        }
+    }
+
+    @GameTest
+    public void supportAurasRefreshWithoutStackingAndExpireWithoutTheirSource(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-aura-refresh".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            BlueprintStats plain = new BlueprintStats(300, 0, 20, 6, 25, DamageType.PHYSICAL);
+            String visual = BlueprintVisuals.options().getFirst().sourceTowerId();
+            var support = BlueprintStates.create(owner, "오라", plain.withModules(
+                    Map.of(BlueprintModule.HASTE_AURA, 2, BlueprintModule.RANGE_AURA, 2),
+                    BlueprintTargetPriority.FIRST), visual);
+            var recipient = BlueprintStates.create(owner, "대상", plain, visual);
+            BlueprintTower first = (BlueprintTower) ProductionTowerCatalog.find(support.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 2, 1, 2));
+            BlueprintTower second = (BlueprintTower) ProductionTowerCatalog.find(support.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 4, 1, 2));
+            BlueprintTower target = (BlueprintTower) ProductionTowerCatalog.find(recipient.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 3, 1, 2));
+            lane.addTower(first);
+            lane.addTower(second);
+            lane.addTower(target);
+            SemionTowerEntity entity = (SemionTowerEntity) context.getLevel().getEntity(target.entityId().getAsInt());
+            entity.setNoAi(true);
+            for (int tick = 0; tick < 200; tick++) {
+                entity.aiStep();
+                first.tick(lane);
+                second.tick(lane);
+                require(Math.abs(entity.activeTimedEffectMagnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS)
+                                - BlueprintModule.HASTE_AURA.value("attackSpeedBonus", 2)) < 1.0e-6,
+                        "Haste aura must remain active without stacking at tick " + tick);
+                require(Math.abs(entity.activeTimedEffectMagnitude(TimedEffectType.TOWER_FLAT_RANGE_BONUS)
+                                - BlueprintModule.RANGE_AURA.value("rangeBonus", 2)) < 1.0e-6,
+                        "Range aura must remain active without stacking at tick " + tick);
+            }
+            for (int tick = 0; tick < 81; tick++) entity.aiStep();
+            require(entity.activeTimedEffectMagnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS) == 0,
+                    "Haste must expire when the source stops refreshing it.");
+            require(entity.activeTimedEffectMagnitude(TimedEffectType.TOWER_FLAT_RANGE_BONUS) == 0,
+                    "Range must expire when the source stops refreshing it.");
+            context.succeed();
+        } catch (RuntimeException | Error failure) {
+            System.out.println("BLUEPRINT_AURA_REGRESSION " + failure);
+            throw failure;
         } finally {
             BlueprintStates.clear(owner);
             group.closeRuntime();

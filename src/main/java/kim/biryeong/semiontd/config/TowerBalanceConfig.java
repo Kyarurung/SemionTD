@@ -1588,7 +1588,8 @@ public record TowerBalanceConfig(
                 Map.entry("summon.statRatioPerLevel", 0.05),
                 Map.entry("summon.intervalTicks", 200.0),
                 Map.entry("summon.durationTicks", 300.0),
-                Map.entry("summon.offenseWeight", 0.3),
+                Map.entry("summon.powerWeight", 1.0),
+                Map.entry("summon.minimumPricePerLevel", 5.0),
                 Map.entry("utilityTargetBonus", 0.5),
                 Map.entry("line.lengthBonus", 1.0),
                 Map.entry("line.lengthBonusPerLevel", 1.0),
@@ -2012,6 +2013,12 @@ public record TowerBalanceConfig(
         validateBodyAbilities();
         validateFrostAbilities();
         validatePetAbilities();
+        String blueprint = kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.CONFIG_ID;
+        validatePositive(blueprint, "summon.powerWeight", "summon.statRatio");
+        validateIntegral(blueprint, false, "summon.count", "summon.intervalTicks",
+                "summon.durationTicks", "summon.minimumPricePerLevel");
+        validateIntegral(blueprint, true, "summon.countPerLevel",
+                "summon.intervalTicksPerLevel", "summon.durationTicksPerLevel");
     }
 
     private void validatePetAbilities() {

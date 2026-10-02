@@ -37,7 +37,6 @@ public final class BlueprintVisualGui extends SimpleGui {
             BlueprintVisuals.Option option = options.get(index);
             GuiElementBuilder builder = GuiElementBuilder.from(BlueprintVisuals.icon(option.visual()))
                     .setName(text(option.sourceName(), option.sourceTowerId().equals(selected) ? ChatFormatting.GREEN : ChatFormatting.WHITE))
-                    .addLoreLineRaw(text(option.sourceTowerId(), ChatFormatting.DARK_GRAY))
                     .addLoreLineRaw(text("클릭: 이 겉모습으로", ChatFormatting.GRAY))
                     .setCallback((slot, type, action) -> {
                         BlueprintDraft.of(player.getUUID()).visualSourceId = option.sourceTowerId();

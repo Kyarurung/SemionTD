@@ -58,8 +58,8 @@ public class BlueprintTower extends ProductionTower {
     private int focusStacks;
     private int frenzyStacks;
     private int summonPulses;
-    /** 불러낸 하수인: 엔티티 id → 남은 틱. */
-    private final java.util.LinkedHashMap<Integer, Integer> minions = new java.util.LinkedHashMap<>();
+    /** 불러낸 하수인: 엔티티 id → 만료될 월드 틱. */
+    private final java.util.LinkedHashMap<Integer, Long> minions = new java.util.LinkedHashMap<>();
 
     public BlueprintTower(
             TowerType type,
@@ -436,6 +436,13 @@ public class BlueprintTower extends ProductionTower {
     // ------------------------------------------------------------------ periodic
 
     @Override
+    public void tick(PlayerLane lane) {
+        // 수명은 소환자의 생존·수면·능력 재사용 대기시간과 무관하게 흐릅니다.
+        expireMinions(lane);
+        super.tick(lane);
+    }
+
+    @Override
     protected boolean execute(PlayerLane lane) {
         boolean periodic = level(BlueprintModule.REGEN) > 0 || level(BlueprintModule.HEAL_AURA) > 0
                 || level(BlueprintModule.HASTE_AURA) > 0 || level(BlueprintModule.DETECTION) > 0
@@ -454,7 +461,7 @@ public class BlueprintTower extends ProductionTower {
             reveal(entity);
         }
         if (level(BlueprintModule.SUMMON) > 0) {
-            tickMinions(lane, entity);
+            summonMinion(lane, entity);
         }
         if (pulseCount++ % AURA_EVERY_PULSES == 0) {
             if (level(BlueprintModule.HEAL_AURA) > 0) {
@@ -498,7 +505,7 @@ public class BlueprintTower extends ProductionTower {
                 AreaEffectIds.tower(this, "haste_aura"), source, value(BlueprintModule.HASTE_AURA, "radius"),
                 TowerAreaTargetMode.REGISTERED, AreaVfxSpec.onChange(AreaVfxStyles.BUFF));
         SemionTdApi.areaEffects().applyToTowers(request, target -> target.entity()
-                .filter(allyEntity -> allyEntity.applyTimedEffect(TimedEffectType.TOWER_ATTACK_SPEED_BONUS,
+                .filter(allyEntity -> allyEntity.refreshTimedEffect(TimedEffectType.TOWER_ATTACK_SPEED_BONUS,
                         source("haste_aura"), bonus, duration))
                 .map(ignored -> AreaEffectOutcome.APPLIED)
                 .orElse(AreaEffectOutcome.UNCHANGED));
@@ -524,7 +531,7 @@ public class BlueprintTower extends ProductionTower {
                 AreaEffectIds.tower(this, "range_aura"), source, value(BlueprintModule.RANGE_AURA, "radius"),
                 TowerAreaTargetMode.REGISTERED, AreaVfxSpec.onChange(AreaVfxStyles.BUFF));
         SemionTdApi.areaEffects().applyToTowers(request, target -> target.entity()
-                .filter(allyEntity -> allyEntity.applyTimedEffect(TimedEffectType.TOWER_FLAT_RANGE_BONUS,
+                .filter(allyEntity -> allyEntity.refreshTimedEffect(TimedEffectType.TOWER_FLAT_RANGE_BONUS,
                         source("range_aura"), bonus, duration))
                 .map(ignored -> AreaEffectOutcome.APPLIED)
                 .orElse(AreaEffectOutcome.UNCHANGED));
@@ -534,23 +541,24 @@ public class BlueprintTower extends ProductionTower {
      * 소환: 정한 주기마다 이 타워의 능력치 일부를 가진 하수인을 곁에 불러냅니다(모듈 없음, 판매·보상 없음). 하수인은 정한 시간이
      * 지나거나 쓰러지면 사라지고, 라운드가 끝나거나 이 타워가 사라지면 함께 사라집니다.
      */
-    private void tickMinions(PlayerLane lane, SemionTowerEntity source) {
+    private void expireMinions(PlayerLane lane) {
         var world = lane.arenaWorld();
         var iterator = minions.entrySet().iterator();
         while (iterator.hasNext()) {
             var entry = iterator.next();
             var entity = world.getEntity(entry.getKey());
-            int remaining = entry.getValue() - PULSE_TICKS;
-            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || remaining <= 0
+            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || world.getGameTime() >= entry.getValue()
                     || minion.runtimeTower() == null || minion.runtimeTower().health() <= 0.0) {
                 if (entity != null && !entity.isRemoved()) {
                     entity.discard();
                 }
                 iterator.remove();
-                continue;
             }
-            entry.setValue(remaining);
         }
+    }
+
+    private void summonMinion(PlayerLane lane, SemionTowerEntity source) {
+        var world = lane.arenaWorld();
         int interval = Math.max(1, (int) value(BlueprintModule.SUMMON, "intervalTicks") / PULSE_TICKS);
         if (++summonPulses < interval || minions.size() >= (int) value(BlueprintModule.SUMMON, "count")) {
             return;
@@ -573,7 +581,7 @@ public class BlueprintTower extends ProductionTower {
         minion.markIllusionClone();
         minion.setPos(spawn.x, spawn.y, spawn.z);
         if (world.addFreshEntity(minion)) {
-            minions.put(minion.getId(), (int) value(BlueprintModule.SUMMON, "durationTicks"));
+            minions.put(minion.getId(), world.getGameTime() + (long) value(BlueprintModule.SUMMON, "durationTicks"));
         }
     }
 

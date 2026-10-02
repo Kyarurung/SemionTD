@@ -65,7 +65,7 @@ public enum BlueprintModule {
     /** 주변 아군 타워의 사거리를 늘립니다. */
     RANGE_AURA("range_aura", "사거리 오라", Kind.SUPPORT),
     /** 주기적으로 약한 하수인을 불러 잠시 함께 싸웁니다. */
-    SUMMON("summon", "소환", Kind.OFFENSE);
+    SUMMON("summon", "소환", Kind.SUMMON);
 
     public static final int MAX_LEVEL = 3;
 
@@ -77,7 +77,9 @@ public enum BlueprintModule {
         /** 맞힐 때마다 거는 효과(둔화·기절·취약). 피해와 상관없이 걸리므로 초당 맞힘 수 × 맞히는 대상 수로 값을 셉니다. */
         UTILITY,
         /** 주변 아군을 돕는 오라. 위력에 더해짐. */
-        SUPPORT
+        SUPPORT,
+        /** 모듈을 제외한 기본 화력·체력과 평균 동시 소환 수로 계산. */
+        SUMMON
     }
 
     private final String id;
@@ -116,6 +118,7 @@ public enum BlueprintModule {
             case DEFENSE -> "defenseWeight";
             case UTILITY -> "utilityWeight";
             case SUPPORT -> "powerPerLevel";
+            case SUMMON -> "powerWeight";
         });
     }
 

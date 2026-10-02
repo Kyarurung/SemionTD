@@ -7,6 +7,10 @@ public final class BlueprintTexts {
     private BlueprintTexts() {
     }
 
+    public static String basicDps(BlueprintStats stats) {
+        return "기본 초당 피해 " + num(stats.damagePerSecond());
+    }
+
     public static String effect(BlueprintModule module, int level) {
         return switch (module) {
             case MULTISHOT -> "추가 대상 " + whole(module.value("extraTargets", level)) + " · 피해 " + pct(module.value("damageRatio", level));
@@ -41,7 +45,7 @@ public final class BlueprintTexts {
             case TAUNT -> "어그로 +" + whole(module.value("aggroBonus", level)) + " · 받는 피해 -" + pct(module.value("reduction", level));
             case RANGE_AURA -> "반경 " + num(module.value("radius", level)) + " 아군 사거리 +" + num(module.value("rangeBonus", level));
             case SUMMON -> num(module.value("intervalTicks", level) / 20.0) + "초마다 하수인(능력치 " + pct(module.value("statRatio", level))
-                    + ") · 최대 " + whole(module.value("count", level)) + "기";
+                    + ") · " + num(module.value("durationTicks", level) / 20.0) + "초 유지 · 최대 " + whole(module.value("count", level)) + "기";
         };
     }
 

@@ -12,7 +12,8 @@ import kim.biryeong.semiontd.entity.monster.DamageType;
  *   공격  = (초당 피해 × 피해 유형 배율 / dpsUnit) × (사거리 / rangePivot)^rangeExponent × Π(1 + 공격 모듈 가중치 × 단계)
  *   생존  = 체력 / healthUnit × Π(1 + 생존 모듈 가중치 × 단계)
  *   유틸  = Σ 유틸 모듈 가중치 × 단계 × √(초당 맞힘) × (1 + utilityTargetBonus × (맞히는 대상 수 - 1))
- *   P     = 공격 + 생존 + 유틸 + Σ 지원 모듈 위력 × 단계
+ *   소환  = (기본 공격 위력 + 기본 생존 위력) × 하수인 능력치 비율 × 평균 동시 개체 수 × summon.powerWeight
+ *   P     = 공격 + 생존 + 유틸 + Σ 지원 모듈 위력 × 단계 + 소환
  *   가격  = priceScale × P^priceExponent   (priceStep 단위로 반올림, 최소 minimumPrice)
  * </pre>
  * 기본 계수는 기존 빌더 타워의 가격대별 중앙값(가격 50·130·260 → 초당 피해 8·16.7·26.7, 체력 88·140·200)에
@@ -26,6 +27,16 @@ public final class BlueprintPricing {
     /** 이 능력치로 만든 타워의 설치 가격(다이아). */
     public static long price(BlueprintStats stats) {
         double power = power(stats);
+        long price = roundedPrice(power);
+        int summonLevel = stats.level(BlueprintModule.SUMMON);
+        if (summonLevel > 0) {
+            long minimumSurcharge = (long) value("summon.minimumPricePerLevel") * summonLevel;
+            price = Math.max(price, roundedPrice(power - summonPower(stats)) + minimumSurcharge);
+        }
+        return price;
+    }
+
+    private static long roundedPrice(double power) {
         double raw = value("priceScale") * Math.pow(Math.max(0.0, power), value("priceExponent"));
         double step = Math.max(1.0, value("priceStep"));
         long rounded = Math.round(raw / step) * (long) step;
@@ -51,9 +62,24 @@ public final class BlueprintPricing {
                 case DEFENSE -> defenseMultiplier *= 1.0 + weighted;
                 case UTILITY -> utility += weighted * hitRate * targetFactor;
                 case SUPPORT -> support += weighted;
+                case SUMMON -> { /* 하수인은 다른 모듈을 계승하지 않으므로 별도 계산합니다. */ }
             }
         }
-        return offense * rangeFactor * offenseMultiplier + defense * defenseMultiplier + utility + support;
+        return offense * rangeFactor * offenseMultiplier + defense * defenseMultiplier + utility + support + summonPower(stats);
+    }
+
+    private static double summonPower(BlueprintStats stats) {
+        int level = stats.level(BlueprintModule.SUMMON);
+        if (level <= 0) {
+            return 0.0;
+        }
+        BlueprintModule summon = BlueprintModule.SUMMON;
+        double offense = stats.damagePerSecond() * damageTypeMultiplier(stats.damageType()) / value("dpsUnit");
+        double rangeFactor = Math.pow(Math.max(0.1, stats.range()) / value("rangePivot"), value("rangeExponent"));
+        double basePower = offense * rangeFactor + stats.maxHealth() / value("healthUnit");
+        double averageCount = Math.min(summon.value("count", level),
+                summon.value("durationTicks", level) / summon.value("intervalTicks", level));
+        return basePower * summon.value("statRatio", level) * averageCount * summon.priceWeight();
     }
 
     /** 한 번 공격에 효과를 거는 대상 수(기본 1 + 다중 사격 추가 대상 + 직선이 보통 더 맞히는 수). */

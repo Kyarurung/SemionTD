@@ -3,9 +3,12 @@ package kim.biryeong.semiontd.tower.blueprint;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
+import java.util.Map;
 import kim.biryeong.semiontd.config.TowerBalanceConfig;
+import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.tower.vfx.BuilderPalette;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
@@ -34,6 +37,7 @@ class BlueprintPricingTest {
     @AfterEach
     void clearBlueprints() {
         BlueprintStates.clearAll();
+        TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
     }
 
     private static BlueprintStats stats(double health, double dps, double range) {
@@ -192,6 +196,37 @@ class BlueprintPricingTest {
     }
 
     @Test
+    void displayedBasicDpsDoesNotIncludeThePricingMultiplier() {
+        for (DamageType damageType : DamageType.values()) {
+            BlueprintStats stats = new BlueprintStats(150, 10, 20, 6, 25, damageType);
+            assertEquals("기본 초당 피해 10", BlueprintTexts.basicDps(stats));
+            var created = BlueprintStates.create(OWNER, damageType.name(), stats,
+                    BlueprintVisuals.options().getFirst().sourceTowerId());
+            assertTrue(created.success(), created.message());
+            assertTrue(created.blueprint().towerType().description().stream()
+                    .anyMatch(line -> line.contains(BlueprintTexts.basicDps(stats) + " · 체력")));
+        }
+    }
+
+    @Test
+    void webCatalogExplainsPrivateBlueprintsWithoutExportingThem() {
+        var before = kim.biryeong.semiontd.web.WebCatalogExporter.snapshot(1L);
+        var created = BlueprintStates.create(OWNER, "개인 설계", stats(120, 12, 7),
+                BlueprintVisuals.options().getFirst().sourceTowerId());
+        assertTrue(created.success(), created.message());
+        var after = kim.biryeong.semiontd.web.WebCatalogExporter.snapshot(2L);
+        var builder = after.builders().stream().filter(entry -> entry.id().equals(BlueprintTowerJob.ID.toString()))
+                .findFirst().orElseThrow();
+        assertEquals(26, BlueprintModule.values().length);
+        assertEquals("CREATIVE", builder.builderOrigin());
+        assertTrue(builder.description().stream().anyMatch(line -> line.contains("26종")));
+        assertTrue(builder.description().stream().anyMatch(line -> line.contains("웹 도감에는 개인 설계를 공개하지 않습니다")));
+        assertTrue(builder.towerIds().isEmpty());
+        assertTrue(after.towers().stream().noneMatch(entry -> BlueprintTowers.isBlueprintId(entry.id())));
+        assertEquals(before.versionHash(), after.versionHash(), "Private designs must not change the public catalog version.");
+    }
+
+    @Test
     void draftClampsToTheLimitsAndBuildsADesign() {
         BlueprintDraft draft = new BlueprintDraft();
         draft.maxHealth = 1.0e9;
@@ -227,5 +262,56 @@ class BlueprintPricingTest {
 
     private static void assertBetween(long min, long max, long actual) {
         assertTrue(actual >= min && actual <= max, "Expected " + min + ".." + max + " but was " + actual);
+    }
+
+    @Test
+    void summonsPayForBaseHealthAndDamageButNotInheritedModules() {
+        BlueprintStats plain = stats(300, 0, 6);
+        assertEquals(115, BlueprintPricing.price(plain));
+        long[] expected = {190, 250, 270};
+        double[] powerRatios = {0.35, 0.60, 0.675};
+        for (int level = 1; level <= 3; level++) {
+            BlueprintStats summoned = plain.withModules(Map.of(BlueprintModule.SUMMON, level), BlueprintTargetPriority.FIRST);
+            assertEquals(expected[level - 1], BlueprintPricing.price(summoned));
+            assertEquals(BlueprintPricing.power(plain) * (1 + powerRatios[level - 1]),
+                    BlueprintPricing.power(summoned), 1.0e-9);
+            BlueprintStats cheapest = stats(30, 0, 6);
+            assertEquals(BlueprintPricing.price(cheapest) + 5 * level, BlueprintPricing.price(cheapest.withModules(
+                    Map.of(BlueprintModule.SUMMON, level), BlueprintTargetPriority.FIRST)), "Rounding must not make summoning free.");
+        }
+        BlueprintStats attacker = stats(200, 15, 6);
+        BlueprintStats splash = attacker.withModules(Map.of(BlueprintModule.SPLASH, 3), BlueprintTargetPriority.FIRST);
+        double summonOnly = BlueprintPricing.power(attacker.withModules(Map.of(BlueprintModule.SUMMON, 3),
+                BlueprintTargetPriority.FIRST)) - BlueprintPricing.power(attacker);
+        double withSplash = BlueprintPricing.power(attacker.withModules(Map.of(BlueprintModule.SUMMON, 3,
+                BlueprintModule.SPLASH, 3), BlueprintTargetPriority.FIRST)) - BlueprintPricing.power(splash);
+        assertEquals(summonOnly, withSplash, 1.0e-9, "Minions do not inherit splash, so its cost must not multiply summoning power.");
+    }
+
+    @Test
+    void summonPricingTracksDurationIntervalCapAndValidatesNewSettings() {
+        BlueprintStats summoner = stats(200, 15, 6).withModules(Map.of(BlueprintModule.SUMMON, 3), BlueprintTargetPriority.FIRST);
+        double base = BlueprintPricing.power(summoner);
+        TowerBalanceRuntime.apply(summonConfig(Map.of("summon.durationTicks", 600.0)));
+        double longer = BlueprintPricing.power(summoner);
+        assertTrue(longer > base);
+        TowerBalanceRuntime.apply(summonConfig(Map.of("summon.intervalTicks", 100.0)));
+        assertEquals(longer, BlueprintPricing.power(summoner), 1.0e-9);
+        TowerBalanceRuntime.apply(summonConfig(Map.of("summon.durationTicks", 1200.0)));
+        assertEquals(longer, BlueprintPricing.power(summoner), 1.0e-9, "Average count must not exceed the configured cap.");
+        TowerBalanceRuntime.apply(summonConfig(Map.of("summon.powerWeight", 2.0)));
+        assertEquals(longer, BlueprintPricing.power(summoner), 1.0e-9);
+        // Old configs still load, but the obsolete offense multiplier no longer prices summons.
+        TowerBalanceRuntime.apply(summonConfig(Map.of("summon.offenseWeight", 9.0)));
+        assertEquals(base, BlueprintPricing.power(summoner), 1.0e-9);
+        for (String key : java.util.List.of("summon.count", "summon.intervalTicks", "summon.durationTicks", "summon.minimumPricePerLevel")) {
+            assertThrows(IllegalArgumentException.class, () -> TowerBalanceRuntime.apply(summonConfig(Map.of(key, 0.0))), key);
+            assertThrows(IllegalArgumentException.class, () -> TowerBalanceRuntime.apply(summonConfig(Map.of(key, 1.5))), key);
+        }
+        assertThrows(IllegalArgumentException.class, () -> TowerBalanceRuntime.apply(summonConfig(Map.of("summon.powerWeight", 0.0))));
+    }
+
+    private static TowerBalanceConfig summonConfig(Map<String, Double> values) {
+        return new TowerBalanceConfig(Map.of(), Map.of(), Map.of(BlueprintTowers.CONFIG_ID, values));
     }
 }

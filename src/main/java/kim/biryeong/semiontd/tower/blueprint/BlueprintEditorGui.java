@@ -160,7 +160,7 @@ public final class BlueprintEditorGui extends SimpleGui {
         long price = BlueprintPricing.price(stats);
         return new GuiElementBuilder(Items.MAP)
                 .setName(text("가격 " + price + " · 타워 수 " + BlueprintPricing.slotCost(price), ChatFormatting.GREEN))
-                .addLoreLineRaw(text("초당 피해 " + BlueprintTexts.num(stats.damagePerSecond() * BlueprintPricing.damageTypeMultiplier(stats.damageType()))
+                .addLoreLineRaw(text(BlueprintTexts.basicDps(stats)
                         + " (" + damageTypeName(stats.damageType()) + ")", ChatFormatting.WHITE))
                 .addLoreLineRaw(text("체력 " + BlueprintTexts.num(stats.maxHealth()) + " · 사거리 " + BlueprintTexts.num(stats.range()), ChatFormatting.WHITE))
                 .addLoreLineRaw(text("위력 " + BlueprintTexts.num(BlueprintPricing.power(stats)) + " (세게 만들수록 값이 가파르게 오릅니다)", ChatFormatting.GRAY));

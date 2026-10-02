@@ -49,7 +49,7 @@ public final class BlueprintLibraryGui extends SimpleGui {
                             .orElse(new net.minecraft.world.item.ItemStack(Items.PAPER)))
                     .setName(text((i + 1) + ". " + design.name(), invalid.isEmpty() ? ChatFormatting.AQUA : ChatFormatting.RED))
                     .addLoreLineRaw(text("가격 " + price + " · 타워 수 " + BlueprintPricing.slotCost(price), ChatFormatting.GREEN))
-                    .addLoreLineRaw(text("초당 피해 " + BlueprintTexts.num(stats.damagePerSecond()) + " · 체력 "
+                    .addLoreLineRaw(text(BlueprintTexts.basicDps(stats) + " · 체력 "
                             + BlueprintTexts.num(stats.maxHealth()) + " · 사거리 " + BlueprintTexts.num(stats.range()), ChatFormatting.WHITE));
             if (stats.targetPriority() != BlueprintTargetPriority.FIRST) {
                 builder.addLoreLineRaw(text("대상 우선도: " + stats.targetPriority().displayName(), ChatFormatting.YELLOW));

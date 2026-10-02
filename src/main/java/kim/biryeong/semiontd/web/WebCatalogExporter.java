@@ -125,18 +125,25 @@ public final class WebCatalogExporter {
         }
 
         List<BuilderEntry> builders = jobs.stream()
-                .map(job -> new BuilderEntry(
+                .map(job -> {
+                    List<String> description = new java.util.ArrayList<>(job.description().stream().map(Component::getString).toList());
+                    if (job instanceof kim.biryeong.semiontd.job.BlueprintTowerJob) {
+                        description.add("개인 설계 목록은 게임 안의 '내 설계도'에서 확인하세요. 웹 도감에는 개인 설계를 공개하지 않습니다.");
+                    }
+                    return new BuilderEntry(
                         job.id().toString(),
                         job.displayName().getString(),
-                        job.description().stream().map(component -> component.getString()).toList(),
+                        description,
                         towerBuilders.entrySet().stream()
                                 .filter(entry -> entry.getValue().equals(job.id().toString()))
                                 .map(Map.Entry::getKey)
                                 .toList(),
                         JobRegistry.officialBuilders().contains(job) ? "OFFICIAL" : "CREATIVE",
                         JobRegistry.isEnabled(job)
-                ))
-                .filter(builder -> !builder.towerIds().isEmpty())
+                    );
+                })
+                .filter(builder -> !builder.towerIds().isEmpty()
+                        || builder.id().equals(kim.biryeong.semiontd.job.BlueprintTowerJob.ID.toString()))
                 .toList();
 
         List<TowerEntry> towers = catalogEntries.stream()

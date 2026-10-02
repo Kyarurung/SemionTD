@@ -4,6 +4,7 @@ import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary;
+import kim.biryeong.semiontd.tower.blueprint.BlueprintModule;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintStates;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintTowers;
 import kim.biryeong.semiontd.ui.SemionText;
@@ -23,7 +24,8 @@ public final class BlueprintTowerJob extends SemionJob {
                 ID,
                 Component.literal("빌더 빌더"),
                 List.of(
-                        SemionText.mini("<green><bold>시작</bold></green> <gray>정해진 타워가 없습니다. 능력치와 겉모습을 골라 직접 타워를 설계하세요.</gray>"),
+                        SemionText.mini("<green><bold>시작</bold></green> <gray>능력치·겉모습과 " + BlueprintModule.values().length
+                                + "종의 모듈을 조합해 직접 타워를 설계하세요.</gray>"),
                         SemionText.mini("<aqua><bold>운영</bold></aqua> <gray>설계도는 바꿀 수 없습니다. 더 센 타워는 새로 설계해 바꿔 세우세요.</gray>"),
                         SemionText.mini("<red><bold>주의</bold></red> <gray>세게 설계할수록 값이 가파르게 오르고 타워 수도 더 차지합니다.</gray>")
                 )
