@@ -613,6 +613,9 @@ public final class TowerVfxService {
         if (kim.biryeong.semiontd.tower.augment.AugmentTowers.isAugment(type)) {
             return BuilderPalette.AUGMENT;
         }
+        if (kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintTower(type)) {
+            return BuilderPalette.BLUEPRINT;
+        }
         if (VillagerTowers.isAdvVillagerTower(type)) {
             return BuilderPalette.VILLAGER_ADV;
         }

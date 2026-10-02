@@ -561,15 +561,7 @@ public class GardenerTower extends PlantCombatTower {
     }
 
     private static double distanceToSegment(Vec3 point, Vec3 from, Vec3 to) {
-        Vec3 flatPoint = new Vec3(point.x, 0.0, point.z);
-        Vec3 flatFrom = new Vec3(from.x, 0.0, from.z);
-        Vec3 segment = new Vec3(to.x - from.x, 0.0, to.z - from.z);
-        double lengthSqr = segment.lengthSqr();
-        if (lengthSqr <= 1.0e-6) {
-            return flatPoint.distanceTo(flatFrom);
-        }
-        double t = Math.max(0.0, Math.min(1.0, flatPoint.subtract(flatFrom).dot(segment) / lengthSqr));
-        return flatPoint.distanceTo(flatFrom.add(segment.scale(t)));
+        return kim.biryeong.semiontd.tower.area.LineTargets.distanceToSegment(point, from, to);
     }
 
     // ------------------------------------------------------------------ 정보

@@ -37,6 +37,8 @@ public enum BuilderPalette {
     PET(0xF59E0B, 0xF472B6, "minecraft:heart", "minecraft:happy_villager"),
     AUGMENT(0x67E8F9, 0xC084FC, "minecraft:end_rod", "minecraft:electric_spark"),
     PIRATE(0xFFD700, 0xC0C0C0, "minecraft:wax_on", "minecraft:end_rod"),
+    /** 빌더 빌더: 청사진 파랑과 흰 선. */
+    BLUEPRINT(0x2F6FDE, 0xE8F1FF, "minecraft:enchant", "minecraft:end_rod"),
     DEFAULT(0xE0E0E0, 0xFFFFFF, "minecraft:end_rod", "minecraft:crit");
 
     private final DustParticleOptions rayParticle;

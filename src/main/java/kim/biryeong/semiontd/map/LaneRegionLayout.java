@@ -153,6 +153,11 @@ public record LaneRegionLayout(
         return bossPosition;
     }
 
+    /** 레인 경로 전체 길이(블록). 진행도 1.0이 이 거리입니다. */
+    public double pathLength() {
+        return totalDistance(pathPoints());
+    }
+
     public double progressAt(Vec3 position) {
         List<Vec3> points = pathPoints();
         double totalDistance = totalDistance(points);

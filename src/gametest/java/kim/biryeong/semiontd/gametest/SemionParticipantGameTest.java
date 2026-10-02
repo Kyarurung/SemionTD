@@ -10509,7 +10509,8 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
         }
         if (!assertEquals(context, 154L, ProductionTowerCatalog.all().stream()
                 .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
-                .filter(ProductionTowerCatalog.CatalogEntry::starter).count(), "Built-in reload should preserve every job starter family independently of augment towers.")) {
+                .filter(entry -> !kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintId(entry.type().id()))
+                .filter(ProductionTowerCatalog.CatalogEntry::starter).count(), "Built-in reload should preserve every fixed job starter family independently of augments and personal blueprints.")) {
             return;
         }
         context.succeed();

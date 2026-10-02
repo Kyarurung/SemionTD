@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import kim.biryeong.semiontd.tower.blueprint.BlueprintDesign;
 import net.minecraft.resources.ResourceLocation;
 
 public record SemionPlayerProfile(
@@ -23,7 +24,8 @@ public record SemionPlayerProfile(
         String selectedSkyboxId,
         Boolean tipsEnabled,
         List<String> recentBuildCodes,
-        Map<String, HeroCompanionSkinPreference> heroCompanionSkins
+        Map<String, HeroCompanionSkinPreference> heroCompanionSkins,
+        List<BlueprintDesign> blueprints
 ) {
     public static final Codec<SemionPlayerProfile> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.optionalFieldOf("lastKnownName", "").forGetter(SemionPlayerProfile::lastKnownName),
@@ -40,7 +42,9 @@ public record SemionPlayerProfile(
             Codec.STRING.listOf().optionalFieldOf("recentBuildCodes", List.of()).forGetter(SemionPlayerProfile::recentBuildCodes),
             Codec.unboundedMap(Codec.STRING, HeroCompanionSkinPreference.CODEC)
                     .optionalFieldOf("heroCompanionSkins", Map.of())
-                    .forGetter(SemionPlayerProfile::heroCompanionSkins)
+                    .forGetter(SemionPlayerProfile::heroCompanionSkins),
+            BlueprintDesign.CODEC.listOf().optionalFieldOf("blueprints", List.of())
+                    .forGetter(SemionPlayerProfile::blueprints)
     ).apply(instance, SemionPlayerProfile::new));
 
     public SemionPlayerProfile {
@@ -57,6 +61,7 @@ public record SemionPlayerProfile(
             tipsEnabled = true;
         }
         recentBuildCodes = recentBuildCodes == null ? List.of() : List.copyOf(recentBuildCodes);
+        blueprints = blueprints == null ? List.of() : List.copyOf(blueprints);
         LinkedHashMap<String, HeroCompanionSkinPreference> normalizedSkins = new LinkedHashMap<>();
         if (heroCompanionSkins != null) {
             heroCompanionSkins.forEach((roleId, skin) -> {
@@ -95,7 +100,7 @@ public record SemionPlayerProfile(
 
     public static SemionPlayerProfile fresh(String playerName) {
         return new SemionPlayerProfile(playerName == null ? "" : playerName, 0, 0, 0, 0,
-                List.of(), "", List.of(), "", "", true, List.of(), Map.of());
+                List.of(), "", List.of(), "", "", true, List.of(), Map.of(), List.of());
     }
 
     public SemionPlayerProfile updateName(String playerName) {
@@ -154,7 +159,8 @@ public record SemionPlayerProfile(
                 selectedSkyboxId,
                 tipsEnabled,
                 recentBuildCodes,
-                heroCompanionSkins
+                heroCompanionSkins,
+                blueprints
         );
     }
 
@@ -246,7 +252,20 @@ public record SemionPlayerProfile(
         String legacySelection = selectedCosmeticIds.isEmpty() ? "" : selectedCosmeticIds.getFirst();
         return new SemionPlayerProfile(normalizedName, gamesPlayed, wins, losses, cosmeticCurrency,
                 ownedCosmeticIds, legacySelection, selectedCosmeticIds, selectedJobId, selectedSkyboxId,
-                tipsEnabled, recentBuildCodes, updated);
+                tipsEnabled, recentBuildCodes, updated, blueprints);
+    }
+
+    /** 빌더 빌더 설계도 목록을 통째로 바꿉니다. */
+    public SemionPlayerProfile updateBlueprints(String playerName, List<BlueprintDesign> designs) {
+        String normalizedName = playerName == null ? "" : playerName;
+        List<BlueprintDesign> updated = designs == null ? List.of() : List.copyOf(designs);
+        if (normalizedName.equals(lastKnownName) && updated.equals(blueprints)) {
+            return this;
+        }
+        String legacySelection = selectedCosmeticIds.isEmpty() ? "" : selectedCosmeticIds.getFirst();
+        return new SemionPlayerProfile(normalizedName, gamesPlayed, wins, losses, cosmeticCurrency,
+                ownedCosmeticIds, legacySelection, selectedCosmeticIds, selectedJobId, selectedSkyboxId,
+                tipsEnabled, recentBuildCodes, heroCompanionSkins, updated);
     }
 
     private SemionPlayerProfile copy(
@@ -261,6 +280,6 @@ public record SemionPlayerProfile(
     ) {
         String legacySelection = selectedCosmetics.isEmpty() ? "" : selectedCosmetics.getFirst();
         return new SemionPlayerProfile(playerName, gamesPlayed, wins, losses, currency, cosmetics,
-                legacySelection, selectedCosmetics, job, skybox, tips, builds, heroCompanionSkins);
+                legacySelection, selectedCosmetics, job, skybox, tips, builds, heroCompanionSkins, blueprints);
     }
 }

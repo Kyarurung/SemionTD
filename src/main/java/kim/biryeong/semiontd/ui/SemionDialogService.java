@@ -749,6 +749,8 @@ public final class SemionDialogService {
             body.append("<gray>현재 위치 타워는 더 이상 업그레이드할 수 없습니다.</gray>\n");
         } else if (showGroupPicker) {
             body.append("<gray>먼저 분류를 고르세요.</gray> <yellow>").append(groups.size()).append("</yellow><gray>개 계열</gray>\n");
+        } else if (entries.isEmpty() && job instanceof kim.biryeong.semiontd.job.BlueprintTowerJob) {
+            body.append("<gray>아직 설계도가 없습니다. [설계하기]로 타워를 설계하세요.</gray>\n");
         } else if (entries.isEmpty()) {
             body.append("<red>사용할 수 있는 타워가 없습니다.</red>\n");
         } else {
@@ -772,6 +774,19 @@ public final class SemionDialogService {
                 ));
             }
         } else if (selectedTower == null) {
+            if (job instanceof kim.biryeong.semiontd.job.BlueprintTowerJob) {
+                // 빌더 빌더: 설계도 버튼 위에 설계 창과 목록 창을 여는 버튼을 둡니다.
+                actions.add(actionButton(
+                        Component.literal("설계하기"),
+                        "/semiontd blueprint design",
+                        Component.literal("능력치·모듈·겉모습을 골라 새 타워를 설계합니다. 저장하면 계정에 남습니다."),
+                        COMPACT_BUTTON_WIDTH));
+                actions.add(actionButton(
+                        Component.literal("내 설계도"),
+                        "/semiontd blueprint",
+                        Component.literal("계정에 저장한 설계도를 보고 지웁니다."),
+                        COMPACT_BUTTON_WIDTH));
+            }
             for (ProductionTowerCatalog.CatalogEntry entry : entries) {
                 long mineralCost = ProductionTowerService.placementCost(
                         game.playerLane(player.getUUID()).orElse(null), entry.type());

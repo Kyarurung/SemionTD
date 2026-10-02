@@ -75,6 +75,8 @@ public final class ProductionTowerCatalogs {
             PetTowerCatalogs.register();
             AugmentTowers.register();
             PirateTowerCatalogs.register();
+            // 경기 중에 만든 설계도는 카탈로그를 새로 지을 때 사라지므로 다시 올립니다.
+            kim.biryeong.semiontd.tower.blueprint.BlueprintStates.reinstall();
         }
     }
 }

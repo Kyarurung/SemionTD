@@ -921,6 +921,7 @@ public record TowerBalanceConfig(
         putAtlantisAbilities(abilities);
         putPlantAbilities(abilities);
         putIncomeTowerAbilities(abilities);
+        putBlueprintAbilities(abilities);
         putArmyAbilities(abilities);
         putThunderAbilities(abilities);
         putDemonLordAbilities(abilities);
@@ -1518,6 +1519,159 @@ public record TowerBalanceConfig(
                         Map.of(TowerCapacity.CONFIG_KEY, (double) slots)));
     }
 
+    /**
+     * 빌더 빌더 설계도의 가격 계수와 한도. 가격 = priceScale × P^priceExponent, P = 초당 피해/dpsUnit × (사거리/rangePivot)^rangeExponent
+     * + 체력/healthUnit. 기본값은 기존 타워의 가격대별 중앙값에 맞췄습니다.
+     */
+    private static void putBlueprintAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
+        putAbilities(abilities, kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.CONFIG_ID, Map.ofEntries(
+                Map.entry("priceScale", 16.5),
+                Map.entry("priceExponent", 1.6),
+                Map.entry("dpsUnit", 8.0),
+                Map.entry("healthUnit", 88.0),
+                Map.entry("rangePivot", 6.0),
+                Map.entry("rangeExponent", 0.8),
+                Map.entry("magicDamageMultiplier", 1.0),
+                Map.entry("trueDamageMultiplier", 1.3),
+                Map.entry("priceStep", 5.0),
+                Map.entry("minimumPrice", 10.0),
+                Map.entry("twoSlotPrice", 150.0),
+                Map.entry("threeSlotPrice", 350.0),
+                Map.entry("maxBlueprintsPerPlayer", 30.0),
+                Map.entry("minHealth", 30.0),
+                Map.entry("maxHealth", 3000.0),
+                Map.entry("minDamage", 0.0),
+                Map.entry("maxDamage", 400.0),
+                Map.entry("minAttackIntervalTicks", 5.0),
+                Map.entry("maxAttackIntervalTicks", 100.0),
+                Map.entry("minRange", 1.5),
+                Map.entry("maxRange", 16.0),
+                Map.entry("minAggroPriority", 0.0),
+                Map.entry("maxAggroPriority", 60.0),
+                Map.entry("maxModules", 4.0),
+                Map.entry("detection.radiusBonus", 0.0),
+                Map.entry("detection.radiusBonusPerLevel", 2.0),
+                Map.entry("detection.revealTicks", 40.0),
+                Map.entry("detection.powerPerLevel", 0.4),
+                Map.entry("boss_slayer.bossBonus", 0.3),
+                Map.entry("boss_slayer.bossBonusPerLevel", 0.2),
+                Map.entry("boss_slayer.tankRatio", 0.5),
+                Map.entry("boss_slayer.offenseWeight", 0.12),
+                Map.entry("focus.perStack", 0.05),
+                Map.entry("focus.perStackPerLevel", 0.02),
+                Map.entry("focus.maxStacks", 6.0),
+                Map.entry("focus.offenseWeight", 0.18),
+                Map.entry("frenzy.perStack", 0.02),
+                Map.entry("frenzy.perStackPerLevel", 0.01),
+                Map.entry("frenzy.maxStacks", 10.0),
+                Map.entry("frenzy.offenseWeight", 0.2),
+                Map.entry("knockback.chance", 0.1),
+                Map.entry("knockback.chancePerLevel", 0.05),
+                Map.entry("knockback.distance", 1.5),
+                Map.entry("knockback.distancePerLevel", 0.5),
+                Map.entry("knockback.immunityTicks", 60.0),
+                Map.entry("knockback.utilityWeight", 0.35),
+                Map.entry("plunder.chance", 0.3),
+                Map.entry("plunder.chancePerLevel", 0.15),
+                Map.entry("plunder.diamonds", 1.0),
+                Map.entry("plunder.powerPerLevel", 0.5),
+                Map.entry("taunt.aggroBonus", 20.0),
+                Map.entry("taunt.aggroBonusPerLevel", 15.0),
+                Map.entry("taunt.reduction", 0.05),
+                Map.entry("taunt.reductionPerLevel", 0.05),
+                Map.entry("taunt.defenseWeight", 0.15),
+                Map.entry("range_aura.rangeBonus", 0.5),
+                Map.entry("range_aura.rangeBonusPerLevel", 0.5),
+                Map.entry("range_aura.radius", 4.0),
+                Map.entry("range_aura.powerPerLevel", 0.6),
+                Map.entry("summon.count", 1.0),
+                Map.entry("summon.countPerLevel", 1.0),
+                Map.entry("summon.statRatio", 0.35),
+                Map.entry("summon.statRatioPerLevel", 0.05),
+                Map.entry("summon.intervalTicks", 200.0),
+                Map.entry("summon.durationTicks", 300.0),
+                Map.entry("summon.powerWeight", 1.0),
+                Map.entry("summon.minimumPricePerLevel", 5.0),
+                Map.entry("utilityTargetBonus", 0.5),
+                Map.entry("line.lengthBonus", 1.0),
+                Map.entry("line.lengthBonusPerLevel", 1.0),
+                Map.entry("line.width", 1.0),
+                Map.entry("line.widthPerLevel", 0.2),
+                Map.entry("line.damageRatio", 0.5),
+                Map.entry("line.damageRatioPerLevel", 0.15),
+                Map.entry("line.offenseWeight", 0.3),
+                Map.entry("line.expectedExtraTargets", 1.0),
+                Map.entry("slow.utilityWeight", 0.25),
+                Map.entry("stun.utilityWeight", 0.3),
+                Map.entry("vulnerability.utilityWeight", 0.3),
+                Map.entry("lifesteal.offenseWeight", 0.15),
+                Map.entry("multishot.extraTargets", 1.0),
+                Map.entry("multishot.extraTargetsPerLevel", 1.0),
+                Map.entry("multishot.damageRatio", 0.6),
+                Map.entry("multishot.offenseWeight", 0.35),
+                Map.entry("splash.radius", 1.5),
+                Map.entry("splash.radiusPerLevel", 0.5),
+                Map.entry("splash.damageRatio", 0.35),
+                Map.entry("splash.damageRatioPerLevel", 0.1),
+                Map.entry("splash.offenseWeight", 0.35),
+                Map.entry("chain.targets", 2.0),
+                Map.entry("chain.targetsPerLevel", 1.0),
+                Map.entry("chain.radius", 3.5),
+                Map.entry("chain.damageRatio", 0.5),
+                Map.entry("chain.offenseWeight", 0.35),
+                Map.entry("slow.amount", 0.15),
+                Map.entry("slow.amountPerLevel", 0.1),
+                Map.entry("slow.durationTicks", 40.0),
+                Map.entry("stun.chance", 0.08),
+                Map.entry("stun.chancePerLevel", 0.04),
+                Map.entry("stun.durationTicks", 12.0),
+                Map.entry("stun.immunityTicks", 60.0),
+                Map.entry("poison.damageRatio", 0.3),
+                Map.entry("poison.damageRatioPerLevel", 0.15),
+                Map.entry("poison.durationTicks", 60.0),
+                Map.entry("poison.tickIntervalTicks", 20.0),
+                Map.entry("poison.maxStacks", 3.0),
+                Map.entry("poison.offenseWeight", 0.2),
+                Map.entry("vulnerability.amount", 0.06),
+                Map.entry("vulnerability.amountPerLevel", 0.04),
+                Map.entry("vulnerability.durationTicks", 60.0),
+                Map.entry("crit.chance", 0.15),
+                Map.entry("crit.chancePerLevel", 0.075),
+                Map.entry("crit.multiplier", 1.75),
+                Map.entry("crit.offenseWeight", 0.12),
+                Map.entry("execute.threshold", 0.3),
+                Map.entry("execute.damageBonus", 0.3),
+                Map.entry("execute.damageBonusPerLevel", 0.2),
+                Map.entry("execute.offenseWeight", 0.1),
+                Map.entry("kill_explosion.radius", 1.0),
+                Map.entry("kill_explosion.radiusPerLevel", 0.5),
+                Map.entry("kill_explosion.damageRatio", 0.8),
+                Map.entry("kill_explosion.damageRatioPerLevel", 0.2),
+                Map.entry("kill_explosion.offenseWeight", 0.25),
+                Map.entry("lifesteal.ratio", 0.1),
+                Map.entry("lifesteal.ratioPerLevel", 0.08),
+                Map.entry("thorns.reflectRatio", 0.3),
+                Map.entry("thorns.reflectRatioPerLevel", 0.15),
+                Map.entry("thorns.radius", 2.5),
+                Map.entry("thorns.cooldownTicks", 20.0),
+                Map.entry("thorns.defenseWeight", 0.12),
+                Map.entry("armor.reduction", 0.08),
+                Map.entry("armor.reductionPerLevel", 0.06),
+                Map.entry("armor.defenseWeight", 0.14),
+                Map.entry("regen.maxHealthPerSecond", 0.005),
+                Map.entry("regen.maxHealthPerSecondPerLevel", 0.005),
+                Map.entry("regen.defenseWeight", 0.15),
+                Map.entry("heal_aura.maxHealthRatio", 0.03),
+                Map.entry("heal_aura.maxHealthRatioPerLevel", 0.02),
+                Map.entry("heal_aura.radius", 4.0),
+                Map.entry("heal_aura.powerPerLevel", 0.6),
+                Map.entry("haste_aura.attackSpeedBonus", 0.06),
+                Map.entry("haste_aura.attackSpeedBonusPerLevel", 0.04),
+                Map.entry("haste_aura.radius", 4.0),
+                Map.entry("haste_aura.powerPerLevel", 0.6)
+        ));
+    }
+
     private static void putPlantAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
         // 테라포밍 반경. 타워가 자기 칸을 차지하므로 T1 도 최소 3x3 은 열어야 전투 타워를 놓을 수 있습니다.
         // 테라포머는 지형만 까는 설비라 타워 수(인구)를 차지하지 않습니다.
@@ -1864,6 +2018,12 @@ public record TowerBalanceConfig(
         validateBodyAbilities();
         validateFrostAbilities();
         validatePetAbilities();
+        String blueprint = kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.CONFIG_ID;
+        validatePositive(blueprint, "summon.powerWeight", "summon.statRatio");
+        validateIntegral(blueprint, false, "summon.count", "summon.intervalTicks",
+                "summon.durationTicks", "summon.minimumPricePerLevel");
+        validateIntegral(blueprint, true, "summon.countPerLevel",
+                "summon.intervalTicksPerLevel", "summon.durationTicksPerLevel");
     }
 
     private void validatePetAbilities() {
