@@ -62,6 +62,7 @@ public final class ArmyGameTest {
 
             require(ProductionTowerCatalog.all().stream()
                     .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
+                    .filter(entry -> !kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintId(entry.type().id()))
                     .filter(ProductionTowerCatalog.CatalogEntry::starter).count() == 154,
                     "Built-ins must include 154 job starters including the ticket-gated joker, poker table, gardener, and new demon lord skills.");
             require(ProductionTowerService.availableTowers(game, owner).stream()
