@@ -24,8 +24,8 @@ class IncomeTowerBalanceTest {
         assertEquals(250, IncomeTowerBalance.upgradeCost(100, 4));
         assertEquals(3, IncomeTowerBalance.incomeAt(3, 1));
         assertEquals(15, IncomeTowerBalance.incomeAt(3, 5));
-        assertEquals(1.0, IncomeTowerBalance.statMultiplier(1), 1.0E-9);
-        assertEquals(2.6, IncomeTowerBalance.statMultiplier(5), 1.0E-9);
+        assertEquals(0.85, IncomeTowerBalance.statMultiplier(1), 1.0E-9);
+        assertEquals(0.85 * 2.4, IncomeTowerBalance.statMultiplier(5), 1.0E-9);
         assertEquals(55, IncomeTowerBalance.sellRefund(110));
     }
 

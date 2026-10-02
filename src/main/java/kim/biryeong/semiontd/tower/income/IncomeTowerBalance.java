@@ -32,8 +32,10 @@ public final class IncomeTowerBalance {
 
     public static final String TOWER_ID_PREFIX = "income_";
     public static final int MAX_LEVEL = 5;
+    /** 보내는 유닛의 체력·공격력 전체 배율. 인컴 타워 유닛이 웨이브 몹보다 너무 세서 낮췄습니다. */
+    public static final double BASE_STAT_MULTIPLIER = 0.85;
     /** 레벨마다 보내는 유닛의 체력·공격력이 기본치의 이만큼씩 더해집니다. */
-    public static final double STAT_BONUS_PER_LEVEL = 0.40;
+    public static final double STAT_BONUS_PER_LEVEL = 0.35;
     /** 판매 시 낸 에메랄드 중 돌려받는 비율. */
     public static final double SELL_REFUND_RATE = 0.50;
     /** 라운드별 웨이브 세기를 볼 때, 보스 라운드 한 번이 튀지 않도록 이만큼의 라운드 중앙값을 씁니다. */
@@ -79,8 +81,9 @@ public final class IncomeTowerBalance {
         return Math.max(0, incomePerLevel) * Math.max(1, level);
     }
 
+    /** 레벨에 따른 유닛 체력·공격력 배율(전체 배율 포함). 1레벨 0.85배, 5레벨 2.04배입니다. */
     public static double statMultiplier(int level) {
-        return 1.0 + STAT_BONUS_PER_LEVEL * (Math.max(1, level) - 1);
+        return BASE_STAT_MULTIPLIER * (1.0 + STAT_BONUS_PER_LEVEL * (Math.max(1, level) - 1));
     }
 
     public static long sellRefund(long paidEmerald) {
