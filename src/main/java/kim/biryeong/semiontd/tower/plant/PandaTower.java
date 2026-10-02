@@ -8,7 +8,6 @@ import java.util.UUID;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
-import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
@@ -235,9 +234,6 @@ public class PandaTower extends ProductionTower {
 
     /**
      * 지금 서 있는 자리를 훑습니다. 이번 돌진에 아직 안 맞은 적만 대상입니다.
-     *
-     * <p>이미 맞은 대상을 걸러 내지 않으면 달리는 여덟 틱 동안 같은 몹이 여덟 번 갈립니다.
-     * 돌진은 지나치며 한 번 치이는 기술이지 장판이 아닙니다.
      */
     private void sweep(SemionTowerEntity source) {
         double hitRadius = ability("chargeHitRadius");
@@ -258,10 +254,15 @@ public class PandaTower extends ProductionTower {
                 hitRadius,
                 java.util.Set.copyOf(dashHits),
                 monster -> !dashHits.contains(monster.getUUID()),
-                AreaVfxSpec.onTrigger(AreaVfxStyles.SPLASH)
+                AreaVfxSpec.none()
         );
+        boolean firstImpact = dashHits.isEmpty();
+        Vec3[] firstHit = {null};
         SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
             dashHits.add(monster.getUUID());
+            if (firstHit[0] == null) {
+                firstHit[0] = monster.position();
+            }
             Tower.DamageResult result = damageResolvedTargetResult(source, monster, damage, DamageType.PHYSICAL);
             if (result.killed()) {
                 onKill(source, monster, damage);
@@ -282,6 +283,12 @@ public class PandaTower extends ProductionTower {
             monster.setTarget(null);
             return result.dealtDamage() > 0.0 ? AreaEffectOutcome.APPLIED : AreaEffectOutcome.UNCHANGED;
         });
+
+        if (firstImpact && firstHit[0] != null && source.level() instanceof net.minecraft.server.level.ServerLevel level) {
+            // 들이받은 첫 적 자리에 한 번만 띄웁니다. 한 번에 여럿을 치어도 먼지는 한 번입니다.
+            PlantDisplayVfx.play(level, PlantDisplayVfx.pandaImpact(hitRadius, PlantDisplayVfx.seed(level)), firstHit[0]);
+        }
+
     }
 
     private static void knockBack(SemionMonsterEntity monster, Vec3 from, double strength) {

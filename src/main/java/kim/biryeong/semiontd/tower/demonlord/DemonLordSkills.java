@@ -10,16 +10,18 @@ import kim.biryeong.semiontd.api.area.AreaEffectAction;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaEffectResult;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
-import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
+import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.Tower;
+import kim.biryeong.semiontd.tower.TowerPlacementPositions;
 import kim.biryeong.semiontd.tower.TowerType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,7 +33,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The ten demon lord skills.
+ * The demon lord skills.
  *
  * <p>Every skill reads its numbers from the altar's tower id, so a live config can retune any single
  * tier. Damage is always multiplied by {@link DemonLordState#damageMultiplier()} - levels are the
@@ -78,6 +80,9 @@ public final class DemonLordSkills {
                 return castGripOfDoom(player, lane, state, altar);
             }
             case HELL_GUILLOTINE -> castHellGuillotine(player, lane, state, altar);
+            case RIFT_CLEAVE -> castRiftCleave(player, lane, state, altar, gameTime);
+            case SUMMON_FIEND -> castSummonFiend(player, lane, state, altar, gameTime);
+            case ABYSS_VORTEX -> castAbyssVortex(player, lane, state, altar, gameTime);
             default -> {
             }
         }
@@ -132,6 +137,8 @@ public final class DemonLordSkills {
             Vec3 pull = horizontal(origin.subtract(victimPosition)).scale(ability(altar, "pullStrength", 0.5));
             target.setDeltaMovement(pull.x, 0.2, pull.z);
             target.hurtMarked = true;
+            DemonLordVfx.play(lane, DemonLordDisplayVfx.gripOfDoom(false, 0.0, DemonLordVfx.seed(lane))
+                    .scaled(state.skillRangeMultiplier()), victimPosition);
             sound(player, SoundEvents.WITHER_HURT, 1.0f, 0.6f);
             return 0;
         }
@@ -145,10 +152,19 @@ public final class DemonLordSkills {
                 + ability(altar, "areaDamage", 30.0) * state.damageMultiplier();
         double blastRadius = reach(state, altar, "explosionRadius", 4.0);
         SemionMonsterEntity executedTarget = target;
+        int[] shown = {0};
         applyArea(altar, lane, victimPosition, blastRadius, nearby -> nearby != executedTarget,
-                AreaVfxStyles.CORPSE_EXPLOSION,
-                nearby -> damageOutcome(DemonLordService.dealDamage(
-                        player, lane, altar, nearby, blast, DamageType.MAGIC)));
+                nearby -> {
+                    // 휩쓸린 적마다 작은 폭발을 띄웁니다. 떼로 몰려 있어도 여섯 마리까지만 띄워 연출 예산을 아낍니다.
+                    if (shown[0]++ < 6) {
+                        DemonLordVfx.play(lane, DemonLordDisplayVfx.gripBlastHit(DemonLordVfx.seed(lane) + nearby.getId()),
+                                nearby.position());
+                    }
+                    return damageOutcome(DemonLordService.dealDamage(player, lane, altar, nearby, blast, DamageType.MAGIC));
+                });
+        // 폭발 반경은 이미 범위 스탯이 곱해진 값이라, 발톱만 따로 키우지 않고 반경을 원래 값으로 돌려 전체를 키웁니다.
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.gripOfDoom(true, blastRadius / state.skillRangeMultiplier(),
+                DemonLordVfx.seed(lane)).scaled(state.skillRangeMultiplier()), victimPosition);
         sound(player, SoundEvents.WITHER_DEATH, 1.0f, 0.7f);
         return (int) ability(altar, "killRefundTicks", 60.0);
     }
@@ -175,7 +191,8 @@ public final class DemonLordSkills {
                 gameTime + duration,
                 gameTime + interval
         ));
-        DemonLordVfx.show(altar, lane, centre, reach(state, altar, "zoneRadius", 3.5), AreaVfxStyles.DEBUFF);
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.hellfireBrand(
+                reach(state, altar, "zoneRadius", 3.5), duration, DemonLordVfx.seed(lane)), centre);
         sound(player, SoundEvents.FIRECHARGE_USE, 1.0f, 0.7f);
     }
 
@@ -205,13 +222,217 @@ public final class DemonLordSkills {
         player.setDeltaMovement(Vec3.ZERO);
         player.resetFallDistance();
 
-        applyArea(altar, lane, landing, radius, ignored -> true, AreaVfxStyles.PULSE, monster -> {
+        applyArea(altar, lane, landing, radius, ignored -> true, monster -> {
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, altar, monster, damage, DamageType.MAGIC);
             push(monster, horizontal(monster.position().subtract(landing)), 0.5, 0.3);
             return damageOutcome(result);
         });
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.hellGuillotine(
+                yawOf(player.getLookAngle()), radius, DemonLordVfx.seed(lane)), landing);
         sound(player, SoundEvents.ANVIL_LAND, 1.0f, 0.8f);
+    }
+
+    /**
+     * 심연 소용돌이: 바라보는 지점에 소용돌이를 열어, 머무는 동안 범위 안의 적을 매 틱 중심으로 끌어당깁니다.
+     *
+     * <p>몬스터는 넉백 저항이 있어도 속도를 직접 정하면 움직입니다. 걸어 나가려는 AI를 매 틱 덮어써야 하므로
+     * 수평 속도를 중심 쪽으로 새로 정하고, 가장자리에 있을수록 세게 당겨 원 밖으로 빠져나가지 못하게 합니다.
+     */
+    private static void castAbyssVortex(ServerPlayer player, PlayerLane lane, DemonLordState state,
+            DemonLordSkillTower altar, long gameTime) {
+        Vec3 centre = lookTarget(player, reach(state, altar, "placementRange", 10.0));
+        double radius = reach(state, altar, "radius", 5.0);
+        int duration = (int) Math.max(1.0, ability(altar, "durationTicks", 60.0));
+        int interval = (int) Math.max(1.0, ability(altar, "damageIntervalTicks", 20.0));
+        state.openVortex(new DemonLordState.AbyssVortex(altar.type(), centre, radius,
+                ability(altar, "pullStrength", 0.16), interval, gameTime + duration, gameTime + interval));
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.abyssVortex(radius, duration, DemonLordVfx.seed(lane)), centre);
+        sound(player, SoundEvents.PORTAL_TRIGGER, 0.7f, 0.6f);
+        sound(player, SoundEvents.WARDEN_SONIC_CHARGE, 0.9f, 0.7f);
+    }
+
+    private static void tickAbyssVortex(ServerPlayer player, PlayerLane lane, DemonLordState state, long gameTime) {
+        DemonLordState.AbyssVortex vortex = state.vortex();
+        if (vortex == null) {
+            return;
+        }
+        if (gameTime >= vortex.expiryTick()) {
+            state.closeVortex();
+            return;
+        }
+        for (SemionMonsterEntity monster : monstersNear(lane, state, vortex.centre(), vortex.radius())) {
+            Vec3 toCentre = new Vec3(vortex.centre().x - monster.getX(), 0.0, vortex.centre().z - monster.getZ());
+            double distance = toCentre.length();
+            if (distance < 0.6) {
+                monster.setDeltaMovement(0.0, monster.getDeltaMovement().y, 0.0);
+            } else {
+                double edge = Math.min(1.0, distance / vortex.radius());
+                Vec3 pull = toCentre.normalize().scale(vortex.pullStrength() * (0.45 + 0.55 * edge));
+                monster.setDeltaMovement(pull.x, monster.getDeltaMovement().y, pull.z);
+            }
+            monster.hurtMarked = true;
+        }
+        if (gameTime < vortex.nextDamageTick()) {
+            return;
+        }
+        DemonLordSkillTower sourceAltar = DemonLordService.altarFor(lane, player.getUUID(), vortex.altarType());
+        double damage = ability(vortex.altarType(), "damage", 8.0) * state.damageMultiplier();
+        state.augments().beginSpell(sourceAltar);
+        try {
+            applyArea(sourceAltar, lane, vortex.centre(), vortex.radius(), ignored -> true, monster ->
+                    damageOutcome(DemonLordService.dealDamage(player, lane, sourceAltar, monster, damage, DamageType.MAGIC)));
+        } finally {
+            state.augments().finishSpell(player, lane, state, gameTime);
+        }
+        state.openVortex(vortex.afterDamage());
+    }
+
+    /**
+     * 마수 소환: 바라보는 곳에 임시 마수를 불러 마왕 대신 어그로를 끌게 합니다.
+     *
+     * <p>마수는 레인 바닥에 서야 하므로 시선 지점을 레인 바닥으로 맞추고, 레인 밖이면 마왕 발밑에 부릅니다.
+     * 체력은 마왕 최대 체력에, 공격력은 마왕 피해 배율에 비례합니다.
+     */
+    private static void castSummonFiend(ServerPlayer player, PlayerLane lane, DemonLordState state,
+            DemonLordSkillTower altar, long gameTime) {
+        Vec3 aim = lookTarget(player, reach(state, altar, "range", 6.0));
+        GridPosition position = TowerPlacementPositions.resolve(lane, BlockPos.containing(aim))
+                .or(() -> TowerPlacementPositions.resolve(lane, player.blockPosition()))
+                .map(GridPosition::from)
+                .orElse(GridPosition.from(player.blockPosition().below()));
+
+        dismissFiend(lane, state, false);
+        TowerType type = DemonLordFiend.type(
+                state.maxHealth() * ability(altar, "healthRatio", 0.5),
+                ability(altar, "damage", 14.0) * state.damageMultiplier(),
+                ability(altar, "attackRange", 3.0),
+                (int) ability(altar, "attackIntervalTicks", 20.0));
+        int duration = (int) Math.max(1.0, ability(altar, "durationTicks", 160.0));
+        DemonLordFiend fiend = new DemonLordFiend(type, altar.ownerPlayer(), altar.teamId(), altar.laneId(),
+                position, gameTime + duration);
+        lane.addTower(fiend);
+        state.summonFiend(fiend);
+
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.summonFiend(DemonLordVfx.seed(lane))
+                .scaled(state.skillRangeMultiplier()), fiendFeet(fiend));
+        sound(player, SoundEvents.EVOKER_PREPARE_SUMMON, 1.0f, 0.7f);
+        sound(player, SoundEvents.RAVAGER_ROAR, 0.8f, 1.2f);
+    }
+
+    /** 마수가 지속 시간을 다 쓰거나 쓰러지면 거둬 갑니다. 라운드가 끝나 레인이 먼저 치웠으면 기록만 지웁니다. */
+    private static void tickFiend(PlayerLane lane, DemonLordState state, long gameTime) {
+        DemonLordFiend fiend = state.fiend();
+        if (fiend == null) {
+            return;
+        }
+        if (!lane.towers().contains(fiend)) {
+            state.clearFiend();
+            return;
+        }
+        if (gameTime >= fiend.expiryTick() || fiend.isDestroyed(lane)) {
+            dismissFiend(lane, state, true);
+        }
+    }
+
+    private static void dismissFiend(PlayerLane lane, DemonLordState state, boolean showVfx) {
+        DemonLordFiend fiend = state.fiend();
+        state.clearFiend();
+        if (fiend == null || !lane.removeTower(fiend)) {
+            return;
+        }
+        if (showVfx) {
+            DemonLordVfx.play(lane, DemonLordDisplayVfx.fiendDismiss(DemonLordVfx.seed(lane))
+                    .scaled(state.skillRangeMultiplier()), fiendFeet(fiend));
+        }
+    }
+
+    private static Vec3 fiendFeet(DemonLordFiend fiend) {
+        GridPosition at = fiend.position();
+        return new Vec3(at.x() + 0.5, at.y() + 1.0, at.z() + 0.5);
+    }
+
+    /** 검을 내려찍는 지점. 시전자 발밑에서 앞으로 이만큼 떨어진 곳입니다. */
+    private static final double RIFT_SLAM_OFFSET = 1.6;
+
+    /**
+     * 균열참: 마검을 앞으로 내려찍고, 그 자리에서 땅이 갈라지며 폭발이 일정 간격으로 앞으로 전진합니다.
+     *
+     * <p>파동은 시전 때 바라본 방향으로만 나아갑니다. 벽에 막히면 그 앞에서 멈추도록 몇 번 터질지 미리 정해
+     * 두고({@link DemonLordState.RiftCleave}), 이후 {@link #tickPending}이 간격마다 한 번씩 터뜨립니다. 연출도
+     * 같은 횟수·간격으로 한 번에 띄워 두므로 폭발 그림과 피해가 같은 틱에 맞습니다.
+     */
+    private static void castRiftCleave(ServerPlayer player, PlayerLane lane, DemonLordState state,
+            DemonLordSkillTower altar, long gameTime) {
+        double slamRadius = reach(state, altar, "radius", 2.5);
+        double waveRadius = reach(state, altar, "waveRadius", 1.8);
+        double spacing = reach(state, altar, "waveSpacing", 1.8);
+        int waves = (int) Math.max(1.0, ability(altar, "waveCount", 5.0));
+        int interval = (int) Math.max(1.0, ability(altar, "waveIntervalTicks", 3.0));
+        double damage = ability(altar, "damage", 40.0) * state.damageMultiplier();
+
+        Vec3 origin = player.position();
+        Vec3 look = horizontal(player.getLookAngle());
+        Vec3 slam = origin.add(look.scale(RIFT_SLAM_OFFSET));
+        applyArea(altar, lane, slam, slamRadius, ignored -> true, monster -> {
+            Tower.DamageResult result = DemonLordService.dealDamage(player, lane, altar, monster, damage, DamageType.MAGIC);
+            monster.setDeltaMovement(monster.getDeltaMovement().x, 0.3, monster.getDeltaMovement().z);
+            monster.hurtMarked = true;
+            return damageOutcome(result);
+        });
+
+        // 벽까지 몇 번 터질 수 있는지 미리 셉니다. 파동 중심이 벽을 반 칸 넘기 전까지만 터집니다.
+        double maxTravel = RIFT_SLAM_OFFSET + spacing * waves;
+        Vec3 from = origin.add(0.0, 0.6, 0.0);
+        HitResult clip = player.level().clip(new ClipContext(
+                from, from.add(look.scale(maxTravel)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        double open = clip.getType() == HitResult.Type.MISS ? maxTravel : clip.getLocation().distanceTo(from);
+        int count = 0;
+        for (int index = 1; index <= waves; index++) {
+            if (RIFT_SLAM_OFFSET + spacing * index <= open + 0.5) {
+                count = index;
+            }
+        }
+        if (count > 0) {
+            state.queueRift(new DemonLordState.RiftCleave(altar.type(), origin, look, RIFT_SLAM_OFFSET, spacing,
+                    waveRadius, count, interval, 1, gameTime + interval));
+        }
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.riftCleave(yawOf(look), RIFT_SLAM_OFFSET, spacing, count, interval,
+                waveRadius, slamRadius, DemonLordVfx.seed(lane)), origin);
+        sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.6f);
+        sound(player, SoundEvents.ANVIL_LAND, 0.6f, 0.6f);
+    }
+
+    /** 균열참 파동을 간격마다 하나씩 터뜨립니다. */
+    private static void tickRiftCleave(ServerPlayer player, PlayerLane lane, DemonLordState state, long gameTime) {
+        DemonLordState.RiftCleave rift = state.rift();
+        if (rift == null || gameTime < rift.nextTick()) {
+            return;
+        }
+        DemonLordSkillTower sourceAltar = DemonLordService.altarFor(lane, player.getUUID(), rift.altarType());
+        double damage = ability(rift.altarType(), "waveDamage", 18.0) * state.damageMultiplier();
+        Vec3 centre = rift.centre(rift.nextIndex());
+        state.augments().beginSpell(sourceAltar);
+        try {
+            applyArea(sourceAltar, lane, centre, rift.radius(), ignored -> true, monster -> {
+                Tower.DamageResult result = DemonLordService.dealDamage(
+                        player, lane, sourceAltar, monster, damage, DamageType.MAGIC);
+                monster.setDeltaMovement(monster.getDeltaMovement().x, 0.25, monster.getDeltaMovement().z);
+                monster.hurtMarked = true;
+                return damageOutcome(result);
+            });
+        } finally {
+            state.augments().finishSpell(player, lane, state, gameTime);
+        }
+        if (player.level() instanceof ServerLevel level) {
+            level.playSound(null, centre.x, centre.y, centre.z, SoundEvents.GENERIC_EXPLODE.value(),
+                    SoundSource.PLAYERS, 0.45f, 1.3f);
+        }
+        if (rift.nextIndex() >= rift.count()) {
+            state.clearRift();
+        } else {
+            state.queueRift(rift.advanced());
+        }
     }
 
     /** 시선이 닿는 지점. 블록에 막히면 그 자리, 아니면 최대 사거리 끝입니다. */
@@ -244,7 +465,6 @@ public final class DemonLordSkills {
         applyArea(
                 altar, lane, start.lerp(end, 0.5), range,
                 monster -> distanceToSegment(monster.position(), start, end) <= width,
-                AreaVfxStyles.SPLASH,
                 monster -> {
                     Tower.DamageResult damageResult = DemonLordService.dealDamage(
                             player, lane, altar, monster, damage, DamageType.MAGIC);
@@ -260,6 +480,7 @@ public final class DemonLordSkills {
                     ability(altar, "lifeStealCap", 0.12)
             ));
         }
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.soulDrain(yawOf(look), range, DemonLordVfx.seed(lane)), start);
         sound(player, SoundEvents.SOUL_ESCAPE.value(), 1.0f, 0.6f);
     }
 
@@ -273,7 +494,7 @@ public final class DemonLordSkills {
         int duration = (int) Math.max(1.0, ability(altar, "dreadDurationTicks", 50.0));
 
         Vec3 origin = player.position();
-        applyArea(altar, lane, origin, radius, ignored -> true, AreaVfxStyles.DEBUFF, monster -> {
+        applyArea(altar, lane, origin, radius, ignored -> true, monster -> {
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, altar, monster, damage, DamageType.MAGIC);
             push(monster, horizontal(monster.position().subtract(origin)), knockback, 0.4);
@@ -282,6 +503,7 @@ public final class DemonLordSkills {
             monster.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, 1.0, duration);
             return damageOutcome(result);
         });
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.roarOfDread(radius, DemonLordVfx.seed(lane)), origin);
         sound(player, SoundEvents.WARDEN_ROAR, 1.2f, 0.8f);
     }
 
@@ -312,13 +534,15 @@ public final class DemonLordSkills {
         applyArea(altar, lane, origin, range, monster -> {
             Vec3 toMonster = horizontal(monster.position().subtract(origin));
             return toMonster.lengthSqr() <= 1.0e-4 || look.dot(toMonster.normalize()) >= halfAngleCos;
-        }, AreaVfxStyles.SPLASH, monster -> {
+        }, monster -> {
             Vec3 toMonster = horizontal(monster.position().subtract(origin));
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, altar, monster, damage, DamageType.MAGIC);
             push(monster, toMonster, knockback, 0.35);
             return damageOutcome(result);
         });
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.waveOfMalice(
+                yawOf(look), range, ability(altar, "coneDegrees", 60.0), DemonLordVfx.seed(lane)), origin);
         sound(player, SoundEvents.WARDEN_SONIC_BOOM, 0.7f, 1.4f);
     }
 
@@ -331,7 +555,7 @@ public final class DemonLordSkills {
         double leapPower = ability(altar, "leapPower", 1.0);
 
         Vec3 origin = player.position();
-        applyArea(altar, lane, origin, radius, ignored -> true, AreaVfxStyles.PULSE, monster -> {
+        applyArea(altar, lane, origin, radius, ignored -> true, monster -> {
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, altar, monster, damage, DamageType.MAGIC);
             push(monster, horizontal(monster.position().subtract(origin)), knockback, 0.4);
@@ -342,6 +566,8 @@ public final class DemonLordSkills {
         player.hurtMarked = true;
         player.resetFallDistance();
 
+        DemonLordVfx.follow(DemonLordDisplayVfx.demonWings(yawOf(look), DemonLordVfx.seed(lane)), player);
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.demonWingsShockwave(radius, DemonLordVfx.seed(lane)), origin);
         sound(player, SoundEvents.ENDER_DRAGON_FLAP, 1.0f, 0.8f);
     }
 
@@ -366,7 +592,6 @@ public final class DemonLordSkills {
 
         applyArea(altar, lane, start.lerp(end, 0.5), travelled / 2.0 + hitRadius,
                 monster -> distanceToSegment(monster.position(), start, end) <= hitRadius,
-                AreaVfxStyles.SPLASH,
                 monster -> {
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, altar, monster, damage, DamageType.PHYSICAL);
@@ -377,6 +602,9 @@ public final class DemonLordSkills {
         });
         player.teleportTo(end.x, end.y, end.z);
         player.resetFallDistance();
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.skyBreaker(
+                new org.joml.Vector3f((float) (end.x - start.x), (float) (end.y - start.y), (float) (end.z - start.z)),
+                hitRadius, DemonLordVfx.seed(lane)), start);
         sound(player, SoundEvents.RAVAGER_ROAR, 1.0f, 0.9f);
     }
 
@@ -428,13 +656,18 @@ public final class DemonLordSkills {
         int delay = (int) Math.max(1.0, ability(altar, "castDelayTicks", 10.0));
         state.queueBombardment(altar.type(), gameTime + delay);
 
-        DemonLordVfx.show(altar, lane, player.position(), 2.0, AreaVfxStyles.BUFF);
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.arcaneLaunch(DemonLordVfx.seed(lane))
+                .scaled(state.skillRangeMultiplier()), player.position());
         sound(player, SoundEvents.ENDER_DRAGON_FLAP, 0.9f, 1.4f);
     }
 
     /** Runs the delayed and lasting parts of skills. Called once per lane tick. */
     public static void tickPending(ServerPlayer player, PlayerLane lane, DemonLordState state, long gameTime) {
+        DemonLordPassives.tickBladeWaves(player, lane, state, gameTime);
         tickHellfireZone(player, lane, state, gameTime);
+        tickRiftCleave(player, lane, state, gameTime);
+        tickFiend(lane, state, gameTime);
+        tickAbyssVortex(player, lane, state, gameTime);
         if (!state.bombardmentReady(gameTime)) {
             return;
         }
@@ -457,12 +690,13 @@ public final class DemonLordSkills {
         DemonLordSkillTower sourceAltar = DemonLordService.altarFor(lane, player.getUUID(), altar);
         state.augments().beginSpell(sourceAltar);
         try {
-            applyArea(sourceAltar, lane, impact, blastRadius, ignored -> true, AreaVfxStyles.PULSE,
+            applyArea(sourceAltar, lane, impact, blastRadius, ignored -> true,
                 monster -> damageOutcome(DemonLordService.dealDamage(
                         player, lane, sourceAltar, monster, damage, DamageType.MAGIC)));
         } finally {
             state.augments().finishSpell(player, lane, state, gameTime);
         }
+        DemonLordVfx.play(lane, DemonLordDisplayVfx.arcaneImpact(blastRadius, DemonLordVfx.seed(lane)), impact);
         sound(player, SoundEvents.GENERIC_EXPLODE.value(), 1.0f, 1.1f);
     }
 
@@ -488,8 +722,7 @@ public final class DemonLordSkills {
                 lane, player.getUUID(), zone.altarType());
         state.augments().beginSpell(sourceAltar);
         try {
-            applyArea(sourceAltar, lane, zone.centre(), zone.radius(), ignored -> true,
-                AreaVfxStyles.DEBUFF, monster -> {
+            applyArea(sourceAltar, lane, zone.centre(), zone.radius(), ignored -> true, monster -> {
             Tower.DamageResult result = DemonLordService.dealDamage(
                     player, lane, sourceAltar, monster, zone.damage(), DamageType.MAGIC);
             monster.applyTimedEffect(
@@ -520,7 +753,7 @@ public final class DemonLordSkills {
         double shield = state.maxHealth() * ability(altar, "shieldRatio", 0.25);
         int duration = (int) Math.max(1.0, ability(altar, "shieldDurationTicks", 160.0));
         state.grantShield(shield, player.level().getGameTime() + duration);
-        DemonLordVfx.show(altar, lane, player.position(), 2.0, AreaVfxStyles.BUFF);
+        DemonLordVfx.follow(DemonLordDisplayVfx.demonBarrier(DemonLordVfx.seed(lane)), player);
         sound(player, SoundEvents.TOTEM_USE, 0.8f, 1.2f);
     }
 
@@ -555,7 +788,6 @@ public final class DemonLordSkills {
             Vec3 center,
             double radius,
             Predicate<SemionMonsterEntity> filter,
-            ResourceLocation style,
             AreaEffectAction<SemionMonsterEntity> action
     ) {
         var source = altar == null ? null : altar.entity(lane);
@@ -569,7 +801,7 @@ public final class DemonLordSkills {
                 radius,
                 Set.of(),
                 filter,
-                AreaVfxSpec.onTrigger(style)
+                AreaVfxSpec.none()
         );
         DemonLordState state = DemonLordStates.get(altar.ownerPlayer());
         if (state != null && state.centralDefense()) {
@@ -605,6 +837,11 @@ public final class DemonLordSkills {
                         && entity.runtimeMonster() != null
                         && state.canFight(entity.runtimeMonster())
                         && entity.position().distanceToSqr(center) <= radiusSqr);
+    }
+
+    private static float yawOf(Vec3 direction) {
+        Vec3 flat = horizontal(direction);
+        return kim.biryeong.semiontd.vfx.DisplayShapes.yawOf(flat.x, flat.z);
     }
 
     private static Vec3 horizontal(Vec3 vector) {

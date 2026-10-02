@@ -8769,9 +8769,11 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
                 "fox", "slime", "goat", "bogged", "pillager", "piglin_brute", "ravager", "hoglin",
                 "horse", "llama", "phantom", "enderman", "breeze", "guardian", "polar_bear",
                 "magma_cube", "ocelot", "vindicator", "witch", "iron_golem", "blaze", "shulker",
-                "ghast", "zoglin", "wither_skeleton", "evoker", "elder_guardian", "warden"
+                "ghast", "zoglin", "wither_skeleton", "evoker", "elder_guardian", "warden",
+                "goblin_scout", "elf_assassin", "dark_priest", "dwarf_gunner", "troll_javelineer",
+                "orc_warrior", "necromancer", "creaking", "siege_golem", "legion_commander", "ogre_champion"
         );
-        if (!assertEquals(context, 44, SummonRegistry.all().size(), "Default income registry should contain all 44 planned summons.")) {
+        if (!assertEquals(context, 55, SummonRegistry.all().size(), "Default income registry should contain the 44 legacy summons and the 11 income tower units.")) {
             return;
         }
         for (String summonId : expectedSummonIds) {
@@ -8794,7 +8796,7 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
         SummonConfig.SummonDefinition chicken = SummonConfig.defaultConfig().summons().get("chicken");
         SummonConfig partial = new SummonConfig(Map.of("chicken", chicken));
         SummonConfig merged = partial.withMissingDefaults(SummonConfig.defaultConfig());
-        if (!assertEquals(context, 44, merged.summons().size(), "Summon config should append missing default summon ids.")) {
+        if (!assertEquals(context, 55, merged.summons().size(), "Summon config should append missing default summon ids.")) {
             return;
         }
         if (!assertPresent(context, Optional.ofNullable(merged.summons().get("warden")), "Missing T5 summon should be appended.")) {
@@ -10505,7 +10507,7 @@ public final class SemionParticipantGameTest implements CustomTestMethodInvoker 
         if (!assertPresent(context, JobRegistry.find(FrostTowerJob.ID), "Built-in reload should register the frost tower job.")) {
             return;
         }
-        if (!assertEquals(context, 150L, ProductionTowerCatalog.all().stream()
+        if (!assertEquals(context, 154L, ProductionTowerCatalog.all().stream()
                 .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
                 .filter(ProductionTowerCatalog.CatalogEntry::starter).count(), "Built-in reload should preserve every job starter family independently of augment towers.")) {
             return;

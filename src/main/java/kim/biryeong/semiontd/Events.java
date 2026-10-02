@@ -104,6 +104,15 @@ public final class Events {
         // 레인·엔티티·파티클을 건드리면 서버 스레드 밖에서 월드를 만지게 되어 연결이 끊깁니다.
         // 그래서 여기서는 값싼 상태 확인만 하고, 실제 시전은 서버 스레드로 넘깁니다.
         Stimuli.global().listen(PlayerC2SPacketEvent.EVENT, (player, packet) -> {
+            if (packet instanceof net.minecraft.network.protocol.game.ServerboundSwingPacket swing) {
+                // 검기 패시브: 좌클릭 휘두름마다 검기를 쏩니다. 네티 스레드이므로 서버 스레드로 넘깁니다.
+                MinecraftServer swingServer = player.getServer();
+                if (swing.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND && swingServer != null
+                        && DemonLordStates.isInCombat(player.getUUID())) {
+                    swingServer.execute(() -> DemonLordService.handleSwing(gameManager, player));
+                }
+                return EventResult.PASS;
+            }
             if (!(packet instanceof ServerboundPlayerActionPacket action)) {
                 return EventResult.PASS;
             }
@@ -120,6 +129,7 @@ public final class Events {
                 return EventResult.PASS;
             }
             server.execute(() -> {
+                DemonLordService.ignoreDropSwing(player);
                 DemonLordService.handleKeyBinding(gameManager, player, DemonLordBinding.DROP);
                 // 패킷을 막아도 클라이언트는 이미 제 화면에서 아이템을 빼 버립니다. 서버는 그대로라
                 // 아무 변화가 없으니 자동 동기화도 일어나지 않고, 클라는 빈 손이라 믿은 채로 남아

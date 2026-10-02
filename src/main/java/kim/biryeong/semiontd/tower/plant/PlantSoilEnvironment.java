@@ -46,6 +46,11 @@ public final class PlantSoilEnvironment {
             return;
         }
         if (pulse) applyMeadowGrowthShare(lane, interval);
+        double fieldFrailty = pulse ? myceliumFieldFrailty(owner) : 0.0;
+        double desertBurn = pulse ? desertFieldBurnPerSecond(owner) : 0.0;
+        PlantTerraformTower desertSource = desertBurn > 0.0 ? desertTerraformer(lane, owner) : null;
+        SemionTowerEntity desertSourceEntity = sourceEntity(lane, desertSource);
+        int fieldTicks = Math.max(interval * 2, soilTicks(PlantSoil.MYCELIUM, "environmentDurationTicks"));
 
         for (Monster monster : List.copyOf(lane.activeMonsters())) {
             if (monster == null || !monster.isAlive() || !monster.hasMinecraftEntity()) {
@@ -54,6 +59,14 @@ public final class PlantSoilEnvironment {
             if (!(lane.arenaWorld().getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity entity)
                     || entity.isRemoved()) {
                 continue;
+            }
+            if (fieldFrailty > 0.0) {
+                // 균사 지형의 취약은 균사를 밟지 않아도 라인의 모든 적에게 겁니다. 크기는 균사 칸 수가 정합니다.
+                entity.applyTimedEffect(TimedEffectType.MONSTER_TOWER_DAMAGE_TAKEN_BONUS, fieldFrailty, fieldTicks);
+            }
+            if (desertBurn > 0.0 && desertSourceEntity != null) {
+                // 사암 지형의 도트 피해도 밟지 않아도 라인의 모든 적에게 들어갑니다. 크기는 사암 칸 수가 정합니다.
+                burn(desertSource, desertSourceEntity, monster, entity, desertBurn, interval);
             }
             PlantSoil soil = PlantSoilStates.soilAtColumn(owner, Mth.floor(entity.getX()), Mth.floor(entity.getZ()));
             if (soil == null) {
@@ -138,12 +151,6 @@ public final class PlantSoilEnvironment {
             entity.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_DAMAGE_REDUCTION, weakness, durationTicks);
         }
 
-        // 균사는 지뢰 계열이라 상주 타워가 없습니다. 딜증(취약)도 지형이 직접 겁니다.
-        double damageTakenBonus = soilValue(soil, "environmentDamageTakenBonus");
-        if (damageTakenBonus > 0.0) {
-            entity.applyTimedEffect(TimedEffectType.MONSTER_TOWER_DAMAGE_TAKEN_BONUS, damageTakenBonus, durationTicks);
-        }
-
         double moveSpeedReduction = soilValue(soil, "environmentMoveSpeedReduction");
         if (moveSpeedReduction > 0.0) {
             entity.applyTimedEffect(TimedEffectType.MONSTER_MOVE_SPEED_REDUCTION, moveSpeedReduction, durationTicks);
@@ -154,24 +161,63 @@ public final class PlantSoilEnvironment {
             entity.applyTimedEffect(TimedEffectType.MONSTER_ATTACK_SPEED_REDUCTION, attackSpeedReduction, durationTicks);
         }
 
-        // 최대 체력 비례라 라운드가 올라가 몬스터가 단단해져도 사암이 계속 값을 합니다.
-        double ratioPerSecond = soilValue(soil, "environmentMaxHealthDamagePerSecond");
-        if (ratioPerSecond > 0.0) {
-            double damage = monster.maxHealth() * ratioPerSecond * (intervalTicks / 20.0);
-            PlantTerraformTower source = terrainSource(lane, owner, entity);
-            SemionTowerEntity sourceEntity = sourceEntity(lane, source);
-            if (damage > 0.0 && sourceEntity != null) {
-                Tower.DamageResult result = source.damageResolvedTargetResult(
-                        sourceEntity,
-                        entity,
-                        damage,
-                        DamageType.MAGIC
-                );
-                if (result.killed()) {
-                    source.onKill(sourceEntity, entity, damage);
-                }
+    }
+
+    /**
+     * 사암 도트 한 번. 최대 체력 비례라 라운드가 올라가 몬스터가 단단해져도 사암이 계속 값을 합니다. 피해는 사암
+     * 테라포머의 것으로 쳐서 전과·막타가 그 타워에 남습니다.
+     */
+    private static void burn(PlantTerraformTower source, SemionTowerEntity sourceEntity, Monster monster,
+            SemionMonsterEntity entity, double ratioPerSecond, int intervalTicks) {
+        double damage = monster.maxHealth() * ratioPerSecond * (intervalTicks / 20.0);
+        if (damage <= 0.0) {
+            return;
+        }
+        Tower.DamageResult result = source.damageResolvedTargetResult(sourceEntity, entity, damage, DamageType.MAGIC);
+        if (result.killed()) {
+            source.onKill(sourceEntity, entity, damage);
+        }
+    }
+
+    /**
+     * 사암 칸 수에 비례한 라인 전체 도트(초당 최대 체력 비율). 칸당 {@code maxHealthDamagePerSecondPerTile},
+     * 상한 {@code maxHealthDamagePerSecondCap}입니다.
+     */
+    public static double desertFieldBurnPerSecond(UUID owner) {
+        int tiles = PlantSoilStates.count(owner, PlantSoil.DESERT);
+        if (tiles <= 0) {
+            return 0.0;
+        }
+        double perTile = soilValue(PlantSoil.DESERT, "maxHealthDamagePerSecondPerTile");
+        double cap = soilValue(PlantSoil.DESERT, "maxHealthDamagePerSecondCap");
+        double burn = tiles * perTile;
+        return cap > 0.0 ? Math.min(cap, burn) : burn;
+    }
+
+    /** 사암 도트를 떠맡을 살아 있는 사암 테라포머. 없으면 도트도 없습니다(주인 없는 지형은 피해를 주지 않습니다). */
+    private static PlantTerraformTower desertTerraformer(PlayerLane lane, UUID owner) {
+        for (Tower tower : lane.towers()) {
+            if (tower instanceof PlantTerraformTower terraformer && tower.health() > 0.0
+                    && owner.equals(tower.ownerPlayer()) && PlantTowers.soilOf(tower.type()) == PlantSoil.DESERT) {
+                return terraformer;
             }
         }
+        return null;
+    }
+
+    /**
+     * 균사 칸 수에 비례한 라인 전체 취약(적이 타워에게 받는 피해 증가). 칸당 {@code damageTakenBonusPerTile},
+     * 상한 {@code damageTakenBonusCap}입니다. 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증은 지형이 맡습니다.
+     */
+    public static double myceliumFieldFrailty(UUID owner) {
+        int tiles = PlantSoilStates.count(owner, PlantSoil.MYCELIUM);
+        if (tiles <= 0) {
+            return 0.0;
+        }
+        double perTile = soilValue(PlantSoil.MYCELIUM, "damageTakenBonusPerTile");
+        double cap = soilValue(PlantSoil.MYCELIUM, "damageTakenBonusCap");
+        double bonus = tiles * perTile;
+        return cap > 0.0 ? Math.min(cap, bonus) : bonus;
     }
 
     private static PlantTerraformTower terrainSource(PlayerLane lane, UUID owner, SemionMonsterEntity monster) {

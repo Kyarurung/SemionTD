@@ -39,9 +39,9 @@ public final class Monster {
     private final SummonTier summonTier;
     private final List<SummonRole> summonRoles;
     private final double targetPriority;
-    private final double movementSpeedMultiplier;
-    private final double attackRange;
-    private final int attackIntervalTicks;
+    private double movementSpeedMultiplier;
+    private double attackRange;
+    private int attackIntervalTicks;
     private double attackDamageMultiplier = 1.0;
     private double permanentStatScale = 1.0;
     private double minimumVisualScale = 0.10;
@@ -544,6 +544,16 @@ public final class Monster {
         return targetPriority;
     }
 
+    /**
+     * 유닛마다 다른 이동 속도·사거리·공격 간격을 줍니다(침공군처럼 소환 기본값과 다른 유닛).
+     * 공격 간격은 공격 애니메이션 길이에 맞춰, 모션이 끝나기 전에 다음 공격이 시작되지 않게 잡습니다.
+     */
+    public void applyCombatProfile(double movementSpeedMultiplier, double attackRange, int attackIntervalTicks) {
+        this.movementSpeedMultiplier = movementSpeedMultiplier;
+        this.attackRange = attackRange;
+        this.attackIntervalTicks = Math.max(1, attackIntervalTicks);
+    }
+
     public double movementSpeedMultiplier() {
         return movementSpeedMultiplier;
     }
@@ -730,6 +740,28 @@ public final class Monster {
         damage(amount, DamageType.PHYSICAL);
     }
 
+    private double maxHitHealthRatio;
+
+    /** 라인에 남은 몬스터 수에서 빠지는지(정원사에게 지배당한 적 등). 이것만 남으면 라인이 정리된 것으로 봅니다. */
+    private boolean excludedFromLaneCount;
+
+    public boolean excludedFromLaneCount() {
+        return excludedFromLaneCount;
+    }
+
+    public void setExcludedFromLaneCount(boolean excluded) {
+        excludedFromLaneCount = excluded;
+    }
+
+    /** 한 번에 받는 피해의 상한(최대 체력 비율). 0이면 상한이 없습니다. */
+    public void setMaxHitHealthRatio(double ratio) {
+        maxHitHealthRatio = Math.max(0.0, ratio);
+    }
+
+    public double maxHitHealthRatio() {
+        return maxHitHealthRatio;
+    }
+
     public void damage(double amount, DamageType incomingDamageType) {
         damageResult(amount, incomingDamageType);
     }
@@ -758,6 +790,10 @@ public final class Monster {
                 : amount * 100.0 / (100.0 + Math.max(0.0, defense));
         double absorbed = damageType == DamageType.TRUE ? 0.0 : shield(damageType).absorb(effectiveDamage, supportGameTime);
         effectiveDamage -= absorbed;
+        if (maxHitHealthRatio > 0.0) {
+            // 크리킹처럼 한 번에 받는 피해에 상한이 있는 몬스터.
+            effectiveDamage = Math.min(effectiveDamage, maxHealth * maxHitHealthRatio);
+        }
         double applied = Math.min(health, effectiveDamage);
         health = Math.max(0, health - effectiveDamage);
         if (health <= 0) {

@@ -356,6 +356,11 @@ public abstract class Tower {
         return waveStartedAfterPlacement;
     }
 
+    /** 설치 뒤에 이 타워에 더 쓴 다이아(스킬 강화 등). 판매 환불에 함께 들어갑니다. */
+    public void addPaidMineralCost(long extra) {
+        this.paidMineralCost = Math.max(0, this.paidMineralCost + Math.max(0, extra));
+    }
+
     public void recordPlacementEconomy(long paidMineralCost, int currentRound) {
         this.paidMineralCost = Math.max(0, paidMineralCost);
         this.placedRound = currentRound;
@@ -1073,6 +1078,17 @@ public abstract class Tower {
      */
     public boolean drawsAggro() {
         return true;
+    }
+
+    /**
+     * 레인에 서 있지 않고 효과의 출처로만 쓰이는 숨은 타워인지.
+     *
+     * <p>공용 범위·피해·연출 경로는 전부 타워 엔티티를 출처로 받습니다. 마왕 스킬처럼 플레이어가
+     * 쓰는 효과도 그 경로를 타려면 엔티티가 있어야 해서, 보이지 않는 운반체를 띄웁니다. 이 값이
+     * 참이면 엔티티가 이름표를 숨기고 제자리에 떠 있습니다.
+     */
+    public boolean isHiddenSkillCarrier() {
+        return false;
     }
 
     public boolean isDestroyed(PlayerLane lane) {

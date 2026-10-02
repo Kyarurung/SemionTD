@@ -120,9 +120,9 @@ public final class PlantTowers {
             "<gray>밟으면 섬광이 뜨고 <aqua>{ability.fuseTicks:seconds}</aqua> 뒤에 터집니다. "
                     + "그 사이에 빠져나간 적은 맞지 않습니다.</gray>";
 
-    /** 라운드마다 한 단계씩 삭습니다. 지뢰가 치르는 값이 폭발 한 번에서 라운드 하나로 옮겨갔습니다. */
-    private static final String MYCELIUM_DECAY_LINE =
-            "<red>라운드가 끝나면 한 단계 아래로 삭습니다. 붉은 버섯은 사라집니다.</red>";
+    /** 균사 지형 자체의 효과. 지뢰를 밟지 않아도, 균사 위에 서 있지 않아도 라인 전체에 걸립니다. */
+    private static final String MYCELIUM_FIELD_LINE =
+            "<green>균사 칸이 많을수록 이 라인의 모든 적이 타워에게 받는 피해가 늘어납니다(균사를 밟지 않아도).</green>";
 
     // ------------------------------------------------------------------
     // 테라포밍 타워 - 전투 능력 없음 (사거리 0, 피해 0). 지형만 깝니다.
@@ -233,7 +233,7 @@ public final class PlantTowers {
                     SOIL_POWER_LINE
             ));
 
-    // 균사 - 라운드당 한 번 터지는 지뢰. 라운드가 끝나면 한 단계씩 삭습니다.
+    // 균사 - 라운드당 한 번 터지는 지뢰. 균사 칸 수만큼 라인 전체의 적이 받는 피해가 늘어납니다.
     public static final TowerType T1_MYCELIUM_TOWER = combatTower(
             "t1_mycelium_tower", "붉은 버섯", 30, 110, 0.0, 30, 20, 35,
             plantVisual(Blocks.RED_MUSHROOM, 1.0), PlantSoil.MYCELIUM, 1,
@@ -243,7 +243,7 @@ public final class PlantTowers {
                     "<green>맞은 적은 느려지고 잠시 공격하지 못합니다.</green>",
                     MYCELIUM_FUSE_LINE,
                     MYCELIUM_REARM_LINE,
-                    "<red>라운드가 끝나면 사라집니다.</red>"
+                    MYCELIUM_FIELD_LINE
             ));
     public static final TowerType T2_MYCELIUM_TOWER = combatTower(
             "t2_mycelium_tower", "진홍빛 버섯", 80, 260, 0.0, 45, 20, 40,
@@ -253,7 +253,7 @@ public final class PlantTowers {
                     "<green>폭발 범위와 피해, 무력화 시간이 늘어납니다.</green>",
                     MYCELIUM_FUSE_LINE,
                     MYCELIUM_REARM_LINE,
-                    MYCELIUM_DECAY_LINE
+                    MYCELIUM_FIELD_LINE
             ));
     public static final TowerType T3_MYCELIUM_TOWER = combatTower(
             "t3_mycelium_tower", "뒤틀린 버섯", 130, 460, 0.0, 50, 20, 45,
@@ -263,7 +263,7 @@ public final class PlantTowers {
                     "<green>폭발 범위와 피해, 무력화 시간이 가장 깁니다.</green>",
                     MYCELIUM_FUSE_LINE,
                     MYCELIUM_REARM_LINE,
-                    MYCELIUM_DECAY_LINE
+                    MYCELIUM_FIELD_LINE
             ));
 
     // 사암 - 반사 탱커. 스스로 공격하지 않고 맞은 만큼 되돌려줍니다.
@@ -403,6 +403,22 @@ public final class PlantTowers {
                     PANDA_NO_SOIL_LINE
             ));
 
+    // 정원사 - 식물 빌더의 단일 엘리트 타워. 한 명에 하나, 티어 업그레이드 대신 스킬 세 개를 강화합니다.
+    // 지형이 필요 없고, 어디에 서 있든 잔디·사암·회백토 지형 효과를 모두 받습니다(균사는 적에게 거는 것이라 빼고).
+    public static final String GARDENER_MODEL = "semion-td:tower/gardener";
+    public static final TowerType GARDENER_TOWER = gardenerTower(
+            "plant_gardener", "정원사", 400, 900, 18.0, 40, 20, 45,
+            EntityVisual.modeled("minecraft:zombie", GARDENER_MODEL),
+            List.of(
+                    "<gray>식물 빌더의 단일 엘리트 타워입니다. 한 명에 하나만 세울 수 있습니다.</gray>",
+                    "<gray>티어가 오르지 않는 대신 스킬 세 개를 각각 3단계까지 강화합니다.</gray>",
+                    "<green>지형 없이 어디에나 서고, 서 있는 곳과 상관없이 잔디·사암·회백토 지형 효과를 모두 받습니다.</green>",
+                    "<green>평타는 대상 너머 사거리 끝까지 일직선으로 가시가 솟아 줄의 적을 모두 찌릅니다.</green>",
+                    "<green><yellow>꽃밭 치유</yellow>: 가장 다친 아군 타워 자리에 회복 장판을 깔아 그 안의 아군을 계속 치유합니다.</green>",
+                    "<green><yellow>지배</yellow>: 체력이 가장 높은 적을 지배해 멈춰 세우고 제 편을 공격하게 합니다.</green>",
+                    "<green><yellow>생기 흡수</yellow>: 주변 적의 체력을 빨아들여 다친 아군 타워에게 나눠 줍니다.</green>"
+            ));
+
     public static final List<TowerType> PANDA_TOWERS = List.of(
             T1_PANDA_TOWER, T2_PANDA_TOWER, T3_PANDA_TOWER, T4_PANDA_TOWER
     );
@@ -427,6 +443,7 @@ public final class PlantTowers {
         TERRAFORM_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
         COMBAT_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
         PANDA_TOWERS.forEach(type -> TowerDescriptionRegistry.registerTemplate(type, type.description()));
+        TowerDescriptionRegistry.registerTemplate(GARDENER_TOWER, GARDENER_TOWER.description());
     }
 
     private PlantTowers() {
@@ -446,10 +463,20 @@ public final class PlantTowers {
         return definition != null && !definition.terraformer();
     }
 
-    /** 판다 계열인지. 지형에 묶이지 않는 유일한 식물 타워라 따로 물어볼 일이 많습니다. */
+    /** 판다 계열인지. 지형에 묶이지 않는 식물 타워라 따로 물어볼 일이 많습니다(정원사는 따로 봅니다). */
     public static boolean isPandaTower(TowerType type) {
         Definition definition = definition(type);
-        return definition != null && !definition.terraformer() && definition.soil() == null;
+        return definition != null && !definition.terraformer() && definition.soil() == null && !isGardener(type);
+    }
+
+    /** 정원사(식물 빌더의 단일 엘리트 타워)인지. */
+    public static boolean isGardener(TowerType type) {
+        return type != null && GARDENER_TOWER.id().equals(type.id());
+    }
+
+    /** 지형 계열에 묶이지 않는 특수 타워(판다·정원사)인지. 상점에서 한 묶음으로 보입니다. */
+    public static boolean isSpecialTower(TowerType type) {
+        return isPandaTower(type) || isGardener(type);
     }
 
     public static PlantSoil soilOf(TowerType type) {
@@ -477,23 +504,6 @@ public final class PlantTowers {
             return -1;
         }
         return Math.max(0, TowerBalanceRuntime.abilityInt(type.id(), "terraformRadius", definition.tier()));
-    }
-
-    /**
-     * 균사 지뢰가 라운드 끝에 삭아 내려갈 한 단계 아래 타워. 붉은 버섯이면 {@code null} 입니다.
-     *
-     * <p>업그레이드 그래프를 거꾸로 읽는 대신 계열과 티어로 찾습니다. 균사 계열은 갈래가 없어
-     * 한 티어에 타워가 하나뿐이라, 역방향 탐색이 애매해질 여지가 없습니다.
-     */
-    public static TowerType previousMyceliumTier(TowerType type) {
-        if (soilOf(type) != PlantSoil.MYCELIUM) {
-            return null;
-        }
-        return switch (tierOf(type)) {
-            case 3 -> T2_MYCELIUM_TOWER;
-            case 2 -> T1_MYCELIUM_TOWER;
-            default -> null;
-        };
     }
 
     public static boolean matches(TowerType type, TowerType other) {
@@ -570,6 +580,25 @@ public final class PlantTowers {
                 id, displayName, mineralCost, maxHealth, range, damage,
                 attackIntervalTicks, aggroPriority, visual, List.copyOf(description));
         DEFINITIONS.put(id, new Definition(null, tier, false));
+        return type;
+    }
+
+    private static TowerType gardenerTower(
+            String id,
+            String displayName,
+            long mineralCost,
+            double maxHealth,
+            double range,
+            double damage,
+            int attackIntervalTicks,
+            int aggroPriority,
+            EntityVisual visual,
+            List<String> description
+    ) {
+        TowerType type = tower(
+                id, displayName, mineralCost, maxHealth, range, damage,
+                attackIntervalTicks, aggroPriority, visual, List.copyOf(description));
+        DEFINITIONS.put(id, new Definition(null, 1, false));
         return type;
     }
 

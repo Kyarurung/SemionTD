@@ -619,6 +619,10 @@ public final class PlayerLane {
                     IllagerRaidStates.onMonsterKilled(players, monster);
                     notifyNearbyMonsterDeath(monster, monsterDeathPosition(monster));
                 });
+                if (monster.hasMinecraftEntity()
+                        && arenaWorld.getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity dying) {
+                    dying.showDeathVisual();
+                }
                 discardMinecraftEntity(monster);
                 monster.markRemoved();
                 iterator.remove();
@@ -630,7 +634,9 @@ public final class PlayerLane {
             }
         }
 
-        if (!clearedThisRound && activeMonsters.isEmpty()
+        // 지배당한 적처럼 라인 수에서 빠지는 몬스터만 남았다면 라인이 정리된 것으로 봅니다. 그대로 두면 지배가
+        // 끝날 때까지 라운드가 끝나지 않습니다. 남은 것은 지배한 쪽(정원사)이 미드로 데려가고, 지배가 풀리면 치웁니다.
+        if (!clearedThisRound && activeMonsters.stream().allMatch(Monster::excludedFromLaneCount)
                 && waveMonsterSpawnQueue.isEmpty() && summonedMonsterSpawnQueue.isEmpty()) {
             for (Tower tower : List.copyOf(towers)) {
                 tower.onLaneCleared(this);
@@ -996,7 +1002,10 @@ public final class PlayerLane {
     }
 
     private void syncTowerStates() {
-        boolean allTowersDestroyed = !towers.isEmpty();
+        // 마왕 레인은 마왕 본인이 지킵니다. 증강으로 받은 타워가 전부 쓰러져도 레인이 무너진 것이
+        // 아닙니다 - 예전에는 무적 제단이 서 있어서 저절로 그렇게 됐습니다.
+        boolean allTowersDestroyed = !towers.isEmpty()
+                && kim.biryeong.semiontd.tower.demonlord.DemonLordStates.get(ownerPlayer) == null;
         for (Tower tower : towers) {
             if (!tower.countsForLaneDefense()) {
                 continue;
@@ -1055,6 +1064,11 @@ public final class PlayerLane {
         }
     }
 
+    /** 같은 팀의 모든 라인(자기 포함). */
+    public List<PlayerLane> teamLanes() {
+        return notificationLanes();
+    }
+
     private List<PlayerLane> notificationLanes() {
         return teamLaneGroup == null ? List.of(this) : List.copyOf(teamLaneGroup.lanes());
     }
@@ -1105,6 +1119,24 @@ public final class PlayerLane {
     private void spawnMinecraftEntity(Monster monster, boolean distributeWaveSpawn) {
         Vec3 spawn = distributeWaveSpawn ? waveSpawnPositionPolicy.next() : laneLayout.spawn();
         spawnMinecraftEntity(monster, spawn);
+    }
+
+    /**
+     * 레인 도중의 지정한 자리에 몬스터를 바로 세웁니다(강령술사가 부르는 해골처럼 레인 입구가 아닌 곳에서 나타나는 유닛).
+     * 레인 진행도와 다음 경로점은 서 있는 자리에서 알아서 이어집니다. 세운 몬스터 엔티티를 돌려줍니다.
+     */
+    public java.util.Optional<SemionMonsterEntity> spawnMonsterAt(Monster monster, Vec3 position) {
+        if (monster == null || position == null || arenaWorld == null || laneLayout == null) {
+            return java.util.Optional.empty();
+        }
+        spawnMinecraftEntity(monster, position);
+        if (!monster.hasMinecraftEntity()) {
+            return java.util.Optional.empty();
+        }
+        activeMonsters.add(monster);
+        return arenaWorld.getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity entity
+                ? java.util.Optional.of(entity)
+                : java.util.Optional.empty();
     }
 
     private void spawnMinecraftEntity(Monster monster, Vec3 spawn) {

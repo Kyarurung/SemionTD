@@ -44,9 +44,9 @@ public final class PlantTowerJob extends SemionJob {
         if (soil != null) {
             return soil.displayName();
         }
-        // 판다는 지형 계열이 아니라 자기 묶음을 씁니다. 지형별 상점 사이에 섞여 들어가면
+        // 판다와 정원사는 지형 계열이 아니라 특수 타워 묶음을 씁니다. 지형별 상점 사이에 섞여 들어가면
         // "이 지형을 깔아야 살 수 있다" 는 상점의 규칙이 깨져 보입니다.
-        return PlantTowers.isPandaTower(towerType) ? "판다" : null;
+        return PlantTowers.isSpecialTower(towerType) ? "특수 타워" : null;
     }
 
     @Override
@@ -67,44 +67,7 @@ public final class PlantTowerJob extends SemionJob {
             if (payout > 0L) {
                 context.player().economy().addMineral(payout);
             }
-            decayMines(context, lane);
         });
-    }
-
-    /**
-     * 균사 지뢰를 한 단계씩 삭힙니다. 붉은 버섯은 사라집니다.
-     *
-     * <p>지뢰는 폭발 한 번으로 소모되지 않는 대신 라운드마다 값을 치릅니다. 뒤틀린 버섯을 심으면
-     * 세 라운드를 버티고, 붉은 버섯은 한 라운드짜리입니다.
-     *
-     * <p>여기서 도는 이유는 두 가지입니다. 라운드 경계를 아는 쪽이 타워가 아니라 직업이고,
-     * {@code PlayerLane#resetForRound} 는 타워 목록을 그대로 순회하므로 그 안에서 타워를 지우거나
-     * 갈아 끼울 수 없습니다. 이 훅은 정산({@code recordBuilderRoundResults}) 뒤, 준비 단계
-     * 시작 전에 불려서 이번 라운드 전과가 기록된 뒤에 삭습니다.
-     *
-     * <p>삭은 타워는 {@code copyFrom} 을 쓰지 않고 새로 만듭니다. 판매가와 체력이 지금 티어 기준으로
-     * 잡혀야 합니다 - 값을 물려받으면 붉은 버섯을 뒤틀린 버섯 값에 되팔 수 있습니다.
-     */
-    private static void decayMines(JobContext context, PlayerLane lane) {
-        for (Tower tower : List.copyOf(lane.towers())) {
-            if (!(tower instanceof PlantMineTower mine)
-                    || !context.player().uuid().equals(mine.ownerPlayer())) {
-                continue;
-            }
-            TowerType decayed = PlantTowers.previousMyceliumTier(mine.type());
-            if (decayed == null) {
-                lane.removeTower(mine);
-                continue;
-            }
-            ProductionTowerCatalog.entry(decayed)
-                    .map(entry -> entry.create(
-                            mine.ownerPlayer(),
-                            mine.teamId(),
-                            mine.laneId(),
-                            mine.originalPosition(),
-                            mine.position()))
-                    .ifPresent(replacement -> lane.replaceTower(mine, replacement));
-        }
     }
 
     @Override

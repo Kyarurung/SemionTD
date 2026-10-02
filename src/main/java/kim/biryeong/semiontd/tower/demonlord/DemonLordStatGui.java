@@ -11,7 +11,7 @@ import net.minecraft.world.item.Items;
 /**
  * Where a demon lord spends level-up points.
  *
- * <p>Opened from the 준비 단계 hotbar, because that is when the player is deciding things anyway.
+ * <p>Opened from the [스탯 배정] button in the tower dialog, next to [스킬 배정].
  * Points are spent one click at a time and never refunded within a match - the screen says so, so
  * nobody dumps ten points into the wrong line and finds out later.
  */

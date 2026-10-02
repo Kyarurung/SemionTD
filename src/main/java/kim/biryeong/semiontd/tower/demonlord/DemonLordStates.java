@@ -30,7 +30,10 @@ public final class DemonLordStates {
     private static final Map<UUID, Progression> PROGRESSION = new ConcurrentHashMap<>();
 
     private record Progression(int level, double experience, Map<DemonLordStat, Integer> statPoints, int unspentPoints,
-                               DemonLordAugments.TargetedProgress targeted) {
+                               DemonLordAugments.TargetedProgress targeted,
+                               Map<DemonLordBinding, DemonLordLoadout.Slot> loadout,
+                               Map<DemonLordPassiveSlot, DemonLordLoadout.PassiveEntry> passives,
+                               boolean autoIncomeEnabled, Double autoIncomeThreshold, int pactRoundsServed) {
     }
 
     private DemonLordStates() {
@@ -51,6 +54,10 @@ public final class DemonLordStates {
                 created.restoreProgression(
                         saved.level(), saved.experience(), saved.statPoints(), saved.unspentPoints());
                 created.augments().restoreTargetedProgress(saved.targeted());
+                // 스킬은 다이아를 내고 산 것입니다. 상태가 다시 만들어져도 잃으면 안 됩니다.
+                created.restoreLoadout(new DemonLordLoadout(saved.loadout(), saved.passives()));
+                created.restoreAutoIncome(saved.autoIncomeEnabled(), saved.autoIncomeThreshold());
+                created.restorePact(saved.pactRoundsServed());
             }
             return created;
         });
@@ -92,7 +99,11 @@ public final class DemonLordStates {
                         removed.level(),
                         removed.experience(),
                         removed.statPointsView(),
-                        removed.unspentPoints(), removed.augments().targetedProgress()));
+                        removed.unspentPoints(), removed.augments().targetedProgress(),
+                        removed.loadout().view(),
+                        removed.loadout().passivesView(),
+                        removed.autoIncomeEnabled(), removed.autoIncomeThresholdOverride(),
+                        removed.pactRoundsServed()));
             }
             DemonLordService.clearBossBar(playerId);
         }

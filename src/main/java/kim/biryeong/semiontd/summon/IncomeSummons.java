@@ -25,6 +25,10 @@ public final class IncomeSummons {
     }
 
     private static SummonMonsterType create(SummonConfig.SummonDefinition definition) {
+        // 마왕 인컴 타워가 보내는 침공군은 유닛마다 공격 방식과 능력이 따로 있습니다.
+        if (kim.biryeong.semiontd.summon.invasion.InvasionUnits.isUnit(definition.id())) {
+            return new kim.biryeong.semiontd.summon.invasion.InvasionSummon(definition);
+        }
         return switch (definition.id()) {
             case "wolf", "cave_spider", "stray", "goat", "bogged", "breeze", "vindicator" ->
                     new TowerDebuffIncomeSummon(definition, TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION);

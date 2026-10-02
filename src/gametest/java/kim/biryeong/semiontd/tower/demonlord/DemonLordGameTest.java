@@ -49,6 +49,31 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class DemonLordGameTest {
     @GameTest
+    public void skillEffectsSnapToTheGroundSurfaceUnderTheirOrigin(GameTestHelper context) {
+        var level = context.getLevel();
+        var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        var air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        BlockPos floor = context.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos slab = context.absolutePos(new BlockPos(4, 1, 2));
+        for (BlockPos pos : List.of(floor, slab)) {
+            level.setBlockAndUpdate(pos.above(), air);
+            level.setBlockAndUpdate(pos.above(2), air);
+        }
+        level.setBlockAndUpdate(floor, stone);
+        level.setBlockAndUpdate(slab, net.minecraft.world.level.block.Blocks.STONE_SLAB.defaultBlockState());
+
+        double top = floor.getY() + 1.0;
+        double x = floor.getX() + 0.5, z = floor.getZ() + 0.5;
+        requireClose(top, DemonLordVfx.onGround(level, new Vec3(x, top - 0.1, z)).y, "A sunken origin rises to the surface.");
+        requireClose(top, DemonLordVfx.onGround(level, new Vec3(x, top + 0.2, z)).y, "A barely floating origin drops to the surface.");
+        requireClose(top + 2.0, DemonLordVfx.onGround(level, new Vec3(x, top + 2.0, z)).y, "Effects in the air stay where they are.");
+        double slabTop = slab.getY() + 0.5;
+        requireClose(slabTop, DemonLordVfx.onGround(level, new Vec3(slab.getX() + 0.5, slabTop + 0.1, slab.getZ() + 0.5)).y,
+                "A partial block snaps to its own collision top.");
+        context.succeed();
+    }
+
+    @GameTest
     public void selfDesignationsBoostBladeAndAltarDamageExactlyOnce(GameTestHelper context) {
         net.minecraft.world.level.ChunkPos.rangeClosed(new net.minecraft.world.level.ChunkPos(context.getLevel().getSharedSpawnPos()), 2)
                 .forEach(pos -> context.getLevel().getChunk(pos.x, pos.z));
@@ -232,43 +257,108 @@ public final class DemonLordGameTest {
         }
     }
 
+    /**
+     * 스킬은 레인에 짓지 않습니다. 배정한 슬롯마다 보이지 않는 운반체가 떠서 공용 연출·범위 경로의
+     * 출처가 되고, 레인의 타워 목록·칸·타워 수에는 끼지 않습니다.
+     */
     @GameTest
-    public void upgradesKeepBuildOrderAndEverySkillUsesTheSharedVfxPath(GameTestHelper context) {
-        UUID owner = stableUuid("demon-lord-vfx-owner");
+    public void slotCarriersFollowTheLoadoutWithoutJoiningTheLane(GameTestHelper context) {
+        UUID owner = stableUuid("demon-lord-carrier-owner");
         PlayerLane lane = testLane(context, owner);
         prepareFloor(context);
-        List<DemonLordSkillTower> altars = new ArrayList<>();
         try {
-            int index = 0;
-            for (DemonLordSkill skill : DemonLordSkill.values()) {
-                DemonLordSkillTower altar = altar(
-                        context, owner, skill, 1, 2 + index % 5 * 2, 2 + index / 5 * 3);
-                lane.addTower(altar);
-                altars.add(altar);
-                index++;
+            DemonLordState state = DemonLordStates.getOrCreate(owner);
+            DemonLordSkill[] skills = DemonLordSkill.values();
+            DemonLordBinding[] bindings = DemonLordBinding.values();
+            for (int i = 0; i < bindings.length; i++) {
+                require(state.loadout().assign(bindings[i], skills[i], 0), "Every key slot must accept a skill.");
             }
-            DemonLordSkillTower upgraded = altar(context, owner, DemonLordSkill.DEMON_WINGS, 2, 4, 2);
-            require(lane.replaceTower(altars.get(1), upgraded), "The second altar must upgrade in place.");
-            List<DemonLordSkillTower> ordered = DemonLordService.orderedAltars(lane, owner);
-            require(ordered.get(0).skill() == DemonLordSkill.WAVE_OF_MALICE
-                            && ordered.get(1) == upgraded
-                            && ordered.get(2).skill() == DemonLordSkill.SKY_BREAKER,
-                    "Upgrading must not change build-order bindings.");
+            DemonLordService.syncCarriers(lane, state);
 
-            TowerVfxService.resetStats();
-            for (DemonLordSkillTower altar : ordered) {
-                require(DemonLordVfx.showDebug(altar, lane, altar.entity(lane).position()),
-                        altar.skill() + " must enter the shared combat VFX path.");
+            List<DemonLordSkillTower> carriers = DemonLordService.orderedAltars(lane, owner);
+            require(carriers.size() == bindings.length, "One carrier per filled slot.");
+            require(lane.towers().isEmpty(), "Carriers must not join the lane's tower list.");
+            for (int i = 0; i < bindings.length; i++) {
+                DemonLordSkillTower carrier = carriers.get(i);
+                require(carrier.skill() == skills[i] && carrier.binding() == bindings[i],
+                        "Carriers must follow slot order, not purchase order.");
+                var entity = carrier.entity(lane);
+                require(entity != null, carrier.skill() + " must have a hidden entity to act as the effect source.");
+                require(entity.isNoGravity() && !entity.isCustomNameVisible(),
+                        "The carrier entity must hover without a nameplate.");
             }
-            require(TowerVfxService.statsSummary().contains("queued=10"),
-                    "All ten skills must be queued through the shared VFX budget: "
+
+            DemonLordSkillTower before = carriers.get(1);
+            require(state.loadout().upgrade(DemonLordBinding.SLOT_2, 0), "The second slot must upgrade.");
+            DemonLordService.syncCarriers(lane, state);
+            DemonLordSkillTower upgraded = DemonLordService.orderedAltars(lane, owner).get(1);
+            require(upgraded != before && upgraded.tier() == 2 && upgraded.binding() == DemonLordBinding.SLOT_2,
+                    "Upgrading must swap in the next tier on the same key.");
+            require(before.entity(lane) == null, "The replaced carrier's entity must be discarded.");
+
+            state.loadout().remove(DemonLordBinding.SLOT_1);
+            DemonLordService.syncCarriers(lane, state);
+            require(DemonLordService.orderedAltars(lane, owner).size() == bindings.length - 1,
+                    "Removing a skill must drop its carrier.");
+
+            // 모든 스킬이 디스플레이 엔티티 연출을 띄워야 합니다. 슬롯은 일곱 개라 하나씩 돌려 봅니다.
+            TowerVfxService.resetStats();
+            for (DemonLordBinding binding : bindings) {
+                state.loadout().remove(binding);
+            }
+            int activeBefore = kim.biryeong.semiontd.vfx.DisplayEffect.activeCount();
+            for (DemonLordSkill skill : skills) {
+                state.loadout().remove(DemonLordBinding.SLOT_1);
+                state.loadout().assign(DemonLordBinding.SLOT_1, skill, 0);
+                DemonLordService.syncCarriers(lane, state);
+                DemonLordSkillTower carrier = DemonLordService.orderedAltars(lane, owner).getFirst();
+                require(DemonLordVfx.showDebug(carrier, lane, carrier.entity(lane).position()),
+                        skill + " must spawn its display-entity effect.");
+            }
+            require(kim.biryeong.semiontd.vfx.DisplayEffect.activeCount() - activeBefore == skills.length,
+                    "Every skill must be a live display effect: "
+                            + (kim.biryeong.semiontd.vfx.DisplayEffect.activeCount() - activeBefore));
+            require(!TowerVfxService.statsSummary().contains("queued="),
+                    "Demon lord skills must no longer spray the shared area particles: "
                             + TowerVfxService.statsSummary());
             context.succeed();
         } catch (Throwable failure) {
-            context.fail(Component.literal("Demon lord VFX GameTest failed: " + failure.getMessage()));
+            context.fail(Component.literal("Demon lord carrier GameTest failed: " + failure.getMessage()));
         } finally {
-            lane.clearTowers();
+            DemonLordService.clearPlayerState(owner);
             TowerVfxService.resetStats();
+        }
+    }
+
+    /** 키 슬롯에 산 스킬이 그 키로 시전됩니다. 레인에 제단이 하나도 없어도 됩니다. */
+    @GameTest
+    public void slotBoundSkillsCastThroughTheirKey(GameTestHelper context) {
+        TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        try {
+            DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
+            state.setLaneId(1);
+            require(state.loadout().assign(DemonLordBinding.DROP, DemonLordSkill.DEMON_BARRIER, 0),
+                    "The barrier must fit into the Q slot.");
+            DemonLordService.syncCarriers(lane, state);
+            state.enterCombat();
+            long now = context.getLevel().getGameTime();
+
+            require(!DemonLordService.tryCast(player, lane, state, DemonLordBinding.SLOT_1, now),
+                    "An empty key must not swallow the input.");
+            require(DemonLordService.tryCast(player, lane, state, DemonLordBinding.DROP, now),
+                    "The Q key must cast the skill bought into it.");
+            require(state.shield() > 0.0, "Demon barrier must grant its shield through the carrier.");
+            require(!state.isSkillReady(DemonLordSkill.DEMON_BARRIER, now), "Casting must start the cooldown.");
+            require(lane.towers().isEmpty(), "Casting must not need a tower in the lane.");
+            context.succeed();
+        } catch (Throwable failure) {
+            context.fail(Component.literal("Demon lord slot cast GameTest failed: " + failure.getMessage()));
+        } finally {
+            DemonLordService.clearPlayerState(player.getUUID());
+            player.discard();
         }
     }
 
@@ -472,6 +562,48 @@ public final class DemonLordGameTest {
             if (target != null) target.entity().discard();
             lane.clearTowers();
             AreaEffectLaneIndex.unregister(lane);
+            DemonLordStates.clear(player.getUUID());
+            player.discard();
+        }
+    }
+
+    /** 손아귀를 슬롯에 넣으면 처형 임계값 이하의 적만 그 마왕에게 빨갛게 표시되고, 회복하거나 손아귀를 빼면 꺼집니다. */
+    @GameTest
+    public void gripOfDoomMarksOnlyExecutableMonsters(GameTestHelper context) {
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        try {
+            SemionPlayer semionPlayer = demonLordPlayer(player);
+            DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
+            state.enterCombat();
+            state.consumePendingSpawn();
+            require(state.loadout().assign(DemonLordBinding.SLOT_1, DemonLordSkill.GRIP_OF_DOOM, 0), "Grip must be slotted.");
+            SpawnedTarget weak = spawnTarget(context, lane, new BlockPos(4, 2, 4), 100.0, 0.0);
+            SpawnedTarget healthy = spawnTarget(context, lane, new BlockPos(6, 2, 6), 100.0, 0.0);
+            weak.runtime().damage(70.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            DemonLordService.tick(lane, Map.of(player.getUUID(), semionPlayer));
+
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS);
+            var marked = DemonLordExecuteMarks.markedFor(player.getUUID());
+            require(marked.contains(weak.entity().getId()), "A monster at 30% health must be marked for execution.");
+            require(!marked.contains(healthy.entity().getId()), "A healthy monster must not be marked.");
+
+            weak.runtime().heal(60.0);
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 2L);
+            require(DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "Healing past the threshold must clear the mark.");
+
+            weak.runtime().damage(70.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 3L);
+            require(!DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "The mark must come back.");
+            state.loadout().remove(DemonLordBinding.SLOT_1);
+            DemonLordService.tick(lane, Map.of(player.getUUID(), semionPlayer));
+            DemonLordExecuteMarks.tick(player, lane, state, DemonLordExecuteMarks.INTERVAL_TICKS * 4L);
+            require(DemonLordExecuteMarks.markedFor(player.getUUID()).isEmpty(), "Without the grip nothing is marked.");
+            context.succeed();
+        } catch (Throwable failure) {
+            context.fail(Component.literal("Execute mark GameTest failed: " + failure.getMessage()));
+        } finally {
             DemonLordStates.clear(player.getUUID());
             player.discard();
         }

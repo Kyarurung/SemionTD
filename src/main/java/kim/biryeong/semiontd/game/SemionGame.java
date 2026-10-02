@@ -47,6 +47,9 @@ import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerCapacity;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.augment.AugmentTowerService;
+import kim.biryeong.semiontd.tower.income.IncomeTower;
+import kim.biryeong.semiontd.tower.income.IncomeTowerBalance;
+import kim.biryeong.semiontd.tower.income.IncomeTowerService;
 import kim.biryeong.semiontd.tower.adversary.AdversaryProgressStates;
 import kim.biryeong.semiontd.tower.adversary.AdversaryTeamEffects;
 import kim.biryeong.semiontd.tower.mage.MageStates;
@@ -325,6 +328,10 @@ public final class SemionGame {
 
     public Map<TeamId, SemionTeam> teams() {
         return teams;
+    }
+
+    public WaveConfig waveConfig() {
+        return waveConfig;
     }
 
     public Map<UUID, SemionPlayer> players() {
@@ -1115,6 +1122,10 @@ public final class SemionGame {
         if (type.isEmpty()) {
             return SummonResult.failure(SummonResultType.UNKNOWN_SUMMON, summonId);
         }
+        // 침공군 유닛은 마왕의 인컴 타워가 보내는 전용 유닛입니다. 인컴 몹으로는 살 수 없습니다(무료 소환 제외).
+        if (!freeSandboxSummons && IncomeTowerBalance.isUnit(summonId)) {
+            return SummonResult.failure(SummonResultType.SUMMON_NOT_ALLOWED_BY_JOB, summonId);
+        }
 
         JobContext jobContext = new JobContext(this, player);
         SummonContext summonContext = new SummonContext(this, player);
@@ -1419,6 +1430,7 @@ public final class SemionGame {
             activeMatchTicks++;
             if (activeMatchTicks % 20 == 0) {
                 economyService.tickGas(players.values(), teams, currentRound);
+                // 마왕 자동 인컴 전송은 인컴 타워로 바뀌면서 꺼 둡니다.
             }
             if (TraitEffects.weeklyHolidayPayDue(activeMatchTicks)) {
                 awardWeeklyHolidayPay();
@@ -1488,7 +1500,59 @@ public final class SemionGame {
             }
             enqueueWave(team, roundWave);
         }
+        dispatchIncomeTowers();
         VillagerAdvStates.onWaveStarted(this, currentRound);
+    }
+
+    /**
+     * 준비 시간이 끝날 때 인컴 타워마다 유닛을 한 마리씩 적 레인으로 보냅니다. 타워는 그대로 남습니다.
+     *
+     * <p>타워에 지정한 팀이 살아 있으면 그 팀으로, 아니면 소환 몹과 같은 규칙(팀장 지정 팀 → 무작위 적 팀)으로
+     * 보냅니다. 레인은 소환 몹의 인컴 레인 배분 규칙을 따릅니다.
+     */
+    private void dispatchIncomeTowers() {
+        IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(waveConfig, currentRound);
+        java.util.Random guardRandom = new java.util.Random();
+        for (SemionTeam team : livingTeams()) {
+            for (PlayerLane lane : team.laneGroup().lanes()) {
+                for (Tower tower : List.copyOf(lane.towers())) {
+                    if (!(tower instanceof IncomeTower incomeTower) || tower.isTemporaryCopy()) {
+                        continue;
+                    }
+                    SemionPlayer owner = players.get(tower.ownerPlayer());
+                    if (owner == null) {
+                        continue;
+                    }
+                    var demonLord = kim.biryeong.semiontd.tower.demonlord.DemonLordStates.get(owner.uuid());
+                    if (demonLord != null && demonLord.loadout().hasPassive(
+                            kim.biryeong.semiontd.tower.demonlord.DemonLordPassive.INVASION_GUARD)) {
+                        // 침공군 호위: 적 레인으로 보내는 대신 무작위 아군 라인을 이 웨이브 동안 지킵니다.
+                        IncomeTowerService.createDispatch(this, owner, incomeTower, owner.teamId(), lane.laneId(), scale)
+                                .ifPresent(unit -> kim.biryeong.semiontd.tower.demonlord.DemonLordPassives.deployInvasionGuard(
+                                        lane, incomeTower.type(), unit, currentRound, guardRandom));
+                        continue;
+                    }
+                    // 보낼 팀은 소환 몹과 같은 규칙(팀장 지정 팀 → 무작위 적 팀)으로 정합니다.
+                    Optional<SemionTeam> targetTeam = targetTeamForSummon(owner.teamId());
+                    Optional<PlayerLane> targetLane = targetTeam.flatMap(this::targetLaneForSummon);
+                    if (targetTeam.isEmpty() || targetLane.isEmpty()) {
+                        continue;
+                    }
+                    IncomeTowerService.createDispatch(this, owner, incomeTower, targetTeam.get().id(),
+                            targetLane.get().laneId(), scale).ifPresent(monster -> {
+                        monster.setSenderName(owner.name());
+                        monster.setOrigin(MonsterOrigin.NORMAL_PAID);
+                        monster.applyAttackModifiers(
+                                TraitEffects.incomeAttackDamageMultiplier(owner.traitLoadout()),
+                                TraitEffects.incomeAttackSpeedMultiplier(owner.traitLoadout())
+                        );
+                        targetLane.get().enqueueSummonedMonster(monster);
+                        owner.matchStats().recordSummonedMonster();
+                        owner.matchStats().recordSentIncomeThreat(monster.attributionThreat());
+                    });
+                }
+            }
+        }
     }
 
     private void tickWave(MinecraftServer server) {

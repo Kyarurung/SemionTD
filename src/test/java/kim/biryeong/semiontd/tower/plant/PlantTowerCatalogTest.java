@@ -81,8 +81,9 @@ final class PlantTowerCatalogTest {
                 PlantTowers.T1_MYCELIUM_TOWER.id(),
                 PlantTowers.T1_DESERT_TOWER.id(),
                 PlantTowers.T1_PODZOL_TOWER.id(),
-                // 판다는 지형이 없어 계열 묶음 밖이지만, 시작 타워인 것은 같습니다.
-                PlantTowers.T1_PANDA_TOWER.id()
+                // 판다와 정원사는 지형이 없어 계열 묶음 밖이지만, 시작 타워인 것은 같습니다.
+                PlantTowers.T1_PANDA_TOWER.id(),
+                PlantTowers.GARDENER_TOWER.id()
         ), starters);
     }
 
@@ -115,7 +116,8 @@ final class PlantTowerCatalogTest {
         assertUpgrade(PlantTowers.T1_PANDA_TOWER, PlantTowers.T2_PANDA_TOWER, 150);
         assertUpgrade(PlantTowers.T2_PANDA_TOWER, PlantTowers.T3_PANDA_TOWER, 260);
         assertUpgrade(PlantTowers.T3_PANDA_TOWER, PlantTowers.T4_PANDA_TOWER, 400);
-        assertEquals("판다", new PlantTowerJob().towerGroup(PlantTowers.T1_PANDA_TOWER));
+        assertEquals("특수 타워", new PlantTowerJob().towerGroup(PlantTowers.T1_PANDA_TOWER));
+        assertEquals("특수 타워", new PlantTowerJob().towerGroup(PlantTowers.GARDENER_TOWER));
     }
 
     /**
@@ -356,9 +358,11 @@ final class PlantTowerCatalogTest {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         assertEquals(20.0, defaults.ability(PlantTowers.GLOBAL_CONFIG_ID, "environmentTickIntervalTicks", -1), EPSILON);
         assertEquals(0.15, defaults.ability(PlantSoil.MYCELIUM.configId(), "environmentWeakness", -1), EPSILON);
-        assertEquals(0.25, defaults.ability(PlantSoil.MYCELIUM.configId(), "environmentDamageTakenBonus", -1), EPSILON);
+        assertEquals(0.006, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", -1), EPSILON);
+        assertEquals(0.25, defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", -1), EPSILON);
         assertEquals(0.15, defaults.ability(PlantSoil.DESERT.configId(), "environmentAttackSpeedReduction", -1), EPSILON);
-        assertEquals(0.0075, defaults.ability(PlantSoil.DESERT.configId(), "environmentMaxHealthDamagePerSecond", -1), EPSILON);
+        assertEquals(0.00018, defaults.ability(PlantSoil.DESERT.configId(), "maxHealthDamagePerSecondPerTile", -1), EPSILON);
+        assertEquals(0.0075, defaults.ability(PlantSoil.DESERT.configId(), "maxHealthDamagePerSecondCap", -1), EPSILON);
         // 잔디와 회백토는 아군 지형이라 환경 효과가 없습니다.
         assertEquals(0.0, defaults.ability(PlantSoil.MEADOW.configId(), "environmentMaxHealthDamagePerSecond", 0.0), EPSILON);
         assertEquals(0.0, defaults.ability(PlantSoil.PODZOL.configId(), "environmentWeakness", 0.0), EPSILON);
@@ -541,12 +545,26 @@ final class PlantTowerCatalogTest {
         // T1 테라포머 한 기(3x3)만 깔아도 전투 타워를 놓을 빈 칸이 남아야 합니다.
         int t1Tiles = (int) Math.pow(PlantTowers.terraformRadius(PlantTowers.T1_OAK_SEED_TOWER) * 2 + 1, 2);
         assertTrue(t1Tiles - 1 >= 4, "T1 free tiles " + (t1Tiles - 1));
-        double frailty = defaults.ability(PlantSoil.MYCELIUM.configId(), "environmentDamageTakenBonus", -1);
+        // 균사 취약은 칸 수에 비례하고, T3 균사 테라포머 한 기(7x7)면 상한에 닿습니다.
+        int t3Tiles = (int) Math.pow(PlantTowers.terraformRadius(PlantTowers.T3_MUSHROOM_SPORE_TOWER) * 2 + 1, 2);
+        double frailty = Math.min(defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", -1),
+                t3Tiles * defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", -1));
         assertEquals(0.6, bloomCap, EPSILON);
         assertEquals(0.25, frailty, EPSILON);
 
         double totalMultiplier = (1.0 + bloomCap) * (1.0 + frailty);
         assertEquals(2.0, totalMultiplier, EPSILON);
+    }
+
+    /** 테라포머는 지형만 까는 설비라 타워 수(인구)를 차지하지 않습니다. 전투 타워는 그대로 한 칸입니다. */
+    @Test
+    void terraformersTakeNoTowerSlot() {
+        TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
+        TowerBalanceRuntime.apply(defaults);
+        for (TowerType terraformer : PlantTowers.TERRAFORM_TOWERS) {
+            assertEquals(0, kim.biryeong.semiontd.tower.TowerCapacity.slotCost(terraformer), terraformer.id());
+        }
+        assertEquals(1, kim.biryeong.semiontd.tower.TowerCapacity.slotCost(PlantTowers.T1_MYCELIUM_TOWER));
     }
 
     @Test
@@ -609,23 +627,13 @@ final class PlantTowerCatalogTest {
     }
 
     /**
-     * 지뢰는 폭발 한 번이 아니라 라운드 하나를 삽니다.
+     * 지뢰는 라운드당 한 번 터지고 다음 라운드에 다시 장전됩니다(삭지 않습니다).
      *
-     * <p>재장전이 없으면 감시 간격(5틱)마다 다시 터져 지뢰 하나가 광역 기관총이 됩니다. 삭는
-     * 사슬이 끊기면 지뢰가 영원히 남습니다. 둘 다 값 하나만 잘못 들어가도 조용히 깨지는 곳이라
-     * 여기서 붙잡습니다.
+     * <p>재장전이 없으면 감시 간격(5틱)마다 다시 터져 지뢰 하나가 광역 기관총이 됩니다. 값 하나만 잘못
+     * 들어가도 조용히 깨지는 곳이라 여기서 붙잡습니다.
      */
     @Test
-    void minesRearmAndDecayOneTierPerRound() {
-        assertEquals(PlantTowers.T2_MYCELIUM_TOWER,
-                PlantTowers.previousMyceliumTier(PlantTowers.T3_MYCELIUM_TOWER));
-        assertEquals(PlantTowers.T1_MYCELIUM_TOWER,
-                PlantTowers.previousMyceliumTier(PlantTowers.T2_MYCELIUM_TOWER));
-        assertNull(PlantTowers.previousMyceliumTier(PlantTowers.T1_MYCELIUM_TOWER),
-                "붉은 버섯 아래는 없습니다. 라운드가 끝나면 사라져야 합니다.");
-        assertNull(PlantTowers.previousMyceliumTier(PlantTowers.T3_DESERT_TOWER),
-                "다른 계열은 삭지 않습니다.");
-
+    void minesRearmOncePerRound() {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         for (TowerType mine : List.of(
                 PlantTowers.T1_MYCELIUM_TOWER, PlantTowers.T2_MYCELIUM_TOWER, PlantTowers.T3_MYCELIUM_TOWER)) {

@@ -277,6 +277,7 @@ public final class TowerAttackMonsterGoal extends Goal {
                         searchBox,
                         entity -> entity instanceof SemionMonsterEntity monster
                                 && tower.isValidAttackTarget(monster)
+                                && !monster.isStealthed() && !monster.isDominated()
                 ).stream()
                 .filter(SemionMonsterEntity.class::isInstance)
                 .map(SemionMonsterEntity.class::cast)
@@ -290,7 +291,8 @@ public final class TowerAttackMonsterGoal extends Goal {
     }
 
     private boolean isUsableTarget(SemionMonsterEntity monster) {
-        return tower.isValidAttackTarget(monster) && isInTargetSearchRange(monster)
+        // 은신한 몬스터는 공격 대상으로 고를 수 없습니다(이미 노리던 대상이어도 놓칩니다).
+        return tower.isValidAttackTarget(monster) && !monster.isStealthed() && !monster.isDominated() && isInTargetSearchRange(monster)
                 && (tower.runtimeTower() == null || tower.runtimeTower().canAttackTarget(tower, monster));
     }
 

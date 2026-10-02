@@ -34,7 +34,20 @@ import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
+import kim.biryeong.semiontd.job.DemonLordTowerJob;
 import kim.biryeong.semiontd.job.JobRegistry;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordBinding;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordIncome;
+import kim.biryeong.semiontd.tower.income.IncomeTower;
+import kim.biryeong.semiontd.tower.income.IncomeTowerBalance;
+import kim.biryeong.semiontd.tower.income.IncomeTowerService;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordLoadout;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordState;
+import kim.biryeong.semiontd.tower.demonlord.DemonLordStates;
+import net.minecraft.server.dialog.Input;
+import net.minecraft.server.dialog.action.CommandTemplate;
+import net.minecraft.server.dialog.action.ParsedTemplate;
+import net.minecraft.server.dialog.input.NumberRangeInput;
 import kim.biryeong.semiontd.job.SemionJob;
 import kim.biryeong.semiontd.summon.SummonMonsterType;
 import kim.biryeong.semiontd.summon.SummonRole;
@@ -717,6 +730,11 @@ public final class SemionDialogService {
         List<ProductionTowerCatalog.CatalogEntry> entries = ProductionTowerService.availableTowers(game, player.getUUID());
         SemionJob job = semionPlayer.job().orElse(JobRegistry.defaultJob());
         LinkedHashMap<String, List<ProductionTowerCatalog.CatalogEntry>> groups = towerGroups(job, entries);
+        boolean demonLord = job instanceof DemonLordTowerJob;
+        if (demonLord && selectedTower == null && group == null) {
+            showDemonLordMenu(player, body, entries.size());
+            return;
+        }
         boolean showGroupPicker = selectedTower == null && group == null && groups.size() >= 2;
         if (selectedTower == null && group != null && !groups.isEmpty()) {
             entries = groups.getOrDefault(group, List.of());
@@ -770,7 +788,7 @@ public final class SemionDialogService {
                         .orElse("/semiontd tower build " + entry.type().id());
                 actions.add(towerButton(entry, mineralCost, economy.diamond() >= mineralCost, recommended, command));
             }
-            if (group != null && groups.size() >= 2) {
+            if (group != null && (groups.size() >= 2 || demonLord)) {
                 actions.add(actionButton(
                         Component.literal("← 분류 선택"),
                         "/semiontd tower ui",
@@ -804,6 +822,122 @@ public final class SemionDialogService {
         showActions(player, "세미온 TD 타워", body.toString(), actions, 3);
     }
 
+    /** 마왕 타워 관리 창에서 증강 추가 타워를 모아 두는 묶음 이름. */
+    public static final String DEMON_LORD_EXTRA_GROUP = "기타 타워";
+
+    /**
+     * 마왕의 타워 관리 첫 화면.
+     *
+     * <p>마왕은 레인에 스킬을 짓지 않으므로, 타워 목록 대신 [스킬 배정]·[스탯 배정] 버튼을 둡니다.
+     * 증강으로 설치할 수 있는 타워가 생기면 [기타 타워] 버튼이 함께 나타납니다.
+     */
+    private void showDemonLordMenu(ServerPlayer player, StringBuilder body, int extraTowerCount) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        body.append(demonLordLoadoutSummary(state));
+        ArrayList<ActionButton> actions = new ArrayList<>();
+        actions.add(actionButton(
+                Component.literal("스킬 배정"),
+                "/semiontd demonlord skills",
+                Component.literal("1~4, 마검 우클릭, F, Q 슬롯에 스킬을 사고, 올리고, 뺍니다."),
+                COMPACT_BUTTON_WIDTH));
+        int unspent = state == null ? 0 : state.unspentPoints();
+        actions.add(actionButton(
+                Component.literal(unspent > 0 ? "스탯 배정 (" + unspent + ")" : "스탯 배정"),
+                "/semiontd demonlord stats",
+                Component.literal("레벨업으로 받은 스탯 포인트를 분배합니다."),
+                COMPACT_BUTTON_WIDTH));
+        if (extraTowerCount > 0) {
+            actions.add(actionButton(
+                    Component.literal(DEMON_LORD_EXTRA_GROUP + " (" + extraTowerCount + ")"),
+                    "/semiontd tower ui " + DEMON_LORD_EXTRA_GROUP,
+                    Component.literal("증강으로 설치할 수 있게 된 타워 " + extraTowerCount + "종을 봅니다."),
+                    COMPACT_BUTTON_WIDTH));
+        }
+        actions.add(actionButton(
+                Component.literal("인컴 타워"),
+                "/semiontd income",
+                Component.literal("인컴 유닛을 레인에 세웁니다. 준비 시간이 끝날 때마다 적 레인을 공격합니다."),
+                COMPACT_BUTTON_WIDTH));
+        showActions(player, "세미온 TD 타워", body.toString(), actions, 2);
+    }
+
+    static String demonLordLoadoutSummary(DemonLordState state) {
+        StringBuilder summary = new StringBuilder("<light_purple><bold>스킬 슬롯</bold></light_purple>\n");
+        for (DemonLordBinding binding : DemonLordBinding.values()) {
+            summary.append("<gray>[").append(binding.label()).append("]</gray> ");
+            Optional<DemonLordLoadout.Slot> slot = state == null ? Optional.empty() : state.loadout().slot(binding);
+            if (slot.isEmpty()) {
+                summary.append("<dark_gray>비어 있음</dark_gray>\n");
+            } else {
+                summary.append("<white>").append(slot.get().skill().displayName()).append("</white> <yellow>")
+                        .append(slot.get().tier()).append("티어</yellow>\n");
+            }
+        }
+        return summary.toString();
+    }
+
+    /**
+     * 마왕의 인컴 설정 창. 막대로 비율을 고르고 [저장]을 누르면 적용됩니다.
+     *
+     * <p>일반 빌더의 소환 상점 자리를 대신합니다. 마왕은 인컴 유닛을 직접 고르지 않습니다.
+     */
+    public void showDemonLordIncome(ServerPlayer player, SemionGame game) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state == null) {
+            show(player, "마왕 인컴", "<red>마왕 상태가 없습니다.</red>");
+            return;
+        }
+        SemionPlayer semionPlayer = game.players().get(player.getUUID());
+        long emerald = semionPlayer == null ? 0L : semionPlayer.economy().emerald();
+        long cap = game.economyConfig().emeraldCapForRound(game.currentRound());
+        int percent = (int) Math.round(state.autoIncomeThreshold() * 100.0);
+        StringBuilder body = new StringBuilder();
+        body.append("<gradient:#f472b6:#a78bfa><bold>인컴 자동 전송</bold></gradient>\n");
+        body.append("<gray>에메랄드가 한도의 설정 비율 이상 차면, 살 수 있는 가장 비싼 인컴 유닛을 자동으로 보냅니다.</gray>\n");
+        body.append("<green>현재 에메랄드</green> <white>").append(emerald).append(" / ").append(cap).append("</white>\n");
+        body.append("<aqua>상태</aqua> <white>")
+                .append(state.autoIncomeEnabled() ? "켜짐 · " + percent + "% 이상" : "꺼짐")
+                .append("</white>\n");
+
+        NumberRangeInput slider = new NumberRangeInput(
+                200,
+                Component.literal("전송 기준"),
+                "options.percent_value",
+                new NumberRangeInput.RangeInfo(0.0f, 100.0f, Optional.of((float) percent), Optional.of(5.0f)));
+        List<Input> inputs = List.of(new Input("threshold", slider));
+        List<ActionButton> actions = new ArrayList<>();
+        actions.add(new ActionButton(
+                new CommonButtonData(Component.literal("저장"),
+                        Optional.of(Component.literal("막대로 고른 비율을 적용합니다.")), COMPACT_BUTTON_WIDTH),
+                Optional.of(new CommandTemplate(demonLordIncomeTemplate()))));
+        actions.add(actionButton(
+                Component.literal(state.autoIncomeEnabled() ? "자동 전송 끄기" : "자동 전송 켜기"),
+                "/semiontd demonlord income " + (state.autoIncomeEnabled() ? "off" : "on"),
+                Component.literal("자동 전송을 " + (state.autoIncomeEnabled() ? "멈춥니다." : "다시 켭니다.")),
+                COMPACT_BUTTON_WIDTH));
+        Dialog dialog = new MultiActionDialog(
+                new CommonDialogData(
+                        Component.literal("마왕 인컴"),
+                        Optional.empty(),
+                        true,
+                        false,
+                        DialogAction.CLOSE,
+                        actionDialogBodies(body.toString()),
+                        inputs
+                ),
+                actions,
+                Optional.of(actionButton("닫기", "", "창을 닫습니다.")),
+                2
+        );
+        player.connection.send(new ClientboundShowDialogPacket(Holder.direct(dialog)));
+    }
+
+    private static ParsedTemplate demonLordIncomeTemplate() {
+        return ParsedTemplate.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                        new com.google.gson.JsonPrimitive("/semiontd demonlord income set $(threshold)"))
+                .getOrThrow();
+    }
+
     public void showTowerDetails(ServerPlayer player, SemionGame game, Tower tower) {
         showTowerDetails(player, game, tower, null);
     }
@@ -821,6 +955,10 @@ public final class SemionDialogService {
     ) {
         if (tower == null) {
             show(player, "세미온 TD 타워", "<red>타워 정보를 찾을 수 없습니다.</red>");
+            return;
+        }
+        if (tower instanceof IncomeTower incomeTower) {
+            showIncomeTowerDetails(player, game, incomeTower);
             return;
         }
 
@@ -920,6 +1058,9 @@ public final class SemionDialogService {
                     actions.add(index < 0 ? actionSpacer() : upgradeActions.get(index));
                 }
                 actionColumns = 3;
+            }
+            if (tower instanceof kim.biryeong.semiontd.tower.plant.GardenerTower) {
+                actions.add(actionButton("스킬 강화", "/semiontd gardener", "꽃밭 치유·지배·생기 흡수를 강화합니다."));
             }
             if (tower instanceof HeroTower) {
                 actions.add(actionButton("용사 상점", "/semiontd hero shop", "장비를 구매·강화·교체합니다."));
@@ -1286,9 +1427,17 @@ public final class SemionDialogService {
 
     public void showSummonShop(ServerPlayer player, SemionGame game, int page) {
         SemionPlayer semionPlayer = game.players().get(player.getUUID());
+        // 마왕은 인컴 몹을 사지 않고 인컴 타워를 세웁니다. 소환 상점 대신 인컴 타워 창을 엽니다.
+        if (!game.summonsAreFree() && DemonLordIncome.isDemonLord(semionPlayer)) {
+            showIncomeTowerShop(player, game);
+            return;
+        }
         long emerald = semionPlayer == null ? 0 : semionPlayer.economy().emerald();
         boolean freeSummons = game.summonsAreFree();
-        List<SummonMonsterType> summons = sortedSummons(game.summonShop().all());
+        // 침공군 유닛은 마왕의 인컴 타워 전용입니다. 무료 소환(샌드박스)에서만 시험 삼아 부를 수 있습니다.
+        List<SummonMonsterType> summons = sortedSummons(game.summonShop().all().stream()
+                .filter(type -> freeSummons || !IncomeTowerBalance.isUnit(type.id()))
+                .toList());
         int pageCount = pageCount(summons.size());
         int safePage = clampPage(page, pageCount);
         StringBuilder body = new StringBuilder();
@@ -1320,6 +1469,88 @@ public final class SemionDialogService {
             actions.add(actionButton("인컴 계약", "/semiontd augment ui contracts", "다음 적격 구매에 적용할 증강 계약을 설정합니다."));
         }
         showActions(player, "세미온 TD 소환", body.toString(), actions, SUMMON_COLUMNS);
+    }
+
+    /** 인컴 타워 설치 창. 에코 샤드(인컴 타워)로 엽니다. 서 있는 자리에 설치합니다. */
+    public void showIncomeTowerShop(ServerPlayer player, SemionGame game) {
+        SemionPlayer semionPlayer = game.players().get(player.getUUID());
+        if (semionPlayer == null) {
+            show(player, "인컴 타워", "<red>현재 게임 참가자가 아닙니다.</red>");
+            return;
+        }
+        long emerald = semionPlayer.economy().emerald();
+        StringBuilder body = new StringBuilder();
+        body.append("<gradient:#f472b6:#a78bfa><bold>인컴 타워</bold></gradient>\n");
+        body.append("<gray>서 있는 자리에 유닛을 세웁니다. 준비 시간이 끝날 때마다 그 유닛이 적 레인으로 한 마리씩 공격을 갑니다(소모되지 않음).</gray>\n");
+        body.append("<gray>타워 수를 차지하고, 설치·레벨업은 에메랄드를 씁니다. 가진 동안 레벨만큼 라운드 인컴이 오릅니다.</gray>\n");
+        body.append("<divider>\n");
+        body.append("<white>에메랄드</white> <green>").append(emerald).append("</green> <dark_gray>|</dark_gray> ")
+                .append("<white>타워</white> <yellow>").append(game.towerCapacityUsed(player.getUUID())).append('/')
+                .append(game.towerLimitForPlayer(player.getUUID())).append("</yellow>\n");
+        if (game.phase() != kim.biryeong.semiontd.game.RoundPhase.PREPARE_AND_SUMMON) {
+            body.append("<red>설치는 준비 단계에서만 할 수 있습니다.</red>\n");
+        }
+        ArrayList<ActionButton> actions = new ArrayList<>();
+        for (SummonMonsterType unit : IncomeTowerService.units(game)) {
+            long cost = IncomeTowerService.buildCost(game, unit);
+            boolean affordable = emerald >= cost;
+            Component label = Component.literal(unit.displayName())
+                    .withStyle(affordable ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY)
+                    .append(Component.literal(" " + cost + "◆").withStyle(affordable ? ChatFormatting.GREEN : ChatFormatting.RED));
+            Component tooltip = Component.literal(unit.displayName() + " · " + unit.tier().name()
+                    + "\n설치 " + cost + " 에메랄드 · 레벨당 인컴 +" + unit.incomeGain()
+                    + " · 타워 수 " + kim.biryeong.semiontd.tower.TowerCapacity.slotCost(IncomeTowerService.towerType(unit))
+                    + "\n체력 " + Math.round(unit.maxHealth()) + " · 공격력 " + Math.round(unit.attackDamage())
+                    + (unit.description().isEmpty() ? "" : "\n" + unit.description().getFirst()));
+            actions.add(actionButton(label, "/semiontd income build " + unit.id(), tooltip, COMPACT_BUTTON_WIDTH));
+        }
+        showActions(player, "세미온 TD 인컴 타워", body.toString(), actions, 2);
+    }
+
+    public void showIncomeTowerDetails(ServerPlayer player, SemionGame game, IncomeTower tower) {
+        SemionPlayer semionPlayer = game.players().get(player.getUUID());
+        boolean owned = semionPlayer != null && tower.ownerPlayer().equals(player.getUUID());
+        SummonMonsterType unit = IncomeTowerService.unit(game, tower.summonId()).orElse(null);
+        IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(game.waveConfig(), game.currentRound());
+        double level = IncomeTowerBalance.statMultiplier(tower.level());
+        StringBuilder body = new StringBuilder();
+        body.append("<gradient:#f472b6:#a78bfa><bold>인컴 타워</bold></gradient>\n");
+        body.append("<white><bold>").append(tower.type().displayName()).append("</bold></white> <yellow>Lv.")
+                .append(tower.level()).append('/').append(IncomeTowerBalance.MAX_LEVEL).append("</yellow>\n");
+        body.append("<divider>\n");
+        if (unit != null) {
+            body.append("<white>보내는 유닛</white> 체력 <red>").append(Math.round(unit.maxHealth() * level * scale.health()))
+                    .append("</red> · 공격력 <gold>").append(Math.round(unit.attackDamage() * level * scale.attackDamage()))
+                    .append("</gold> <dark_gray>(이번 라운드 기준)</dark_gray>\n");
+        }
+        body.append("<white>라운드 인컴</white> <aqua>+").append(IncomeTowerService.incomeOf(game, tower)).append("</aqua>\n");
+        body.append("<white>판매 시 환불</white> <green>").append(IncomeTowerBalance.sellRefund(tower.paidEmerald()))
+                .append(" 에메랄드</green> <dark_gray>(올린 인컴은 사라집니다)</dark_gray>\n");
+        if (!owned) {
+            body.append("\n<red>자신이 설치한 인컴 타워만 관리할 수 있습니다.</red>\n");
+            show(player, "세미온 TD 인컴 타워", body.toString());
+            return;
+        }
+        var position = tower.managementPosition();
+        String coordinates = position.x() + " " + position.y() + " " + position.z();
+        ArrayList<ActionButton> actions = new ArrayList<>();
+        if (tower.maxLevel()) {
+            actions.add(actionButton(Component.literal("최고 레벨").withStyle(ChatFormatting.GOLD), "",
+                    Component.literal("더 올릴 수 없습니다."), BUTTON_WIDTH));
+        } else {
+            long cost = IncomeTowerService.upgradeCost(game, tower);
+            boolean affordable = semionPlayer.economy().emerald() >= cost;
+            actions.add(actionButton(
+                    Component.literal("레벨업 → Lv." + (tower.level() + 1) + " (" + cost + "◆)")
+                            .withStyle(affordable ? ChatFormatting.GREEN : ChatFormatting.RED),
+                    "/semiontd income upgrade " + coordinates,
+                    Component.literal("보내는 유닛이 세지고 라운드 인컴이 +" + (unit == null ? 0 : unit.incomeGain()) + " 오릅니다."),
+                    BUTTON_WIDTH));
+        }
+        actions.add(actionButton(Component.literal("판매").withStyle(ChatFormatting.RED), "/semiontd income sell " + coordinates,
+                Component.literal("에메랄드 " + IncomeTowerBalance.sellRefund(tower.paidEmerald()) + " 환불, 인컴 -"
+                        + IncomeTowerService.incomeOf(game, tower)), BUTTON_WIDTH));
+        showActions(player, "세미온 TD 인컴 타워", body.toString(), actions, 1);
     }
 
     public void showDebugSummonShop(ServerPlayer player) {

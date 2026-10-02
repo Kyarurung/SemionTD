@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.tower.demonlord;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -12,6 +13,7 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
+import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.SemionGameManager;
 import kim.biryeong.semiontd.game.SemionPlayer;
@@ -87,20 +89,31 @@ public final class DemonLordService {
     /** How often a knocked-out demon lord shakes off lingering monster targets. */
     private static final int AGGRO_RELEASE_INTERVAL = 5;
 
-    /** 스스로 전투에서 물러나는 자리. 스킬 슬롯과 마검 사이의 마지막 빈칸입니다. */
-    private static final int RETREAT_SLOT = 7;
+    /**
+     * 슬롯마다 하나씩 띄우는 스킬 운반체. 레인의 타워 목록에는 들어가지 않습니다.
+     *
+     * <p>어느 레인에 띄웠는지 함께 기억해, 레인이 바뀌면(새 경기) 옛 엔티티를 거기서 치웁니다.
+     */
+    private static final Map<UUID, CarrierSet> CARRIERS = new ConcurrentHashMap<>();
 
-    /** 준비 단계에만 놓이는 스탯 분배 도구 자리. 기존 매치 도구(0~2) 바로 뒤입니다. */
-    private static final int STAT_TOOL_SLOT = 3;
+    /** 운반체를 레인 바닥보다 이만큼 위 허공에 둡니다. 도약기로도 닿지 않는 높이입니다. */
+    private static final int CARRIER_HEIGHT = 12;
 
-    private static final Component STAT_TOOL_NAME =
-            Component.literal("스탯 포인트 분배").withStyle(ChatFormatting.LIGHT_PURPLE);
+    private record CarrierSet(PlayerLane lane, EnumMap<DemonLordBinding, DemonLordSkillTower> carriers) {
+    }
+
+    /** 전투 배속 보정: 클라이언트 쪽 공격 충전 표시를 서버 평타 간격에 맞춥니다. */
+    private static final ResourceLocation TICK_ATTACK_SPEED_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_tick_attack_speed");
+
+    /** 바닐라 기본 비행 속도. */
+    private static final float BASE_FLYING_SPEED = 0.05F;
+
+    /** 플레이어별로 마지막으로 맞춘 배속. 바뀌면 쿨타임 표시를 다시 보냅니다. */
+    private static final Map<UUID, Float> LAST_TICK_RATIO = new ConcurrentHashMap<>();
 
     private static final ResourceLocation MOVE_SPEED_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
-
-    private static final Component RETREAT_NAME =
-            Component.literal("전투 이탈").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
 
     private static final Component BLADE_NAME =
             Component.literal("마검").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD);
@@ -121,17 +134,6 @@ public final class DemonLordService {
         UseItemCallback.EVENT.register((player, world, hand) -> {
             if (world.isClientSide() || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer serverPlayer)) {
                 return InteractionResult.PASS;
-            }
-            // 준비 단계의 스탯 분배 도구.
-            if (isStatTool(serverPlayer.getMainHandItem())
-                    && DemonLordStates.get(serverPlayer.getUUID()) != null) {
-                SemionPlayer semionPlayer = gameManager.playableGame(serverPlayer.getUUID())
-                        .map(game -> game.players().get(serverPlayer.getUUID()))
-                        .orElse(null);
-                if (semionPlayer != null) {
-                    new DemonLordStatGui(serverPlayer).open();
-                    return InteractionResult.SUCCESS;
-                }
             }
             if (serverPlayer.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
                 // 스킬 카드는 들고 우클릭해도 아무 일도 일어나면 안 됩니다. 시전은 슬롯을 잡는
@@ -204,6 +206,14 @@ public final class DemonLordService {
             if (state == null || !state.inCombat() || !(target instanceof SemionMonsterEntity monsterEntity)) {
                 return InteractionResult.PASS;
             }
+            if (monsterEntity.isStealthed() || monsterEntity.isDominated()) {
+                // 은신한 몬스터는 지정해서 벨 수 없습니다.
+                return InteractionResult.FAIL;
+            }
+            if (state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)) {
+                // 검기 패시브: 근접 평타는 없습니다. 같은 클릭의 휘두름 패킷이 검기를 쏩니다({@link #handleSwing}).
+                return InteractionResult.SUCCESS;
+            }
             // 마검 평타. 바닐라 피해 대신 런타임 피해로 넣어야 몹의 방어/저항이 정상 적용됩니다.
             //
             // 바닐라 공격 쿨다운은 바닐라 피해 경로에만 걸리므로, 여기서 직접 걸지 않으면 연타가
@@ -220,18 +230,61 @@ public final class DemonLordService {
                     ? List.of()
                     : orderedAltars(lane, attacker.getUUID());
             DemonLordSkillTower altar = altars.isEmpty() ? null : altars.getFirst();
-            Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity,
-                    state.bladeDamage() * (0.2 + charge * charge * 0.8), DamageType.PHYSICAL);
-            if (result.dealtDamage() > 0.0 && lane != null) {
-                double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), now);
-                if (ratio > 0.0) {
-                    kim.biryeong.semiontd.augment.AugmentCombat.runWithoutTriggers(() -> dealDamage(
-                            attacker, lane, altar, monsterEntity, state.bladeDamage() * ratio, DamageType.PHYSICAL));
-                }
+            double swing = state.bladeDamage() * (0.2 + charge * charge * 0.8);
+            Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity, swing, DamageType.PHYSICAL);
+            if (lane != null && state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
+                DemonLordPassives.bloodCleave(attacker, lane, state, altar, monsterEntity, swing, result.dealtDamage());
             }
+            applyFinisher(attacker, lane, state, altar, monsterEntity, result.dealtDamage());
             playSwing(attacker, charge);
             return InteractionResult.SUCCESS;
         });
+    }
+
+    /** 마무리 동작 증강: 평타(또는 검기의 첫 적중)가 피해를 줬으면 대기 중인 추가 피해를 넣습니다. */
+    static void applyFinisher(ServerPlayer attacker, PlayerLane lane, DemonLordState state, DemonLordSkillTower altar,
+            SemionMonsterEntity target, double dealt) {
+        if (dealt <= 0.0 || lane == null) {
+            return;
+        }
+        double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), attacker.level().getGameTime());
+        if (ratio > 0.0) {
+            kim.biryeong.semiontd.augment.AugmentCombat.runWithoutTriggers(() -> dealDamage(
+                    attacker, lane, altar, target, state.bladeDamage() * ratio, DamageType.PHYSICAL));
+        }
+    }
+
+    /**
+     * 좌클릭 휘두름. 클라이언트는 허공·블록·엔티티 어디를 치든 휘두름 패킷을 보내므로, 검기 패시브는 여기서 쏩니다.
+     * 서버 스레드에서 불러야 합니다.
+     */
+    public static void handleSwing(SemionGameManager gameManager, ServerPlayer player) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state == null || !state.inCombat() || !state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)
+                || player.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
+            return;
+        }
+        long now = player.level().getGameTime();
+        if (state.swingIgnored(now)) {
+            return;
+        }
+        PlayerLane lane = gameManager.playableGame(player.getUUID())
+                .flatMap(game -> game.playerLane(player.getUUID()))
+                .orElse(null);
+        if (lane == null) {
+            return;
+        }
+        List<DemonLordSkillTower> altars = orderedAltars(lane, player.getUUID());
+        int interval = (int) TowerBalanceRuntime.ability(DemonLordTowers.GLOBAL_CONFIG_ID, "bladeAttackIntervalTicks", 12.0);
+        DemonLordPassives.fireBladeWave(player, lane, state, altars.isEmpty() ? null : altars.getFirst(), now, interval);
+    }
+
+    /** Q(버리기)를 누르면 클라이언트가 팔도 휘두릅니다. 그 휘두름은 검기로 치지 않습니다. */
+    public static void ignoreDropSwing(ServerPlayer player) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state != null) {
+            state.ignoreSwingUntil(player.level().getGameTime() + 1);
+        }
     }
 
     /** Called once per lane tick from {@code PlayerLane}. */
@@ -259,8 +312,11 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.getOrCreate(owner);
         state.syncAugments(lane.augmentSnapshot());
         state.setLaneId(lane.laneId());
+        state.setTeamId(lane.teamId());
         long gameTime = lane.arenaWorld().getGameTime();
         state.augments().tickVisuals(gameTime);
+
+        syncCarriers(lane, state);
 
         // 초당 한 번 강제로 다시 깔아, 인벤토리에서 스킬이나 마검을 옮겨도 제자리로 돌아옵니다.
         if (gameTime % 20 == 0) {
@@ -272,10 +328,17 @@ public final class DemonLordService {
         }
         syncBossBar(player, state);
         syncMoveSpeed(player, state);
+        syncTickScale(player, state, gameTime);
 
         if (!state.inCombat()) {
+            DemonLordExecuteMarks.clear(player);
             restoreFlight(player);
             releaseAggro(player, gameTime);
+            if (state.consumePactEndedNotice()) {
+                player.displayClientMessage(Component.literal("파멸의 계약이 끝났습니다. 레벨과 스탯이 처음으로 돌아갑니다.")
+                        .withStyle(ChatFormatting.DARK_RED), false);
+                player.playNotifySound(SoundEvents.WITHER_DEATH, SoundSource.PLAYERS, 0.6f, 1.2f);
+            }
             return;
         }
 
@@ -286,9 +349,15 @@ public final class DemonLordService {
         }
         enforceCombatArea(player, lane, state);
         state.expireShieldIfNeeded(gameTime);
-        lockFlight(player);
+        if (state.loadout().hasPassive(DemonLordPassive.DARK_FLIGHT)) {
+            restoreFlight(player);
+            capAltitude(player, lane);
+        } else {
+            lockFlight(player);
+        }
         rescueFromVoid(player, lane);
         DemonLordSkills.tickPending(player, lane, state, gameTime);
+        DemonLordExecuteMarks.tick(player, lane, state, gameTime);
         detectSkillCast(player, lane, state, gameTime);
     }
 
@@ -377,6 +446,7 @@ public final class DemonLordService {
         clearCombatKit(player);
         if (hadState) {
             restoreFlight(player);
+            clearTickScale(player);
         }
         clearPlayerState(player.getUUID());
     }
@@ -400,8 +470,12 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.get(lane.ownerPlayer());
         if (state != null) {
             state.syncAugments(lane.augmentSnapshot());
+            state.countPactRound();
             state.enterCombat();
             state.augments().beginTargeted(lane.augmentSnapshot(), round, state.maxHealth());
+            if (state.loadout().hasPassive(DemonLordPassive.LEGION_ECHO)) {
+                DemonLordPassives.summonLegion(lane, round);
+            }
         }
     }
 
@@ -421,6 +495,7 @@ public final class DemonLordService {
         DemonLordState state = DemonLordStates.get(playerId);
         if (state != null) {
             state.standDown();
+            state.settlePact();
         }
     }
 
@@ -430,7 +505,10 @@ public final class DemonLordService {
             state.removeRoundMetrics();
         }
         clearBossBar(playerId);
+        DemonLordExecuteMarks.forget(playerId);
+        LAST_TICK_RATIO.remove(playerId);
         PRE_COMBAT_HOTBAR.remove(playerId);
+        removeCarriers(playerId);
         DemonLordStates.clear(playerId);
     }
 
@@ -441,19 +519,13 @@ public final class DemonLordService {
     }
 
     private static void knockOutOfCombat(ServerPlayer player, DemonLordState state) {
-        knockOutOfCombat(player, state, false);
-    }
-
-    private static void knockOutOfCombat(ServerPlayer player, DemonLordState state, boolean voluntary) {
         state.leaveCombat();
+        DemonLordExecuteMarks.clear(player);
         releaseAggro(player);
         restoreFlight(player);
         setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
         player.displayClientMessage(
-                Component.literal(voluntary
-                                ? "스스로 전투에서 물러났습니다. 다음 라운드에 복귀합니다."
-                                : "전투에서 제외되었습니다. 다음 라운드에 부활합니다.")
-                        .withStyle(voluntary ? ChatFormatting.GOLD : ChatFormatting.DARK_RED),
+                Component.literal("전투에서 제외되었습니다. 다음 라운드에 부활합니다.").withStyle(ChatFormatting.DARK_RED),
                 false
         );
     }
@@ -587,7 +659,8 @@ public final class DemonLordService {
             return;
         }
         if (!lane.clearedThisRound()) {
-            if (!containsHorizontally(layout.laneArea(), player.position())) {
+            // 경계 없는 마왕은 라인 밖으로 나가 아군 라인을 도울 수 있습니다.
+            if (!state.boundless() && !containsHorizontally(layout.laneArea(), player.position())) {
                 teleport(player, laneCentre(layout));
             }
             return;
@@ -600,7 +673,7 @@ public final class DemonLordService {
                     (area.minX + area.maxX) / 2.0,
                     area.maxY,
                     (area.minZ + area.maxZ) / 2.0));
-        } else if (!layout.isInsideFinalDefenseTowerArea(player.position())) {
+        } else if (!state.boundless() && !layout.isInsideFinalDefenseTowerArea(player.position())) {
             teleport(player, layout.clampToFinalDefenseTowerArea(player.position()));
         }
     }
@@ -623,7 +696,9 @@ public final class DemonLordService {
         if (attribute == null) {
             return;
         }
-        double bonus = state.inCombat() ? state.moveSpeedBonus() : 0.0;
+        // 스탯 보너스에 전투 배속을 곱합니다. 곱연산 수정자라 (1 + 보너스) × 배속 - 1을 넣습니다.
+        double ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0;
+        double bonus = state.inCombat() ? (1.0 + state.moveSpeedBonus()) * ratio - 1.0 : 0.0;
         AttributeModifier existing = attribute.getModifier(MOVE_SPEED_MODIFIER_ID);
         if (bonus <= 0.0) {
             if (existing != null) {
@@ -646,6 +721,20 @@ public final class DemonLordService {
             player.getAbilities().mayfly = false;
             player.getAbilities().flying = false;
             player.onUpdateAbilities();
+        }
+    }
+
+    /** 어둠의 비상: 레인 바닥에서 정해 둔 높이 위로는 오르지 못하게 눌러 둡니다. */
+    private static void capAltitude(ServerPlayer player, PlayerLane lane) {
+        if (lane.laneLayout() == null || player.isCreative() || player.isSpectator()) {
+            return;
+        }
+        double ceiling = lane.laneLayout().laneArea().min().getY()
+                + Math.max(1.0, DemonLordPassive.DARK_FLIGHT.ability("maxAltitude", 10.0));
+        if (player.getY() > ceiling) {
+            player.teleportTo(player.getX(), ceiling, player.getZ());
+            Vec3 motion = player.getDeltaMovement();
+            player.setDeltaMovement(motion.x, Math.min(0.0, motion.y), motion.z);
         }
     }
 
@@ -756,15 +845,6 @@ public final class DemonLordService {
         }
         state.setLastSelectedSlot(selected);
 
-        // 8번 슬롯은 스스로 전투에서 빠지는 자리입니다. 다음 라운드까지 스킬을 못 쓰지만
-        // 어그로에서도 벗어나므로, 이길 수 없는 웨이브를 버티다 죽는 대신 물러설 수 있습니다.
-        if (selected == RETREAT_SLOT) {
-            setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
-            state.setLastSelectedSlot(DemonLordSkill.BLADE_SLOT);
-            knockOutOfCombat(player, state, true);
-            return;
-        }
-
         DemonLordBinding binding = DemonLordBinding.forHotbarSlot(selected);
         if (binding == null) {
             return;
@@ -809,20 +889,67 @@ public final class DemonLordService {
         state.startCooldown(skill, gameTime, Math.max(1, base));
         int refund = DemonLordSkills.cast(player, lane, state, skill, altar, gameTime);
         state.refundCooldown(skill, Math.min(Math.max(0, base - 1), Math.max(0, refund)));
-        int remaining = state.remainingCooldownTicks(skill, gameTime);
-        if (remaining > 0) {player.getCooldowns().addCooldown(new ItemStack(skill.item()), remaining);}
+        showCooldown(player, skill, state.remainingCooldownTicks(skill, gameTime));
         return true;
     }
 
     static void syncSkillCooldowns(ServerPlayer player, DemonLordState state, long now) {
         for (DemonLordSkill skill : DemonLordSkill.values()) {
-            ItemStack item = new ItemStack(skill.item());
-            int remaining = state.remainingCooldownTicks(skill, now);
-            if (remaining > 0) {
-                player.getCooldowns().addCooldown(item, remaining);
-            } else {
-                player.getCooldowns().removeCooldown(player.getCooldowns().getCooldownGroup(item));
+            showCooldown(player, skill, state.remainingCooldownTicks(skill, now));
+        }
+    }
+
+    /**
+     * 스킬 카드의 쿨타임 표시. 쿨타임은 서버 틱으로 세지만 클라이언트는 표시를 자기 틱(초당 20)으로 줄이므로, 전투 배속
+     * 중에는 같은 실제 시간이 되게 줄여서 보냅니다. 서버 쪽 아이템 쿨타임은 걸지 않습니다 - 스킬 준비 여부는 상태가
+     * 직접 판단하고, 서버 쪽 값은 서버 틱으로 줄어 표시와 어긋나기 때문입니다.
+     */
+    private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks) {
+        ResourceLocation group = player.getCooldowns().getCooldownGroup(new ItemStack(skill.item()));
+        player.getCooldowns().removeCooldown(group);
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundCooldownPacket(group,
+                kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(player.getServer(), remainingServerTicks)));
+    }
+
+    /**
+     * 전투 배속을 마왕에게도 맞춥니다. 서버가 빨라져도 플레이어의 움직임과 공격 충전 표시는 클라이언트가 실제 시간으로
+     * 처리하므로, 배속만큼 이동·비행 속도와 공격 속도 속성을 올립니다. 배속이 바뀌면 쿨타임 표시도 다시 보냅니다.
+     */
+    /** 마왕이 아니게 되면 배속 보정(공격 속도 수정자, 비행 속도)을 되돌립니다. */
+    private static void clearTickScale(ServerPlayer player) {
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (attackSpeed != null && attackSpeed.getModifier(TICK_ATTACK_SPEED_MODIFIER_ID) != null) {
+            attackSpeed.removeModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+        }
+        if (Math.abs(player.getAbilities().getFlyingSpeed() - BASE_FLYING_SPEED) > 1.0E-6F) {
+            player.getAbilities().setFlyingSpeed(BASE_FLYING_SPEED);
+            player.onUpdateAbilities();
+        }
+    }
+
+    private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
+        float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0F;
+        Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
+        if (previous != null && Math.abs(previous - ratio) > 1.0E-3F) {
+            syncSkillCooldowns(player, state, now);
+        }
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            AttributeModifier existing = attackSpeed.getModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+            double amount = ratio - 1.0;
+            if (amount <= 1.0E-6) {
+                if (existing != null) {
+                    attackSpeed.removeModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
+                }
+            } else if (existing == null || Math.abs(existing.amount() - amount) > 1.0E-6) {
+                attackSpeed.addOrUpdateTransientModifier(new AttributeModifier(
+                        TICK_ATTACK_SPEED_MODIFIER_ID, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             }
+        }
+        float flying = BASE_FLYING_SPEED * ratio;
+        if (Math.abs(player.getAbilities().getFlyingSpeed() - flying) > 1.0E-6F) {
+            player.getAbilities().setFlyingSpeed(flying);
+            player.onUpdateAbilities();
         }
     }
 
@@ -857,27 +984,96 @@ public final class DemonLordService {
         player.connection.send(new ClientboundSetHeldSlotPacket(slot));
     }
 
-    /**
-     * The player's altars in build order.
-     *
-     * <p>Build order is what decides the key binding, so the first altar raised answers to
-     * {@code 1}. {@code lane.towers()} keeps insertion order, and upgrading replaces a tower in
-     * place, so a tier-up never shuffles the bar under the player's fingers.
-     */
+    /** 이 플레이어의 스킬 운반체를 키 슬롯 순서(1 → Q)로. */
     public static List<DemonLordSkillTower> orderedAltars(PlayerLane lane, UUID owner) {
-        List<DemonLordSkillTower> altars = new ArrayList<>();
-        for (Tower tower : List.copyOf(lane.towers())) {
-            if (tower instanceof DemonLordSkillTower altar && owner.equals(altar.ownerPlayer())) {
-                altars.add(altar);
-            }
+        CarrierSet set = owner == null ? null : CARRIERS.get(owner);
+        if (set == null || set.lane() != lane) {
+            return List.of();
         }
-        return altars;
+        return List.copyOf(set.carriers().values());
+    }
+
+    /** 그 슬롯의 스킬 운반체. 없으면 {@code null}입니다. */
+    static DemonLordSkillTower carrierFor(PlayerLane lane, UUID owner, DemonLordBinding binding) {
+        return altarFor(lane, owner, binding);
     }
 
     private static DemonLordSkillTower altarFor(PlayerLane lane, UUID owner, DemonLordBinding binding) {
-        List<DemonLordSkillTower> altars = orderedAltars(lane, owner);
-        int index = binding.ordinal();
-        return index < altars.size() ? altars.get(index) : null;
+        CarrierSet set = owner == null ? null : CARRIERS.get(owner);
+        return set == null || set.lane() != lane ? null : set.carriers().get(binding);
+    }
+
+    /**
+     * 배정 결과({@link DemonLordLoadout})에 맞춰 운반체를 만들고 치웁니다.
+     *
+     * <p>슬롯의 스킬이나 티어가 바뀌었거나 엔티티가 사라졌으면 새로 띄웁니다. 운반체는
+     * {@code lane.addTower}를 거치지 않으므로 칸도 타워 수도 차지하지 않고, 몹의 표적이나 라인
+     * 방어 판정에도 끼지 않습니다.
+     */
+    static void syncCarriers(PlayerLane lane, DemonLordState state) {
+        UUID owner = state.playerId();
+        CarrierSet set = CARRIERS.get(owner);
+        if (set != null && set.lane() != lane) {
+            removeCarriers(owner);
+            set = null;
+        }
+        if (set == null) {
+            set = new CarrierSet(lane, new EnumMap<>(DemonLordBinding.class));
+            CARRIERS.put(owner, set);
+        }
+        EnumMap<DemonLordBinding, DemonLordSkillTower> carriers = set.carriers();
+        Map<DemonLordBinding, DemonLordLoadout.Slot> wanted = state.loadout().view();
+        for (DemonLordBinding binding : DemonLordBinding.values()) {
+            DemonLordLoadout.Slot slot = wanted.get(binding);
+            DemonLordSkillTower current = carriers.get(binding);
+            TowerType type = slot == null ? null : DemonLordSkillShop.resolved(slot.skill(), slot.tier());
+            boolean matches = current != null && type != null && current.type().id().equals(type.id())
+                    && current.runtimeEntity(lane).isPresent();
+            if (matches) {
+                continue;
+            }
+            if (current != null) {
+                dismiss(lane, current);
+                carriers.remove(binding);
+            }
+            if (type == null) {
+                continue;
+            }
+            DemonLordSkillTower carrier = spawnCarrier(lane, owner, type);
+            if (carrier != null) {
+                carrier.setBinding(binding);
+                carriers.put(binding, carrier);
+            }
+        }
+    }
+
+    private static DemonLordSkillTower spawnCarrier(PlayerLane lane, UUID owner, TowerType type) {
+        LaneRegionLayout layout = lane.laneLayout();
+        if (layout == null || lane.arenaWorld() == null) {
+            return null;
+        }
+        BlockBounds area = layout.laneArea();
+        GridPosition anchor = new GridPosition(
+                (area.min().getX() + area.max().getX()) / 2,
+                area.max().getY() + CARRIER_HEIGHT,
+                (area.min().getZ() + area.max().getZ()) / 2);
+        DemonLordSkillTower carrier = new DemonLordSkillTower(
+                type, owner, lane.teamId(), lane.laneId(), anchor, anchor);
+        carrier.attachToLane(lane, lane.traitLoadout());
+        carrier.onPlaced(lane);
+        return carrier;
+    }
+
+    private static void dismiss(PlayerLane lane, DemonLordSkillTower carrier) {
+        carrier.onRemoved(lane);
+        carrier.detachFromLane(lane);
+    }
+
+    private static void removeCarriers(UUID owner) {
+        CarrierSet set = owner == null ? null : CARRIERS.remove(owner);
+        if (set != null) {
+            set.carriers().values().forEach(carrier -> dismiss(set.lane(), carrier));
+        }
     }
 
     static DemonLordSkillTower altarFor(PlayerLane lane, UUID owner, TowerType type) {
@@ -901,7 +1097,6 @@ public final class DemonLordService {
                 restoreHotbar(player);
                 state.setCombatKitGranted(false);
             }
-            ensureStatTool(player);
             return;
         }
 
@@ -910,25 +1105,14 @@ public final class DemonLordService {
         }
         SemionHotbarService.clearMatchTools(player);
         clearCombatKit(player);
-        List<DemonLordSkillTower> altars = orderedAltars(lane, player.getUUID());
-        // 타워 정보창이 자기 키를 보여줄 수 있게 배정 결과를 되돌려 씁니다.
-        for (int i = 0; i < altars.size(); i++) {
-            altars.get(i).setBinding(DemonLordBinding.forIndex(i));
-        }
         for (DemonLordBinding binding : DemonLordBinding.values()) {
             if (!binding.isHotbarSlot()) {
                 continue;
             }
-            int index = binding.ordinal();
-            if (index >= altars.size()) {
-                player.getInventory().setItem(binding.hotbarSlot(), ItemStack.EMPTY);
-                continue;
-            }
-            player.getInventory().setItem(binding.hotbarSlot(), skillStack(altars.get(index), binding));
+            DemonLordSkillTower carrier = altarFor(lane, player.getUUID(), binding);
+            player.getInventory().setItem(binding.hotbarSlot(),
+                    carrier == null || carrier.skill() == null ? ItemStack.EMPTY : skillStack(carrier, binding));
         }
-        ItemStack retreat = new ItemStack(Items.TOTEM_OF_UNDYING);
-        retreat.set(DataComponents.CUSTOM_NAME, RETREAT_NAME);
-        player.getInventory().setItem(RETREAT_SLOT, DemonLordKitItems.mark(retreat));
 
         ItemStack blade = new ItemStack(Items.NETHERITE_SWORD);
         blade.set(DataComponents.CUSTOM_NAME, BLADE_NAME);
@@ -947,21 +1131,6 @@ public final class DemonLordService {
 
     private static void clearCombatKit(ServerPlayer player) {
         DemonLordKitItems.clear(player.getInventory());
-    }
-
-    /**
-     * 준비 단계에만 놓이는 스탯 분배 도구입니다.
-     *
-     * <p>전투 중에는 핫바가 스킬로 꽉 차므로 자리가 없고, 어차피 분배는 다음 웨이브를 준비하며
-     * 하는 일입니다. 이미 올바른 아이템이 있으면 건드리지 않아 매 틱 인벤토리를 흔들지 않습니다.
-     */
-    private static void ensureStatTool(ServerPlayer player) {
-        if (isStatTool(player.getInventory().getItem(STAT_TOOL_SLOT))) {
-            return;
-        }
-        ItemStack tool = new ItemStack(Items.EXPERIENCE_BOTTLE);
-        tool.set(DataComponents.CUSTOM_NAME, STAT_TOOL_NAME);
-        player.getInventory().setItem(STAT_TOOL_SLOT, tool);
     }
 
     /**
@@ -992,14 +1161,6 @@ public final class DemonLordService {
                 player.getInventory().setItem(slot, saved.get(slot).copy());
             }
         }
-    }
-
-    private static boolean isStatTool(ItemStack stack) {
-        if (stack == null || !stack.is(Items.EXPERIENCE_BOTTLE)) {
-            return false;
-        }
-        Component name = stack.get(DataComponents.CUSTOM_NAME);
-        return name != null && name.getString().equals(STAT_TOOL_NAME.getString());
     }
 
     /** Shared damage entry point for the blade and every skill. */

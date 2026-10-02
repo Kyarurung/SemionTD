@@ -7,6 +7,7 @@ import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.augment.AugmentSnapshot;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
+import kim.biryeong.semiontd.game.TeamId;
 import kim.biryeong.semiontd.game.TowerRoundMetricsSnapshot;
 import kim.biryeong.semiontd.tower.LogarithmicScaling;
 import kim.biryeong.semiontd.tower.TowerRoundMetricsTracker;
@@ -40,16 +41,32 @@ public final class DemonLordState {
     private boolean loadoutDirty = true;
     private int lastSelectedSlot = -1;
     private int laneId = -1;
+    private TeamId teamId;
     private long lastBladeAttackTick = Long.MIN_VALUE;
     private TowerType pendingBombardment;
     private long pendingBombardmentTick;
     private HellfireZone zone;
+    private RiftCleave rift;
+    private DemonLordFiend fiend;
+    private AbyssVortex vortex;
     private double roundPhysicalDamageDealt;
     private double roundMagicDamageDealt;
     private TowerRoundMetricsTracker roundMetricsTracker;
     private int roundMetricsTick;
     private final DemonLordAugments augments = new DemonLordAugments();
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
+    private DemonLordLoadout loadout = new DemonLordLoadout();
+    /** 파멸의 계약을 건 뒤 시작된 웨이브 수. 0이면 아직 계약이 시작되지 않았습니다. */
+    private int pactRoundsServed;
+    /** 날아가는 중인 검기. */
+    private final java.util.List<DemonLordPassives.BladeWave> bladeWaves = new java.util.ArrayList<>();
+    /** Q(버리기)를 누르면 클라이언트가 팔도 휘두릅니다. 그 휘두름으로 검기가 나가지 않게 이 틱까지 무시합니다. */
+    private long ignoreSwingUntil = Long.MIN_VALUE;
+    /** 계약이 끝났다는 알림을 다음 서비스 틱에 한 번 띄웁니다. 라운드 종료 처리에는 플레이어 핸들이 없습니다. */
+    private boolean pactEndedNotice;
+    private boolean autoIncomeEnabled = true;
+    /** 플레이어가 막대로 고른 값. 고르지 않았으면 {@code null}이고 설정 기본값을 씁니다. */
+    private Double autoIncomeThreshold;
 
     public void syncAugments(AugmentSnapshot snapshot) {
         if (augmentSnapshot == snapshot) return;
@@ -103,7 +120,8 @@ public final class DemonLordState {
                 global("healthBonusThreshold", 500.0),
                 global("healthBonusScale", 500.0)
         );
-        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot)));
+        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot))
+                * pact("healthMultiplier", 2.5));
     }
 
     // ------------------------------------------------------------------ 스탯
@@ -140,7 +158,8 @@ public final class DemonLordState {
     public double damageReduction() {
         double perPoint = global("statDefensePerPoint", 0.02);
         double cap = Math.min(0.9, Math.max(0.0, global("statDefenseCap", 0.6)));
-        return Math.max(0.0, Math.min(cap, points(DemonLordStat.DEFENSE) * perPoint));
+        double reduction = Math.max(0.0, Math.min(cap, points(DemonLordStat.DEFENSE) * perPoint));
+        return pactActive() ? Math.min(0.9, reduction + DemonLordPassive.DOOM_PACT.ability("defenseBonus", 0.3)) : reduction;
     }
 
     /**
@@ -151,19 +170,20 @@ public final class DemonLordState {
      */
     public double cooldownMultiplier() {
         double halving = Math.max(1.0, global("statCooldownHalvingPoints", 10.0));
-        return Math.pow(0.5, points(DemonLordStat.COOLDOWN) / halving);
+        return Math.pow(0.5, points(DemonLordStat.COOLDOWN) / halving) * pact("cooldownMultiplier", 0.6);
     }
 
     /** 스킬 사거리·반경 배율입니다. */
     public double skillRangeMultiplier() {
-        return 1.0 + points(DemonLordStat.SKILL_RANGE) * global("statSkillRangePerPoint", 0.03);
+        return (1.0 + points(DemonLordStat.SKILL_RANGE) * global("statSkillRangePerPoint", 0.03)) * pact("rangeMultiplier", 1.3);
     }
 
     /** 이동 속도 증가율입니다. */
     public double moveSpeedBonus() {
         double perPoint = global("statMoveSpeedPerPoint", 0.03);
         double cap = Math.max(0.0, global("statMoveSpeedCap", 0.5));
-        return Math.max(0.0, Math.min(cap, points(DemonLordStat.MOVE_SPEED) * perPoint));
+        double bonus = Math.max(0.0, Math.min(cap, points(DemonLordStat.MOVE_SPEED) * perPoint));
+        return pactActive() ? bonus + DemonLordPassive.DOOM_PACT.ability("moveSpeedBonus", 0.25) : bonus;
     }
 
     public double shield() {
@@ -335,7 +355,88 @@ public final class DemonLordState {
                 global("damageBonusScale", 0.5)
         );
         double allocated = points(DemonLordStat.ATTACK) * global("statAttackPerPoint", 0.04);
-        return 1.0 + scaledLevelBonus + allocated;
+        return (1.0 + scaledLevelBonus + allocated) * pact("damageMultiplier", 2.5);
+    }
+
+    // ------------------------------------------------------------ 파멸의 계약
+
+    /** 파멸의 계약이 걸려 있는지. 장착한 순간부터 능력치가 오릅니다. */
+    public boolean pactActive() {
+        return loadout != null && loadout.hasPassive(DemonLordPassive.DOOM_PACT);
+    }
+
+    private double pact(String key, double fallback) {
+        return pactActive() ? Math.max(0.0, DemonLordPassive.DOOM_PACT.ability(key, fallback)) : 1.0;
+    }
+
+    public int pactRoundsServed() {
+        return pactRoundsServed;
+    }
+
+    public int pactRounds() {
+        return Math.max(1, (int) DemonLordPassive.DOOM_PACT.ability("rounds", 5.0));
+    }
+
+    /** 웨이브가 시작될 때: 계약 중이면 한 라운드를 셉니다. */
+    void countPactRound() {
+        if (pactActive()) {
+            pactRoundsServed++;
+        }
+    }
+
+    /** 계약을 새로 걸거나 시작 전에 뺐을 때 셈을 지웁니다. */
+    void resetPactCount() {
+        pactRoundsServed = 0;
+    }
+
+    void restorePact(int served) {
+        pactRoundsServed = Math.max(0, served);
+    }
+
+    /**
+     * 라운드가 끝날 때: 계약한 라운드를 다 채웠으면 대가를 치릅니다. 레벨이 1로, 경험치·찍은 스탯·남은 포인트가
+     * 0으로 돌아가고 계약 패시브도 사라집니다(환불 없음).
+     *
+     * @return 이번에 계약이 끝났으면 {@code true}
+     */
+    public boolean settlePact() {
+        if (!pactActive() || pactRoundsServed < pactRounds()) {
+            return false;
+        }
+        loadout.passivesView().forEach((slot, entry) -> {
+            if (entry.passive() == DemonLordPassive.DOOM_PACT) {
+                loadout.removePassive(slot);
+            }
+        });
+        pactRoundsServed = 0;
+        level = 1;
+        experience = 0.0;
+        statPoints.clear();
+        unspentPoints = 0;
+        health = Math.min(health, maxHealth());
+        loadoutDirty = true;
+        pactEndedNotice = true;
+        return true;
+    }
+
+    public boolean consumePactEndedNotice() {
+        boolean notice = pactEndedNotice;
+        pactEndedNotice = false;
+        return notice;
+    }
+
+    // ------------------------------------------------------------ 검기
+
+    public java.util.List<DemonLordPassives.BladeWave> bladeWaves() {
+        return bladeWaves;
+    }
+
+    public void ignoreSwingUntil(long gameTime) {
+        ignoreSwingUntil = gameTime;
+    }
+
+    public boolean swingIgnored(long gameTime) {
+        return gameTime <= ignoreSwingUntil;
     }
 
     public double bladeDamage() {
@@ -435,8 +536,104 @@ public final class DemonLordState {
     }
 
     public void clearPendingSkills() {
+        bladeWaves.clear();
         pendingBombardment = null;
         zone = null;
+        rift = null;
+        vortex = null;
+    }
+
+    // ------------------------------------------------------------ 심연 소용돌이
+
+    /**
+     * 심연 소용돌이. 지정한 지점에 머물며 범위 안의 적을 매 틱 중심으로 끌어당기고, 일정 간격으로 피해를 줍니다.
+     * 한 번에 하나만 두며 다시 시전하면 이전 소용돌이를 대체합니다.
+     */
+    public record AbyssVortex(
+            TowerType altarType,
+            Vec3 centre,
+            double radius,
+            double pullStrength,
+            int damageIntervalTicks,
+            long expiryTick,
+            long nextDamageTick
+    ) {
+        public AbyssVortex afterDamage() {
+            return new AbyssVortex(altarType, centre, radius, pullStrength, damageIntervalTicks, expiryTick,
+                    nextDamageTick + damageIntervalTicks);
+        }
+    }
+
+    public void openVortex(AbyssVortex opened) {
+        vortex = opened;
+    }
+
+    public AbyssVortex vortex() {
+        return vortex;
+    }
+
+    public void closeVortex() {
+        vortex = null;
+    }
+
+    // ------------------------------------------------------------ 균열참 파동
+
+    /**
+     * 균열참이 앞으로 밀어 보내는 폭발 파동.
+     *
+     * <p>시전 때 벽까지 몇 번 터질 수 있는지({@code count}) 미리 정해 두고, {@code intervalTicks}마다 한 칸씩
+     * 전진하며 터뜨립니다. 연출도 같은 횟수와 간격으로 미리 짜 두므로 피해와 그림이 어긋나지 않습니다.
+     * 한 번에 하나만 유지하며 다시 시전하면 이전 파동을 대체합니다.
+     *
+     * @param nextIndex 다음에 터질 파동 번호(1부터)
+     */
+    public record RiftCleave(
+            TowerType altarType,
+            Vec3 origin,
+            Vec3 direction,
+            double firstOffset,
+            double spacing,
+            double radius,
+            int count,
+            int intervalTicks,
+            int nextIndex,
+            long nextTick
+    ) {
+        public Vec3 centre(int index) {
+            return origin.add(direction.scale(firstOffset + spacing * index));
+        }
+
+        public RiftCleave advanced() {
+            return new RiftCleave(altarType, origin, direction, firstOffset, spacing, radius, count, intervalTicks,
+                    nextIndex + 1, nextTick + intervalTicks);
+        }
+    }
+
+    // ------------------------------------------------------------ 마수 소환
+
+    /** 지금 레인에 나와 있는 마수. 한 번에 하나만 두고, 다시 부르면 이전 마수는 돌려보냅니다. */
+    public DemonLordFiend fiend() {
+        return fiend;
+    }
+
+    public void summonFiend(DemonLordFiend summoned) {
+        fiend = summoned;
+    }
+
+    public void clearFiend() {
+        fiend = null;
+    }
+
+    public void queueRift(RiftCleave cleave) {
+        rift = cleave;
+    }
+
+    public RiftCleave rift() {
+        return rift;
+    }
+
+    public void clearRift() {
+        rift = null;
     }
 
     // -------------------------------------------------- 지옥불 낙인 장판
@@ -490,9 +687,13 @@ public final class DemonLordState {
         if (monster == null) {
             return false;
         }
-        return centralDefense
-                ? monster.inFinalDefenseCombat() && !monster.isRemoved() && monster.health() > 0.0
-                : monster.isAlive() && monster.targetLaneId() == laneId;
+        if (centralDefense) {
+            return monster.inFinalDefenseCombat() && !monster.isRemoved() && monster.health() > 0.0;
+        }
+        if (boundless() && teamId != null) {
+            return monster.isAlive() && monster.targetTeam() == teamId;
+        }
+        return monster.isAlive() && monster.targetLaneId() == laneId;
     }
 
     /**
@@ -593,6 +794,49 @@ public final class DemonLordState {
         return (int) Math.max(0L, ready - gameTime);
     }
 
+    // ------------------------------------------------------------- 스킬 배정
+
+    public DemonLordLoadout loadout() {
+        return loadout;
+    }
+
+    void restoreLoadout(DemonLordLoadout restored) {
+        loadout = restored == null ? new DemonLordLoadout() : restored;
+        loadoutDirty = true;
+    }
+
+    // --------------------------------------------------------- 자동 인컴 전송
+
+    public boolean autoIncomeEnabled() {
+        return autoIncomeEnabled;
+    }
+
+    public void setAutoIncomeEnabled(boolean enabled) {
+        autoIncomeEnabled = enabled;
+    }
+
+    /** 에메랄드가 한도의 이 비율 이상이면 자동으로 인컴을 보냅니다. */
+    public double autoIncomeThreshold() {
+        double value = autoIncomeThreshold != null ? autoIncomeThreshold
+                : global("autoIncomeThreshold", DEFAULT_AUTO_INCOME_THRESHOLD);
+        return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    public void setAutoIncomeThreshold(double ratio) {
+        autoIncomeThreshold = Math.max(0.0, Math.min(1.0, ratio));
+    }
+
+    Double autoIncomeThresholdOverride() {
+        return autoIncomeThreshold;
+    }
+
+    void restoreAutoIncome(boolean enabled, Double threshold) {
+        autoIncomeEnabled = enabled;
+        autoIncomeThreshold = threshold;
+    }
+
+    public static final double DEFAULT_AUTO_INCOME_THRESHOLD = 0.7;
+
     // ---------------------------------------------------------------- hotbar
 
     public boolean loadoutDirty() {
@@ -614,6 +858,15 @@ public final class DemonLordState {
 
     public void setLaneId(int laneId) {
         this.laneId = laneId;
+    }
+
+    public void setTeamId(TeamId teamId) {
+        this.teamId = teamId;
+    }
+
+    /** 경계 없는 마왕 패시브: 라인 밖으로 나가고 아군 라인의 적과도 싸웁니다. */
+    public boolean boundless() {
+        return loadout.hasPassive(DemonLordPassive.BOUNDLESS);
     }
 
     /** True while the hotbar is holding the combat kit instead of the normal match tools. */

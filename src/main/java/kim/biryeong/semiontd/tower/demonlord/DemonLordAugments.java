@@ -166,8 +166,8 @@ final class DemonLordAugments {
         for (int index = 0; index < echoes.size(); index++) {
             Spell spell = echoes.get(index);
             showEcho(player, lane, index == 0 ? -1.0 : 1.0, now);
-            DemonLordVfx.show(spell.altar(), lane, player.position(), 2.0,
-                    DemonLordVfx.styleFor(spell.altar().skill()));
+            DemonLordVfx.play(lane, DemonLordDisplayVfx.echo(now + index).scaled(state.skillRangeMultiplier()),
+                    player.position());
             double ratio = snapshot.parameter(THRONES, "damageRatio", 1.5);
             replaying = true;
             try {

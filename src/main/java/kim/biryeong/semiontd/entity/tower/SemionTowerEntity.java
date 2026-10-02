@@ -24,6 +24,7 @@ import kim.biryeong.semiontd.tower.augment.AugmentTowers;
 import kim.biryeong.semiontd.entity.SemionEntityTypes;
 import kim.biryeong.semiontd.entity.defender.LaneDefenseEntity;
 import kim.biryeong.semiontd.entity.healing.HealingTarget;
+import kim.biryeong.semiontd.entity.model.BilDeathVisual;
 import kim.biryeong.semiontd.entity.model.SemionBilModelCache;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
@@ -116,6 +117,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private EntityType<?> polymerEntityType = EntityType.ARMOR_STAND;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
     private LivingEntityHolder<SemionTowerEntity> holder;
+    private boolean deathVisualShown;
     private EntityAttachment holderAttachment;
     private ElementHolder blockDisplayHolder;
     private BlockDisplayElement blockDisplayElement;
@@ -176,7 +178,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         targetAcquireRange = Math.max(attackRange + 4.0, DEFAULT_TARGET_ACQUIRE_RANGE);
         moveSpeed = DEFAULT_MOVE_SPEED;
         setCustomName(Component.literal(tower.type().displayName()));
-        setCustomNameVisible(true);
+        setCustomNameVisible(!tower.isHiddenSkillCarrier());
         getAttribute(Attributes.MAX_HEALTH).setBaseValue(tower.currentMaxHealth());
         getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(attackDamage);
         getAttribute(Attributes.FOLLOW_RANGE).setBaseValue(targetAcquireRange);
@@ -912,13 +914,15 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (animationState == null) {
             return;
         }
-        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL)) {
+        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
+                || animationState == SemionAnimationState.SKILL)) {
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 if (state != animationState) {
                     holder.getAnimator().pauseAnimation(state.animationId());
                 }
             }
-            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL ? 10 : 1, true);
+            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
+                    || animationState == SemionAnimationState.SKILL ? 10 : 1, true);
         }
         this.animationState = animationState;
     }
@@ -1155,6 +1159,22 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     @Override
     public void knockback(double strength, double x, double z) {
+    }
+
+    /**
+     * 모델에 사망 애니메이션(death)이 있으면 쓰러지는 기본 연출 대신 그 자리에 모델만 남겨 한 번 틀고 곧바로 치웁니다
+     * (몬스터와 같은 방식). 사망 애니메이션이 없는 모델은 예전처럼 옆으로 넘어갑니다.
+     */
+    @Override
+    protected void tickDeath() {
+        if (!deathVisualShown && holder != null && level() instanceof ServerLevel serverLevel) {
+            deathVisualShown = true;
+            if (BilDeathVisual.spawn(serverLevel, position(), yBodyRot, holder.getModel(), holder.getScale())) {
+                remove(RemovalReason.KILLED);
+                return;
+            }
+        }
+        super.tickDeath();
     }
 
     @Override
@@ -1651,7 +1671,9 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     private void syncEndCoreFlightPhysics() {
-        boolean airborneEndCore = usesOneBlockEndCoreHitbox();
+        // 숨은 스킬 운반체도 떠 있어야 합니다. 레인 위 허공에 두므로 떨어지면 바닥에 드러납니다.
+        boolean airborneEndCore = usesOneBlockEndCoreHitbox()
+                || runtimeTower != null && runtimeTower.isHiddenSkillCarrier();
         setNoGravity(airborneEndCore);
         if (airborneEndCore) {
             Vec3 velocity = getDeltaMovement();

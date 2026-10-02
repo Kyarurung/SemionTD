@@ -496,13 +496,12 @@ public final class PlantIntegrationGameTest {
     }
 
     /**
-     * 지뢰는 라운드가 끝날 때마다 한 단계씩 삭고, 붉은 버섯은 사라집니다.
+     * 지뢰는 라운드가 끝나도 삭지 않고 제 티어 그대로 남습니다. 붉은 버섯도 사라지지 않습니다.
      *
-     * <p>실제 레인에서 확인하는 이유는 삭는 과정이 타워를 갈아 끼우기 때문입니다. 판매가와 체력이
-     * 새 티어 기준으로 잡히는지, 자리와 소유자가 그대로인지는 카탈로그 값만 봐서는 알 수 없습니다.
+     * <p>균사 지형의 취약은 균사 칸 수에 비례합니다(칸당·상한). 밟지 않아도 라인 전체에 걸리는 값입니다.
      */
     @GameTest
-    public void myceliumMinesDecayOneTierEachRoundUntilTheyDisappear(GameTestHelper context) {
+    public void myceliumMinesKeepTheirTierAndTheFieldScalesWithTiles(GameTestHelper context) {
         TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
         UUID owner = stableUuid("plant-mine-decay-owner");
         SemionGame game = null;
@@ -512,10 +511,18 @@ public final class PlantIntegrationGameTest {
             game = startedPlantGame(context, owner);
             game.players().get(owner).economy().addMineral(1_000);
             PlayerLane lane = game.playerLane(owner).orElseThrow();
+            require(PlantSoilEnvironment.myceliumFieldFrailty(owner) == 0.0, "No mycelium, no field frailty.");
             BlockPos terraformerPos = BlockPos.containing(lane.laneLayout().positionAt(0.35));
             require(ProductionTowerService.placeTower(
                     game, owner, terraformerPos, PlantTowers.T1_MUSHROOM_SPORE_TOWER.id())
                     == TowerPlacementResult.SUCCESS, "Mycelium terraformer placement must succeed.");
+
+            int tiles = PlantSoilStates.count(owner, PlantSoil.MYCELIUM);
+            require(tiles > 0, "The terraformer must claim mycelium tiles.");
+            double perTile = defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusPerTile", 0.0);
+            double cap = defaults.ability(PlantSoil.MYCELIUM.configId(), "damageTakenBonusCap", 0.0);
+            requireClose(Math.min(cap, tiles * perTile), PlantSoilEnvironment.myceliumFieldFrailty(owner),
+                    "Field frailty must be tiles x per-tile bonus, capped.");
 
             BlockPos minePos = claimedEmptyPosition(lane, owner, PlantSoil.MYCELIUM, terraformerPos);
             require(ProductionTowerService.placeTower(
@@ -527,25 +534,17 @@ public final class PlantIntegrationGameTest {
 
             GridPosition grid = GridPosition.from(minePos);
             JobContext jobContext = new JobContext(game, game.players().get(owner));
-
+            var before = lane.towerAt(grid);
             new PlantTowerJob().onRoundEnded(jobContext, 1);
-            var decayed = lane.towerAt(grid);
-            require(decayed instanceof PlantMineTower, "A decayed mine must still be a mine.");
-            require(PlantTowers.matches(decayed.type(), PlantTowers.T1_MYCELIUM_TOWER),
-                    "진홍빛 버섯 must decay into 붉은 버섯, found " + decayed.type().id());
-            require(owner.equals(decayed.ownerPlayer()), "Decay must keep the owner.");
-            requireClose(TowerBalanceRuntime.resolve(PlantTowers.T1_MYCELIUM_TOWER).maxHealth(), decayed.health(),
-                    "A decayed mine must carry the health of the tier it became.");
-            require(decayed.paidMineralCost()
-                            == TowerBalanceRuntime.resolve(PlantTowers.T1_MYCELIUM_TOWER).mineralCost(),
-                    "A decayed mine must be worth its new tier, not the one it was bought at.");
-
             new PlantTowerJob().onRoundEnded(jobContext, 2);
-            require(lane.towerAt(grid) == null, "붉은 버섯 must disappear at the end of the next round.");
+            var after = lane.towerAt(grid);
+            require(after == before, "The mine must survive round ends unchanged.");
+            require(PlantTowers.matches(after.type(), PlantTowers.T2_MYCELIUM_TOWER),
+                    "진홍빛 버섯 must stay 진홍빛 버섯, found " + after.type().id());
             context.succeed();
         } catch (RuntimeException | Error failure) {
             failure.printStackTrace();
-            context.fail(Component.literal("Plant mine decay failed: " + failure.getMessage()));
+            context.fail(Component.literal("Plant mine persistence failed: " + failure.getMessage()));
         } finally {
             if (game != null) {
                 game.close();
@@ -697,6 +696,8 @@ public final class PlantIntegrationGameTest {
             panda.tick(lane);
             require(panda.dashing(), "돌진이 시작돼야 합니다.");
             require(!panda.canChaseTargets(), "돌진 중 일반 추적 이동이 끼어들면 안 됩니다.");
+            requireClose(fullHealth, monster.health(),
+                    "돌진 연출을 합쳐도 아직 닿지 않은 전방 적에게 즉시 피해를 주면 안 됩니다.");
             for (int tick = 1; tick < 32; tick++) {
                 panda.tick(lane);
             }
@@ -791,14 +792,22 @@ public final class PlantIntegrationGameTest {
             );
             lane.addTower(source);
             source.markWaveStarted(1);
-            Monster target = spawnMonster(context, lane, "plant-desert-target", sourcePos);
+            // 사암을 밟지 않은(지형 밖) 적도 사암 칸 수만큼 도트를 받습니다.
+            Monster target = spawnMonster(context, lane, "plant-desert-target", position(context, 7, 1, 7));
+            double burn = PlantSoilEnvironment.desertFieldBurnPerSecond(owner);
+            require(burn > 0.0 && PlantSoilStates.soilAt(owner, position(context, 7, 1, 7)) == null,
+                    "The target stands off the sandstone but the field still burns.");
             int delay = (int) ((20 - context.getLevel().getGameTime() % 20) % 20);
 
             context.runAfterDelay(delay, () -> {
                 try {
+                    // 기다리는 동안 테라포머 기본 공격이 대상을 칠 수 있으므로, 지형 펄스 한 번의 차이만 봅니다.
+                    double healthBefore = target.health();
+                    double creditedBefore = source.roundMagicDamageDealt();
                     PlantSoilEnvironment.tick(lane);
-                    requireClose(992.5, target.health(), "Desert terrain must deal 0.75% max-health magic damage.");
-                    requireClose(7.5, source.roundMagicDamageDealt(),
+                    requireClose(healthBefore - 1000.0 * burn, target.health(),
+                            "Desert terrain must deal tiles x per-tile max-health magic damage even off the sandstone.");
+                    requireClose(1000.0 * burn, source.roundMagicDamageDealt() - creditedBefore,
                             "Desert terrain damage must be credited to its terraformer.");
                     require(owner.equals(target.lastHitPlayerId().orElse(null))
                                     && target.lastHitSourceKind() == KillSourceKind.TOWER,
@@ -828,6 +837,116 @@ public final class PlantIntegrationGameTest {
             PlantSoilStates.clear(owner);
             TowerBalanceRuntime.apply(defaults);
             context.fail(Component.literal("Plant desert setup failed: " + failure.getMessage()));
+        }
+    }
+
+    /**
+     * 정원사 스킬: 한 틱에 세 스킬이 모두 조건을 만나면 모두 나갑니다. 가장 다친 아군 자리에 회복 장판(초당 회복),
+     * 체력이 가장 높은 적은 지배(라인 수 제외 + 원래 편이 노릴 수 있음), 주변 적은 생기 흡수로 깎입니다.
+     */
+    @GameTest
+    public void gardenerSkillsHealDominateAndDrain(GameTestHelper context) {
+        UUID owner = stableUuid("plant-gardener-skills");
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            var gardener = new kim.biryeong.semiontd.tower.plant.GardenerTower(
+                    TowerBalanceRuntime.resolve(PlantTowers.GARDENER_TOWER), owner, TeamId.RED, 1, position(context, 3, 1, 3));
+            lane.addTower(gardener);
+            var ally = new kim.biryeong.semiontd.tower.plant.PandaTower(
+                    TowerBalanceRuntime.resolve(PlantTowers.T1_PANDA_TOWER), owner, TeamId.RED, 1, position(context, 2, 1, 2));
+            lane.addTower(ally);
+            ally.syncHealth(ally.currentMaxHealth() * 0.3);
+            double allyBefore = ally.health();
+
+            Monster strong = spawnMonster(context, lane, "gardener-strong", position(context, 4, 1, 3));
+            Monster weak = spawnMonster(context, lane, "gardener-weak", position(context, 4, 1, 4));
+            weak.damage(500.0, kim.biryeong.semiontd.entity.monster.DamageType.TRUE);
+            SemionMonsterEntity strongEntity = entity(context, strong);
+            SemionMonsterEntity weakEntity = entity(context, weak);
+            double weakBefore = weak.health();
+
+            gardener.tick(lane);
+
+            require(strongEntity.isDominated(), "The highest-health enemy must be dominated.");
+            require(strong.excludedFromLaneCount(), "A dominated enemy must not count toward the lane's remaining monsters.");
+            require(strongEntity.defendsLane(weak.targetLaneId()) && strongEntity.drawsAggro(),
+                    "The dominated enemy's former allies must be able to pick it as a target.");
+            require(!weakEntity.isDominated(), "Only one enemy is dominated.");
+            require(weak.health() < weakBefore, "Life drain must hurt nearby enemies.");
+            require(ally.health() > allyBefore, "Life drain must heal a hurt ally tower.");
+            SemionTowerEntity allyEntity = (SemionTowerEntity) context.getLevel().getEntity(ally.entityId().getAsInt());
+            require(allyEntity.activeTimedEffectMagnitude(TimedEffectType.TOWER_HEALTH_REGEN_PER_SECOND) > 0.0,
+                    "The heal field must put regeneration on the hurt ally inside it.");
+            require(lane.activeMonsters().stream().filter(monster -> !monster.excludedFromLaneCount()).count() == 1,
+                    "Only the undominated enemy still counts toward clearing the lane.");
+
+            kim.biryeong.semiontd.game.PlayerEconomy economy =
+                    new kim.biryeong.semiontd.game.PlayerEconomy(EconomyConfig.defaultConfig());
+            economy.overrideStartingValues(1_000, 0, 0, 0);
+            long cost = gardener.upgradeCost(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL);
+            require(gardener.upgrade(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL, economy)
+                            == kim.biryeong.semiontd.tower.plant.GardenerTower.UpgradeResult.SUCCESS
+                            && gardener.level(kim.biryeong.semiontd.tower.plant.GardenerTower.Skill.HEAL) == 2
+                            && economy.diamond() == 1_000 - cost,
+                    "Upgrading a skill must spend diamonds and raise its level.");
+
+            lane.resetForRound();
+            require(!strongEntity.isDominated() && strongEntity.isRemoved(),
+                    "A dominated enemy left at round end must wither away instead of rejoining the next round.");
+            context.succeed();
+        } finally {
+            group.closeRuntime();
+            PlantSoilStates.clear(owner);
+        }
+    }
+
+    /** 정원사는 한 명에 하나이고, 지형 없이 어디에나 섭니다. 받는 지형 효과에서 균사만 빠집니다. */
+    @GameTest
+    public void gardenerIsUniqueNeedsNoSoilAndTakesEverySoilButMycelium(GameTestHelper context) {
+        UUID owner = stableUuid("plant-gardener-unique");
+        SemionGame game = null;
+        try {
+            game = startedPlantGame(context, owner);
+            game.players().get(owner).economy().addMineral(5_000);
+            PlayerLane lane = game.playerLane(owner).orElseThrow();
+            BlockPos first = BlockPos.containing(lane.laneLayout().positionAt(0.3));
+            BlockPos second = BlockPos.containing(lane.laneLayout().positionAt(0.6));
+            require(ProductionTowerService.placeTower(game, owner, first, PlantTowers.GARDENER_TOWER.id())
+                    == TowerPlacementResult.SUCCESS, "The gardener must stand without any soil.");
+            require(ProductionTowerService.placeTower(game, owner, second, PlantTowers.GARDENER_TOWER.id())
+                    == TowerPlacementResult.TOWER_LIMIT_REACHED, "A second gardener must be refused.");
+            var gardener = (kim.biryeong.semiontd.tower.plant.GardenerTower) lane.towerAt(GridPosition.from(first));
+            require(gardener.adjustAttackRange(10.0) > 10.0, "The gardener must get the podzol range bonus anywhere.");
+            var model = kim.biryeong.semiontd.entity.model.SemionBilModelCache.load(PlantTowers.GARDENER_MODEL);
+            require(model.isPresent(), "The gardener's Blockbench model must load through BIL.");
+            require(model.get().animations().containsKey("walk") && model.get().animations().containsKey("death"),
+                    "The gardener model must have walk and death animations.");
+            require(gardener.type().range() == 18.0, "The gardener's range sits mid podzol line (18).");
+
+            // 사망 애니메이션이 있는 모델의 타워는 쓰러지는 기본 연출 대신 모델 껍데기를 남기고 엔티티를 바로 치웁니다.
+            var entity = (kim.biryeong.semiontd.entity.tower.SemionTowerEntity)
+                    context.getLevel().getEntity(gardener.entityId().getAsInt());
+            gardener.syncHealth(0.0);
+            entity.setHealth(0.0F);
+            SemionGame running = game;
+            game = null;
+            context.runAfterDelay(3, () -> {
+                try {
+                    require(entity.isRemoved(), "A tower whose model has a death animation must leave a corpse and be removed at once.");
+                    context.succeed();
+                } finally {
+                    running.close();
+                    PlantSoilStates.clear(owner);
+                }
+            });
+        } finally {
+            if (game != null) {
+                game.close();
+                PlantSoilStates.clear(owner);
+            }
         }
     }
 

@@ -920,6 +920,7 @@ public record TowerBalanceConfig(
         putHeroPartyAbilities(abilities);
         putAtlantisAbilities(abilities);
         putPlantAbilities(abilities);
+        putIncomeTowerAbilities(abilities);
         putArmyAbilities(abilities);
         putThunderAbilities(abilities);
         putDemonLordAbilities(abilities);
@@ -1401,6 +1402,7 @@ public record TowerBalanceConfig(
     private static void addPlantTowers(LinkedHashMap<String, TowerStats> towers) {
         PlantTowers.TERRAFORM_TOWERS.forEach(type -> addTower(towers, type));
         PlantTowers.COMBAT_TOWERS.forEach(type -> addTower(towers, type));
+        addTower(towers, PlantTowers.GARDENER_TOWER);
     }
 
     private static void putPlantUpgrades(LinkedHashMap<String, Long> upgradeCosts) {
@@ -1509,10 +1511,20 @@ public record TowerBalanceConfig(
         ));
     }
 
+    /** 마왕 인컴 타워의 타워 수(인구). 비싼 유닛일수록 많이 차지합니다. */
+    private static void putIncomeTowerAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
+        kim.biryeong.semiontd.tower.income.IncomeTowerBalance.DEFAULT_SLOT_COSTS.forEach((unit, slots) ->
+                putAbilities(abilities, kim.biryeong.semiontd.tower.income.IncomeTowerBalance.towerId(unit),
+                        Map.of(TowerCapacity.CONFIG_KEY, (double) slots)));
+    }
+
     private static void putPlantAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
         // 테라포밍 반경. 타워가 자기 칸을 차지하므로 T1 도 최소 3x3 은 열어야 전투 타워를 놓을 수 있습니다.
+        // 테라포머는 지형만 까는 설비라 타워 수(인구)를 차지하지 않습니다.
         for (TowerType type : PlantTowers.TERRAFORM_TOWERS) {
-            putAbilities(abilities, type.id(), Map.of("terraformRadius", (double) PlantTowers.tierOf(type)));
+            putAbilities(abilities, type.id(), Map.of(
+                    "terraformRadius", (double) PlantTowers.tierOf(type),
+                    TowerCapacity.CONFIG_KEY, 0.0));
         }
         // 개화: T3 테라포머가 만든 7x7 지형에서 상한(+60%)에 도달합니다.
         putAbilities(abilities, PlantTowers.GLOBAL_CONFIG_ID, Map.of(
@@ -1540,16 +1552,20 @@ public record TowerBalanceConfig(
                 "supportDurationTicks", 60.0
         ));
         // environment* 값은 타워 없이 지형만으로 걸리는 효과입니다.
-        // 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증(취약)도 지형이 직접 담당합니다.
+        // 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증(취약)도 지형이 직접 담당합니다. 취약은 균사를 밟지 않아도
+        // 라인 전체에 걸리고, 크기는 균사 칸 수(칸당·상한)로 정합니다. T3 한 기(7x7, 49칸)면 상한에 닿습니다.
         putAbilities(abilities, PlantSoil.MYCELIUM.configId(), Map.of(
                 "environmentWeakness", 0.15,
-                "environmentDamageTakenBonus", 0.25,
+                "damageTakenBonusPerTile", 0.006,
+                "damageTakenBonusCap", 0.25,
                 "environmentMoveSpeedReduction", 0.25,
                 "environmentDurationTicks", 60.0
         ));
         putAbilities(abilities, PlantSoil.DESERT.configId(), Map.of(
                 "environmentAttackSpeedReduction", 0.15,
-                "environmentMaxHealthDamagePerSecond", 0.0075,
+                // 사암 도트는 밟지 않아도 라인 전체에 들어갑니다. 크기는 사암 칸 수(칸당·상한)로 정합니다.
+                "maxHealthDamagePerSecondPerTile", 0.00018,
+                "maxHealthDamagePerSecondCap", 0.0075,
                 "environmentDurationTicks", 60.0,
                 // 타워 오라는 지형 자체 값보다 세게 잡아, 겹치면 타워 쪽이 적용됩니다.
                 "attackSpeedReduction", 0.25,
@@ -1606,6 +1622,50 @@ public record TowerBalanceConfig(
         putPlantMine(abilities, PlantTowers.T1_MYCELIUM_TOWER, 1.5, 3.0, 0.35, 40.0, 8.0);
         putPlantMine(abilities, PlantTowers.T2_MYCELIUM_TOWER, 1.8, 3.5, 0.45, 60.0, 10.0);
         putPlantMine(abilities, PlantTowers.T3_MYCELIUM_TOWER, 2.0, 4.0, 0.55, 80.0, 12.0);
+        // 정원사: 스킬 수치는 <키>_<단계>(1~3)입니다. 평타는 러커식 일직선 가시입니다.
+        LinkedHashMap<String, Double> gardener = new LinkedHashMap<>();
+        gardener.put("lineSplashRatio", 0.6);
+        gardener.put("lineWidth", 1.0);
+        gardener.put("skillRange", 10.0);
+        gardener.put("upgradeCost_2", 150.0);
+        gardener.put("upgradeCost_3", 250.0);
+        gardener.put("healRadius_1", 3.0);
+        gardener.put("healRadius_2", 3.5);
+        gardener.put("healRadius_3", 4.0);
+        gardener.put("healPerSecond_1", 0.02);
+        gardener.put("healPerSecond_2", 0.03);
+        gardener.put("healPerSecond_3", 0.04);
+        gardener.put("healDurationTicks_1", 100.0);
+        gardener.put("healDurationTicks_2", 120.0);
+        gardener.put("healDurationTicks_3", 140.0);
+        gardener.put("healCooldownTicks_1", 300.0);
+        gardener.put("healCooldownTicks_2", 280.0);
+        gardener.put("healCooldownTicks_3", 260.0);
+        gardener.put("dominateDurationTicks_1", 60.0);
+        gardener.put("dominateDurationTicks_2", 80.0);
+        gardener.put("dominateDurationTicks_3", 100.0);
+        gardener.put("dominatePulseRadius_1", 2.5);
+        gardener.put("dominatePulseRadius_2", 2.5);
+        gardener.put("dominatePulseRadius_3", 3.0);
+        gardener.put("dominatePulseRatio_1", 1.0);
+        gardener.put("dominatePulseRatio_2", 1.5);
+        gardener.put("dominatePulseRatio_3", 2.0);
+        gardener.put("dominateCooldownTicks_1", 400.0);
+        gardener.put("dominateCooldownTicks_2", 360.0);
+        gardener.put("dominateCooldownTicks_3", 320.0);
+        gardener.put("drainRadius_1", 4.0);
+        gardener.put("drainRadius_2", 4.5);
+        gardener.put("drainRadius_3", 5.0);
+        gardener.put("drainDamageRatio_1", 1.2);
+        gardener.put("drainDamageRatio_2", 1.6);
+        gardener.put("drainDamageRatio_3", 2.0);
+        gardener.put("drainHealRatio_1", 0.5);
+        gardener.put("drainHealRatio_2", 0.7);
+        gardener.put("drainHealRatio_3", 0.9);
+        gardener.put("drainCooldownTicks_1", 200.0);
+        gardener.put("drainCooldownTicks_2", 180.0);
+        gardener.put("drainCooldownTicks_3", 160.0);
+        putAbilities(abilities, PlantTowers.GARDENER_TOWER.id(), gardener);
         // 판다는 지형 계열이 아니라 soilPower 가 없습니다. 돌진 수치만 가집니다.
         putPanda(abilities, PlantTowers.T1_PANDA_TOWER, 200.0, 6.0, 1.6, 0.08, 1.0, 60.0, 0.30, 0.30);
         putPanda(abilities, PlantTowers.T2_PANDA_TOWER, 180.0, 7.0, 1.8, 0.10, 1.2, 70.0, 0.35, 0.35);
@@ -2104,6 +2164,7 @@ public record TowerBalanceConfig(
                 "maxHealthPerLevel", "experiencePerMaxHealth", "damagePerLevel", "bladeDamage");
         validateIntegral(global, false, "maxLevel", "bladeAttackIntervalTicks");
         validateAtLeast(global, 1.0, "experienceGrowth");
+        validateRange(global, "autoIncomeThreshold", 0.0, 1.0);
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier <= DemonLordSkill.MAX_TIER; tier++) {
@@ -2158,6 +2219,18 @@ public record TowerBalanceConfig(
                         }
                     }
                     case HELL_GUILLOTINE -> validatePositive(id, "range", "radius");
+                    case ABYSS_VORTEX -> {
+                        validatePositive(id, "placementRange", "radius", "pullStrength", "durationTicks", "damageIntervalTicks");
+                        validateIntegral(id, false, "durationTicks", "damageIntervalTicks");
+                    }
+                    case SUMMON_FIEND -> {
+                        validatePositive(id, "range", "healthRatio", "durationTicks", "attackRange", "attackIntervalTicks");
+                        validateIntegral(id, false, "durationTicks", "attackIntervalTicks");
+                    }
+                    case RIFT_CLEAVE -> {
+                        validatePositive(id, "radius", "waveRadius", "waveSpacing", "waveCount", "waveIntervalTicks");
+                        validateIntegral(id, false, "waveCount", "waveIntervalTicks");
+                    }
                 }
             }
         }
@@ -2324,9 +2397,9 @@ public record TowerBalanceConfig(
         validateRatios(PlantSoil.MEADOW.configId(),
                 "healPercentPerPulse", "growthShareRatio");
         validateRatios(PlantSoil.MYCELIUM.configId(),
-                "environmentWeakness", "environmentDamageTakenBonus", "environmentMoveSpeedReduction");
+                "environmentWeakness", "damageTakenBonusPerTile", "damageTakenBonusCap", "environmentMoveSpeedReduction");
         validateRatios(PlantSoil.DESERT.configId(),
-                "environmentAttackSpeedReduction", "environmentMaxHealthDamagePerSecond",
+                "environmentAttackSpeedReduction", "maxHealthDamagePerSecondPerTile", "maxHealthDamagePerSecondCap",
                 "attackSpeedReduction", "thornReflectRatio");
         validateRatios(PlantSoil.PODZOL.configId(),
                 "attackSpeedBonus", "growthShareRatio");
@@ -2369,6 +2442,7 @@ public record TowerBalanceConfig(
 
         for (TowerType type : PlantTowers.TERRAFORM_TOWERS) {
             validateIntegral(type.id(), false, "terraformRadius");
+            validateIntegral(type.id(), true, TowerCapacity.CONFIG_KEY);
         }
         for (TowerType type : PlantTowers.COMBAT_TOWERS) {
             String id = type.id();
@@ -4967,7 +5041,52 @@ public record TowerBalanceConfig(
         global.put("statSkillRangePerPoint", 0.03);
         global.put("statMoveSpeedPerPoint", 0.03);
         global.put("statMoveSpeedCap", 0.5);
+        // 에메랄드가 라운드 한도의 이 비율 이상이면 인컴을 자동으로 보냅니다. 플레이어가 막대로
+        // 따로 고르지 않았을 때의 기본값입니다.
+        global.put("autoIncomeThreshold", 0.7);
         putAbilities(abilities, DemonLordTowers.GLOBAL_CONFIG_ID, global);
+
+        // 8·9번 슬롯 패시브. 구매가(다이아)와 효과 수치입니다.
+        LinkedHashMap<String, Double> bloodCleave = new LinkedHashMap<>();
+        bloodCleave.put("cost", 180.0);
+        bloodCleave.put("cleaveRadius", 2.5);
+        bloodCleave.put("cleaveRatio", 0.6);
+        bloodCleave.put("lifeStealRatio", 0.15);
+        bloodCleave.put("lifeStealCap", 0.04);
+        putAbilities(abilities, "demon_lord_passive_blood_cleave", bloodCleave);
+        LinkedHashMap<String, Double> legionEcho = new LinkedHashMap<>();
+        legionEcho.put("cost", 260.0);
+        legionEcho.put("copies", 5.0);
+        putAbilities(abilities, "demon_lord_passive_legion_echo", legionEcho);
+        LinkedHashMap<String, Double> boundless = new LinkedHashMap<>();
+        boundless.put("cost", 120.0);
+        putAbilities(abilities, "demon_lord_passive_boundless", boundless);
+        LinkedHashMap<String, Double> bladeWave = new LinkedHashMap<>();
+        bladeWave.put("cost", 200.0);
+        bladeWave.put("damageRatio", 0.6);
+        bladeWave.put("range", 14.0);
+        bladeWave.put("speed", 1.4);
+        bladeWave.put("hitRadius", 1.1);
+        putAbilities(abilities, "demon_lord_passive_blade_wave", bladeWave);
+        LinkedHashMap<String, Double> darkFlight = new LinkedHashMap<>();
+        darkFlight.put("cost", 150.0);
+        darkFlight.put("maxAltitude", 10.0);
+        putAbilities(abilities, "demon_lord_passive_dark_flight", darkFlight);
+        LinkedHashMap<String, Double> doomPact = new LinkedHashMap<>();
+        doomPact.put("cost", 100.0);
+        doomPact.put("rounds", 5.0);
+        doomPact.put("healthMultiplier", 2.5);
+        doomPact.put("damageMultiplier", 2.5);
+        doomPact.put("defenseBonus", 0.3);
+        doomPact.put("cooldownMultiplier", 0.6);
+        doomPact.put("rangeMultiplier", 1.3);
+        doomPact.put("moveSpeedBonus", 0.25);
+        putAbilities(abilities, "demon_lord_passive_doom_pact", doomPact);
+        LinkedHashMap<String, Double> invasionGuard = new LinkedHashMap<>();
+        invasionGuard.put("cost", 150.0);
+        invasionGuard.put("healthRatio", 1.0);
+        invasionGuard.put("damageRatio", 1.0);
+        putAbilities(abilities, "demon_lord_passive_invasion_guard", invasionGuard);
 
         for (DemonLordSkill skill : DemonLordSkill.values()) {
             for (int tier = 1; tier <= DemonLordSkill.MAX_TIER; tier++) {
@@ -5059,6 +5178,37 @@ public record TowerBalanceConfig(
                 values.put("damage", new double[] {45.0, 71.0, 101.0, 139.0}[index]);
                 // 마왕이 잃은 체력 비율에 비례해 피해가 커집니다. 체력 0 에 가까울 때의 최대 증가폭.
                 values.put("missingHealthDamageBonus", new double[] {1.00, 1.20, 1.40, 1.80}[index]);
+            }
+            case ABYSS_VORTEX -> {
+                // 바라보는 지점(최대 placementRange)에 소용돌이를 엽니다.
+                values.put("placementRange", new double[] {10.0, 11.0, 12.0, 14.0}[index]);
+                values.put("radius", new double[] {5.0, 5.5, 6.0, 7.0}[index]);
+                // 매 틱 중심 쪽으로 미는 속도(블록/틱). 가장자리일수록 세게 당깁니다.
+                values.put("pullStrength", new double[] {0.16, 0.18, 0.20, 0.24}[index]);
+                values.put("durationTicks", new double[] {60.0, 70.0, 80.0, 100.0}[index]);
+                // 몰이가 본업이라 피해는 가볍게, 1초마다 들어갑니다.
+                values.put("damage", new double[] {8.0, 12.0, 17.0, 23.0}[index]);
+                values.put("damageIntervalTicks", 20.0);
+            }
+            case SUMMON_FIEND -> {
+                // 시선이 닿는 곳(최대 range)에 마수를 부릅니다. 체력은 마왕 최대 체력에 비례합니다.
+                values.put("range", new double[] {6.0, 6.5, 7.0, 8.0}[index]);
+                values.put("healthRatio", new double[] {0.50, 0.65, 0.80, 1.00}[index]);
+                values.put("damage", new double[] {14.0, 22.0, 31.0, 42.0}[index]);
+                values.put("durationTicks", new double[] {160.0, 200.0, 240.0, 300.0}[index]);
+                values.put("attackRange", 3.0);
+                values.put("attackIntervalTicks", 20.0);
+            }
+            case RIFT_CLEAVE -> {
+                // 검을 내려찍는 자리(앞으로 1.6칸)의 반경과 피해입니다.
+                values.put("radius", new double[] {2.5, 2.6, 2.8, 3.0}[index]);
+                values.put("damage", new double[] {40.0, 62.0, 88.0, 120.0}[index]);
+                // 이어서 앞으로 전진하며 터지는 파동. 벽에 닿으면 그 앞에서 멈춥니다.
+                values.put("waveCount", new double[] {5.0, 6.0, 7.0, 8.0}[index]);
+                values.put("waveDamage", new double[] {18.0, 28.0, 40.0, 55.0}[index]);
+                values.put("waveRadius", new double[] {1.8, 1.9, 2.0, 2.2}[index]);
+                values.put("waveSpacing", 1.8);
+                values.put("waveIntervalTicks", 3.0);
             }
             case ROAR_OF_DREAD -> {
                 values.put("radius", new double[] {5.0, 5.5, 6.0, 7.0}[index]);

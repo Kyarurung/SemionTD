@@ -17,6 +17,7 @@ import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.defender.LaneDefenseEntity;
 import kim.biryeong.semiontd.entity.healing.HealingTarget;
 import kim.biryeong.semiontd.entity.goal.NaturalWaveHealGoal;
+import kim.biryeong.semiontd.entity.model.BilDeathVisual;
 import kim.biryeong.semiontd.entity.model.SemionBilModelCache;
 import kim.biryeong.semiontd.entity.monster.goal.AcquireLaneDefenseTargetGoal;
 import kim.biryeong.semiontd.entity.monster.goal.LaneFollowGoal;
@@ -52,12 +53,20 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.packettweaker.PacketContext;
 
-public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity, HealingTarget {
+public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity, HealingTarget, LaneDefenseEntity {
     private static final double DEFAULT_MELEE_RANGE = 2.5;
     private static final double DEFAULT_FOLLOW_RANGE = 5.0;
     private static final double DEFAULT_MOVEMENT_SPEED = 0.42;
     public static final double DEFENSE_SEARCH_HORIZONTAL_PADDING = 5.0;
     public static final double DEFENSE_TARGET_LEASH_RANGE = 8.0;
+    /**
+     * 이미 마왕을 노리던 몬스터가 표적을 놓지 않는 거리.
+     *
+     * <p>마왕 스킬(공포의 포효·악의 파동·하늘 부수기 등)은 몬스터를 6~7칸씩 날려 보냅니다. 붙잡는
+     * 거리(8칸)로 놓아 버리면 날아간 몬스터가 마왕을 잊고 레인 앞쪽으로만 걸어 그대로 빠져나갑니다.
+     * 그래서 한 번 잡은 마왕은 이 거리까지 계속 쫓아오게 합니다. 새로 붙잡는 거리는 그대로 8칸입니다.
+     */
+    public static final double DEMON_LORD_AGGRO_KEEP_RANGE = 16.0;
     private static final double DEFENSE_SEARCH_VERTICAL_PADDING = 3.0;
 
     private EntityType<?> polymerEntityType = EntityType.ZOMBIE;
@@ -66,6 +75,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private String blockbenchModelId;
     private EntityDimensions runtimeDimensions = MonsterDimensions.DEFAULT.toEntityDimensions();
     private SemionAnimationState animationState = SemionAnimationState.IDLE;
+    /** 공격·치유처럼 한 번 도는 동작이 끝나는 틱. 그 전에는 걷기·대기로 바뀌어도 멈추지 않습니다. */
+    private int oneShotEndTick;
+    private boolean deathVisualShown;
     private final List<Goal> summonAbilityGoals = new ArrayList<>();
     private NaturalWaveHealGoal waveAbilityGoal;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
@@ -73,6 +85,17 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private final Map<Tower, BeePoisonState> beePoisons = new IdentityHashMap<>();
     private LivingEntityHolder<SemionMonsterEntity> holder;
     private EntityAttachment holderAttachment;
+    /** 공격 방식(선딜·특수 타격). 없으면 공격을 트는 틱에 바로 한 번 때립니다. */
+    private MonsterAttackStyle attackStyle;
+    private LivingEntity pendingHitTarget;
+    private int pendingHitTick = -1;
+    /** 은신 유닛: 공격 중이 아니면 타워가 고를 수 없고 모델도 숨습니다. */
+    private boolean stealthCapable;
+    private int revealedUntilTick;
+    private boolean stealthVisualApplied;
+    private float visibleScale = 1.0F;
+    /** 타워·마왕 어그로를 모두 무시하고 레인 끝의 보스만 노립니다. */
+    private boolean ignoresDefenses;
 
     public SemionMonsterEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -103,15 +126,56 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     @Override
     public void die(DamageSource damageSource) {
+        showDeathVisual();
         super.die(damageSource);
         if (runtimeMonster != null) {
             runtimeMonster.syncHealth(0.0);
         }
     }
 
+    // ------------------------------------------------------------------ 지배(정원사)
+
+    /** 지배당해 편을 바꾼 동안, 지키는 레인 id. -1이면 지배당하지 않았습니다. */
+    private int dominatedLaneId = -1;
+
+    public boolean isDominated() {
+        return dominatedLaneId >= 0;
+    }
+
+    /**
+     * 정원사에게 지배당해 그 레인 편이 됩니다({@code laneId}, -1이면 풀림). 지배당한 동안에는 원래 편 몹이 공격 대상으로
+     * 고를 수 있고(방어 대상처럼 어그로를 끕니다), 아군 타워는 노리지 않습니다.
+     */
+    public void setDominatedFor(int laneId) {
+        dominatedLaneId = laneId;
+        if (laneId >= 0) {
+            setTarget(null);
+        }
+    }
+
+    @Override
+    public boolean defendsLane(int laneId) {
+        return dominatedLaneId >= 0 && dominatedLaneId == laneId;
+    }
+
+    @Override
+    public int aggroPriority() {
+        return 60;
+    }
+
+    @Override
+    public boolean drawsAggro() {
+        return dominatedLaneId >= 0;
+    }
+
     @Override
     protected void actuallyHurt(ServerLevel serverLevel, DamageSource damageSource, float amount) {
         if (damageSource.getEntity() instanceof ServerPlayer) {
+            return;
+        }
+        // 지배당한 몹이 원래 편에게 맞으면 바닐라 체력이 아니라 런타임 체력이 깎입니다.
+        if (isDominated() && damageSource.getEntity() instanceof SemionMonsterEntity && runtimeMonster != null) {
+            applyRuntimeDamage(damageSource, amount, DamageType.PHYSICAL);
             return;
         }
         super.actuallyHurt(serverLevel, damageSource, amount);
@@ -183,6 +247,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         super.aiStep();
+        tickPendingHit();
+        tickStealthVisual();
         tickIgnite();
         tickBeePoisons();
         timedEffects.tick();
@@ -228,19 +294,166 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         if (runtimeMonster == null) {
             return true;
         }
+        if (ignoresDefenses && (target instanceof ServerPlayer || target instanceof LaneDefenseEntity)) {
+            return false;
+        }
         double targetSearchRange = defenseTargetSearchRange();
         double leashRangeSqr = targetSearchRange * targetSearchRange;
         if (target instanceof ServerPlayer player) {
             DemonLordState state = DemonLordStates.get(player.getUUID());
+            double keepRange = Math.max(DEMON_LORD_AGGRO_KEEP_RANGE, targetSearchRange);
             return state != null
                     && state.inCombat()
                     && state.canFight(runtimeMonster)
-                    && distanceToSqr(target) <= leashRangeSqr;
+                    && (!onGround() || distanceToSqr(target) <= keepRange * keepRange);
         }
         if (!(target instanceof LaneDefenseEntity defenseEntity)) {
             return true;
         }
         return defenseEntity.defendsLane(runtimeMonster.targetLaneId()) && distanceToSqr(target) <= leashRangeSqr;
+    }
+
+    public void setAttackStyle(MonsterAttackStyle attackStyle) {
+        this.attackStyle = attackStyle;
+    }
+
+    public MonsterAttackStyle attackStyle() {
+        return attackStyle;
+    }
+
+    /**
+     * 공격 한 번을 시작합니다. 공격 방식이 있으면 애니메이션에서 무기가 닿는 틱까지 기다렸다 때리고,
+     * 없으면 예전처럼 바로 때립니다. 은신 유닛은 공격하는 동안 드러납니다.
+     */
+    public void startAttack(LivingEntity target) {
+        playAnimation(SemionAnimationState.ATTACK);
+        if (attackStyle == null) {
+            MonsterAttackStyle.strike(this, target, attackDamageAmount());
+            return;
+        }
+        if (pendingHitTick >= 0) {
+            // 공격 속도가 올라 앞 공격의 타격 틱보다 먼저 다음 공격이 시작되면, 앞 타격을 지금 넣고 넘어갑니다.
+            pendingHitTick = tickCount;
+            tickPendingHit();
+        }
+        int delay = Math.max(0, attackStyle.hitDelayTicks());
+        revealFor(delay + STEALTH_REVEAL_AFTER_ATTACK_TICKS);
+        if (delay == 0) {
+            attackStyle.hit(this, target);
+            return;
+        }
+        pendingHitTarget = target;
+        pendingHitTick = tickCount + delay;
+    }
+
+    public boolean hasPendingHit() {
+        return pendingHitTick >= 0;
+    }
+
+    private void tickPendingHit() {
+        if (pendingHitTick < 0 || tickCount < pendingHitTick) {
+            return;
+        }
+        LivingEntity target = pendingHitTarget;
+        pendingHitTarget = null;
+        pendingHitTick = -1;
+        // 휘두르는 도중 기절하면 헛손질입니다. 대상이 죽었으면 방식에 따라 주변만 맞을 수 있습니다.
+        if (isAlive() && !isStunned() && attackStyle != null) {
+            attackStyle.hit(this, target);
+        }
+    }
+
+    /** 공격을 마친 은신 유닛이 다시 숨기까지의 틱. */
+    public static final int STEALTH_REVEAL_AFTER_ATTACK_TICKS = 20;
+
+    public void setStealthCapable(boolean stealthCapable) {
+        this.stealthCapable = stealthCapable;
+    }
+
+    /** 은신 중이면 타워가 이 몬스터를 공격 대상으로 고를 수 없습니다(범위 공격에는 맞습니다). */
+    /**
+     * 한 플레이어에게만 보내는 발광 표시 패킷. Blockbench 모델이면 모델을 이루는 디스플레이마다 발광과 발광 색을,
+     * 바닐라 모습이면 이 엔티티의 발광 비트를 바꿉니다(바닐라 모습의 색은 팀 색이라 호출하는 쪽이 팀 패킷을 따로 보냅니다).
+     * 끌 때는 지금 값으로 되돌려, 원래 켜져 있던 발광이나 투명은 그대로 둡니다.
+     */
+    public List<net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket> markGlowPackets(boolean on, int color) {
+        List<net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket> packets = new ArrayList<>();
+        if (holder != null) {
+            for (var element : holder.getElements()) {
+                if (element instanceof eu.pb4.polymer.virtualentity.api.elements.DisplayElement display) {
+                    byte flags = display.getDataTracker().get(eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS);
+                    packets.add(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(display.getEntityId(), List.of(
+                            net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                                    eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS,
+                                    on ? (byte) (flags | 0x40) : flags),
+                            net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                                    eu.pb4.polymer.virtualentity.api.tracker.DisplayTrackedData.GLOW_COLOR_OVERRIDE,
+                                    on ? color : display.getGlowColorOverride()))));
+                }
+            }
+        } else {
+            byte flags = entityData.get(DATA_SHARED_FLAGS_ID);
+            packets.add(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(getId(), List.of(
+                    net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
+                            DATA_SHARED_FLAGS_ID, on ? (byte) (flags | 0x40) : flags))));
+        }
+        return packets;
+    }
+
+    /** Blockbench 모델로 보이는지. 아니면 바닐라 모습(발광 색이 팀 색)입니다. */
+    public boolean usesModelVisual() {
+        return holder != null;
+    }
+
+    public boolean isStealthed() {
+        return stealthCapable && isAlive() && tickCount >= revealedUntilTick;
+    }
+
+    public void revealFor(int ticks) {
+        revealedUntilTick = Math.max(revealedUntilTick, tickCount + Math.max(0, ticks));
+    }
+
+    private void tickStealthVisual() {
+        if (!stealthCapable || holder == null) {
+            return;
+        }
+        boolean hidden = isStealthed();
+        if (hidden == stealthVisualApplied) {
+            return;
+        }
+        stealthVisualApplied = hidden;
+        if (hidden) {
+            visibleScale = holder.getScale();
+            // 디스플레이는 투명도를 못 바꾸므로 모델을 아주 작게 줄여 숨깁니다. 이름표도 같이 감춥니다.
+            holder.setScale(0.001F);
+            setCustomNameVisible(false);
+        } else {
+            holder.setScale(visibleScale);
+            setCustomNameVisible(true);
+        }
+        if (level() instanceof ServerLevel serverLevel) {
+            kim.biryeong.semiontd.summon.invasion.InvasionVfx.stealthPuff(serverLevel, position(), hidden);
+        }
+    }
+
+    public void setIgnoresDefenses(boolean ignoresDefenses) {
+        this.ignoresDefenses = ignoresDefenses;
+    }
+
+    public boolean ignoresDefenses() {
+        return ignoresDefenses;
+    }
+
+    /** 이 몬스터가 레인을 지키는 대상(타워·마왕)을 때릴 수 있는지. 사거리 제한 없이 범위 공격에 씁니다. */
+    public boolean canDamageDefense(LivingEntity target) {
+        if (runtimeMonster == null || target == null || !target.isAlive() || target.isRemoved() || ignoresDefenses) {
+            return false;
+        }
+        if (target instanceof ServerPlayer player) {
+            DemonLordState state = DemonLordStates.get(player.getUUID());
+            return state != null && state.inCombat() && state.canFight(runtimeMonster);
+        }
+        return target instanceof LaneDefenseEntity defenseEntity && defenseEntity.defendsLane(runtimeMonster.targetLaneId());
     }
 
     public double defenseTargetSearchRange() {
@@ -312,6 +525,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
         hurt(damageSource, (float) appliedDamage);
         if (runtimeMonster.health() <= 0.0) {
+            showDeathVisual();
             discard();
             return new AppliedDamageResult(true, result.healthDamageAttempted(), appliedDamage, result.absorbedDamage());
         }
@@ -412,15 +626,41 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         if (animationState == null) {
             return;
         }
-        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL)) {
+        boolean oneShot = isOneShot(animationState);
+        if (holder == null && animationState == SemionAnimationState.ATTACK && polymerEntityType == EntityType.CREAKING) {
+            // 바닐라 모습의 크리킹은 엔티티 이벤트 4로 팔 휘두르기 동작을 봅니다.
+            level().broadcastEntityEvent(this, (byte) 4);
+        }
+        if (holder != null && (this.animationState != animationState || oneShot)) {
+            boolean oneShotRunning = tickCount < oneShotEndTick;
             for (SemionAnimationState state : SemionAnimationState.values()) {
-                if (state != animationState) {
-                    holder.getAnimator().pauseAnimation(state.animationId());
+                // 공격 직후 쿨다운 동안 대기·걷기로 돌아와도, 돌고 있는 공격·치유 동작은 끝까지 두어 위에 겹쳐 보이게 합니다.
+                // 예전에는 바로 다음 틱에 멈춰서 공격 모션이 한 틱만 보였습니다.
+                if (state == animationState || (isOneShot(state) && !oneShot && oneShotRunning)) {
+                    continue;
                 }
+                holder.getAnimator().pauseAnimation(state.animationId());
             }
-            holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL ? 10 : 1, true);
+            holder.getAnimator().playAnimation(animationState.animationId(), oneShot ? 10 : 1, true);
+            if (oneShot) {
+                de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
+                oneShotEndTick = tickCount + (animation == null ? 0 : animation.duration());
+            }
         }
         this.animationState = animationState;
+    }
+
+    private static boolean isOneShot(SemionAnimationState state) {
+        return state == SemionAnimationState.ATTACK || state == SemionAnimationState.HEAL;
+    }
+
+    /** 죽은 자리에 모델만 남겨 사망 애니메이션을 한 번 보여 줍니다(모델에 death가 있을 때). */
+    public void showDeathVisual() {
+        if (deathVisualShown || holder == null || !(level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        deathVisualShown = true;
+        BilDeathVisual.spawn(serverLevel, position(), yBodyRot, holder.getModel(), holder.getScale());
     }
 
     public double attackRange() {
@@ -808,6 +1048,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         SemionBilModelCache.load(modelId).ifPresent(model -> {
             holder = new LivingEntityHolder<>(this, model);
             holderAttachment = EntityAttachment.ofTicking(holder, this);
+            // 새 모델에는 아직 아무 애니메이션도 돌지 않습니다. playAnimation은 같은 상태면 건너뛰므로, 지금 상태(처음엔 idle)를
+            // 여기서 바로 틀어야 가만히 선 몹이 기본 자세(팔을 늘어뜨리고 무기를 눕힌 모습)로 굳지 않습니다.
+            holder.getAnimator().playAnimation(animationState.animationId(), 1, true);
         });
     }
 

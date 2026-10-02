@@ -5,16 +5,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 
 /**
- * The ten demon lord skills.
+ * The demon lord skills.
  *
- * <p>Unlike every other builder, a demon lord tower never fights. It exists only to hand its skill
- * to the owning player, who is the actual weapon. Each skill therefore owns a fixed hotbar slot:
- * slots 0-2 stay with the shared match tools, slots 3-7 hold whichever skills the player bought,
- * and slot {@link #BLADE_SLOT} always holds the 마검 the hand snaps back to after a cast.
+ * <p>Skills are bought straight into a key slot ({@link DemonLordBinding}) from the [스킬 배정]
+ * window. They do not occupy the tower limit; slot {@link #BLADE_SLOT} always holds the 마검 the
+ * hand snaps back to after a cast.
  *
- * <p>{@link #slotCost()} is the builder's "코스트" and feeds the existing
- * {@code towerSlotCost} capacity system, so the round tower limit decides how many skills can be
- * live at once. All ten together cost 32, which is far more than an early limit allows.
+ * <p>{@link #slotCost()} is the old altar 코스트. It only survives as the {@code towerSlotCost}
+ * value in the balance file so existing configs still load; nothing charges it any more.
  */
 public enum DemonLordSkill {
     WAVE_OF_MALICE("wave_of_malice", "악의 파동", 3, 8, Items.BREEZE_ROD),
@@ -26,7 +24,10 @@ public enum DemonLordSkill {
     SOUL_DRAIN("soul_drain", "영혼 흡수", 2, 9, Items.GHAST_TEAR),
     ROAR_OF_DREAD("roar_of_dread", "공포의 포효", 3, 14, Items.GOAT_HORN),
     GRIP_OF_DOOM("grip_of_doom", "파멸의 손아귀", 4, 12, Items.WITHER_SKELETON_SKULL),
-    HELL_GUILLOTINE("hell_guillotine", "지옥의 단두대", 4, 13, Items.NETHERITE_AXE);
+    HELL_GUILLOTINE("hell_guillotine", "지옥의 단두대", 4, 13, Items.NETHERITE_AXE),
+    RIFT_CLEAVE("rift_cleave", "균열참", 3, 11, Items.GOLDEN_SWORD),
+    SUMMON_FIEND("summon_fiend", "마수 소환", 3, 18, Items.BONE),
+    ABYSS_VORTEX("abyss_vortex", "심연 소용돌이", 4, 16, Items.ENDER_EYE);
 
     /** Hotbar slot the hand is forced back to after a cast. Holds the 마검. */
     public static final int BLADE_SLOT = 8;

@@ -341,13 +341,13 @@
 | `plant_global` | `soilPulseIntervalTicks`, `soilAuraMinRadius` | 지형 효과 갱신 주기와 최소 적용 반경입니다. |
 | 민들레 계열 id | `diamondPerWave` | 팀이 웨이브를 마칠 때 살아 있고 잔디 위에 있는 타워가 지급하는 다이아입니다. 샌드박스 라운드 이동은 정산하지 않습니다. |
 | `plant_global` | `environmentTickIntervalTicks` | 환경 효과 적용 주기입니다. 타워와 무관하게 돕니다. |
-| `plant_soil_mycelium` | `environmentWeakness`, `environmentDamageTakenBonus`, `environmentDurationTicks` | 균사 위 적의 공격력 감소, 받는 타워 피해 증가, 지속 시간입니다. 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증도 지형이 담당합니다. |
+| `plant_soil_mycelium` | `environmentWeakness`, `damageTakenBonusPerTile`, `damageTakenBonusCap`, `environmentDurationTicks` | 균사 위 적의 공격력 감소와 지속 시간, 그리고 균사 칸 수에 비례해 라인의 모든 적(균사를 밟지 않아도)이 받는 타워 피해 증가(칸당·상한)입니다. 균사 전투 타워는 지뢰라 상주하지 않으므로 딜증도 지형이 담당합니다. |
 | 균사 계열 id | `triggerRadius`, `triggerIntervalTicks` | 지뢰 발동 반경과 확인 주기입니다. |
 | 균사 계열 id | `fuseTicks` | 밟은 뒤 터지기까지의 도화선 길이입니다. 점화 순간 섬광 파티클이 한 번 뜨고, 이 시간이 지나야 폭발합니다. **폭발 판정은 터지는 시점에 다시 잡으므로 그 사이에 빠져나간 적은 맞지 않습니다.** 0 은 즉발이라 거부됩니다 — 밟는 순간 이미 맞은 뒤면 피할 여지가 없습니다. |
 | 균사 계열 id | `explosionRadius`, `explosionDamageMultiplier`, `explosionHealthRatio` | 폭발 반경, 공격력 배율, 남은 체력 반영 비율입니다. 실제 피해는 `(damage × 배율 + 현재 체력 × 체력 비율) × (1+개화)`입니다. |
 | 균사 계열 id | `explosionMoveSpeedReduction`, `explosionDisableTicks` | 폭발 둔화율과 무력화 시간입니다. 무력화 동안 공격 속도·공격력이 100% 깎입니다. 지뢰는 **라운드당 한 번**만 터지므로 이 시간이 그대로 라운드당 무력화 총량입니다. 라운드 안에서 다시 장전하는 값은 일부러 두지 않았습니다 — 재장전보다 무력화가 길면 그 길목의 적이 영영 공격하지 못합니다. |
 | `plant_soil_desert` | `environmentAttackSpeedReduction` | 사암 위 적의 공격 속도 감소입니다. |
-| `plant_soil_desert` | `environmentMaxHealthDamagePerSecond` | 사암 위 적이 초당 잃는 **최대 체력 비율**입니다. 펄스 간격을 바꿔도 초당 피해량은 유지됩니다. |
+| `plant_soil_desert` | `maxHealthDamagePerSecondPerTile`, `maxHealthDamagePerSecondCap` | 라인의 모든 적(사암을 밟지 않아도)이 초당 잃는 **최대 체력 비율**입니다. 사암 칸 수에 비례하고(칸당·상한), 피해는 살아 있는 사암 테라포머의 것으로 칩니다. 펄스 간격을 바꿔도 초당 피해량은 유지됩니다. |
 | `plant_soil_meadow` | `supportRadius`, `healPercentPerPulse` | 잔디 지원 범위와 펄스마다 주변 아군을 회복시키는 최대 체력 비율입니다. |
 | `plant_global` | `meadowHealOverlapReduction` | 한 대상을 여러 잔디가 함께 회복시킬 때 **두 번째부터** 깎는 비율입니다(기본 50%). 겹치기 자체는 유효하되 잔디 개수만큼 회복이 선형으로 늘어나지 않게 합니다. 겹침 판정 창은 `soilPulseIntervalTicks` 를 그대로 씁니다 — 잔디들의 펄스는 서로 맞춰져 있지 않아 "같은 펄스"라는 것이 없기 때문입니다. |
 | `plant_soil_meadow` | `maxHealthGrowthPerRound`, `maxHealthGrowthCap` | 잔디 성장. 라운드당 최대 체력 증가와 누적 상한입니다. |
@@ -366,14 +366,15 @@
 
 ## 마왕 빌더
 
-마왕은 타워가 아니라 플레이어가 싸우므로, `towers`의 전투 수치는 전부 0입니다. 실제 값은 제단별
-`abilities`와 전역 `demon_lord_global`에 있습니다. 제단 id는 `t{1..4}_{스킬키}_tower` 형식이며
+마왕은 타워가 아니라 플레이어가 싸우므로, `towers`의 전투 수치는 전부 0입니다. 실제 값은 스킬 티어별
+`abilities`와 전역 `demon_lord_global`에 있습니다. 스킬은 레인에 짓지 않고 [스킬 배정] 창에서 키 슬롯에
+사며, 1티어 구매가는 그 티어의 `mineralCost`, 업그레이드는 `upgradeCosts`를 그대로 씁니다. 제단 id는 `t{1..4}_{스킬키}_tower` 형식이며
 스킬 키는 `wave_of_malice`, `demon_wings`, `sky_breaker`, `arcane_bombardment`, `demon_barrier`,
 `hellfire_brand`, `soul_drain`, `roar_of_dread`, `grip_of_doom`, `hell_guillotine`입니다.
 
 | config id | 주요 키 | 의미 |
 |---|---|---|
-| 제단 id 전체 | `towerSlotCost` | 빌더의 "코스트". 라운드 타워 한도를 이만큼 차지합니다. 티어가 올라도 바뀌지 않습니다. |
+| 제단 id 전체 | `towerSlotCost` | 예전 제단의 "코스트"입니다. 스킬이 타워 수를 차지하지 않게 되면서 더 이상 쓰지 않지만, 기존 설정이 그대로 읽히도록 남겨 둡니다. |
 | 제단 id 전체 | `cooldownTicks` | 스킬 쿨타임입니다. 기본값은 티어마다 1초씩 줄어듭니다. |
 | `demon_lord_global` | `baseMaxHealth`, `maxHealthPerLevel`, `maxLevel` | 마왕 체력 곡선입니다. 기본 450, 레벨당 +52.5, 만렙 30입니다. |
 | `demon_lord_global` | `experiencePerMaxHealth`, `experienceBase`, `experienceGrowth` | 처치 경험치입니다. 처치 대상 최대 체력에 비례하며, 다음 레벨 요구량은 `experienceBase × experienceGrowth^(레벨-1)`입니다. |
@@ -386,6 +387,7 @@
 | `demon_lord_global` | `statCooldownHalvingPoints` | 쿨감은 선형이 아니라 이 포인트마다 절반이 되는 곱연산입니다(기본 40 → 50%, 80 → 25%). 0 에 닿지 않습니다. **다른 스탯보다 포인트를 많이 요구하는 것은 의도된 것입니다** — 쿨감은 모든 스킬에 한꺼번에 곱해지고 딜뿐 아니라 생존기·이동기 회전율까지 같이 올려서, 같은 효율로 두면 다른 선택지가 존재할 이유가 없어집니다. |
 | `demon_lord_global` | `statSkillRangePerPoint` | 포인트당 스킬 거리 증가입니다(기본 +3%p). 사거리·반경·돌진 거리 같은 거리 계열 값 전부에 곱해집니다. |
 | `demon_lord_global` | `statMoveSpeedPerPoint`, `statMoveSpeedCap` | 포인트당 이동 속도 증가와 상한입니다. 물약 효과가 아니라 일시 속성 수정자라 등급 단위(20%)가 아닌 잔단위를 표현할 수 있습니다. |
+| `demon_lord_global` | `autoIncomeThreshold` | 인컴 자동 전송 기준(0~1)입니다. 에메랄드가 라운드 한도의 이 비율 이상이면 살 수 있는 가장 비싼 인컴 유닛을 보냅니다. 기본 0.7이며, 플레이어가 [인컴 설정] 막대로 고르면 그 값이 우선합니다. |
 | `..._wave_of_malice_tower` | `coneDegrees`, `range`, `damage`, `knockback` | 전방 부채꼴 각도·거리·피해·넉백입니다. |
 | `..._demon_wings_tower` | `leapPower`, `radius`, `damage`, `knockback`, `healRatio` | 도약력, 광역 반경, 피해, 넉백, 최대 체력 대비 회복량입니다. |
 | `..._sky_breaker_tower` | `dashDistance`, `hitRadius`, `damage`, `liftPower`, `stunTicks` | 돌진 거리, 경로 판정 반경, 피해, 띄우기 세기, 기절 시간입니다. 기절은 이동·공격 속도·공격력을 100% 깎습니다. |
@@ -407,9 +409,8 @@
 | `..._hell_guillotine_tower` | `range`, `radius`, `damage` | 순간이동 사거리, 착지 광역 반경, 기본 피해입니다. |
 | `..._hell_guillotine_tower` | `missingHealthDamageBonus` | **마왕 자신이** 잃은 체력 비율에 곱해지는 최대 피해 증가폭입니다. 빈사에서 `기본 × (1 + 이 값)`이 됩니다. 손아귀와 달리 시전자 기준인 점에 주의합니다. |
 
-스킬 10종을 전부 열면 코스트 합이 32입니다. 이 값을 바꾸면
-`DemonLordTowerCatalogTest`의 `skillCostsMatchTheDesignedValues`와
-`openingEverySkillCostsMoreThanAnEarlyTowerLimit`도 함께 갱신합니다.
+`towerSlotCost`는 `DemonLordTowerCatalogTest`의 `skillCostsMatchTheDesignedValues`가 여전히 검사하므로,
+바꾸면 그 테스트도 함께 갱신합니다.
 
 > **주의**: `tower_balance.json`은 번들 리소스가 코드 기본값과 **병합되지 않고 통째로 대체**합니다.
 > Java의 `putDemonLordAbilities`만 고치면 런타임에서 값이 폴백으로 떨어지며 컴파일로는 잡히지 않습니다.

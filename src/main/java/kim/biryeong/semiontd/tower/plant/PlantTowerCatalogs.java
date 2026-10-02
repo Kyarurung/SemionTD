@@ -50,6 +50,9 @@ public final class PlantTowerCatalogs {
         registerTower(PlantTowers.T3_PANDA_TOWER, PandaTower::new, 3);
         registerTower(PlantTowers.T4_PANDA_TOWER, PandaTower::new, 4);
 
+        // 정원사 - 한 명에 하나인 엘리트 타워. 티어 업그레이드 없이 스킬을 강화합니다.
+        registerTower(PlantTowers.GARDENER_TOWER, GardenerTower::new, 1);
+
         link(PlantTowers.T1_OAK_SEED_TOWER, PlantTowers.T2_OAK_SEED_TOWER);
         link(PlantTowers.T2_OAK_SEED_TOWER, PlantTowers.T3_OAK_SEED_TOWER);
         link(PlantTowers.T1_MUSHROOM_SPORE_TOWER, PlantTowers.T2_MUSHROOM_SPORE_TOWER);

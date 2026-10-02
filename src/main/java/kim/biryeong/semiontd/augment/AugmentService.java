@@ -377,7 +377,9 @@ public final class AugmentService {
         }
         JobContext context = new JobContext(game, player);
         var job = player.job().orElse(JobRegistry.defaultJob());
-        return game.summonShop().all().stream().filter(type -> job.canUseSummon(context, type))
+        return game.summonShop().all().stream()
+                .filter(type -> !kim.biryeong.semiontd.tower.income.IncomeTowerBalance.isUnit(type.id()))
+                .filter(type -> job.canUseSummon(context, type))
                 .filter(type -> {
                     long cost = Math.max(0, job.modifySummonGasCost(context, type, type.gasCost()));
                     long income = Math.max(0, job.modifySummonIncomeGain(context, type, type.incomeGain()));
