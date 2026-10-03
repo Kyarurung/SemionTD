@@ -180,6 +180,14 @@ public record SemionPlayerProfile(
         );
     }
 
+    public SemionPlayerProfile takeCosmeticCurrency(String playerName, long amount) {
+        if (amount <= 0 || amount > cosmeticCurrency) {
+            throw new IllegalArgumentException("Cosmetic currency removal must be positive and covered by the balance.");
+        }
+        return copy(playerName == null ? "" : playerName, cosmeticCurrency - amount,
+                ownedCosmeticIds, selectedCosmeticIds, selectedJobId, selectedSkyboxId, tipsEnabled, recentBuildCodes);
+    }
+
     public SemionPlayerProfile rememberRecentBuildCode(String playerName, String code) {
         String normalized = playerName == null ? "" : playerName;
         String normalizedCode = code == null ? "" : code.trim().toUpperCase(java.util.Locale.ROOT);

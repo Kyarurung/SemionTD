@@ -10,6 +10,7 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.command.CommandCosmeticPointsTest",
       "kim.biryeong.semiontd.gametest.BugReportGameTest",
       "kim.biryeong.semiontd.gametest.BalanceRuntimeGameTest",
       "kim.biryeong.semiontd.tower.blueprint.BlueprintTowerBuilderTest",

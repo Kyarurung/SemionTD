@@ -97,6 +97,14 @@ public final class ProgressionService {
         return store.putProfilePersisted(playerId, updated) ? Optional.of(updated) : Optional.empty();
     }
 
+    public synchronized ProgressionCurrencyChange changeCosmeticCurrency(
+            Map<UUID, String> targets,
+            long amount,
+            ProgressionCurrencyChange.Operation operation
+    ) {
+        return store.changeCosmeticCurrency(targets, amount, operation);
+    }
+
     public synchronized CosmeticUpdateResult purchaseCosmetic(UUID playerId, String playerName, String cosmeticId, long price) {
         SemionPlayerProfile current = store.getOrCreateProfile(playerId, playerName);
         if (current.ownsCosmetic(cosmeticId)) {

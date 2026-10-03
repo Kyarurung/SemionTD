@@ -98,6 +98,7 @@ import kim.biryeong.semiontd.trait.TraitSelectionSession;
 import kim.biryeong.semiontd.trait.TraitSlot;
 import kim.biryeong.semiontd.trait.TraitVfx;
 import kim.biryeong.semiontd.ui.SemionText;
+import kim.biryeong.semiontd.progression.ProgressionCurrencyChange;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -1403,6 +1404,9 @@ public final class SemionCommands {
         return literal(rootName)
                 .executes(context -> openCosmeticShop(context.getSource(), cosmeticService))
                 .then(literal("points")
+                        .then(CommandCosmeticPoints.take(gameManager))
+                        .then(CommandCosmeticPoints.all("giveall", gameManager, ProgressionCurrencyChange.Operation.GIVE))
+                        .then(CommandCosmeticPoints.all("takeall", gameManager, ProgressionCurrencyChange.Operation.TAKE))
                         .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(literal("give")
                                 .then(argument("player", GameProfileArgument.gameProfile())

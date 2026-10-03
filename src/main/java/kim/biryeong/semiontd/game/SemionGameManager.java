@@ -55,6 +55,7 @@ import kim.biryeong.semiontd.persistence.SemionPersistenceConfig;
 import kim.biryeong.semiontd.progression.MatchProgressionReward;
 import kim.biryeong.semiontd.progression.HeroCompanionSkinPreference;
 import kim.biryeong.semiontd.progression.ProgressionService;
+import kim.biryeong.semiontd.progression.ProgressionCurrencyChange;
 import kim.biryeong.semiontd.progression.SemionPlayerProfile;
 import kim.biryeong.semiontd.rating.PlayerRatingProfile;
 import kim.biryeong.semiontd.rating.RatingAdjustment;
@@ -627,6 +628,13 @@ public final class SemionGameManager {
     public boolean saveBlueprints(UUID playerId, String playerName,
             java.util.List<kim.biryeong.semiontd.tower.blueprint.BlueprintDesign> designs) {
         return progressionService.saveBlueprints(playerId, playerName, designs);
+    }
+
+    public ProgressionCurrencyChange changeCosmeticCurrency(
+            Map<UUID, String> targets, long amount,
+            ProgressionCurrencyChange.Operation operation
+    ) {
+        return progressionService.changeCosmeticCurrency(targets, amount, operation);
     }
 
     public Optional<SemionPlayerProfile> grantCosmeticCurrency(UUID playerId, String playerName, long amount) {
