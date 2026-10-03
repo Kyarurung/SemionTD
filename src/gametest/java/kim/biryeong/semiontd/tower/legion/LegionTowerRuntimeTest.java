@@ -148,20 +148,21 @@ public final class LegionTowerRuntimeTest extends GameTestParticipantFixture {
         context.succeed();
     }
 
-    @GameTest(maxTicks = 80)
+    @GameTest(maxTicks = 80, structure = "semion-td-gametest:combat_arena")
     public void illusionCloneAttacksSharedSourceTargetInsteadOfScanningOwnTarget(GameTestHelper context) {
         UUID playerId = stableUuid("red-clone-shared-target-owner");
-        Vec3 origin = Vec3.atCenterOf(context.absolutePos(BlockPos.ZERO));
+        BlockPos anchor = new BlockPos(8, 0, 8);
+        Vec3 origin = Vec3.atCenterOf(context.absolutePos(anchor));
         TowerType sourceType = new TowerType("shared_target_source", "Shared Target Source", TowerCategory.DIRECT, 0, 50.0, 6.0, 0.0, 100, 0);
         TowerType cloneType = new TowerType("shared_target_clone", "Shared Target Clone", TowerCategory.DIRECT, 0, 50.0, 6.0, 10.0, 10, 0);
         SemionTowerEntity sourceEntity = new SemionTowerEntity(SemionEntityTypes.TOWER, context.getLevel());
-        sourceEntity.configure(new TestTower(sourceType, playerId, TeamId.RED, 1, GridPosition.from(context.absolutePos(BlockPos.ZERO))), null);
+        sourceEntity.configure(new TestTower(sourceType, playerId, TeamId.RED, 1, GridPosition.from(context.absolutePos(anchor))), null);
         sourceEntity.setNoAi(true);
         sourceEntity.setPos(origin);
         context.getLevel().addFreshEntity(sourceEntity);
 
         SemionTowerEntity cloneEntity = new SemionTowerEntity(SemionEntityTypes.TOWER, context.getLevel());
-        cloneEntity.configure(new TestTower(cloneType, playerId, TeamId.RED, 1, GridPosition.from(context.absolutePos(BlockPos.ZERO.east(4)))), null);
+        cloneEntity.configure(new TestTower(cloneType, playerId, TeamId.RED, 1, GridPosition.from(context.absolutePos(anchor.east(4)))), null);
         cloneEntity.useAttackTargetFrom(sourceEntity);
         cloneEntity.setPos(origin.add(4.0, 0.0, 0.0));
         context.getLevel().addFreshEntity(cloneEntity);
