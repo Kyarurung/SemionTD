@@ -367,68 +367,9 @@ public final class DemonLordService {
         if (layout == null) {
             return;
         }
-        Vec3 centre = laneCentre(layout);
+        Vec3 centre = DemonLordLaneGeometry.laneCentre(layout);
         player.teleportTo(centre.x, centre.y, centre.z);
         setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
-    }
-
-    /**
-     * Middle of the player's own lane.
-     *
-     * <p>Not {@code positionAt(0.5)}: {@link LaneRegionLayout#pathPoints()} runs lane spawn ->
-     * lane waypoints -> the shared final waypoints -> the central boss spawn, so half way along it
-     * lands outside the lane entirely. Only the stretch that is actually inside {@code lane_path}
-     * counts, which keeps the drop on walkable path rather than on the lane area's bounding box
-     * centre (an L-shaped lane would put that inside a wall).
-     */
-    private static Vec3 laneCentre(LaneRegionLayout layout) {
-        List<Vec3> inside = layout.pathPoints().stream()
-                .filter(point -> containsHorizontally(layout.laneArea(), point))
-                .toList();
-        if (inside.size() == 1) {
-            return inside.getFirst();
-        }
-        if (inside.size() >= 2) {
-            return midpointAlong(inside);
-        }
-        BlockBounds area = layout.laneArea();
-        return new Vec3(
-                (area.min().getX() + area.max().getX() + 1.0) / 2.0,
-                layout.spawn().y,
-                (area.min().getZ() + area.max().getZ() + 1.0) / 2.0
-        );
-    }
-
-    private static Vec3 midpointAlong(List<Vec3> points) {
-        double total = 0.0;
-        for (int i = 0; i < points.size() - 1; i++) {
-            total += points.get(i).distanceTo(points.get(i + 1));
-        }
-        if (total <= 0.0) {
-            return points.getFirst();
-        }
-        double target = total / 2.0;
-        double walked = 0.0;
-        for (int i = 0; i < points.size() - 1; i++) {
-            Vec3 from = points.get(i);
-            Vec3 to = points.get(i + 1);
-            double segment = from.distanceTo(to);
-            if (segment <= 0.0) {
-                continue;
-            }
-            if (walked + segment >= target) {
-                return from.lerp(to, (target - walked) / segment);
-            }
-            walked += segment;
-        }
-        return points.getLast();
-    }
-
-    private static boolean containsHorizontally(BlockBounds area, Vec3 point) {
-        return point.x >= area.min().getX()
-                && point.x < area.max().getX() + 1.0
-                && point.z >= area.min().getZ()
-                && point.z < area.max().getZ() + 1.0;
     }
 
     public static void clearBossBar(UUID playerId) {
@@ -660,8 +601,8 @@ public final class DemonLordService {
         }
         if (!lane.clearedThisRound()) {
             // 경계 없는 마왕은 라인 밖으로 나가 아군 라인을 도울 수 있습니다.
-            if (!state.boundless() && !containsHorizontally(layout.laneArea(), player.position())) {
-                teleport(player, laneCentre(layout));
+            if (!state.boundless() && !DemonLordLaneGeometry.containsHorizontally(layout.laneArea(), player.position())) {
+                teleport(player, DemonLordLaneGeometry.laneCentre(layout));
             }
             return;
         }
@@ -763,7 +704,7 @@ public final class DemonLordService {
         if (player.getY() >= floor - FALL_RESCUE_DEPTH) {
             return;
         }
-        Vec3 centre = laneCentre(lane.laneLayout());
+        Vec3 centre = DemonLordLaneGeometry.laneCentre(lane.laneLayout());
         player.teleportTo(centre.x, centre.y, centre.z);
         player.setDeltaMovement(Vec3.ZERO);
         player.resetFallDistance();
@@ -806,7 +747,7 @@ public final class DemonLordService {
         if (layout != null) {
             to = state != null && state.centralDefense()
                     ? layout.clampToFinalDefenseTowerArea(to)
-                    : containsHorizontally(layout.laneArea(), to) ? to : from;
+                    : DemonLordLaneGeometry.containsHorizontally(layout.laneArea(), to) ? to : from;
         }
         return safeLanding(player, from, to);
     }

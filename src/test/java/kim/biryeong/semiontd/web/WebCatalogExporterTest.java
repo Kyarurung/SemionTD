@@ -323,6 +323,25 @@ final class WebCatalogExporterTest {
         );
     }
 
+    @Test
+    void writesIdenticalCurrentAndVersionBytesWithoutOverwritingAnExistingVersion() throws Exception {
+        ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
+        IncomeSummons.reloadBuiltIns(SummonConfig.defaultConfig());
+        var first = WebCatalogExporter.snapshot(1L);
+        WebCatalogExporter.writeDocument(tempDir, first);
+        Path version = tempDir.resolve("web_catalog/versions/" + first.versionHash() + ".json");
+        Path current = tempDir.resolve("web_catalog/current.json");
+        String original = Files.readString(version);
+        assertEquals(original, Files.readString(current));
+        var second = WebCatalogExporter.snapshot(2L);
+        assertEquals(first.versionHash(), second.versionHash());
+        WebCatalogExporter.writeDocument(tempDir, second);
+        assertEquals(original, Files.readString(version));
+        assertEquals(2L, new Gson().fromJson(Files.readString(current),
+                WebCatalogExporter.CatalogDocument.class).generatedAtEpochMillis());
+        assertEquals(first.versionHash(), WebCatalogExporter.currentVersion().orElseThrow());
+    }
+
     private static void assertExportedFamily(
             WebCatalogExporter.CatalogDocument document,
             String builderId,

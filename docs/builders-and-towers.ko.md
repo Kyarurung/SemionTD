@@ -1,6 +1,40 @@
 # 빌더와 타워
 
-이 문서는 현재 코드에 등록된 빌더와 타워 계열을 정리합니다. 기준 코드는 `JobRegistry`와 `ProductionTowerCatalogs.reloadBuiltIns(...)`입니다. 타워 수치, 특수 효과, 등록 API는 [프로덕션 타워 카탈로그](production-tower-catalog.ko.md)를 봅니다.
+이 문서는 현재 코드에 등록된 빌더와 타워 계열을 정리합니다. 기준 코드는 `JobRegistry`와 `ProductionTowerCatalogs.reloadBuiltIns(...)`입니다. 제작 API와 등록 예시는 [프로덕션 타워 카탈로그](production-tower-catalog.ko.md), 밸런스 기준은 [밸런스 문서](tower-balance-reference.ko.md)를 봅니다. 아래 계열 설명의 숫자는 제작용 고정 상수가 아닙니다. 실제 값은 로드된 설정을 사용하고, 새 설치의 기본값은 `src/main/resources/semiontd/balance-defaults/`와 대조합니다.
+
+## 현재 코드로 빌더 제작하기
+
+Minecraft 26.3 / Java 25를 기준으로 구현과 테스트를 함께 작성합니다. 공통 경로를 사용하면 설치·업그레이드·피해 집계·설명·웹 카탈로그의 규칙을 한곳에서 유지할 수 있습니다.
+
+| 제작 책임 | 사용할 경로 | 유지되는 계약 |
+|---|---|---|
+| 직업과 경기 상태 | `SemionJob`, `JobBuilderLifecycle`, `JobLaneLifecycle`, 계열별 상태 서비스 | 직업 정의와 이벤트 실행을 분리합니다. 가변 상태는 플레이어/경기에 귀속되며 공통 dispatch와 레인 전후 정리 순서를 보존합니다. |
+| 타입과 등록 | `TowerType`, 가족별 `*Towers` / `*TowerCatalogs`, `ProductionTowerCatalogs` | ID·스타터·업그레이드 그래프와 제작 팩토리를 명시합니다. |
+| 배치와 업그레이드 | `ProductionTowerService`, `Tower.copyFrom` | 권한·비용·원래/현재 위치·투자금 복사 경로를 재사용합니다. |
+| 전투와 범위 효과 | `ProductionTower`, `onAttackResolved`, `SemionTdApi.areaEffects()`, `TowerAreaDamage` | 피해 유형·출처·통계·처치 전달과 대상 필터를 함께 유지합니다. |
+| 수치와 표시 | `TowerBalanceRuntime`, `TowerDescriptionRegistry`, `runtimeDetailLines()`, `TowerVfxService` | 로드된 수치, 동적 상세 정보, 전용 빌더 팔레트를 같은 제작 흐름에서 연결합니다. |
+
+1. 가장 가까운 기존 계열의 정의·등록·런타임·테스트를 함께 읽습니다. 일반 공격 타워는 `ProductionTower`를 우선하며, 다른 수명이나 동작이 있을 때만 별도 책임으로 분리합니다.
+2. `TowerBalanceRuntime.resolve(...)`로 타입을 등록하고 모든 끝점을 등록한 뒤 업그레이드를 연결합니다. 비용은 `upgradeCost(from, upgradeId)`에서 읽습니다. 배치 가격을 업그레이드 가격으로 대신하지 않습니다.
+3. `canUseTower`는 실제 배치 허용, `includesTowerInCatalog`는 안정적인 카탈로그 소유권입니다. 상태에 따라 허용 여부가 달라져도 공개 타워의 소유 빌더는 하나여야 합니다.
+4. 계열별 구현과 테스트는 `tower/<family>`에 둡니다. 새 이름은 패키지·상위 책임·하위 책임 순서로 짓고 테스트는 `Test`로 끝냅니다. 예: `OceanTowerRuntimeTest`, `VillagerTowerAugmentCombatTest`, `BlueprintTowerModuleTest`.
+5. 해당 회귀 검사를 구현과 함께 갱신한 뒤 전체 `test runGameTest remapJar`를 실행합니다. 실제 클라이언트 렌더링과 다중 접속은 별도 검증이며, 운영 서버 시작·배포는 이 절차에 포함되지 않습니다.
+
+### 테스트 책임 나누기
+
+JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest/java/kim/biryeong/semiontd`에 둡니다. 파일 이름만으로 프레임워크를 바꾸지 않습니다.
+
+- `TowerBuilderCatalogContractTest`는 등록된 빌더를 순회해 생성 팩토리·소유권·좌표·업그레이드·투자금 복사를 검증합니다. 개별 빌더에는 고유 동작의 경계값과 실패 경로를 추가합니다.
+- 가족별 런타임/증강 테스트는 해당 가족 패키지에 둡니다. 실제 공통 참가자 규칙, 공통 증강 규칙, 빌더 간 대상 선택은 그 책임의 공통 테스트에 남깁니다.
+- `GameTestParticipantFixture`, `AugmentCombatFixture`, `AugmentControllerFixture`로 필요한 초기화만 공유합니다. 가족 하나만 쓰는 헬퍼는 그 테스트에 두고, 추상 fixture는 GameTest entrypoint로 등록하지 않습니다.
+- 구체 테스트 클래스는 `src/gametest/resources/fabric.mod.json`에 등록합니다. 이동할 때 메서드·어노테이션·호출 인터페이스·필터/참조를 보존하고 실행 결과에서 누락과 중복을 확인합니다.
+- `ConfigPublishedPatchContractTest`는 공식 적용 패치의 기본값·실제 설정 로딩·기존 사용자 오버라이드 보존을 검사합니다. 새 승인된 패치를 반영할 때 출처와 단위를 보존하고 행동 테스트도 함께 갱신합니다.
+
+### 공통 실행 비용을 늘리지 않기
+
+레인 등록·제거·교체 API를 사용해 순서와 멤버십을 함께 유지합니다. `PlayerLane`의 틱 스냅샷과 멤버십 확인은 콜백 중 제거·추가를 처리하므로 임의로 생략하지 않습니다. 범위 효과는 공용 API의 레인/소유자 필터를 재사용하고, 계열마다 월드 전체를 다시 검색하지 않습니다. 같은 입력을 공유할 수 있는 집계만 재사용하며 이동·업그레이드·사망·리로드 등 값이 변하는 지점의 갱신을 함께 설계합니다.
+
+책임 분리는 검증 범위를 명확히 하는 장점이고, 실행시간 단축은 별도 측정 결과입니다. 입력 수·호출 빈도·스냅샷/색인 비용을 포함해 동일 조건에서 비교하며, 합성 측정을 실제 전투 MSPT나 20 TPS 보장으로 확대하지 않습니다.
 
 ## 빌더 목록
 
@@ -26,12 +60,21 @@
 | `semion-td:future_agency_towers` | 미래기관 빌더 | 생존 요원과 정책을 누적한 뒤 세계 구원으로 왕귀합니다. | 미래기관 |
 | `semion-td:queen_towers` | 붉은 여왕 빌더 | 카드병정이 적을 약체화하고 자이언트가 처형합니다. | 붉은 여왕 |
 | `semion-td:hero_party` | 용사 빌더 | 용사와 네 동료가 장비·퀘스트로 함께 성장합니다. | 용사 파티 |
-| `semion-td:atlantis_towers` | 아틀란티스 빌더 | 수압과 해저 구역으로 적을 제압하고 아군을 지원합니다. | 아틀란티스 |
+| `semion-td:atlantis` | 아틀란티스 빌더 | 수압과 해저 구역으로 적을 제압하고 아군을 지원합니다. | 아틀란티스 |
 | `semion-td:plant_towers` | 식물 빌더 | 라인 바닥을 지형으로 바꾸고 그 위에만 식물을 심습니다. | 식물 |
 | `semion-td:army` | 군대 빌더 | 짬이 차면 공격을 덜 하고 대신 후임을 강하게 만듭니다. | 군대 |
 | `semion-td:thunder` | 람쥐썬더 빌더 | 전력 수급 균형 하나로 모든 타워의 성능이 동시에 정해집니다. | 람쥐썬더 |
 | `semion-td:demon_lord_towers` | 마왕 빌더 | 타워를 짓지 않고 스킬을 키 슬롯에 사서 플레이어가 직접 레인에서 싸웁니다. | 마왕 |
 | `semion-td:gamble_towers` | 겜블 빌더 | 라운드 지원 주사위와 무작위 능력치 도박으로 두 최종 전직을 노립니다. | 겜블 |
+| `semion-td:succubus` | 서큐버스 빌더 | 꿈과 수면을 누적해 아군을 강화하고 적을 처형합니다. | 서큐버스 |
+| `semion-td:body` | 신체 빌더 | 하나의 심장 박동에 맞춰 기관 타워들이 행동합니다. | 신체 |
+| `semion-td:pet_towers` | 반려동물 빌더 | 주인 주변에 반려를 배치하고 유대로 성장시킵니다. | 반려동물 |
+| `semion-td:developer` | 개발자 빌더 | 패치·버그·핫픽스로 타워를 조정하며 불안정을 관리합니다. | 개발자 |
+| `semion-td:frost` | 혹한 빌더 | 냉매와 빙결 장치로 적을 제어하고 전장을 냉각합니다. | 혹한 |
+| `semion-td:pirate` | 해적 빌더 | 준비 단계 투자와 수입·판매 반환을 조합합니다. | 해적 |
+| `semion-td:blueprint` | 빌더 빌더 | 능력치·외형·모듈을 조합한 자기 설계도로 타워를 만듭니다. | 설계도 |
+
+목록은 등록된 빌더를 설명합니다. 실제 선택 가능 여부는 `JobRegistry`의 availability 설정에 따르며, 설계도 타워는 `BlueprintStates`에서 동적으로 생성됩니다.
 
 다섯 신규 빌더의 핵심 컨셉과 유닛 역할은 [다섯 신규 빌더 컨셉 설명집](five-builders-player-guide.ko.md)에 정리되어 있습니다.
 
@@ -244,18 +287,15 @@
     터집니다. 폭발 판정은 터지는 시점에 다시 잡으므로 도화선이 타는 동안 빠져나간 적은 맞지
     않습니다. 점화된 뒤에는 적이 사라져도 취소하지 않습니다 — 취소를 허용하면 스치듯 지나가며
     무료로 예열해 두는 짓이 가능해집니다.
-    **한 라운드에 한 번만 터집니다.** 터진 뒤에는 그 라운드 동안 빈 껍데기로 남고, 라운드가 끝나면
-    한 단계씩 삭아 내려갑니다(뒤틀린 → 진홍빛 → 붉은). 붉은 버섯은 사라집니다. 소모 단위가 폭발
-    한 번에서 라운드 하나로 옮겨간 것이라, 뒤틀린 버섯을 심으면 세 라운드에 걸쳐 세 번 씁니다.
-    라운드 안에서 다시 장전하게 두면 지뢰 하나가 광역 기관총이 되고, 무력화 시간이 재장전보다
-    길면 그 길목의 적은 영영 공격하지 못합니다. 라운드당 한 번이면 그 두 가지를 값 조정 없이
-    구조로 막습니다.
+    기본 동작은 **라운드당 한 번 폭발하고 다음 라운드에 재장전**하는 것입니다.
+    반복 폭발 증강이 있으면 해당 증강의 횟수·재장전 시간·반복 피해 설정을 따릅니다.
+    `PlantMineTower.resetForRound`가 폭발 횟수와 점화·재장전 상태를 초기화합니다.
     **몬스터는 지뢰를 표적으로 삼지 않습니다**(`drawsAggro` false). 라운드 내내 남게 된 이상
     어그로를 끌면 지뢰가 사암 탱커보다 싼 고기방패가 됩니다 — 붉은 버섯은 30다이아에 체력 110으로
     죽은 덤불보다 다이아당 체력이 높습니다. 무적은 아니라서 광역 피해로는 깎이고, 깎이면 폭발도
     약해집니다.
-    삭히는 처리는 `PlantTowerJob.onRoundEnded`가 맡습니다 — 라운드 경계를 아는 쪽은 타워가 아니라
-    직업이고, `PlayerLane.resetForRound`는 타워 목록을 그대로 순회해 그 안에서 갈아 끼울 수 없습니다.
+    식물의 라운드 종료 수입은 공통 dispatch가 호출하는 `JobPlantLifecycle.onRoundEnded`에서
+    살아 있는 소유 타워의 `diamondPerWave`를 합산해 지급합니다. 지뢰 재장전과는 별도 책임입니다.
   - 사암: 전투 타워가 **스스로 공격하지 않습니다**(사거리 0). 대신 맞을 때마다
     `받은 피해 × thornReflectRatio + 자기 공격력`을 반사하고, 이 반사는 개화·취약 배율을 그대로 탑니다.
     **반사는 때린 그 적 하나에게만 갑니다. 광역이 아닙니다.**

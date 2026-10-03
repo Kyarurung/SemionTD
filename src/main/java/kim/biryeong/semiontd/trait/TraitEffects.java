@@ -216,9 +216,7 @@ public final class TraitEffects {
                 .filter(candidate -> Objects.equals(candidate.ownerPlayer(), tower.ownerPlayer()))
                 .filter(candidate -> Objects.equals(candidate.type().id(), tower.type().id()))
                 .count();
-        return sameTypeTowers
-                * value(BuiltInTraits.STRENGTH_IN_NUMBERS_ID, "damageBonusPerTower")
-                * effectScale(loadout, BuiltInTraits.STRENGTH_IN_NUMBERS_ID);
+        return sameTypeDamageBonus(loadout, sameTypeTowers);
     }
 
     public static double diversityDamageBonus(TraitLoadout loadout, PlayerLane lane, Tower tower) {
@@ -231,6 +229,16 @@ public final class TraitEffects {
                 .map(candidate -> candidate.type().id())
                 .distinct()
                 .count();
+        return diversityDamageBonus(loadout, distinctTypes);
+    }
+
+    static double sameTypeDamageBonus(TraitLoadout loadout, long sameTypeTowers) {
+        return sameTypeTowers
+                * value(BuiltInTraits.STRENGTH_IN_NUMBERS_ID, "damageBonusPerTower")
+                * effectScale(loadout, BuiltInTraits.STRENGTH_IN_NUMBERS_ID);
+    }
+
+    static double diversityDamageBonus(TraitLoadout loadout, long distinctTypes) {
         return distinctTypes
                 * value(BuiltInTraits.DIVERSITY_ID, "damageBonusPerType")
                 * effectScale(loadout, BuiltInTraits.DIVERSITY_ID);

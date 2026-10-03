@@ -57,9 +57,7 @@ public class BlueprintTower extends ProductionTower {
     private UUID focusTarget;
     private int focusStacks;
     private int frenzyStacks;
-    private int summonPulses;
-    /** 불러낸 하수인: 엔티티 id → 만료될 월드 틱. */
-    private final java.util.LinkedHashMap<Integer, Long> minions = new java.util.LinkedHashMap<>();
+    private final BlueprintTowerSummonController summons = new BlueprintTowerSummonController();
 
     public BlueprintTower(
             TowerType type,
@@ -438,7 +436,7 @@ public class BlueprintTower extends ProductionTower {
     @Override
     public void tick(PlayerLane lane) {
         // 수명은 소환자의 생존·수면·능력 재사용 대기시간과 무관하게 흐릅니다.
-        expireMinions(lane);
+        summons.expire(lane);
         super.tick(lane);
     }
 
@@ -461,7 +459,7 @@ public class BlueprintTower extends ProductionTower {
             reveal(entity);
         }
         if (level(BlueprintModule.SUMMON) > 0) {
-            summonMinion(lane, entity);
+            summons.summon(this, lane, entity);
         }
         if (pulseCount++ % AURA_EVERY_PULSES == 0) {
             if (level(BlueprintModule.HEAL_AURA) > 0) {
@@ -537,70 +535,9 @@ public class BlueprintTower extends ProductionTower {
                 .orElse(AreaEffectOutcome.UNCHANGED));
     }
 
-    /**
-     * 소환: 정한 주기마다 이 타워의 능력치 일부를 가진 하수인을 곁에 불러냅니다(모듈 없음, 판매·보상 없음). 하수인은 정한 시간이
-     * 지나거나 쓰러지면 사라지고, 라운드가 끝나거나 이 타워가 사라지면 함께 사라집니다.
-     */
-    private void expireMinions(PlayerLane lane) {
-        var world = lane.arenaWorld();
-        var iterator = minions.entrySet().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            var entity = world.getEntity(entry.getKey());
-            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || world.getGameTime() >= entry.getValue()
-                    || minion.runtimeTower() == null || minion.runtimeTower().health() <= 0.0) {
-                if (entity != null && !entity.isRemoved()) {
-                    entity.discard();
-                }
-                iterator.remove();
-            }
-        }
-    }
-
-    private void summonMinion(PlayerLane lane, SemionTowerEntity source) {
-        var world = lane.arenaWorld();
-        int interval = Math.max(1, (int) value(BlueprintModule.SUMMON, "intervalTicks") / PULSE_TICKS);
-        if (++summonPulses < interval || minions.size() >= (int) value(BlueprintModule.SUMMON, "count")) {
-            return;
-        }
-        summonPulses = 0;
-        double ratio = value(BlueprintModule.SUMMON, "statRatio");
-        TowerType source0 = type();
-        TowerType minionType = new TowerType(source0.id(), source0.displayName() + " 하수인", source0.category(), 0,
-                Math.max(1.0, currentMaxHealth() * ratio), source0.range(), source0.damage() * ratio,
-                source0.attackIntervalTicks(), source0.aggroPriority(), List.of(), source0.visual().withScale(0.7),
-                List.of(), source0.primaryDamageType());
-        double angle = source.getRandom().nextDouble() * Math.PI * 2.0;
-        net.minecraft.world.phys.Vec3 spawn = source.position().add(Math.cos(angle) * 1.2, 0.0, Math.sin(angle) * 1.2);
-        GridPosition grid = GridPosition.from(net.minecraft.core.BlockPos.containing(spawn.x, spawn.y - 1.0, spawn.z));
-        Tower minionTower = new kim.biryeong.semiontd.tower.legion.IllusionRuntimeTower(minionType, ownerPlayer(), teamId(), laneId(), grid);
-        minionTower.markTemporaryCopy(UUID.randomUUID());
-        minionTower.attachToLane(lane, lane.traitLoadout());
-        SemionTowerEntity minion = new SemionTowerEntity(kim.biryeong.semiontd.entity.SemionEntityTypes.TOWER, world);
-        minion.configure(minionTower, lane.laneLayout());
-        minion.markIllusionClone();
-        minion.setPos(spawn.x, spawn.y, spawn.z);
-        if (world.addFreshEntity(minion)) {
-            minions.put(minion.getId(), world.getGameTime() + (long) value(BlueprintModule.SUMMON, "durationTicks"));
-        }
-    }
-
-    private void dismissMinions(PlayerLane lane) {
-        if (lane != null) {
-            for (int id : minions.keySet()) {
-                var entity = lane.arenaWorld().getEntity(id);
-                if (entity != null && !entity.isRemoved()) {
-                    entity.discard();
-                }
-            }
-        }
-        minions.clear();
-        summonPulses = 0;
-    }
-
     @Override
     public void resetForRound(PlayerLane lane) {
-        dismissMinions(lane);
+        summons.dismiss(lane);
         focusTarget = null;
         focusStacks = 0;
         frenzyStacks = 0;
@@ -609,7 +546,7 @@ public class BlueprintTower extends ProductionTower {
 
     @Override
     public void onRemoved(PlayerLane lane) {
-        dismissMinions(lane);
+        summons.dismiss(lane);
         super.onRemoved(lane);
     }
 
@@ -626,7 +563,7 @@ public class BlueprintTower extends ProductionTower {
             lines.add("광란 " + frenzyStacks + "/" + (int) value(BlueprintModule.FRENZY, "maxStacks"));
         }
         if (level(BlueprintModule.SUMMON) > 0) {
-            lines.add("하수인 " + minions.size() + "기");
+            lines.add("하수인 " + summons.count() + "기");
         }
         return lines;
     }

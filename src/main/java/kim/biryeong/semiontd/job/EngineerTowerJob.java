@@ -5,7 +5,6 @@ import java.util.UUID;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.engineer.EngineerBalance;
-import kim.biryeong.semiontd.tower.engineer.EngineerPressStates;
 import kim.biryeong.semiontd.tower.engineer.EngineerTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -84,15 +83,5 @@ public final class EngineerTowerJob extends SemionJob {
     @Override
     public boolean includesTowerInCatalog(TowerType towerType) {
         return EngineerTowers.isEngineerTower(towerType);
-    }
-
-    @Override
-    public void onMatchStarted(JobContext context) {
-        EngineerPressStates.clear(context.player().uuid());
-    }
-
-    @Override
-    public void onEliminated(JobContext context) {
-        EngineerPressStates.clear(context.player().uuid());
     }
 }

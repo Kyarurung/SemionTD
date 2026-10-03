@@ -36,11 +36,4 @@ public final class FutureAgencyTowerJob extends SemionJob {
     }
 
     @Override public boolean includesTowerInCatalog(TowerType type) {return FutureAgencyTowers.isFutureAgencyTower(type);}
-    @Override public void onMatchStarted(JobContext context) {FutureAgencyStates.clear(context.player().uuid());}
-    @Override public void onRoundStarted(JobContext context, int round) {FutureAgencyStates.state(context.player().uuid()).openRound(round);}
-    @Override public void onRoundEnded(JobContext context, int round) {
-        FutureAgencyStates.state(context.player().uuid())
-                .setNextSelectionLimit(context.game().hasClearedRound(context.player().uuid(), round) ? 2 : 1);
-    }
-    @Override public void onEliminated(JobContext context) {FutureAgencyStates.clear(context.player().uuid());}
 }

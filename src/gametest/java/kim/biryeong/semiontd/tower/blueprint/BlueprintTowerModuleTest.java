@@ -285,8 +285,14 @@ public final class BlueprintTowerModuleTest {
                 summonTower.tick(lane);
             }
             require(summonTower.runtimeDetailLines().contains("하수인 1기"), "Summon must call a minion: " + summonTower.runtimeDetailLines());
+            List<SemionTowerEntity> minions = context.getLevel().getEntitiesOfClass(SemionTowerEntity.class,
+                    towerEntity.getBoundingBox().inflate(20), candidate -> candidate.runtimeTower() != null
+                            && candidate.runtimeTower().isTemporaryCopy()
+                            && owner.equals(candidate.runtimeTower().ownerPlayer()));
+            require(minions.size() == 1, "Summon must create exactly one owned temporary entity.");
             summonTower.resetForRound(lane);
             require(summonTower.runtimeDetailLines().contains("하수인 0기"), "Minions must be dismissed when the round resets.");
+            require(minions.getFirst().isRemoved(), "Round reset must discard the actual minion entity.");
             context.succeed();
         } finally {
             BlueprintStates.clear(owner);

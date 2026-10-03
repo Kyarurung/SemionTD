@@ -227,9 +227,8 @@ public final class SemionDialogService {
             bodies.add(new PlainMessage(Component.literal(" "), BODY_WIDTH));
         }
 
-        List<MatchParticipantResult> losers = matchResult.participants().stream()
+        List<MatchParticipantResult> losers = orderedParticipants.stream()
                 .filter(participant -> !participant.winner())
-                .sorted(participantComparator())
                 .toList();
         bodies.add(new HeaderMessage(miniMessage("<red><bold>탈락 플레이어</bold></red>"), BODY_WIDTH));
         if (losers.isEmpty()) {

@@ -1,7 +1,6 @@
 package kim.biryeong.semiontd.job;
 
 import java.util.List;
-import java.util.UUID;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.TowerType;
@@ -35,12 +34,4 @@ public final class QueenTowerJob extends SemionJob {
     }
 
     @Override public boolean includesTowerInCatalog(TowerType type) {return QueenTowers.isQueenTower(type);}
-
-    @Override
-    public void onMatchStarted(JobContext context) {
-        UUID playerId = context.player().uuid();
-        QueenStates.begin(playerId, context.game().teams().get(context.player().teamId()).laneGroup());
-    }
-
-    @Override public void onEliminated(JobContext context) {QueenStates.clear(context.player().uuid());}
 }

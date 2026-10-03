@@ -12,22 +12,22 @@ import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 import xyz.nucleoid.map_templates.BlockBounds;
 
-class BodyTowerGeometryTest {
+class BodyTowerTargetGeometryTest {
     private static final Vec3 ORIGIN = new Vec3(0.0, 64.0, 0.0);
     private static final Vec3 TOWARD_SPAWN = new Vec3(1.0, 0.0, 0.0);
 
     @Test
     void eyeHitsOnlyInsideItsFixedForwardCorridor() {
-        assertTrue(BodyTower.insideEyeRay(
+        assertTrue(BodyTowerTargetGeometry.insideEyeRay(
                 ORIGIN, new Vec3(8.0, 64.0, 0.5), TOWARD_SPAWN, 12.0, 1.25
         ));
-        assertFalse(BodyTower.insideEyeRay(
+        assertFalse(BodyTowerTargetGeometry.insideEyeRay(
                 ORIGIN, new Vec3(-1.0, 64.0, 0.0), TOWARD_SPAWN, 12.0, 1.25
         ));
-        assertFalse(BodyTower.insideEyeRay(
+        assertFalse(BodyTowerTargetGeometry.insideEyeRay(
                 ORIGIN, new Vec3(8.0, 64.0, 2.0), TOWARD_SPAWN, 12.0, 1.25
         ));
-        assertFalse(BodyTower.insideEyeRay(
+        assertFalse(BodyTowerTargetGeometry.insideEyeRay(
                 ORIGIN, new Vec3(13.0, 64.0, 0.0), TOWARD_SPAWN, 12.0, 1.25
         ));
     }
@@ -43,7 +43,21 @@ class BodyTowerGeometryTest {
                 List.of(new GridPosition(9, 64, 9))
         );
 
-        assertEquals(new Vec3(-1.0, 0.0, 0.0), BodyTower.eyeDirection(layout));
-        assertEquals(new Vec3(0.0, 0.0, -1.0), BodyTower.eyeDirection(layout, true));
+        assertEquals(new Vec3(-1.0, 0.0, 0.0), BodyTowerTargetGeometry.eyeDirection(layout));
+        assertEquals(new Vec3(0.0, 0.0, -1.0), BodyTowerTargetGeometry.eyeDirection(layout, true));
     }
+
+    @Test
+    void eyeCorridorIncludesExactHorizontalBoundariesWithoutHeightFiltering() {
+        assertTrue(BodyTowerTargetGeometry.insideEyeRay(
+                ORIGIN, new Vec3(12.0, 120.0, 1.25), TOWARD_SPAWN, 12.0, 1.25
+        ));
+        assertTrue(BodyTowerTargetGeometry.insideEyeRay(
+                ORIGIN, new Vec3(0.0, 0.0, -1.25), TOWARD_SPAWN, 12.0, 1.25
+        ));
+        assertFalse(BodyTowerTargetGeometry.insideEyeRay(
+                ORIGIN, new Vec3(12.0001, 64.0, 0.0), TOWARD_SPAWN, 12.0, 1.25
+        ));
+    }
+
 }

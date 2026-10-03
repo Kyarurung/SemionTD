@@ -24,7 +24,9 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
@@ -291,7 +293,7 @@ public final class BodyGameTest {
         try {
             setup.lane().addTower(eye);
             SemionTowerEntity source = towerEntity(context, eye);
-            Vec3 direction = BodyTower.eyeDirection(setup.lane().laneLayout());
+            Vec3 direction = BodyTowerTargetGeometry.eyeDirection(setup.lane().laneLayout());
             targets.add(spawnTarget(context, setup.lane(), source.position().add(direction.scale(3.0)),
                     "body-eye-front", 100.0));
             targets.add(spawnTarget(context, setup.lane(), source.position().subtract(direction.scale(3.0)),
@@ -311,6 +313,10 @@ public final class BodyGameTest {
 
     @GameTest(maxTicks = 120)
     public void eyeFacesIncomingEnemiesAtFinalDefense(GameTestHelper context) {
+        withTrackedFinalDefenseArena(context, () -> verifyEyeAtFinalDefense(context));
+    }
+
+    private static void verifyEyeAtFinalDefense(GameTestHelper context) {
         TestSetup setup = setup(context, "body-eye-final-defense-owner");
         BodyTower heart = tower(BodyTowers.HEART_T1, setup.owner(), context, new BlockPos(6, 2, 6));
         BodyTower eye = tower(BodyTowers.EYE_T1, setup.owner(), context, new BlockPos(10, 2, 4));
@@ -318,13 +324,17 @@ public final class BodyGameTest {
         try {
             setup.lane().addTower(heart);
             setup.lane().addTower(eye);
+            SemionTowerEntity originalHeart = towerEntity(context, heart);
+            SemionTowerEntity originalEye = towerEntity(context, eye);
             setup.lane().markWaveStarted(1);
             heart.onLaneCleared(setup.lane());
             eye.onLaneCleared(setup.lane());
             setup.lane().moveTowersToFinalDefense();
 
             SemionTowerEntity source = towerEntity(context, eye);
-            Vec3 direction = BodyTower.eyeDirection(setup.lane().laneLayout(), true);
+            require(source == originalEye && towerEntity(context, heart) == originalHeart,
+                    "Final-defense relocation must preserve both tracked tower entities.");
+            Vec3 direction = BodyTowerTargetGeometry.eyeDirection(setup.lane().laneLayout(), true);
             targets.add(spawnTarget(context, setup.lane(), source.position().add(direction.scale(3.0)),
                     "body-eye-final-front", 100.0));
             targets.add(spawnTarget(context, setup.lane(), source.position().subtract(direction.scale(3.0)),
@@ -339,6 +349,47 @@ public final class BodyGameTest {
             context.succeed();
         } finally {
             cleanup(setup, targets);
+        }
+    }
+
+    private static void withTrackedFinalDefenseArena(GameTestHelper context, Runnable action) {
+        var world = context.getLevel();
+        BlockPos first = context.absolutePos(new BlockPos(0, 1, 0));
+        BlockPos last = context.absolutePos(new BlockPos(14, 6, 14));
+        List<ChunkPos> chunks = new ArrayList<>();
+        List<ChunkPos> addedTickets = new ArrayList<>();
+        for (int x = Math.min(first.getX(), last.getX()) >> 4; x <= (Math.max(first.getX(), last.getX()) >> 4); x++) {
+            for (int z = Math.min(first.getZ(), last.getZ()) >> 4; z <= (Math.max(first.getZ(), last.getZ()) >> 4); z++) {
+                var chunk = new ChunkPos(x, z);
+                chunks.add(chunk);
+                if (!world.getForceLoadedChunks().contains(ChunkPos.pack(x, z)) && world.setChunkForced(x, z, true)) {
+                    addedTickets.add(chunk);
+                }
+                world.getChunk(x, z);
+            }
+        }
+        Runnable release = () -> addedTickets.forEach(chunk -> world.setChunkForced(chunk.x(), chunk.z(), false));
+        awaitFinalDefenseTracking(context, chunks, action, release, 100);
+    }
+
+    private static void awaitFinalDefenseTracking(GameTestHelper context,
+            List<ChunkPos> chunks, Runnable action, Runnable release, int remainingTicks) {
+        var world = context.getLevel();
+        boolean ready = chunks.stream().allMatch(chunk -> world.getChunk(chunk.x(), chunk.z()).getFullStatus()
+                == FullChunkStatus.ENTITY_TICKING);
+        if (ready) {
+            try {
+                action.run();
+            } finally {
+                release.run();
+            }
+        } else if (remainingTicks == 0) {
+            String states = chunks.stream().map(chunk -> chunk + "="
+                    + world.getChunk(chunk.x(), chunk.z()).getFullStatus()).toList().toString();
+            release.run();
+            context.fail(Component.literal("Body final-defense chunks must track entities before combat: " + states));
+        } else {
+            context.runAfterDelay(1, () -> awaitFinalDefenseTracking(context, chunks, action, release, remainingTicks - 1));
         }
     }
 
@@ -407,7 +458,11 @@ public final class BodyGameTest {
     }
 
     private static SemionTowerEntity towerEntity(GameTestHelper context, BodyTower tower) {
-        return (SemionTowerEntity) context.getLevel().getEntity(tower.entityId().orElseThrow());
+        var entity = context.getLevel().getEntity(tower.entityId().orElseThrow());
+        require(entity instanceof SemionTowerEntity, "Tower must be tracked in the test world: "
+                + tower.type().id() + " at " + tower.position() + "; chunk="
+                + context.getLevel().getChunk(tower.position().x() >> 4, tower.position().z() >> 4).getFullStatus());
+        return (SemionTowerEntity) entity;
     }
 
     private static PlayerLane testLane(GameTestHelper context, UUID owner) {

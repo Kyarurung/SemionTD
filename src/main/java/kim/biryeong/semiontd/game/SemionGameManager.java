@@ -2098,6 +2098,10 @@ public final class SemionGameManager {
         VanillaTeamBridge.ensureTeams(server);
 
         Scheduler.INSTANCE.submit((s) -> {
+            if (s.getPlayerList().getPlayer(player.getUUID()) != player
+                    || !player.connection.isAcceptingMessages()) {
+                return;
+            }
             if (activeGame != null && activeGame.rosterLocked()) {
                 if (activeGame.restorePlayerPlacement(s, player)) {
                     if (activeGame.augmentsEnabled()) {

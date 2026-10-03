@@ -308,10 +308,11 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             RatingConfig loaded = GSON.fromJson(json, RatingConfig.class);
             RatingConfig value = loaded == null ? defaults : loaded;
-            boolean teamEloMatchmakingMissing = !hasObjectProperty(json, "teamEloMatchmakingEnabled");
-            boolean perfectDefenseLossMultiplierMissing = !hasObjectProperty(json, "perfectDefenseLossMultiplier");
+            boolean teamEloMatchmakingMissing = !properties.has("teamEloMatchmakingEnabled");
+            boolean perfectDefenseLossMultiplierMissing = !properties.has("perfectDefenseLossMultiplier");
             if (teamEloMatchmakingMissing) {
                 value = value.withTeamEloMatchmakingEnabled(defaults.teamEloMatchmakingEnabled());
             }
@@ -336,30 +337,30 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             EconomyConfig loaded = GSON.fromJson(json, EconomyConfig.class);
             EconomyConfig value = loaded == null ? defaults : loaded;
-            boolean towerLimitMissing = !hasObjectProperty(json, "towerLimit");
+            boolean towerLimitMissing = !properties.has("towerLimit");
             boolean towerLimitPurchaseMissing = !towerLimitMissing
-                    && !hasAllNestedObjectProperties(
-                    json,
+                    && !properties.hasAllNested(
                     "towerLimit",
                     "initialPurchaseDiamondCost",
                     "purchaseDiamondCostIncrease",
                     "initialPurchaseEmeraldCost",
                     "purchaseEmeraldCostIncrease"
             );
-            boolean teamTransferMissing = !hasObjectProperty(json, "teamTransfer");
+            boolean teamTransferMissing = !properties.has("teamTransfer");
             boolean teamTransferEnabledMissing = teamTransferMissing
-                    || !hasNestedObjectProperty(json, "teamTransfer", "enabled");
+                    || !properties.hasNested("teamTransfer", "enabled");
             boolean teamTransferCooldownMissing = teamTransferMissing
-                    || !hasNestedObjectProperty(json, "teamTransfer", "receiveCooldownRounds");
+                    || !properties.hasNested("teamTransfer", "receiveCooldownRounds");
             boolean teamTransferMaxMissing = teamTransferMissing
-                    || !hasNestedObjectProperty(json, "teamTransfer", "maxDiamondPerRound");
-            boolean emeraldIncomeBoostMissing = !hasObjectProperty(json, "emeraldIncomeBoost");
+                    || !properties.hasNested("teamTransfer", "maxDiamondPerRound");
+            boolean emeraldIncomeBoostMissing = !properties.has("emeraldIncomeBoost");
             boolean emeraldIncomeBoostEnabledMissing = emeraldIncomeBoostMissing
-                    || !hasNestedObjectProperty(json, "emeraldIncomeBoost", "enabled");
+                    || !properties.hasNested("emeraldIncomeBoost", "enabled");
             boolean emeraldIncomeBoostStartRoundMissing = emeraldIncomeBoostMissing
-                    || !hasNestedObjectProperty(json, "emeraldIncomeBoost", "startRound");
+                    || !properties.hasNested("emeraldIncomeBoost", "startRound");
             EconomyConfig.TeamTransferConfig teamTransfer = mergedTeamTransfer(
                     value.teamTransfer(),
                     defaults.teamTransfer(),
@@ -412,13 +413,14 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             IncomeLaneRoutingConfig loaded = GSON.fromJson(json, IncomeLaneRoutingConfig.class);
             IncomeLaneRoutingConfig value = loaded == null ? defaults : loaded;
-            boolean enabledMissing = !hasObjectProperty(json, "enabled");
-            boolean modeMissing = !hasObjectProperty(json, "mode");
-            boolean queuedThreatWeightMissing = !hasObjectProperty(json, "queuedThreatWeight");
-            boolean nextRoundQueuedThreatWeightMissing = !hasObjectProperty(json, "nextRoundQueuedThreatWeight");
-            boolean tieBreakModeMissing = !hasObjectProperty(json, "tieBreakMode");
+            boolean enabledMissing = !properties.has("enabled");
+            boolean modeMissing = !properties.has("mode");
+            boolean queuedThreatWeightMissing = !properties.has("queuedThreatWeight");
+            boolean nextRoundQueuedThreatWeightMissing = !properties.has("nextRoundQueuedThreatWeight");
+            boolean tieBreakModeMissing = !properties.has("tieBreakMode");
             if (enabledMissing || modeMissing || queuedThreatWeightMissing || nextRoundQueuedThreatWeightMissing || tieBreakModeMissing) {
                 value = new IncomeLaneRoutingConfig(
                         enabledMissing ? defaults.enabled() : value.enabled(),
@@ -449,16 +451,17 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             MonsterScalingConfig loaded = GSON.fromJson(json, MonsterScalingConfig.class);
             MonsterScalingConfig value = loaded == null ? defaults : loaded;
-            boolean enabledMissing = !hasObjectProperty(json, "enabled");
-            boolean survivalDelayMissing = !hasObjectProperty(json, "survivalDelayTicks");
-            boolean laneBreachDelayMissing = !hasObjectProperty(json, "laneBreachDelayTicks");
-            boolean intervalMissing = !hasObjectProperty(json, "intervalTicks");
-            boolean healthGrowthMissing = !hasObjectProperty(json, "healthGrowthPercentPerInterval");
-            boolean attackGrowthMissing = !hasObjectProperty(json, "attackDamageGrowthPercentPerInterval");
-            boolean waveMissing = !hasObjectProperty(json, "scaleWaveMonsters");
-            boolean incomeMissing = !hasObjectProperty(json, "scaleIncomeMonsters");
+            boolean enabledMissing = !properties.has("enabled");
+            boolean survivalDelayMissing = !properties.has("survivalDelayTicks");
+            boolean laneBreachDelayMissing = !properties.has("laneBreachDelayTicks");
+            boolean intervalMissing = !properties.has("intervalTicks");
+            boolean healthGrowthMissing = !properties.has("healthGrowthPercentPerInterval");
+            boolean attackGrowthMissing = !properties.has("attackDamageGrowthPercentPerInterval");
+            boolean waveMissing = !properties.has("scaleWaveMonsters");
+            boolean incomeMissing = !properties.has("scaleIncomeMonsters");
             if (enabledMissing || survivalDelayMissing || laneBreachDelayMissing || intervalMissing
                     || healthGrowthMissing || attackGrowthMissing || waveMissing || incomeMissing) {
                 value = new MonsterScalingConfig(
@@ -522,7 +525,11 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             String migratedJson = migrateLegacyVillagerAdvBuffs(json, defaults);
+            ConfigJsonProperties migratedProperties = migratedJson.equals(json)
+                    ? properties
+                    : ConfigJsonProperties.parse(migratedJson);
             TowerBalanceConfig value = GSON.fromJson(migratedJson, TowerBalanceConfig.class);
             TowerBalanceConfig loaded = value == null ? defaults : value;
             TowerBalanceConfig merged = loaded.withMissingDefaults(defaults);
@@ -542,9 +549,9 @@ public final class SemionConfigLoader {
                 merged = repaired;
             }
             merged.validateForRuntime();
-            boolean schemaVersionMissing = !hasObjectProperty(json, "schemaVersion");
-            boolean illusionCloneQueueMissing = !hasObjectProperty(migratedJson, "illusionCloneQueue");
-            boolean villagerAdvMissing = !hasObjectProperty(migratedJson, "villagerAdv");
+            boolean schemaVersionMissing = !properties.has("schemaVersion");
+            boolean illusionCloneQueueMissing = !migratedProperties.has("illusionCloneQueue");
+            boolean villagerAdvMissing = !migratedProperties.has("villagerAdv");
             if (!migratedJson.equals(json)
                     || schemaVersionMissing
                     || illusionCloneQueueMissing
@@ -657,13 +664,14 @@ public final class SemionConfigLoader {
 
         try {
             String json = Files.readString(path);
+            ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             TipConfig loaded = GSON.fromJson(json, TipConfig.class);
             TipConfig safeLoaded = loaded == null ? defaults : loaded;
-            boolean enabledMissing = !hasObjectProperty(json, "enabled");
-            boolean joinEnabledMissing = !hasObjectProperty(json, "joinEnabled");
-            boolean joinMessageMissing = !hasObjectProperty(json, "joinMessage");
-            boolean intervalMissing = !hasObjectProperty(json, "intervalSeconds");
-            boolean messagesMissing = !hasObjectProperty(json, "messages");
+            boolean enabledMissing = !properties.has("enabled");
+            boolean joinEnabledMissing = !properties.has("joinEnabled");
+            boolean joinMessageMissing = !properties.has("joinMessage");
+            boolean intervalMissing = !properties.has("intervalSeconds");
+            boolean messagesMissing = !properties.has("messages");
             TipConfig value = new TipConfig(
                     enabledMissing ? defaults.enabled() : safeLoaded.enabled(),
                     joinEnabledMissing ? defaults.joinEnabled() : safeLoaded.joinEnabled(),
@@ -725,52 +733,6 @@ public final class SemionConfigLoader {
                     logger.warn("Failed to remove temporary config file {}.", temporary, exception);
                 }
             }
-        }
-    }
-
-    private static boolean hasObjectProperty(String json, String key) {
-        try {
-            if (!(JsonParser.parseString(json) instanceof JsonObject object)) {
-                return false;
-            }
-            return object.has(key) && !object.get(key).isJsonNull();
-        } catch (JsonParseException exception) {
-            return false;
-        }
-    }
-
-    private static boolean hasNestedObjectProperty(String json, String parentKey, String childKey) {
-        try {
-            if (!(JsonParser.parseString(json) instanceof JsonObject object)) {
-                return false;
-            }
-            if (!object.has(parentKey) || !object.get(parentKey).isJsonObject()) {
-                return false;
-            }
-            JsonObject parent = object.getAsJsonObject(parentKey);
-            return parent.has(childKey) && !parent.get(childKey).isJsonNull();
-        } catch (JsonParseException exception) {
-            return false;
-        }
-    }
-
-    private static boolean hasAllNestedObjectProperties(String json, String parentKey, String... childKeys) {
-        try {
-            if (!(JsonParser.parseString(json) instanceof JsonObject object)) {
-                return false;
-            }
-            if (!object.has(parentKey) || !object.get(parentKey).isJsonObject()) {
-                return false;
-            }
-            JsonObject parent = object.getAsJsonObject(parentKey);
-            for (String childKey : childKeys) {
-                if (!parent.has(childKey) || parent.get(childKey).isJsonNull()) {
-                    return false;
-                }
-            }
-            return true;
-        } catch (JsonParseException exception) {
-            return false;
         }
     }
 

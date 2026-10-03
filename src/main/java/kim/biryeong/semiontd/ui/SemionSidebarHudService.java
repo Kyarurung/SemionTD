@@ -46,13 +46,17 @@ public final class SemionSidebarHudService {
     }
 
     public void refreshNow(MinecraftServer server, SemionGame game, MatchMode matchMode, Set<UUID> protectedPlayerIds) {
+        UiLobbyRosterSummary lobby = null;
         Set<UUID> onlinePlayerIds = new HashSet<>();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             onlinePlayerIds.add(player.getUUID());
             if (protectedPlayerIds.contains(player.getUUID())) {
                 continue;
             }
-            List<Component> lines = sidebarLinesFor(player, game, matchMode, server);
+            if (lobby == null && game.canConfigureRoster()) {
+                lobby = UiLobbyRosterSummary.capture(server, game, matchMode);
+            }
+            List<Component> lines = sidebarLinesFor(player, game, matchMode, server, lobby);
             if (lines.isEmpty()) {
                 remove(player);
             } else {
@@ -68,12 +72,16 @@ public final class SemionSidebarHudService {
         if (playerIds == null || playerIds.isEmpty()) {
             return;
         }
+        UiLobbyRosterSummary lobby = null;
         for (UUID playerId : playerIds) {
             ServerPlayer player = server.getPlayerList().getPlayer(playerId);
             if (player == null) {
                 continue;
             }
-            List<Component> lines = sidebarLinesFor(player, game, matchMode, server);
+            if (lobby == null && game.canConfigureRoster()) {
+                lobby = UiLobbyRosterSummary.capture(server, game, matchMode);
+            }
+            List<Component> lines = sidebarLinesFor(player, game, matchMode, server, lobby);
             if (lines.isEmpty()) {
                 remove(player);
             } else {
@@ -176,14 +184,18 @@ public final class SemionSidebarHudService {
             ServerPlayer player,
             SemionGame game,
             MatchMode matchMode,
-            MinecraftServer server
+            MinecraftServer server,
+            UiLobbyRosterSummary lobby
     ) {
         return SemionHudTextService.sidebarLinesFor(
                 player,
                 game,
                 matchMode,
                 server,
-                damageViewEnabled(player.getUUID())
+                damageViewEnabled(player.getUUID()),
+                HighlightTarget.NONE,
+                false,
+                lobby
         );
     }
 

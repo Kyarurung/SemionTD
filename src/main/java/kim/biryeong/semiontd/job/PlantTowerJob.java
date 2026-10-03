@@ -2,14 +2,8 @@ package kim.biryeong.semiontd.job;
 
 import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
-import kim.biryeong.semiontd.game.PlayerLane;
-import kim.biryeong.semiontd.tower.ProductionTowerCatalog;
-import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerType;
-import kim.biryeong.semiontd.tower.plant.PlantCombatTower;
-import kim.biryeong.semiontd.tower.plant.PlantMineTower;
 import kim.biryeong.semiontd.tower.plant.PlantSoil;
-import kim.biryeong.semiontd.tower.plant.PlantSoilStates;
 import kim.biryeong.semiontd.tower.plant.PlantTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -47,31 +41,5 @@ public final class PlantTowerJob extends SemionJob {
         // 판다와 정원사는 지형 계열이 아니라 특수 타워 묶음을 씁니다. 지형별 상점 사이에 섞여 들어가면
         // "이 지형을 깔아야 살 수 있다" 는 상점의 규칙이 깨져 보입니다.
         return PlantTowers.isSpecialTower(towerType) ? "특수 타워" : null;
-    }
-
-    @Override
-    public void onMatchStarted(JobContext context) {
-        PlantSoilStates.clear(context.player().uuid());
-    }
-
-    @Override
-    public void onRoundEnded(JobContext context, int round) {
-        context.game().playerLane(context.player().uuid()).ifPresent(lane -> {
-            long payout = lane.towers().stream()
-                    .filter(tower -> tower.health() > 0.0)
-                    .filter(PlantCombatTower.class::isInstance)
-                    .map(PlantCombatTower.class::cast)
-                    .filter(tower -> context.player().uuid().equals(tower.ownerPlayer()))
-                    .mapToLong(PlantCombatTower::diamondPerWave)
-                    .sum();
-            if (payout > 0L) {
-                context.player().economy().addMineral(payout);
-            }
-        });
-    }
-
-    @Override
-    public void onEliminated(JobContext context) {
-        PlantSoilStates.clear(context.player().uuid());
     }
 }

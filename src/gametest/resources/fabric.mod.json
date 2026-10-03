@@ -42,7 +42,8 @@
       "kim.biryeong.semiontd.tower.body.BodyGameTest",
       "kim.biryeong.semiontd.tower.undead.UndeadAugmentsGameTest",
       "kim.biryeong.semiontd.tower.nether.NetherAugmentsGameTest",
-      "kim.biryeong.semiontd.tower.end.EndAugmentGameTest",
+      "kim.biryeong.semiontd.tower.end.EndTowerAugmentCombatTest",
+      "kim.biryeong.semiontd.tower.warlock.WarlockTowerAugmentCombatTest",
       "kim.biryeong.semiontd.tower.illager.IllagerAugmentsGameTest",
       "kim.biryeong.semiontd.augment.AugmentControllerGameTest",
       "kim.biryeong.semiontd.tower.plant.PlantTowerIntegrationTest",
@@ -111,7 +112,11 @@
       "kim.biryeong.semiontd.tower.frost.FrostTowerAugmentCombatTest",
       "kim.biryeong.semiontd.tower.demonlord.DemonLordTowerAugmentSelectionTest",
       "kim.biryeong.semiontd.tower.insect.InsectTowerAugmentSelectionTest",
-      "kim.biryeong.semiontd.tower.illager.IllagerTowerAugmentSelectionTest"
+      "kim.biryeong.semiontd.tower.illager.IllagerTowerAugmentSelectionTest",
+      "kim.biryeong.semiontd.ui.UiHudRefreshTest",
+      "kim.biryeong.semiontd.entity.goal.EntityGoalSupportTargetsTest",
+      "kim.biryeong.semiontd.game.GamePlayerJoinDispatchTest",
+      "kim.biryeong.semiontd.job.JobBuilderLifecycleRuntimeTest"
     ]
   }
 }

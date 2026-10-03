@@ -3,8 +3,6 @@ package kim.biryeong.semiontd.job;
 import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
-import kim.biryeong.semiontd.tower.succubus.SuccubusAbsorption;
-import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
 import kim.biryeong.semiontd.tower.succubus.SuccubusTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -34,17 +32,5 @@ public final class SuccubusTowerJob extends SemionJob {
     @Override
     public boolean includesTowerInCatalog(TowerType towerType) {
         return SuccubusTowers.isSuccubusTower(towerType);
-    }
-
-    @Override
-    public void onMatchStarted(JobContext context) {clear(context);}
-    @Override
-    public void onEliminated(JobContext context) {clear(context);}
-    @Override
-    public void onMatchClosed(JobContext context) {clear(context);}
-
-    private static void clear(JobContext context) {
-        SuccubusDreams.clearPlayer(context.player().uuid());
-        SuccubusAbsorption.clear(context.player().uuid());
     }
 }

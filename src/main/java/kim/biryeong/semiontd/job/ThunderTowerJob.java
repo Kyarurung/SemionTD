@@ -3,7 +3,6 @@ package kim.biryeong.semiontd.job;
 import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
-import kim.biryeong.semiontd.tower.thunder.ThunderStates;
 import kim.biryeong.semiontd.tower.thunder.ThunderTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -32,22 +31,5 @@ public final class ThunderTowerJob extends SemionJob {
     @Override
     public boolean includesTowerInCatalog(TowerType towerType) {
         return ThunderTowers.isThunderTower(towerType);
-    }
-
-    @Override
-    public void onMatchStarted(JobContext context) {
-        ThunderStates.clear(context.player().uuid());
-    }
-
-    @Override
-    public void onRoundStarted(JobContext context, int round) {
-        // One shared roll per wave: a thunderstorm covers the whole lane, so every storm rod the
-        // player owns reports the same output rather than each rolling independently.
-        ThunderStates.rollStorm(context.player().uuid(), round);
-    }
-
-    @Override
-    public void onEliminated(JobContext context) {
-        ThunderStates.clear(context.player().uuid());
     }
 }

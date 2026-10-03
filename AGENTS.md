@@ -10,7 +10,7 @@ Treat `build/`, `run/`, and `logs/` as generated local state. Never publish or f
 
 - `./gradlew runServer`: local development server command for an isolated `run/` environment only; never use the operational world or treat this example as permission to start/restart `C:\SemionTD`.
 - `./gradlew test`: run the JUnit 5 unit suite.
-- `./gradlew runGameTest`: run server-backed Fabric GameTests. Install the required Friends & Foes and Flowery Mooblooms patch JARs in `run/mods/` first.
+- `./gradlew runGameTest`: run server-backed Fabric GameTests. Required compatibility projects and external mod dependencies are supplied by the Gradle runtime graph; do not copy operating-server mods into the isolated test environment.
 - `./gradlew remapJar`: create the distributable JAR in `build/libs/`.
 - `./gradlew test runGameTest remapJar`: run the complete release validation gate. Windows: `.\gradlew.bat test runGameTest remapJar --console=plain --no-daemon`.
 

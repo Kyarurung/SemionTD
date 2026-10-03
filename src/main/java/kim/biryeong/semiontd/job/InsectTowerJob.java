@@ -6,7 +6,6 @@ import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.insect.InsectBalance;
-import kim.biryeong.semiontd.tower.insect.InsectAugments;
 import kim.biryeong.semiontd.tower.insect.InsectTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -42,9 +41,4 @@ public final class InsectTowerJob extends SemionJob {
     public boolean includesTowerInCatalog(TowerType towerType) {
         return InsectTowers.isInsectTower(towerType);
     }
-
-    @Override public void onMatchStarted(JobContext context) {InsectAugments.clear(context.player().uuid());}
-    @Override public void onRoundEnded(JobContext context, int round) {InsectAugments.clear(context.player().uuid());}
-    @Override public void onEliminated(JobContext context) {InsectAugments.clear(context.player().uuid());}
-    @Override public void onMatchClosed(JobContext context) {InsectAugments.clear(context.player().uuid());}
 }

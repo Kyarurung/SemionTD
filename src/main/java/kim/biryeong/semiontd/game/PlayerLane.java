@@ -1,5 +1,7 @@
 package kim.biryeong.semiontd.game;
 
+import kim.biryeong.semiontd.job.JobLaneLifecycle;
+
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -14,7 +16,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
-import kim.biryeong.semiontd.config.AttackKind;
 import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.augment.AugmentEconomyService;
 import kim.biryeong.semiontd.augment.AugmentSnapshot;
@@ -47,6 +48,7 @@ import kim.biryeong.semiontd.tower.resonance.ResonanceService;
 import kim.biryeong.semiontd.tower.villager.VillagerAdvStates;
 import kim.biryeong.semiontd.trait.BuiltInTraits;
 import kim.biryeong.semiontd.trait.TraitEffects;
+import kim.biryeong.semiontd.trait.TraitRoundTowerIndex;
 import kim.biryeong.semiontd.trait.TraitLoadout;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -150,6 +152,22 @@ public final class PlayerLane {
             }
         }
         return total;
+    }
+
+    Map<UUID, MonsterSupportMetrics.Snapshot> utilitySupportMetricsByPurchaser(Set<UUID> purchasers) {
+        Map<UUID, MonsterSupportMetrics.Snapshot> totals = new LinkedHashMap<>();
+        for (Monster monster : roundMonsters.values()) {
+            if (monster.origin() != MonsterOrigin.NORMAL_PAID) {
+                continue;
+            }
+            UUID purchaser = monster.ownerPlayer().orElse(null);
+            if (purchaser != null && purchasers.contains(purchaser)) {
+                MonsterSupportMetrics.Snapshot total = totals.computeIfAbsent(
+                        purchaser, ignored -> MonsterSupportMetrics.Snapshot.empty());
+                totals.put(purchaser, total.plus(monster.supportMetrics().snapshot()));
+            }
+        }
+        return totals;
     }
 
     public MonsterSupportMetrics.Snapshot naturalWaveSupportMetrics() {
@@ -324,17 +342,9 @@ public final class PlayerLane {
     }
 
     public void resetForRound() {
-        kim.biryeong.semiontd.tower.legion.LegionAugments.clear(this);
-        kim.biryeong.semiontd.tower.undead.UndeadAugments.resetRound(this);
-        kim.biryeong.semiontd.tower.villager.VillagerAdvAugments.resetWave(this);
-        kim.biryeong.semiontd.tower.frost.FrostAugments.endWave(this);
-        kim.biryeong.semiontd.tower.pirate.PirateAugments.endWave(this);
+        JobLaneLifecycle.beforeRoundReset(this);
         for (Tower copy : towers.stream().filter(Tower::isTemporaryCopy).toList()) {removeTower(copy);}
-        FrostFullOperationService.endWave(this);
-        // markWaveStarted 의 짝: 여기서 전투를 풀지 않으면 준비 단계까지 스킬 핫바가 유지됩니다.
-        DemonLordService.endRound(ownerPlayer);
-        clearTranscendence();
-        SuccubusDreams.clearLane(this);
+        JobLaneLifecycle.afterTemporaryCopiesRemoved(this);
         clearedThisRound = false;
         leakedThisRound = false;
         leakedThreatThisRound = 0.0;
@@ -492,16 +502,11 @@ public final class PlayerLane {
     }
 
     public void markWaveStarted(int currentRound) {
-        AugmentCombat.startWave(this, currentRound);
-        FrostFullOperationService.beginWave(this);
-        clearTranscendence();
+        JobLaneLifecycle.prepareWave(this, currentRound);
         trackedRound = Math.max(1, currentRound);
         trackedRoundTick = 0;
         roundTowerTrackers.clear();
-        kim.biryeong.semiontd.tower.legion.LegionAugments.onWaveStarted(this);
-        kim.biryeong.semiontd.tower.villager.VillagerAdvAugments.startWave(this);
-        IllagerRaidStates.onWaveStarted(this);
-        kim.biryeong.semiontd.tower.frost.FrostAugments.beginWave(this);
+        JobLaneLifecycle.beforeTowerWaveStarted(this);
         for (Tower tower : List.copyOf(towers)) {
             tower.markWaveStarted(currentRound);
             roundTowerTrackers.add(tower.roundMetricsTracker());
@@ -510,16 +515,7 @@ public final class PlayerLane {
         }
         applyRoundTraitEffects();
         applyOpeningAttackSpeed();
-        ResonanceService.captureWaveStart(this);
-        AugmentCombat.captureWaveStartHealth(this);
-        kim.biryeong.semiontd.tower.adversary.AdversaryAugments.captureWaveStart(this);
-        kim.biryeong.semiontd.tower.futureagency.FutureAgencyAgentTower.captureWaveStart(this);
-        kim.biryeong.semiontd.tower.pirate.PirateAugments.beginWave(this);
-        kim.biryeong.semiontd.tower.army.ArmyStates.spawnReserves(this, currentRound);
-        // 마왕은 여기서 전투 상태가 됩니다. 라운드 시작(준비 단계)에 걸면 상점을 열 수 없는
-        // 채로 준비 시간을 보내게 되고, 스스로 물러난 뒤 웨이브가 시작돼도 복귀하지 못합니다.
-        DemonLordService.beginWave(this, currentRound);
-        TowerRoundMetricsTracker demonLordTracker = DemonLordService.roundMetricsTracker(ownerPlayer);
+        TowerRoundMetricsTracker demonLordTracker = JobLaneLifecycle.afterTowerWaveStarted(this, currentRound);
         if (demonLordTracker != null) {
             roundTowerTrackers.add(demonLordTracker);
         }
@@ -612,11 +608,7 @@ public final class PlayerLane {
     }
 
     public void clearTowers() {
-        kim.biryeong.semiontd.tower.legion.LegionAugments.clear(this);
-        kim.biryeong.semiontd.tower.undead.UndeadAugments.resetRound(this);
-        kim.biryeong.semiontd.tower.frost.FrostAugments.endWave(this);
-        kim.biryeong.semiontd.tower.pirate.PirateAugments.endWave(this);
-        kim.biryeong.semiontd.tower.insect.InsectAugments.clear(ownerPlayer);
+        JobLaneLifecycle.beforeTowersCleared(this);
         for (Tower tower : List.copyOf(towers)) {
             AugmentCombat.onTowerRemoved(this, tower);
             if (tower.roundMetricsTracker() != null) {
@@ -776,6 +768,7 @@ public final class PlayerLane {
     }
 
     private void applyRoundTraitEffects() {
+        TraitRoundTowerIndex roundTraits = TraitRoundTowerIndex.capture(towers);
         for (Tower tower : towers) {
             if (tower.health() <= 0.0 || !tower.receivesTraitEffects()) {
                 continue;
@@ -787,12 +780,12 @@ public final class PlayerLane {
             towerEntity.setPersistentEffect(
                     TimedEffectType.TOWER_TRAIT_DAMAGE_BONUS,
                     BuiltInTraits.STRENGTH_IN_NUMBERS_ID,
-                    TraitEffects.sameTypeDamageBonus(traitLoadout, this, tower)
+                    roundTraits.sameTypeDamageBonus(traitLoadout, tower)
             );
             towerEntity.setPersistentEffect(
                     TimedEffectType.TOWER_TRAIT_DAMAGE_BONUS,
                     BuiltInTraits.DIVERSITY_ID,
-                    TraitEffects.diversityDamageBonus(traitLoadout, this, tower)
+                    roundTraits.diversityDamageBonus(traitLoadout, tower)
             );
         }
     }

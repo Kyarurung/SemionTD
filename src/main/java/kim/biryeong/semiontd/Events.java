@@ -73,9 +73,7 @@ public final class Events {
                 skyboxService.handlePlayerDisconnect(player);
                 tipService.handlePlayerDisconnect(player);
                 gameManager.handlePlayerDisconnect(player);
-                kim.biryeong.semiontd.ui.GambleRevealService.clear(player.getUUID());
-                DemonLordService.cleanupPlayer(player);
-                FrostFullOperationService.cleanupPlayer(player);
+                kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
             });
         });
         ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register((player, origin, destination) -> {

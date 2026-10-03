@@ -1,7 +1,6 @@
 package kim.biryeong.semiontd.tower.nether;
 
 import java.util.ArrayList;
-import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -60,8 +59,7 @@ public class NetherTower extends EntityBackedTower {
     private int pulseCooldownTicks;
     private int markCounter;
     private boolean lastAttackWasCritical;
-    private double naturalHealthLoss;
-    private final ArrayDeque<Double> bloodCharges = new ArrayDeque<>();
+    private final NetherBloodChargeController bloodCharges = new NetherBloodChargeController();
     private int secondPhaseTicks;
     private int totemReviveTicks = -1;
     private boolean totemUsed;
@@ -185,8 +183,7 @@ public class NetherTower extends EntityBackedTower {
         pulseCooldownTicks = 0;
         markCounter = 0;
         lastAttackWasCritical = false;
-        naturalHealthLoss = 0;
-        bloodCharges.clear();
+        bloodCharges.resetRound();
         secondPhaseTicks = 0;
         totemReviveTicks = -1;
         totemUsed = false;
@@ -321,7 +318,7 @@ public class NetherTower extends EntityBackedTower {
             lines.add("저체력 피해 +" + percent(damageBonus));
         }
         lines.add("흡혈 " + percent(lifeStealRatio(null)));
-        if (augmentSnapshot().has(BLOODLETTING)) {lines.add("방혈 충전 " + bloodCharges.size());}
+        if (augmentSnapshot().has(BLOODLETTING)) {lines.add("방혈 충전 " + bloodCharges.chargeCount());}
         if (secondPhaseTicks > 0) {lines.add("2 페이즈 " + oneDecimal(secondPhaseTicks / 20.0) + "초");}
         if (totemReviveTicks > 0) {lines.add("불사의 토템 부활 " + oneDecimal(totemReviveTicks / 20.0) + "초");}
         if (totemRevived) {lines.add("불사의 토템 피해 +" + percent(augmentValue(TOTEM, "damageBonus", 1)));}
@@ -341,9 +338,7 @@ public class NetherTower extends EntityBackedTower {
         pulseCooldownTicks = netherTower.pulseCooldownTicks;
         markCounter = netherTower.markCounter;
         lastAttackWasCritical = netherTower.lastAttackWasCritical;
-        naturalHealthLoss = netherTower.naturalHealthLoss;
-        bloodCharges.clear();
-        bloodCharges.addAll(netherTower.bloodCharges);
+        bloodCharges.restore(netherTower.bloodCharges.snapshot());
         secondPhaseTicks = netherTower.secondPhaseTicks;
         totemReviveTicks = netherTower.totemReviveTicks;
         totemUsed = netherTower.totemUsed;
@@ -469,18 +464,12 @@ public class NetherTower extends EntityBackedTower {
 
     void recordNaturalHealthLoss(double loss) {
         if (!augmentSnapshot().has(BLOODLETTING) || loss <= 0 || !AugmentCombat.allowsTriggers()) {return;}
-        naturalHealthLoss += loss;
         double threshold = currentMaxHealth() * augmentValue(BLOODLETTING, "healthRatio", .2);
-        if (threshold <= 0) {return;}
-        while (naturalHealthLoss + 1.0e-9 >= threshold) {
-            naturalHealthLoss = Math.max(0, naturalHealthLoss - threshold);
-            bloodCharges.addLast(threshold);
-        }
+        bloodCharges.recordNaturalLoss(loss, threshold);
     }
 
     double consumeBloodCharge() {
-        if (!AugmentCombat.allowsTriggers() || bloodCharges.isEmpty()) {return 0;}
-        return bloodCharges.removeFirst();
+        return AugmentCombat.allowsTriggers() ? bloodCharges.consume() : 0;
     }
 
     private double augmentValue(String card, String key, double fallback) {

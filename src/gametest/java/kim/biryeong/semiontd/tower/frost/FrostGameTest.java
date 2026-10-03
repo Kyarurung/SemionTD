@@ -373,7 +373,7 @@ public final class FrostGameTest {
         setup.lane().addTower(tower);
         SemionTowerEntity entity = towerEntity(context, tower);
         long activationTick = context.getLevel().getGameTime();
-        FrostFullOperationService.PlayerState state = FrostFullOperationService.stateForTest(setup.owner());
+        FrostFullOperationState state = FrostFullOperationService.stateForTest(setup.owner());
         state.beginWave();
         state.activate(activationTick);
         FrostFullOperationService.tick(setup.lane());

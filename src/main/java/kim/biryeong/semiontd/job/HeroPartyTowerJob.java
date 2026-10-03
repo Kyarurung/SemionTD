@@ -56,25 +56,4 @@ public final class HeroPartyTowerJob extends SemionJob {
     public boolean includesTowerInCatalog(TowerType towerType) {
         return HeroPartyTowers.isHeroPartyTower(towerType);
     }
-
-    @Override
-    public void onMatchStarted(JobContext context) {
-        HeroPartyStates.clear(context.player().uuid());
-        HeroPartyStates.state(context.player().uuid());
-    }
-
-    @Override
-    public void onRoundStarted(JobContext context, int round) {
-        HeroPartyStates.assignQuest(context, round);
-    }
-
-    @Override
-    public void onRoundEnded(JobContext context, int round) {
-        HeroPartyStates.finishQuest(context);
-    }
-
-    @Override
-    public void onEliminated(JobContext context) {
-        HeroPartyStates.clear(context.player().uuid());
-    }
 }

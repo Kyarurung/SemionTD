@@ -1,6 +1,6 @@
 # SemionTD Builder and Tower Implementation Reference
 
-This reference describes the current SemionTD builder/job and production-tower architecture for Minecraft 1.21.8, Fabric, and Java 21. Re-read the named symbols before changing them; paths and signatures can move.
+This reference describes the current SemionTD builder/job and production-tower architecture for Minecraft 26.3, Fabric, and Java 25. Re-read the named symbols before changing them; paths and signatures can move.
 
 ## Contents
 
@@ -22,9 +22,10 @@ The main package is `src/main/java/kim/biryeong/semiontd`.
 
 | Concern | Current authority | Purpose |
 |---|---|---|
-| Builder contract | `job/SemionJob.java` | immutable identity, lifecycle, economy, tower permission, reward/summon hooks |
+| Builder contract | `job/SemionJob.java` | immutable identity, economy and permissions; common public event entrypoints |
 | Builder registration | `job/JobRegistry.java` | built-in singleton registration and lookup |
-| Match lifecycle | `game/SemionGame.java` | selection, match/round callbacks, elimination, runtime shutdown |
+| Match lifecycle | `game/SemionGame.java`, `job/JobBuilderLifecycle.java`, `job/JobLifecycle.java` | common event dispatch, family implementations and ordered shutdown |
+| Lane lifecycle | `job/JobLaneLifecycle.java` | existing boundaries around reset, wave callbacks and tower teardown |
 | Reward lifecycle | `game/EconomyService.java` | kill reward calculation and `onMonsterKilled` callback |
 | Tower definition | `tower/TowerType.java` | stable ID, display metadata, core stats, visual, upgrade options |
 | Family definition | `tower/<family>/*Towers.java` | tower constants, tiers/roles, description templates |
@@ -32,7 +33,7 @@ The main package is `src/main/java/kim/biryeong/semiontd`.
 | Global catalog | `tower/ProductionTowerCatalogs.java` | clears and rebuilds all family registrations |
 | Placement/upgrade | `tower/ProductionTowerService.java` | shared validation, currency spend, construction, replacement, actions |
 | Runtime tower | `tower/Tower.java`, `EntityBackedTower.java`, `ProductionTower.java`, `SupportTower.java` | lifecycle, stats, combat hooks, entity backing, active support execution |
-| Balance schema | `config/TowerBalanceConfig.java` | source defaults, merge, validation, tower/upgrade/ability schemas |
+| Balance schema/defaults | `config/TowerBalanceConfig.java`, `config/BundledBalanceDefaults.java`, `src/main/resources/semiontd/balance-defaults/` | packaged defaults, code fallback, merge, validation, tower/upgrade/ability schemas |
 | Config loading | `config/SemionConfigLoader.java` | read, migrate, merge, validate, write, last-known-good fallback |
 | Runtime balance | `config/TowerBalanceRuntime.java` | resolved stats, ability access, upgrade costs, rendered descriptions |
 | Combat entity | `entity/tower/SemionTowerEntity.java` | entity state, attacks, timed effects, runtime stat synchronization |
@@ -44,6 +45,35 @@ The main package is `src/main/java/kim/biryeong/semiontd`.
 | Fabric GameTests | `src/gametest/java/kim/biryeong/semiontd` | live entity, lane, lifecycle, placement, upgrade, dialog, VFX behavior |
 
 Use `OceanTowers` / `OceanTowerCatalogs` as a family with placement/resource behavior, `VillagerAdvTowerJob` / `VillagerAdvStates` as keyed state examples, and the closest current family for the mechanic being added. Never assume a family is exemplary in every dimension.
+
+### Warlock and End as responsibility references
+
+Read `tower/warlock` and `tower/end` together before restructuring a family. Their common strength is a runtime tower that connects lifecycle hooks to explicit configuration, mutable state, mechanic controllers, combat calculations and detail presentation. This is a responsibility map, not a required file count.
+
+| Boundary | Warlock reference | End reference |
+|---|---|---|
+| runtime orchestration | `WarlockTower` | `EndTower` |
+| typed configuration | `WarlockConfig`, `WarlockConfigReader`, `WarlockRules` | `EndConfig`, `EndAbilityKey` |
+| mutable state and snapshots | `WarlockState`, `WarlockProgressionSnapshot` | `EndTransferState`, `EndTransferSnapshot`, `EndTransferStacks` |
+| mechanic execution | `WarlockSacrificeController`, `WarlockAwakeningController` | `EndTransferController`, `EndEvolutionController` |
+| combat calculation | `WarlockCombat` | `EndCombat` |
+| runtime data to display | `WarlockStatsAssembler`, `WarlockStatsView` | `EndStatsAssembler`, `EndStatsView` |
+
+Preserve their differences. `WarlockSacrifice` separates snapshot/calculation from committing a gain after a successful kill. End transfer tracks partial contributions over ticks and can roll them back when interrupted; permanent and round contributions have distinct lifetimes. These are not interchangeable progression algorithms. Do not introduce a universal controller or cache just to make other families look identical.
+
+Use a small family-local helper when its behavior can be tested independently or has a separate lifecycle. Keep trivial hooks in the tower. Mirror real boundaries in tests: `WarlockSacrificeTest` / `WarlockStateTest`, `EndTransferDomainTest` / `EndTransferLifecycleTest`, then family-local server `*TowerIntegrationTest` / `*TowerRuntimeTest`. Follow the package/category/responsibility naming rule for new classes, even when a reference retains a shorter legacy name. This separation improves testability and ownership; it does not itself establish a performance gain.
+
+### Family-local examples after responsibility extraction
+
+The existing Warlock/End boundaries remain the reference. Other existing separations such as `MageTowerRuntime` / `MageTowerLifecycle`, `AtlantisPressure` / `AtlantisStates` and `IllagerRaidState` / `IllagerTargetPolicy` remain useful without forcing every builder into an identical structure. The current extractions illustrate narrower choices:
+
+- Presentation: `ArmyTowerStatsView.create`, `PetTowerStatsView.create`, `PlantTowerStatsView.create`, `AdversaryTowerFormStatsView.append` and `GambleTowerStatsView.upgradeTooltipLines` / `runtimeDetailLines` read configuration and current state without consuming RNG or executing combat. Preserve inherited lines when the view accepts them.
+- Support cadence: `HeroCompanionSupportController.tick` owns support execution; `copyFrom` preserves upgrade progress, while `resetRound` clears pulses but retains cooldown. `HeroCompanionStatsView.abilities` presents abilities and `HeroCompanionAbilityDefaults` holds the shared fallback values.
+- Deterministic calculation: `BodyTowerTargetGeometry.eyeDirection` / `insideEyeRay`, `DemonLordLaneGeometry.laneCentre` and `DeveloperTowerPatchEfficiency.resolve` isolate family-specific spatial or modifier rules without creating another placement or targeting framework.
+- Owned state: `NetherBloodChargeController` preserves the FIFO charge values and residual natural loss; `OceanCurrentController` owns tide ticks, spent water and charges. Both expose `snapshot` / `restore`; test independent copying and configuration boundaries. `FrostFullOperationState` owns per-wave activation state. `SuccubusDreamState` is mutable and retains entity/lane references; it is not an immutable snapshot.
+- World/collection orchestration: `BlueprintTowerSummonController.summon` / `expire` / `dismiss`, `EngineerTrapSignalController.select` and `ResonanceTowerLinkController.refresh` retain their distinct entity-lifetime, circuit-ordering and connection-update contracts.
+
+These helpers are package-private family implementations, not a public API for unrelated builders. Put focused state/view/geometry tests in the same family package, and retain server-backed tests for the callers. For example, `HeroCompanionSupportControllerTest` covers distinct reset/copy lifetimes, `NetherBloodChargeControllerTest` covers threshold changes and snapshot independence, and `BlueprintTowerModuleTest` covers actual summon behavior and lifetime after summoner death. The detailed current mapping is in [the production catalog guide](../../../../docs/production-tower-catalog.ko.md). A class extraction alone does not justify a cache or a performance claim.
 
 ## 2. Discovery and preflight
 
@@ -58,7 +88,7 @@ test -d src/main/java/kim/biryeong/semiontd
 test -f gradle.properties
 ```
 
-Read `AGENTS.md` and inherited instructions. The current project targets Minecraft 1.21.8 and Java 21, but use the checked-out `gradle.properties` and build files as authority.
+Read `AGENTS.md` and inherited instructions. The current project targets Minecraft 26.3 and Java 25, but use the checked-out `gradle.properties` and build files as authority.
 
 If `.codegraph/` exists, check its status before relying on it. Refresh only if allowed and actually stale. Ask CodeGraph narrow questions about builder registration, catalog flow, combat hooks, balance resolution, and test coverage; inspect the resulting source directly.
 
@@ -85,10 +115,10 @@ Treat every uncommitted file not created by the current task as user-owned. Befo
 
 ### SemionJob contract
 
-`SemionJob` currently owns immutable builder metadata and overridable hooks:
+`SemionJob` owns immutable builder metadata, economy/permission customization and public event entrypoints:
 
 - identity: `id`, `displayName`, `description`;
-- lifecycle: `onSelected`, `onMatchStarted`, `onRoundStarted`, `onRoundEnded`, `onEliminated`;
+- lifecycle entrypoints: `onSelected`, `onMatchStarted`, `onRoundStarted`, `onRoundEnded`, `onEliminated`, `onMatchClosed`;
 - starting economy modifiers: mineral, gas, income, and gas-per-second values;
 - summons: permission, modifiers, and lifecycle hooks;
 - tower access: `canUseTower`;
@@ -106,11 +136,40 @@ The current selection path applies starting economy and invokes `job.onSelected(
 - keep `onRoundStarted` and `onRoundEnded` safe for active, non-eliminated participants only;
 - release player-scoped resources on `onEliminated` and on game/runtime shutdown.
 
+There is no deselection hook. Reconnect does not replay selection or match-start hooks. Keep reconnection separate from starting a new participant or match.
+
 `EconomyService` invokes `onMonsterKilled` when the reward is credited. Put reward-linked builder behavior there instead of duplicating kill detection inside towers.
+
+### Event implementation and ordered cleanup
+
+`SemionJob` keeps the eight existing public event entrypoints. Each delegates through `JobBuilderLifecycle` to the job ID's `JobLifecycle` implementation. Built-in job classes keep metadata, permissions and economy modifiers; put event behavior in `Job<Builder>Lifecycle`, not job overrides. The registry explicitly includes every built-in job and Default: currently 22 family implementations and 11 `JobLifecycle.NONE` entries. Use the no-op entry for a job with no event behavior instead of making an empty class.
+
+Register a new job in both `JobRegistry` and `JobBuilderLifecycle`. Lifecycle implementations are shared, so mutable player/match fields still belong in keyed family services. Family mechanics remain in their tower/services; the lifecycle implementation connects those operations at the right boundary. For example, `JobPlantLifecycle.onRoundEnded` pays surviving owned towers' income, `JobArmyLifecycle` completes service and discharge refunds, and `JobWarlockLifecycle.onMonsterKilled` records awakening progress once. End retains a no-op job lifecycle; its tower transfer lifecycle remains separate.
+
+| Hook | Current implementation boundary | Contract to preserve |
+|---|---|---|
+| `onSelected` | common dispatch to default empty behavior | starting economy applied; lane not attached yet |
+| `onMatchStarted` | family implementation | reset/start match state, register team effects, install blueprints |
+| `onRoundStarted` | family implementation | preparation-phase budgets, quests, shared storm roll; active non-eliminated teams only |
+| `onRoundEnded` | family implementation | payouts, discharge, quest completion and next-round state in existing order |
+| `onEliminated` | family implementation | all team members' owner state and team-effect cleanup after online cleanup/spectator transition |
+| `onMatchClosed` | family implementation, followed by game shutdown phases | idempotent cleanup; Illager and Thunder also release active match state |
+| `onSummonedMonster` | common dispatch to default empty behavior | preserve summon context and arguments |
+| `onMonsterKilled` | Ancient City, Warlock and Demon Lord implementations | territory, awakening and combat experience rules; no duplicate credit |
+
+`JobBuilderLifecycle.onPlayerEliminated(ServerPlayer)` owns the existing single Demon Lord cleanup for each online eliminated player, before spectator-team assignment and teleport. The subsequent loop invokes every team member's job `onEliminated`. Preserve these two scopes and their order; this helper does not introduce a new elimination action.
+
+`JobLaneLifecycle` keeps six separate `PlayerLane` boundaries: `beforeRoundReset`, `afterTemporaryCopiesRemoved`, `prepareWave`, `beforeTowerWaveStarted`, `afterTowerWaveStarted` and `beforeTowersCleared`. Preserve work between these calls. In particular, tower wave callbacks and round-trait application run before the post-wave snapshots/reserves/Demon Lord combat transition. Preparation-phase `onRoundStarted` is not actual wave start.
+
+The game-level `JobBuilderLifecycle.onWaveStarted` / `onWaveCleared` preserve Villager ADV's existing whole-game callbacks. `onPlayerDisconnected` keeps the existing Gamble reveal, Demon Lord and Frost cleanup order; it does not reset the full job or replay match initialization on reconnect.
+
+`SemionGame.closeRuntimeState()` orders participant `onMatchClosed`, `JobBuilderLifecycle.closePlayerRuntime(game)` for Demon Lord online/offline cleanup, `closeBeforeLanes`, team/lane/tower teardown, then `closeAfterLanes`. Both phase helpers process all participant UUIDs regardless of selected job. Before lanes: Villager ADV, Ancient City and Engineer. After lanes: complete the Atlantis state/pressure pass, then the Adversary/Mage/Future Agency/Queen/Hero/Army pass. Adversary installed-score reconciliation occurs during tower removal, so its cleanup cannot move before teardown. Do not duplicate these phase-owned cleanups inside a family implementation.
+
+`JobBuilderLifecycleTest` checks registration, common dispatch, state ownership, repeated cleanup and single kill credit. `JobBuilderLifecycleRuntimeTest` covers Ancient City death caps/round reset/cleanup and cross-family Adversary state cleanup after tower removal. Keep the remaining family GameTests. Only Illager and Thunder gain previously missing match-close cleanup in this migration; moving existing event bodies does not authorize changing their rules.
 
 ### Registration
 
-Add one immutable built-in job instance to `JobRegistry.registerBuiltIns()`. Jobs are globally registered singleton objects. Never put mutable per-player, per-match, or per-round fields directly on a job.
+Add one immutable built-in job instance to `JobRegistry.registerBuiltIns()` and its explicit `JobBuilderLifecycle` entry. Jobs and lifecycle implementations are shared objects. Never put mutable per-player, per-match, or per-round fields directly on either.
 
 Use stable lowercase resource IDs. Changing a job or tower ID can break configs, persistence, web consumers, and recorded actions; treat ID changes as migrations.
 
@@ -120,10 +179,10 @@ Use a keyed service such as `VillagerAdvStates` when state outlives one tower in
 
 Required cleanup depends on lifetime:
 
-1. clear stale state at `onMatchStarted`;
+1. clear stale state through the family lifecycle implementation at `onMatchStarted`;
 2. clear the player entry at `onEliminated`;
-3. clear it from `SemionGame.closeRuntimeState()` if shutdown can occur without elimination;
-4. test a second match or player reuse so leaked state is observable.
+3. assign idempotent shutdown cleanup to the family `onMatchClosed` or existing pre/post-lane phase according to state lifetime; do not duplicate phase-owned cleanup;
+4. test repeated close, elimination then close and a second match/player reuse so missing cleanup or recreated state is observable.
 
 If state belongs to one tower and must survive upgrades, prefer `TowerDataKey<T>` for immutable/simple values. `Tower.copyFrom` shallow-copies the data map. Override `copyRuntimeStateFrom` for custom fields or mutable values that need an independent copy.
 
@@ -170,11 +229,10 @@ Family registration should follow this order:
 
 ```java
 TowerType resolved = TowerBalanceRuntime.resolve(TYPE);
-catalog.registerStarter(resolved, factory); // tier one only
-catalog.register(resolvedHigherTier, tier, factory);
-// Register every endpoint first, then link edges.
-catalog.linkUpgrade(FROM.id(), UPGRADE_ID, TO.id(),
-        TowerBalanceRuntime.upgradeCost(FROM.id(), UPGRADE_ID));
+ProductionTowerCatalog.registerStarter(resolved, factory);
+ProductionTowerCatalog.register(resolvedHigherTier, factory, tier);
+ProductionTowerCatalog.linkUpgrade(FROM, UPGRADE_ID, resolvedHigherTier.displayName(), resolvedHigherTier,
+        TowerBalanceRuntime.upgradeCost(FROM, UPGRADE_ID));
 ```
 
 Use the current exact signatures rather than copying this illustrative snippet blindly.
@@ -340,8 +398,8 @@ Use core tower stats only for universal `TowerType` fields. Put mechanic-specifi
 
 For every new value:
 
-1. add a source default;
-2. add it through the family defaults helper;
+1. add the packaged default in `src/main/resources/semiontd/balance-defaults/tower_balance.json`;
+2. keep the corresponding family/code fallback coherent, where one exists;
 3. include it in `withMissingDefaults` behavior;
 4. validate its semantic constraints;
 5. test both an empty/default config and a partial existing config.
@@ -380,6 +438,10 @@ When changing schema:
 
 `/semiontd reload` reconfigures the built-in catalog and refreshes active game tower types and summon-shop data. A reloadable ability should not be copied once into a long-lived field unless an explicit refresh hook updates it.
 
+### Published patch contracts
+
+When the user requests published-patch synchronization, use the applied patch values, not proposals. Retain dated/versioned source evidence in `src/test/resources/balance/applied-patch-values.json`. `ConfigPublishedPatchContractTest` checks the seeded JSON and loaded runtime values, retired-card exclusion and preservation of an existing operator override. This complements family behavior tests; it does not replace them. Convert percentage ratios and tick durations explicitly. Do not restore retired content or a user-deleted operational configuration.
+
 ### Live balance authority
 
 For balance review or rebalance work, locate the actual server instance and read:
@@ -387,7 +449,7 @@ For balance review or rebalance work, locate the actual server instance and read
 - `config/semion-td/tower_balance.json`;
 - `config/semion-td/economy.json` when starting resources or income matter.
 
-Report which config was used. If no active instance is available, label all numbers as source defaults. Keep implementation verification separate from payback, DPS, wave-clear, or economy conclusions.
+Report which config was used. If no active configuration is available, label all numbers as packaged defaults and leave intentionally deleted operational files absent. Keep implementation verification separate from payback, DPS, wave-clear, or economy conclusions.
 
 ## 8. Descriptions, dialogs, and timed effects
 
@@ -484,16 +546,40 @@ Useful focused suites include:
 - `WebCatalogExporterTest` for unique ownership and export integrity;
 - current family `*TowerCatalogTest` files for registration/config conventions.
 
-### GameTest patterns
+### Responsibility and test placement
 
-Use:
+New class names follow package/category/specific responsibility and tests end in `Test`. Examples are `tower/ocean/OceanTowerRuntimeTest`, `tower/villager/VillagerTowerAugmentCombatTest` and `tower/blueprint/BlueprintTowerModuleTest`. Existing legacy names are not a reason to rename unrelated files.
 
-- `SemionLifecycleGameTest` for builder lifecycle and economy hooks;
-- `SemionParticipantGameTest` for built-in registration, starter counts, placement, upgrades, dialogs, match/round/team behavior;
-- current builder-specific GameTests for effects or multi-lane behavior;
-- `TowerVfxGameTest` for palette, attack, area, and special-event visuals.
+| Responsibility | Existing starting point |
+|---|---|
+| all-builder factory/ownership/upgrade contract | `src/test/.../tower/TowerBuilderCatalogContractTest` |
+| one builder's pure formulas, configuration and catalog | `src/test/.../tower/<family>` |
+| one builder's server/entity behavior | `src/gametest/.../tower/<family>`, such as `OceanTowerRuntimeTest` or `PlantTowerIntegrationTest` |
+| one builder's augment behavior | family-local `*TowerAugmentCombatTest` / `*TowerAugmentSelectionTest` |
+| genuinely shared participant/match rules | `gametest/SemionParticipantGameTest`, `SemionLifecycleGameTest` |
+| cross-family targeting policy | `tower/TowerBuilderTargetPolicyTest` |
+| shared augment mechanics | `augment/AugmentCombatGameTest`, `AugmentControllerGameTest` |
+| VFX palette and event routing | `entity/tower/vfx/TowerVfxGameTest` |
 
-When adding a built-in builder, update any explicit built-in builder list and expected starter count intentionally. Do not weaken counts into `>=` just to make a new registration pass.
+The all-builder contract discovers non-default jobs through `JobRegistry` and checks each job's catalog entries and factories, both positions, directed upgrades and invested mineral transfer. It creates a Blueprint fixture because that catalog is dynamic. Extend the family-specific tests for mechanic boundaries; do not copy the full common catalog test into every builder package or freeze the current total as a permanent target.
+
+### GameTest setup and registration
+
+`GameTestParticipantFixture` implements `CustomTestMethodInvoker`, restores the default production catalog and income summons before each method, and shares arena/game/entity helpers. `AugmentCombatFixture` and `AugmentControllerFixture` serve their respective augment test setups. Inherit the fixture that matches the test; retain a local helper when only one family needs it. Do not introduce another fixture layer solely to deduplicate a few declarations.
+
+Register concrete test classes in `src/gametest/resources/fabric.mod.json`. Preserve `@GameTest`, invocation interfaces, source sets and Gradle discovery during moves; abstract helpers are not entrypoints. Compare method identity and registration before/after extraction and confirm the full runtime report has no missing or duplicate cases. A class rename changes its test filter/report ID, so update those references too.
+
+For chunk/player-dependent tests use the existing `RuntimeEnvironmentFixture` and `RuntimePlayerFixture` readiness conditions. Keep bounded asynchronous readiness and the actual combat/lifecycle assertions; do not replace them with an unconditional delay or a weakened expectation. Restore global catalogs/configs and close match state in cleanup. An opt-in performance test that reports `NOT_RUN` is not performance validation.
+
+When adding a built-in builder, update any explicit built-in builder list and expected starter count intentionally. Do not weaken counts into `>=` just to make registration pass.
+
+### Preserve semantics when optimizing
+
+`PlayerLane` owns tower membership and ordered lifecycle dispatch. Its identity membership set avoids a linear list search for each ticked tower while retaining the ordered snapshot. Reuse lane mutation methods; do not modify a second membership structure from a family. Preserve the rule that removals during callbacks are observed and new additions wait for the next snapshot. Wave/summon FIFO queues avoid shifting remaining elements at each head removal; queue order and spawn timing are still gameplay contracts.
+
+Keep family-specific resource distribution, RNG, target ties and rounding in their established order. Share a calculation only when inputs and lifetime match; a wave snapshot and a live per-tick value are different contracts. Cache invalidation must include placement, removal, upgrade, movement, death/revival, reload and match shutdown wherever those affect the cached result. Avoid world scans when the shared lane/area API already supplies eligible targets.
+
+Separate responsibility-only changes from data-structure or algorithm changes. Measure real input sizes and call frequency, including snapshot allocation, index updates and cache rebuilds. Report average/amortized/worst complexity accurately and compare identical inputs before claiming MSPT/TPS improvement. A passing GameTest, shorter class or asymptotic bound alone is not measured gameplay performance.
 
 ### Commands
 
@@ -508,21 +594,15 @@ git diff --check
 
 Use the repository-required wrapper, such as `rtk`, without changing the underlying validation intent.
 
-`build.gradle` may load required local runtime patch jars from `run/mods`. If GameTest fails with a hard dependency/no-candidate error for those mods, inspect the declared runtime dependency and available patch artifact. Treat this as an environment/install blocker; do not change gameplay code or dependency metadata merely to hide it.
+`build.gradle` currently supplies required local compatibility projects and declared external mods through the Gradle dependency graph. Do not copy operating-server mods into `run/mods` as a test prerequisite. If GameTest fails before test execution with a missing dependency, inspect that graph and the available artifact. Treat an unavailable dependency as an environment/install blocker; do not change gameplay code or dependency metadata merely to hide it.
 
 ### Runtime smoke checks
 
-When a server is available and the request includes live behavior:
+Use an authorized isolated server and fresh test world. The configured `runGameTest` task creates an isolated directory under `build/run`; inspect its runtime dependencies rather than copying operating-server data. Do not start, restart, deploy to, or convert an operational server/world as an implied part of development. New explicit EULA/permission requirements remain a blocker.
 
-1. install only the intended artifact/config;
-2. start or reload the real runtime;
-3. run `/semiontd reload` and inspect errors;
-4. open the relevant builder/tower UI;
-5. place, upgrade, and exercise the mechanic;
-6. verify visible state, damage/economy/stat effects, and cleanup;
-7. report concrete logs, test counts, or observed values.
+Exercise reload, builder selection, placement, upgrade, damage/economy, visible state and cleanup for the changed mechanic. Distinguish unit tests, server-backed GameTests, actual client GPU rendering and real multiplayer. HUD/font/VFX appearance requires an actual client check at the repository's GUI-scale baseline and other supported sizes. Compilation or a mock-player connection does not verify rendering.
 
-Compilation is not a smoke test.
+The complete gameplay gate remains `./gradlew test runGameTest remapJar --console=plain --no-daemon` (Windows: `.\gradlew.bat`). In this 26.3 build, `remapJar` is the existing distributable compatibility task; do not replace the non-remapping platform setup with a legacy example. Report unexecuted checks explicitly.
 
 ## 11. Failure patterns and completion checklists
 
@@ -540,11 +620,11 @@ Compilation is not a smoke test.
 | config reload changes descriptions but not behavior | value cached outside runtime access/refresh path | runtime accessor or explicit refresh |
 | dialog omits mechanic state | backend-only counter | `runtimeDetailLines` or timed-effect label |
 | raw `{ability...}` appears | template not registered/resolved or bad key/format | description registry/runtime resolve |
-| GameTest dependency failure before tests | required `run/mods` patch jar absent | runtime installation, not gameplay code |
+| GameTest dependency failure before tests | required declared module/artifact unavailable | Gradle runtime graph, not gameplay code |
 
 ### New builder/family completion checklist
 
-- [ ] Stable builder ID and immutable `SemionJob` registered.
+- [ ] Stable builder ID, immutable `SemionJob` and explicit lifecycle implementation/no-op registration.
 - [ ] Lifecycle order reviewed; keyed mutable state has complete cleanup.
 - [ ] Stable tower IDs, tiers, roles, visuals, and descriptions defined.
 - [ ] Only intended tier-one towers registered as starters.

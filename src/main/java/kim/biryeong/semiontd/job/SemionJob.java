@@ -36,18 +36,23 @@ public abstract class SemionJob {
     }
 
     public void onSelected(JobContext context) {
+        JobBuilderLifecycle.onSelected(id, context);
     }
 
     public void onMatchStarted(JobContext context) {
+        JobBuilderLifecycle.onMatchStarted(id, context);
     }
 
     public void onRoundStarted(JobContext context, int round) {
+        JobBuilderLifecycle.onRoundStarted(id, context, round);
     }
 
     public void onRoundEnded(JobContext context, int round) {
+        JobBuilderLifecycle.onRoundEnded(id, context, round);
     }
 
     public void onEliminated(JobContext context) {
+        JobBuilderLifecycle.onEliminated(id, context);
     }
 
     /**
@@ -55,6 +60,7 @@ public abstract class SemionJob {
      * Implementations must keep this idempotent because an eliminated player may already be cleaned up.
      */
     public void onMatchClosed(JobContext context) {
+        JobBuilderLifecycle.onMatchClosed(id, context);
     }
 
     public long modifyStartingMineral(JobContext context, long baseMineral) {
@@ -105,6 +111,7 @@ public abstract class SemionJob {
     }
 
     public void onSummonedMonster(JobContext context, SummonMonsterType summonType, Monster monster) {
+        JobBuilderLifecycle.onSummonedMonster(id, context, summonType, monster);
     }
 
     public long modifyKillMineralReward(JobContext context, Monster monster, long baseReward) {
@@ -112,6 +119,7 @@ public abstract class SemionJob {
     }
 
     public void onMonsterKilled(JobContext context, Monster monster, long mineralReward) {
+        JobBuilderLifecycle.onMonsterKilled(id, context, monster, mineralReward);
     }
 
     private static Identifier parseId(String id) {

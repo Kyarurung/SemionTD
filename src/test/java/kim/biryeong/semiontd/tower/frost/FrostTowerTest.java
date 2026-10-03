@@ -336,7 +336,7 @@ class FrostTowerTest {
     @Test
     void fullOperationGainsThreeStacksPerActivationCycleAndCapsEachFamilyAtThree() {
         FrostFullOperationService.clearPlayer(OWNER);
-        FrostFullOperationService.PlayerState state = FrostFullOperationService.stateForTest(OWNER);
+        FrostFullOperationState state = FrostFullOperationService.stateForTest(OWNER);
         state.beginWave();
 
         long[] cycleTicks = {100L, 200L, 300L};
@@ -362,7 +362,7 @@ class FrostTowerTest {
     @Test
     void fullOperationFixesOrdinaryDamageAtFiveAndIncomingDamageAtFivePercent() {
         FrostFullOperationService.clearPlayer(OWNER);
-        FrostFullOperationService.PlayerState state = FrostFullOperationService.stateForTest(OWNER);
+        FrostFullOperationState state = FrostFullOperationService.stateForTest(OWNER);
         state.beginWave();
         state.activate(100L);
 
