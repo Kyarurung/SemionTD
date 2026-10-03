@@ -116,7 +116,8 @@
       "kim.biryeong.semiontd.ui.UiHudRefreshTest",
       "kim.biryeong.semiontd.entity.goal.EntityGoalSupportTargetsTest",
       "kim.biryeong.semiontd.game.GamePlayerJoinDispatchTest",
-      "kim.biryeong.semiontd.job.JobBuilderLifecycleRuntimeTest"
+      "kim.biryeong.semiontd.job.JobBuilderLifecycleRuntimeTest",
+      "kim.biryeong.semiontd.gametest.RuntimePacketContextTest"
     ]
   }
 }

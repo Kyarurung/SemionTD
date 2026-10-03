@@ -7,6 +7,17 @@ import org.slf4j.LoggerFactory;
 public final class RuntimeEnvironmentFixture implements ModInitializer {
     @Override
     public void onInitialize() {
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.INIT.register((handler, server) -> {
+            if (!(server instanceof net.minecraft.gametest.framework.GameTestServer)) {
+                return;
+            }
+            var context = handler.getPacketContext();
+            if (context.get(net.fabricmc.fabric.api.networking.v1.context.PacketContext.REGISTRY_ACCESS) == null) {
+                context.set(net.fabricmc.fabric.impl.networking.context.PacketContextImpl.SERVER_INSTANCE, server);
+                context.set(net.fabricmc.fabric.impl.networking.context.PacketContextImpl.REGISTRY_ACCESS, server.registryAccess());
+                context.set(net.fabricmc.fabric.impl.networking.context.PacketContextImpl.GAME_PROFILE, handler.getPlayer().getGameProfile());
+            }
+        });
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             var players = server.getPlayerList();
             LoggerFactory.getLogger(RuntimeEnvironmentFixture.class).info(

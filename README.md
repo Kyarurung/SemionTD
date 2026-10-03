@@ -33,11 +33,10 @@ Fabric Loader와 Fabric API는 서로 다른 의존성입니다. Minecraft 26.3�
 저장소의 `AGENTS.md`와 관련 빌더/모델 제작 스킬을 먼저 읽습니다. JDK 25를 선택하고 저장소의 Gradle Wrapper로 전체 검증을 실행합니다.
 
 ```bash
-./gradlew test runGameTest remapJar --console=plain --no-daemon
-./gradlew build --console=plain --no-daemon
+./gradlew test runGameTest remapJar
 ```
 
-Windows PowerShell에서는 `.\gradlew.bat`를 사용합니다. 첫 명령은 JUnit·서버 GameTest·배포 JAR 게이트이며, 두 번째 명령은 선언된 하위 호환 모듈을 포함한 빌드를 확인합니다. 변경 중에는 해당 책임의 JUnit/GameTest를 함께 갱신하고 좁은 회귀 검사부터 실행합니다.
+이 명령은 JUnit·서버 GameTest·배포 JAR을 검증합니다. 변경 중에는 해당 책임의 테스트를 함께 갱신합니다.
 
 현재 배포 산출물은 `build/libs/semion-td-1.0-SNAPSHOT+26.3.jar`입니다. `remapJar`는 문서화된 명령을 유지하기 위한 호환 태스크로, 26.3에서는 중첩 의존성을 포함하는 일반 `jar` 태스크에 의존합니다. 예전 난독화 매핑을 다시 적용하지 않습니다.
 

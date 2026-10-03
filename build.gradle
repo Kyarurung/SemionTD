@@ -215,6 +215,7 @@ tasks.named('runGameTest') {
             throw new GradleException('Refusing to reuse an existing GameTest world: ' + isolatedRun)
         }
         isolatedRun.mkdirs()
+        new File(isolatedRun, 'server.properties').setText('', 'UTF-8')
         // Retain the explicitly accepted configureTests EULA setting for the new directory.
         new File(isolatedRun, 'eula.txt').setText('eula=true\n', 'UTF-8')
         layout.buildDirectory.file('26.3-gametest-run-dir.txt').get().asFile.setText(isolatedRun.absolutePath, 'UTF-8')

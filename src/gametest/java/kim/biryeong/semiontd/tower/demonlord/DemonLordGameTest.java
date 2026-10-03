@@ -47,8 +47,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 
-public final class DemonLordGameTest {
-    @GameTest
+public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void skillEffectsSnapToTheGroundSurfaceUnderTheirOrigin(GameTestHelper context) {
         var level = context.getLevel();
         var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
@@ -73,7 +73,7 @@ public final class DemonLordGameTest {
         context.succeed();
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void selfDesignationsBoostBladeAndAltarDamageExactlyOnce(GameTestHelper context) {
         net.minecraft.world.level.ChunkPos.rangeClosed(net.minecraft.world.level.ChunkPos.containing(context.getLevel().getRespawnData().pos()), 2)
                 .forEach(pos -> context.getLevel().getChunk(pos.x(), pos.z()));
@@ -174,7 +174,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void cleanupOnlyRestoresFlightForAnExistingDemonLordState(GameTestHelper context) {
         // The vanilla mock overrides gameMode() to CREATIVE even after setGameMode().
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(
@@ -210,7 +210,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void altarDamageUsesSharedDefenseStatisticsAndKillAttribution(GameTestHelper context) {
         ServerPlayer player = context.makeMockServerPlayerInLevel();
         UUID owner = player.getUUID();
@@ -261,7 +261,7 @@ public final class DemonLordGameTest {
      * 스킬은 레인에 짓지 않습니다. 배정한 슬롯마다 보이지 않는 운반체가 떠서 공용 연출·범위 경로의
      * 출처가 되고, 레인의 타워 목록·칸·타워 수에는 끼지 않습니다.
      */
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void slotCarriersFollowTheLoadoutWithoutJoiningTheLane(GameTestHelper context) {
         UUID owner = stableUuid("demon-lord-carrier-owner");
         PlayerLane lane = testLane(context, owner);
@@ -331,7 +331,7 @@ public final class DemonLordGameTest {
     }
 
     /** 키 슬롯에 산 스킬이 그 키로 시전됩니다. 레인에 제단이 하나도 없어도 됩니다. */
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void slotBoundSkillsCastThroughTheirKey(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         ServerPlayer player = context.makeMockServerPlayerInLevel();
@@ -362,7 +362,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void demonLordStaysInOwnLaneThenMovesToFinalDefense(GameTestHelper context) {
         ServerPlayer player = context.makeMockServerPlayerInLevel();
         PlayerLane lane = testLane(context, player.getUUID());
@@ -393,7 +393,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void demonLordBlocksOtherLanesUntilFinalDefenseAndReleasesAggro(GameTestHelper context) {
         ServerPlayer player = context.makeMockServerPlayerInLevel();
         PlayerLane lane = testLane(context, player.getUUID());
@@ -443,7 +443,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void demonLordDrawsAggroOnlyInsideDefenseRange(GameTestHelper context) {
         var fixture = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
                 Vec3.atCenterOf(context.absolutePos(new BlockPos(12, 2, 3))), GameType.ADVENTURE,
@@ -491,7 +491,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void gripOfDoomTargetsReachedBossOnlyDuringFinalDefense(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         ServerPlayer player = context.makeMockServerPlayerInLevel();
@@ -531,7 +531,7 @@ public final class DemonLordGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void skyBreakerAppliesSharedStunWithoutChangingLiftOrDuration(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         ServerPlayer player = context.makeMockServerPlayerInLevel();
@@ -574,7 +574,7 @@ public final class DemonLordGameTest {
     }
 
     /** 손아귀를 슬롯에 넣으면 처형 임계값 이하의 적만 그 마왕에게 빨갛게 표시되고, 회복하거나 손아귀를 빼면 꺼집니다. */
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void gripOfDoomMarksOnlyExecutableMonsters(GameTestHelper context) {
         ServerPlayer player = context.makeMockServerPlayerInLevel();
         PlayerLane lane = testLane(context, player.getUUID());
@@ -729,6 +729,8 @@ public final class DemonLordGameTest {
     }
 
     private static void prepareFloor(GameTestHelper context, int max) {
+        context.assertTrue(context.getBounds().contains(Vec3.atCenterOf(context.absolutePos(new BlockPos(max, 2, max)))),
+                "The declared Demon Lord structure must contain the complete carrier and movement arena.");
         for (int x = 0; x <= max; x++) {
             for (int z = 0; z <= max; z++) {
                 BlockPos floor = context.absolutePos(new BlockPos(x, 1, z));

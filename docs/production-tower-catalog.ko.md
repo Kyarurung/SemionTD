@@ -172,3 +172,6 @@ git diff --check
 Windows에서는 `.\gradlew.bat`를 사용합니다. 저장소의 `runGameTest`는 격리 디렉터리에 새 월드를 생성하며 필요한 패치 의존성을 갖춰야 합니다. `remapJar`는 현재 26.3 빌드에서 배포 산출물을 확인하는 호환 태스크이므로 예전 remapping 설정을 가져오지 않습니다.
 
 리팩토링의 책임 분리와 알고리즘 개선은 별도로 검증합니다. 입력 규모·호출 빈도·색인 갱신·할당 비용을 포함한 동일 조건 측정 없이 성능 향상을 단정하지 않습니다. 서버 GameTest는 실제 클라이언트의 폰트·VFX·모델 렌더링이나 다중 접속 성능 검증을 대신하지 않습니다. 운영 시작·배포·푸시는 별도 승인 범위입니다.
+
+
+엔티티를 생성하는 테스트는 최종 방어 대상과 숨김 스킬 운반체까지 포함하는 구조 크기를 선언해야 합니다. Body·Demon Lord의 동기 전투 검사는 `combat_arena`와 `RuntimeArenaFixture`를 사용합니다. 청크의 `ENTITY_TICKING` 표시만으로 준비됐다고 판단하지 않고 `areEntitiesActuallyLoadedAndTicking`으로 엔티티 저장소 준비를 확인하며, 기존 테스트 제한 시간은 유지합니다. 지연 검증의 실패는 원인을 보존한 `GameTestAssertException`으로 전달하여 해당 테스트가 실패하게 합니다. 모의 접속의 로그인 단계에서 빠진 Fabric 서버·레지스트리·프로필 정보는 테스트 전용 `RuntimeEnvironmentFixture`가 준비하며 `RuntimePacketContextTest`가 블록 엔티티 청크 패킷 생성 경로를 검증합니다.

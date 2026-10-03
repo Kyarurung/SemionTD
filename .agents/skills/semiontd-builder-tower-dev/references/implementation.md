@@ -647,3 +647,6 @@ The complete gameplay gate remains `./gradlew test runGameTest remapJar --consol
 - [ ] Player UI and web export reflect the new behavior.
 - [ ] One regression test fails before the fix and passes after it where practical.
 - [ ] No unrelated source or formatting changes included.
+
+
+Entity-backed tests must declare a structure that contains every arena coordinate, including final-defense targets and hidden skill carriers. Use `RuntimeArenaFixture` for synchronous combat cases that need loaded entity sections before invocation; its bounded GameTest sequence checks `ServerLevel.areEntitiesActuallyLoadedAndTicking`, preserves the annotation timeout and reports reflective assertion failures as `GameTestAssertException` with their original cause. `FullChunkStatus.ENTITY_TICKING` alone does not establish entity-section readiness. Body and Demon Lord tests use the existing `combat_arena` structure. Keep setup, assertions and cleanup inside one invocation; do not leave raw `AssertionError` callbacks scheduled on server ticks. The test-only `RuntimeEnvironmentFixture` initializes missing Fabric server/registry/profile context for mock logins, and `RuntimePacketContextTest` exercises block-entity chunk serialization through both mock-player paths.
