@@ -273,7 +273,7 @@ public final class SemionCommands {
                                                 JobRegistry.all().stream()
                                                         .filter(job -> job != JobRegistry.defaultJob())
                                                         .filter(job -> !JobRegistry.isEnabled(job))
-                                                        .map(job -> job.id().toString()),
+                                                        .map(job -> job.id().getPath()),
                                                 builder
                                         ))
                                         .executes(context -> setJobEnabled(
@@ -289,7 +289,7 @@ public final class SemionCommands {
                                                 JobRegistry.all().stream()
                                                         .filter(job -> job != JobRegistry.defaultJob())
                                                         .filter(JobRegistry::isEnabled)
-                                                        .map(job -> job.id().toString()),
+                                                        .map(job -> job.id().getPath()),
                                                 builder
                                         ))
                                         .executes(context -> setJobEnabled(

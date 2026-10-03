@@ -49,7 +49,7 @@ final class SemionDialogBodyTest {
 
     @Test
     void dividerMarkersBecomeRenderedComponentsEvenWithoutActionButtons() {
-        var bodies = SemionDialogService.actionDialogBodies("\n첫 항목\n<divider>\n둘째 항목");
+        var bodies = UiDialogBodyRenderer.actionDialogBodies("\n첫 항목\n<divider>\n둘째 항목", 256);
 
         assertEquals(1, bodies.size());
         PlainMessage body = assertInstanceOf(PlainMessage.class, bodies.getFirst());

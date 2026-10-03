@@ -288,7 +288,7 @@ public final class SemionDisplayHudService {
                 .filter(SemionTeam::active)
                 .sorted(Comparator.comparing(SemionTeam::id))
                 .toList();
-        text.append("<dark_gray>────</dark_gray>\n");
+        text.append(UiTextDivider.hudMarkup()).append("\n");
         text.append("<gray>전체 팀 보스</gray>\n");
         for (SemionTeam team : activeTeams) {
             text.append(teamNameText(team.id()))

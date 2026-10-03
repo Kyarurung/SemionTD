@@ -169,3 +169,5 @@
 | `/semiontd-debug buildguide [list/detail/towerui]` | 빌드 가이드 화면을 디버그합니다. |
 
 디버그 명령어는 운영자가 서버 상태를 확인하거나 UI를 점검할 때만 사용합니다.
+
+직업 관리 버튼과 `job enable`/`job disable` 자동완성은 `villager_towers`처럼 `semion-td:`를 생략한 ID를 사용합니다. 예: `/semiontd job disable villager_towers`, `/semiontd job enable villager_towers`. OP 권한 레벨 2가 필요하며, 저장된 `jobs.json`의 ID는 기존 전체 ID를 유지합니다.

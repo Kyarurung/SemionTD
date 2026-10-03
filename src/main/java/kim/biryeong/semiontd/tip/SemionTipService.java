@@ -127,6 +127,10 @@ public final class SemionTipService {
         );
     }
 
+    static Component renderMarkup(String markup) {
+        return SemionText.mini(markup.replace("&lt;", "\\<").replace("&gt;", ">"));
+    }
+
     private void refreshRenderedMessages(TipConfig config) {
         if (config.equals(renderedConfig)) {
             return;
@@ -137,7 +141,7 @@ public final class SemionTipService {
         for (int index = 0; index < config.messages().size(); index++) {
             String markup = config.messages().get(index);
             try {
-                parsed.add(SemionText.mini(markup));
+                parsed.add(renderMarkup(markup));
             } catch (RuntimeException exception) {
                 SemionTd.LOGGER.warn("Skipping invalid MiniMessage tip at index {}: {}", index, markup, exception);
             }
@@ -150,7 +154,7 @@ public final class SemionTipService {
             return null;
         }
         try {
-            return SemionText.mini(config.joinMessage());
+            return renderMarkup(config.joinMessage());
         } catch (RuntimeException exception) {
             SemionTd.LOGGER.warn("Skipping invalid MiniMessage join tip: {}", config.joinMessage(), exception);
             return null;

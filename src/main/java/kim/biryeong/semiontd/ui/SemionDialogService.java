@@ -1,6 +1,8 @@
 package kim.biryeong.semiontd.ui;
 
 import static kim.biryeong.semiontd.ui.UiJobStatisticsView.*;
+import static kim.biryeong.semiontd.ui.UiDialogPresentation.*;
+import static kim.biryeong.semiontd.ui.UiDialogBodyRenderer.*;
 import static kim.biryeong.semiontd.ui.UiDialogTableLayout.*;
 
 import kim.biryeong.semiontd.tower.gamble.PokerTableTower;
@@ -15,7 +17,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import kim.biryeong.semiontd.buildguide.BuildGuide;
 import kim.biryeong.semiontd.buildguide.BuildGuideService;
@@ -77,7 +78,6 @@ import kim.biryeong.semiontd.trait.TraitRegistry;
 import kim.biryeong.semiontd.trait.TraitSlot;
 import kim.biryeong.semiontd.ui.dialog.body.HeaderMessage;
 import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.ClickEvent;
 import kim.biryeong.semiontd.game.MatchParticipantResult;
 import kim.biryeong.semiontd.game.MatchResult;
 import kim.biryeong.semiontd.game.PlayerEconomy;
@@ -106,8 +106,6 @@ import net.minecraft.server.dialog.CommonDialogData;
 import net.minecraft.server.dialog.Dialog;
 import net.minecraft.server.dialog.DialogAction;
 import net.minecraft.server.dialog.MultiActionDialog;
-import net.minecraft.server.dialog.NoticeDialog;
-import net.minecraft.server.dialog.action.StaticAction;
 import net.minecraft.server.dialog.body.DialogBody;
 import net.minecraft.server.dialog.body.PlainMessage;
 import net.minecraft.server.dialog.body.ItemBody;
@@ -880,7 +878,7 @@ public final class SemionDialogService {
                         true,
                         false,
                         DialogAction.CLOSE,
-                        actionDialogBodies(body.toString()),
+                        actionDialogBodies(body.toString(), BODY_WIDTH),
                         inputs
                 ),
                 actions,
@@ -1050,7 +1048,7 @@ public final class SemionDialogService {
                 ));
             }
         }
-        showActions(player, "세미온 TD 타워 상세", actionDialogBodies(body.toString()), actions, actionColumns);
+        showActions(player, "세미온 TD 타워 상세", actionDialogBodies(body.toString(), BODY_WIDTH), actions, actionColumns);
     }
 
     public void showHeroCompanionConfirmation(ServerPlayer player, SemionGame game, HeroCompanionRole role) {
@@ -1830,26 +1828,6 @@ public final class SemionDialogService {
         }
     }
 
-    private void show(ServerPlayer player, String title, String body) {
-        show(player, title, miniMessage(body));
-    }
-
-    private void show(ServerPlayer player, String title, Component body) {
-        Dialog dialog = new NoticeDialog(
-                new CommonDialogData(
-                        Component.literal(title),
-                        Optional.empty(),
-                        true,
-                        false,
-                        DialogAction.CLOSE,
-                        List.<DialogBody>of(new PlainMessage(body, BODY_WIDTH)),
-                        List.of()
-                ),
-                NoticeDialog.DEFAULT_ACTION
-        );
-        player.connection.send(new ClientboundShowDialogPacket(Holder.direct(dialog)));
-    }
-
     public void showAugment(ServerPlayer player, AugmentService.Screen screen) {
         List<DialogBody> bodies = new ArrayList<>();
         if (!screen.body().isBlank()) {
@@ -1870,142 +1848,6 @@ public final class SemionDialogService {
                 .map(button -> actionButton(Component.literal(button.label()), button.command(), Component.literal(button.description()), COMPACT_BUTTON_WIDTH))
                 .toList();
         showActions(player, miniMessage(screen.title()), bodies, actions, screen.columns());
-    }
-
-    private void showActions(ServerPlayer player, String title, String body, List<ActionButton> actions) {
-        showActions(player, title, body, actions, 2);
-    }
-
-    private void showActions(ServerPlayer player, String title, String body, List<ActionButton> actions, int columns) {
-        showActions(player, title, body, actions, actionButton("닫기", "", "창을 닫습니다."), columns);
-    }
-
-    private void showActions(
-            ServerPlayer player,
-            String title,
-            String body,
-            List<ActionButton> actions,
-            ActionButton exitAction,
-            int columns
-    ) {
-        if (actions.isEmpty()) {
-            showActions(player, title, actionDialogBodies(body), actions, columns);
-            return;
-        }
-        Dialog dialog = new MultiActionDialog(
-                new CommonDialogData(
-                        Component.literal(title),
-                        Optional.empty(),
-                        true,
-                        false,
-                        DialogAction.CLOSE,
-                        actionDialogBodies(body),
-                        List.of()
-                ),
-                actions,
-                Optional.of(exitAction),
-                columns
-        );
-        player.connection.send(new ClientboundShowDialogPacket(Holder.direct(dialog)));
-    }
-
-    private void showActions(ServerPlayer player, String title, List<DialogBody> bodies, List<ActionButton> actions, int columns) {
-        showActions(player, Component.literal(title), bodies, actions, columns);
-    }
-
-    private void showActions(ServerPlayer player, Component title, List<DialogBody> bodies, List<ActionButton> actions, int columns) {
-        if (actions.isEmpty()) {
-            Dialog dialog = new NoticeDialog(
-                    new CommonDialogData(
-                            title,
-                            Optional.empty(),
-                            true,
-                            false,
-                            DialogAction.CLOSE,
-                            bodies,
-                            List.of()
-                    ),
-                    NoticeDialog.DEFAULT_ACTION
-            );
-            player.connection.send(new ClientboundShowDialogPacket(Holder.direct(dialog)));
-            return;
-        }
-        Dialog dialog = new MultiActionDialog(
-                new CommonDialogData(
-                        title,
-                        Optional.empty(),
-                        true,
-                        false,
-                        DialogAction.CLOSE,
-                        bodies,
-                        List.of()
-                ),
-                actions,
-                Optional.of(actionButton("닫기", "", "창을 닫습니다.")),
-                columns
-        );
-        player.connection.send(new ClientboundShowDialogPacket(Holder.direct(dialog)));
-    }
-
-    static List<DialogBody> actionDialogBodies(String body) {
-        return actionDialogBodies(body, () -> dividerComponent(BODY_WIDTH));
-    }
-
-    static List<DialogBody> actionDialogBodies(String body, Supplier<Component> dividerFactory) {
-        if (body == null || body.isBlank()) {
-            return List.of();
-        }
-        int split = body.indexOf('\n');
-        if (split < 0) {
-            return List.of(new HeaderMessage(miniMessage(body), BODY_WIDTH));
-        }
-        ArrayList<DialogBody> bodies = new ArrayList<>();
-        MutableComponent contentComponent = Component.empty();
-        String header = body.substring(0, split);
-        String content = body.substring(split + 1);
-        if (!header.isBlank()) {
-            contentComponent.append(new HeaderMessage(miniMessage(header), BODY_WIDTH).asVanillaComponent());
-        }
-        String[] sections = content.split("(?m)^<divider>\\n?", -1);
-        for (int i = 0; i < sections.length; i++) {
-            String section = sections[i].strip();
-            if (!section.isBlank()) {
-                if (!contentComponent.getSiblings().isEmpty()) {
-                    contentComponent.append("\n");
-                }
-                contentComponent.append(miniMessage(section));
-            }
-            if (i < sections.length - 1) {
-                contentComponent.append("\n");
-                contentComponent.append(dividerFactory.get());
-            }
-        }
-        if (!contentComponent.getSiblings().isEmpty()) {
-            bodies.add(new PlainMessage(contentComponent, BODY_WIDTH));
-        }
-        return bodies;
-    }
-
-    private static ActionButton actionButton(String label, String command, String tooltip) {
-        return actionButton(label, command, Component.literal(tooltip), BUTTON_WIDTH);
-    }
-
-    private static ActionButton actionButton(String label, String command, Component tooltip, int width) {
-        return actionButton(Component.literal(label), command, tooltip, width);
-    }
-
-    private static ActionButton actionButton(Component label, String command, Component tooltip, int width) {
-        Optional<net.minecraft.server.dialog.action.Action> action = command == null || command.isBlank()
-                ? Optional.empty()
-                : Optional.of(new StaticAction(new ClickEvent.RunCommand(command)));
-        return new ActionButton(
-                new CommonButtonData(label, Optional.of(tooltip), width),
-                action
-        );
-    }
-
-    private static ActionButton actionSpacer() {
-        return new ActionButton(new CommonButtonData(Component.empty(), Optional.empty(), 1), Optional.empty());
     }
 
     static List<Integer> futureAgencyUpgradeGrid(List<TowerUpgradeOption> upgrades) {
@@ -2082,11 +1924,15 @@ public final class SemionDialogService {
         );
     }
 
+    static String jobManagementCommand(SemionJob job) {
+        return "/semiontd job " + (JobRegistry.isEnabled(job) ? "disable " : "enable ") + job.id().getPath();
+    }
+
     private static ActionButton jobManagementButton(SemionJob job) {
         boolean enabled = JobRegistry.isEnabled(job);
         Component label = Component.literal((enabled ? "켜짐 · " : "꺼짐 · ") + job.displayName().getString())
                 .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED);
-        String command = "/semiontd job " + (enabled ? "disable " : "enable ") + job.id();
+        String command = jobManagementCommand(job);
         String tooltip = enabled
                 ? "클릭하면 이 직업을 비활성화합니다. 진행 중인 경기는 유지됩니다."
                 : "클릭하면 이 직업을 다시 활성화합니다.";
@@ -2490,34 +2336,6 @@ public final class SemionDialogService {
         return String.format(java.util.Locale.ROOT, "%.1f", value);
     }
 
-    private static Component miniMessage(String text) {
-        try {
-            return SemionText.mini(text);
-        } catch (RuntimeException exception) {
-            return Component.literal(text);
-        }
-    }
-
-    private static MutableComponent mutableMiniMessage(String text) {
-        try {
-            return SemionText.mutableMini(text);
-        } catch (RuntimeException exception) {
-            return Component.empty().append(Component.literal(text));
-        }
-    }
-
-    private static PlainMessage decoratedHeader(Component title, int width) {
-        return decoratedHeader(title, width, ChatFormatting.DARK_GRAY);
-    }
-
-    private static PlainMessage decoratedHeader(Component title, int width, ChatFormatting sideColor) {
-        Component side = Component.literal("──────").withStyle(sideColor);
-        return new PlainMessage(
-                Component.empty().append(side).append(" ").append(title).append(" ").append(side),
-                width
-        );
-    }
-
     private static Component participantResultBody(
             MatchParticipantResult participant,
             MatchProgressionReward reward
@@ -2542,15 +2360,7 @@ public final class SemionDialogService {
     }
 
     static Component playerStatusTable(List<PlayerStatusRow> rows) {
-        StringBuilder body = new StringBuilder("\n");
-        body.append("<divider>\n");
-        Component divider = ((PlainMessage) actionDialogBodies(
-                body.toString(),
-                () -> dividerComponent(PLAYER_STATUS_WIDTH)
-        ).getFirst())
-                .contents()
-                .getSiblings()
-                .getLast();
+        Component divider = dividerComponent(HeaderMessage.contentWidth(PLAYER_STATUS_WIDTH));
 
         MutableComponent table = playerStatusHeaderWithBodySpacing(playerStatusHeader(divider));
 

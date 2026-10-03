@@ -55,9 +55,9 @@ class TowerRuntimeDetailsTest {
 
     @Test
     void towerDetailsConvertDividerTokensWithoutActionButtons() {
-        List<DialogBody> bodies = SemionDialogService.actionDialogBodies(
+        List<DialogBody> bodies = UiDialogBodyRenderer.actionDialogBodies(
                 "\nStats\n<divider>\nOther owner's tower",
-                () -> Component.literal("----------").withStyle(style -> style.withStrikethrough(true))
+                256
         );
 
         PlainMessage message = assertInstanceOf(PlainMessage.class, bodies.getFirst());

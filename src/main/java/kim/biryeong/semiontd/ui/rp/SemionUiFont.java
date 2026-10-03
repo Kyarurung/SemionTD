@@ -12,7 +12,7 @@ import net.minecraft.resources.Identifier;
 
 public final class SemionUiFont {
     private static final Identifier FONT_ID = Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "ui");
-    private static final Style STYLE = Style.EMPTY.withColor(0xFFFFFF).withFont(new net.minecraft.network.chat.FontDescription.Resource(FONT_ID)).withShadowColor(0);
+    private static final Style STYLE = Style.EMPTY.withColor(0xFFFFFF).withFont(new net.minecraft.network.chat.FontDescription.Resource(FONT_ID)).withShadowColor(0).withBold(false).withItalic(false).withUnderlined(false).withObfuscated(false);
     private static final char SPACE_1 = '\uE100';
     private static final char SPACE_5 = '\uE101';
     private static final char SPACE_10 = '\uE102';
@@ -22,6 +22,22 @@ public final class SemionUiFont {
 
     private SemionUiFont() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static boolean usesFont(Identifier id) {
+        return FONT_ID.equals(id);
+    }
+
+    public static int advance(int codePoint) {
+        return switch (codePoint) {
+            case SPACE_1 -> 1;
+            case SPACE_5 -> 5;
+            case SPACE_10 -> 10;
+            case SPACE_20 -> 20;
+            case SPACE_50 -> 50;
+            case SPACE_100 -> 100;
+            default -> 0;
+        };
     }
 
     public static void init() {

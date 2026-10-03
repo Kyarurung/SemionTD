@@ -159,6 +159,10 @@ public final class RefinerJob extends SemionJob {
 
 직업의 시작 자원 보정은 이 config 값을 기준으로 한 번만 적용된다.
 
+다이얼로그의 MiniMessage 본문·`<divider>` 변환·제목 장식은 `UiDialogBodyRenderer`, 버튼·공지/선택 창 생성과 전송은 `UiDialogPresentation`에 둡니다. `SemionDialogService`는 게임 상태를 조회해 해당 화면과 동작을 연결합니다. 26.3의 `PlainMessage` 본문은 지정 폭에서 좌우 여백 합계 8픽셀을 뺀 영역에 배치됩니다. 독립 구분선은 `HeaderMessage.divider(bodyWidth)`, 본문 내부의 선은 실제 콘텐츠 폭으로 `UiTextDivider.line(width)`를 사용합니다. 툴팁과 HUD에는 본문 여백을 중복 적용하지 않습니다.
+
+`TextUncenterer`는 글자별 전진 폭을 합산하고 색상 경계·굵기·커스텀 간격 글꼴을 반영합니다. 한글 등 기본 비트맵에 없는 글자의 간격은 공식 26.3 자산에서 추출한 `semiontd/ui/unifont-advances.json`을 사용하며 UI 표시 중 네트워크 다운로드를 하지 않습니다. 이 파일의 출처 URL과 SHA-1, 공식 `size_overrides` 및 `UnihexProvider.Glyph`의 정수 나눗셈 규칙을 함께 유지해야 합니다. `tools/ui-fonts/generate.mjs`는 자산 디렉터리, 공식 자산 인덱스 JSON, 검증한 Unifont ZIP에서 추출한 `.hex`, 출력 디렉터리, Minecraft 버전을 인자로 받아 간격 표를 재생성합니다. ZIP과 공급자 JSON의 SHA-1을 인덱스와 대조한 뒤 간격 및 범위를 계산합니다. 글꼴 그림은 포함하지 않으며 원본 배포 고지는 같은 디렉터리의 `unifont-LICENSE.txt`에 보존합니다. 다른 리소스팩이 기본 글꼴을 덮어쓰거나 일본어 글꼴 변형을 사용할 경우 실제 클라이언트에서 별도로 폭을 확인합니다.
+
 통계 화면의 행 구성·숫자 표시·표 본문은 `UiJobStatisticsView`, 공통 셀 정렬은 `UiDialogTableLayout`에 둡니다. `SemionDialogService`는 플레이어 동작과 화면 전환을 연결하며 기존 공개 통계 행 조회 API를 유지합니다.
 
 ## 추천 작업 순서

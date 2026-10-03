@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.util;
 
 import eu.pb4.mapcanvas.api.font.DefaultFonts;
+import kim.biryeong.semiontd.ui.UiFontMetrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -170,20 +171,32 @@ public final class TextUncenterer {
     }
 
     public static int width(Component text) {
-        final int[] totalWidth = {0};
+        final double[] totalWidth = {0};
         text.visit((style, string) -> {
             if (!string.isEmpty()) {
                 totalWidth[0] += getTextWidth(style, string);
             }
             return Optional.empty();
         }, Style.EMPTY);
-        return totalWidth[0];
+        return (int) Math.ceil(totalWidth[0]);
     }
 
-    private static int getTextWidth(Style style, String string) {
+    private static double getTextWidth(Style style, String string) {
         Identifier fontId = style.getFont() instanceof net.minecraft.network.chat.FontDescription.Resource font
                 ? font.id() : DEFAULT_FONT_ID;
-        return DefaultFonts.REGISTRY.getDefaultedFont(fontId).getTextWidth(string, FONT_SIZE);
+        if (SemionUiFont.usesFont(fontId)) {
+            return string.codePoints().map(codePoint -> SemionUiFont.advance(codePoint) + (style.isBold() ? 1 : 0)).sum();
+        }
+        var font = DefaultFonts.REGISTRY.getDefaultedFont(fontId);
+        return string.codePoints().mapToDouble(codePoint -> {
+            if (DEFAULT_FONT_ID.equals(fontId) && !font.containsGlyph(codePoint)) {
+                int advance = UiFontMetrics.unifontAdvance(codePoint);
+                if (advance >= 0) {
+                    return advance + (style.isBold() ? 0.5 : 0);
+                }
+            }
+            return font.getGlyphWidth(codePoint, FONT_SIZE, 2) + (style.isBold() ? 1 : 0);
+        }).sum();
     }
 
     public static Component filler(int width) {

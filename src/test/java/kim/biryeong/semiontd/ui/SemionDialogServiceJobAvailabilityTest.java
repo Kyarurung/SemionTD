@@ -28,6 +28,15 @@ final class SemionDialogServiceJobAvailabilityTest {
     }
 
     @Test
+    void managementButtonsUseShortJobIdsForBothActions() {
+        SemionJob job = JobRegistry.find(NetherTowerJob.ID).orElseThrow();
+        JobRegistry.configureAvailability(JobAvailabilityConfig.defaultConfig());
+        assertEquals("/semiontd job disable nether", SemionDialogService.jobManagementCommand(job));
+        JobRegistry.configureAvailability(JobAvailabilityConfig.defaultConfig().withEnabled(job.id(), false));
+        assertEquals("/semiontd job enable nether", SemionDialogService.jobManagementCommand(job));
+    }
+
+    @Test
     void disabledJobButtonIsRedExplainsWhyAndCannotRunSelection() {
         SemionJob job = JobRegistry.find(NetherTowerJob.ID).orElseThrow();
         JobRegistry.configureAvailability(JobAvailabilityConfig.defaultConfig().withEnabled(job.id(), false));

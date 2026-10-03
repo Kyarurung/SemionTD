@@ -107,7 +107,7 @@ final class UiJobStatisticsView {
     }
 
     static PlainMessage jobStatisticsDetailDivider() {
-        return HeaderMessage.divider(JOB_STATISTICS_DETAIL_TABLE_WIDTH);
+        return new PlainMessage(HeaderMessage.dividerComponent(JOB_STATISTICS_DETAIL_TABLE_WIDTH), JOB_STATISTICS_DETAIL_WIDTH);
     }
 
     static void appendJobStatisticsState(List<DialogBody> bodies, JobStatisticsState state) {
@@ -479,7 +479,7 @@ final class UiJobStatisticsView {
     static Component statisticsSectionHeader(String title) {
         return new HeaderMessage(
                 Component.literal(title).withStyle(ChatFormatting.YELLOW),
-                JOB_STATISTICS_DETAIL_TABLE_WIDTH + 23
+                JOB_STATISTICS_DETAIL_TABLE_WIDTH + 8
         ).asVanillaComponent();
     }
 

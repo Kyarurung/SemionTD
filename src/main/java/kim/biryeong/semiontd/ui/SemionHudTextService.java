@@ -459,7 +459,7 @@ public final class SemionHudTextService {
                 .filter(SemionTeam::active)
                 .sorted(Comparator.comparing(SemionTeam::id))
                 .toList();
-        text.append("<dark_gray>────</dark_gray>\n");
+        text.append(UiTextDivider.hudMarkup()).append("\n");
         text.append("<gray>전체 팀 보스</gray>\n");
         for (SemionTeam team : activeTeams) {
             text.append(teamNameText(team.id()))
@@ -471,7 +471,7 @@ public final class SemionHudTextService {
 
     private static void appendNextWavePreview(StringBuilder text, UUID viewerId, SemionGame game) {
         List<WaveMonsterEntry> entries = game.upcomingWaveEntries(viewerId);
-        text.append("<dark_gray>────</dark_gray>\n");
+        text.append(UiTextDivider.hudMarkup()).append("\n");
         text.append("<aqua><bold>다음 웨이브</bold></aqua>").append(healerCountMarkup(entries)).append('\n');
         if (entries.isEmpty()) {
             text.append("<gray>정보 없음</gray>\n");
