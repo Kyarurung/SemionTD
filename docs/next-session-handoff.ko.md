@@ -198,3 +198,7 @@ Avatar 렌더러의 작업 스레드는 종료 이벤트에서 정리한다. 실
 패치 기준 수치 동기화의 출처와 회귀 계약은 [밸런스 문서](tower-balance-reference.ko.md#공개-패치와-기본-설정의-동기화)를 따른다. 테스트 경기장은 서버 시작 이후 생성되므로 headless 서버의 거리 설정을 새 월드에도 전달한다. 청크의 실제 `ENTITY_TICKING` 준비를 최대 400틱 기다리며, 이동 관측 700틱과 누수 판정은 유지한다.
 
 빌더별 GameTest는 `src/gametest/java/kim/biryeong/semiontd/tower/<builder>/`에 두고 패키지·상위 책임·하위 책임에 맞춘 `…Test` 이름을 사용한다. `SemionParticipantGameTest`, `AugmentCombatGameTest`, `AugmentControllerGameTest`에는 참여자·증강 공통 동작을 남기고 특정 빌더의 전투·증강 선택 검사는 해당 빌더 패키지로 분리했다. `GameTestParticipantFixture`, `AugmentCombatFixture`, `AugmentControllerFixture`는 중복 준비 코드를 공유하며 테스트 진입점에는 등록하지 않는다. 여러 빌더의 타겟 정책을 비교하는 검사는 `tower/TowerBuilderTargetPolicyTest`가 담당한다. 클래스 이동 시 GameTest 소스셋·애너테이션·진입점과 모든 기존 단언을 함께 보존한다.
+
+`SeasonThreeLoadGameTest`의 opt-in 격리 실행은 8개 논리 레인과 주민·동물의 고정 보드 48타워로 R16·19·20·25의 네 웨이브 변형을 관찰한다. 전체 구간과 직전 틱 시작 시 살아 있는 타워·몬스터가 함께 있던 구간의 MSPT 평균·p50·p95·p99·최댓값을 구분한다. 고정 보드가 패배한 뒤에도 남은 몬스터를 관찰하므로 전체 구간을 지속 전투 성능으로 해석하지 않는다. 무제한 속도의 headless 실행에서 틱 수/벽시계 시간은 처리율이며 20 TPS 유지나 실제 클라이언트 부하의 증거가 아니다. 입력 JSON의 기존 해시는 맵 직렬화 순서에 영향받으므로 서로 다른 JVM의 해시만으로 설정 차이를 단정하지 않는다.
+
+GitHub 커밋 기반 밸런스 알림은 현재 공식 저장소 `Kyarurung/semiontd-balance`의 `main`을 조회한다. 첫 조회의 상태 초기화, 변경 시 한 번 알림, 실패 시 이전 상태 보존을 유지한다. 웹사이트의 적용 패치 목록과 GitHub 커밋 이력은 서로 다른 자료이므로 밸런스 수치 동기화는 위의 공식 패치 회귀 계약을 따른다.
