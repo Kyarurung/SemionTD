@@ -102,7 +102,7 @@ final class WarlockSacrificeController {
                 .filter(tower -> tower != warlock)
                 .filter(tower -> tower.health() > 0.0)
                 .filter(tower -> sameOwner(warlock, tower))
-                .filter(tower -> warlock.path().acceptsSacrificeTower(tower.type()))
+                .filter(tower -> warlock.path().acceptsPassiveTower(tower.type()))
                 .count();
     }
 

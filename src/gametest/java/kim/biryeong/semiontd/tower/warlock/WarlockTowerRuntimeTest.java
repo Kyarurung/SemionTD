@@ -467,6 +467,66 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
     }
 
     @GameTest
+    public void rangedWarlockAbsorbsSheepOnDamageWithoutCrossFamilyPassive(GameTestHelper context) {
+        assertCrossFamilyAbsorption(context, WarlockTowers.RANGED_WARLOCK_TOWER, WarlockTowers.T1_SLAVE);
+    }
+
+    @GameTest
+    public void meleeWarlockAbsorbsBatOnDamageWithoutCrossFamilyPassive(GameTestHelper context) {
+        assertCrossFamilyAbsorption(context, WarlockTowers.MELEE_WARLOCK_TOWER, WarlockTowers.T1_RANGED_SLAVE);
+    }
+
+    private void assertCrossFamilyAbsorption(GameTestHelper context, TowerType coreType, TowerType petType) {
+        UUID playerId = stableUuid("warlock-cross-family-" + coreType.id());
+        SemionGame game = startedSinglePlayerGame(context, playerId, TeamId.RED, WarlockTowerJob.ID);
+        PlayerLane lane = redLane(game, 1);
+        BlockPos corePos = towerPlacementPos(lane);
+        WarlockTower core = new WarlockTower(TowerBalanceRuntime.resolve(coreType), playerId,
+                TeamId.RED, 1, GridPosition.from(corePos));
+        WarlockSacrificeTower pet = new WarlockSacrificeTower(TowerBalanceRuntime.resolve(petType), playerId,
+                TeamId.RED, 1, GridPosition.from(nearbyTowerPlacementPos(lane, corePos)));
+        lane.addTower(core);
+        lane.addTower(pet);
+        core.markWaveStarted(1);
+        if (!assertClose(context, core.type().maxHealth(), core.currentMaxHealth(),
+                "Opposite-family pets should not grant passive health before absorption.")) {
+            return;
+        }
+        if (!assertClose(context, core.type().damage(), core.modifyAttackDamage(null, null, core.type().damage()),
+                "Opposite-family pets should not grant passive damage before absorption.")) {
+            return;
+        }
+        double expectedMaxHealth = core.type().maxHealth() + pet.currentMaxHealth()
+                * (TowerBalanceRuntime.ability(core.type().id(), "roundStat")
+                + TowerBalanceRuntime.ability(core.type().id(), "permanentHealth"));
+        double expectedDamage = core.type().damage()
+                + pet.modifyAttackDamage(null, null, pet.type().damage())
+                * (TowerBalanceRuntime.ability(core.type().id(), "roundStat")
+                + TowerBalanceRuntime.ability(core.type().id(), "permanentDamage"));
+        SemionTowerEntity coreEntity = (SemionTowerEntity) lane.arenaWorld().getEntity(core.entityId().orElseThrow());
+        core.syncHealth(20.0);
+        coreEntity.setHealth(20.0F);
+        coreEntity.hurtIgnoringReductions(coreEntity.damageSources().generic(), 1.0F);
+        if (!assertEquals(context, 0.0, pet.health(), "Damage should trigger absorption of the opposite-family pet.")) {
+            return;
+        }
+        if (!assertClose(context, expectedMaxHealth, core.currentMaxHealth(),
+                "Cross-family absorption should grant the configured health growth.")) {
+            return;
+        }
+        if (!assertClose(context, expectedDamage, core.modifyAttackDamage(null, null, core.type().damage()),
+                "Cross-family absorption should grant the configured damage growth.")) {
+            return;
+        }
+        game.teams().get(TeamId.RED).resetForRound();
+        if (!assertClose(context, pet.currentMaxHealth(), pet.health(),
+                "Cross-family sacrifices should respawn next round.")) {
+            return;
+        }
+        context.succeed();
+    }
+
+    @GameTest
     public void warlockSacrificeRejectsInvalidTargetsWithoutGrowth(GameTestHelper context) {
         UUID playerId = stableUuid("warlock-invalid-sacrifice-owner");
         SemionGame game = startedSinglePlayerGame(context, playerId, TeamId.RED, WarlockTowerJob.ID);
