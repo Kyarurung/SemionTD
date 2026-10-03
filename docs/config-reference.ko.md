@@ -318,6 +318,8 @@ Semion TD는 서버 시작 또는 `/semiontd reload` 시 `config/semion-td/` 아
 
 ## `persistence.json`
 
+저장소 생성·SQLite 경로 해석·파일 폴백 이관은 `PersistenceRepositoryFactory`가 담당합니다. 평점 초기화의 백업·체크포인트·저장소 정리는 `PersistenceRatingBackup`이 담당하고, `SemionGameManager`는 명령 흐름과 서비스 재연결을 유지합니다. 파일명, SQLite 테이블, 저장 데이터 형식은 이 책임 분리로 바뀌지 않습니다. 백업 검증에서는 파일 존재뿐 아니라 저장소를 다시 열어 프로필·이벤트·적용 마커가 보존되는지 확인합니다.
+
 주요 필드:
 
 - `backend`: `SQLITE` 또는 MongoDB 계열 저장소 타입입니다.

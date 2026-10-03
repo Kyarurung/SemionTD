@@ -67,7 +67,7 @@ public final class RefinerJob extends SemionJob {
 기본 흐름:
 
 1. `TowerType`을 정의한다.
-2. `Tower` 또는 `DirectTower`, `ProducerTower`, `SummonerTower`, `SupportTower`를 상속한 클래스를 만든다.
+2. `ProductionTower`를 기본으로 사용하고 역할에 따라 `EntityBackedTower`, `SummonerTower`, `SupportTower`를 상속한 클래스를 만든다.
 3. 배치 서비스 또는 카탈로그에서 해당 타워 타입을 찾아 생성하게 한다.
 4. 직업 제한이 필요하면 직업의 `canUseTower(...)`에서 `TowerType.id()`를 기준으로 제한한다.
 5. 직업별 비용 보정은 `modifyTowerMineralCost(...)`에서 처리한다.
@@ -158,6 +158,8 @@ public final class RefinerJob extends SemionJob {
 ```
 
 직업의 시작 자원 보정은 이 config 값을 기준으로 한 번만 적용된다.
+
+통계 화면의 행 구성·숫자 표시·표 본문은 `UiJobStatisticsView`, 공통 셀 정렬은 `UiDialogTableLayout`에 둡니다. `SemionDialogService`는 플레이어 동작과 화면 전환을 연결하며 기존 공개 통계 행 조회 API를 유지합니다.
 
 ## 추천 작업 순서
 

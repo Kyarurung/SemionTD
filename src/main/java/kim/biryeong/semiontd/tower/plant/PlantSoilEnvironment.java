@@ -220,24 +220,6 @@ public final class PlantSoilEnvironment {
         return cap > 0.0 ? Math.min(cap, bonus) : bonus;
     }
 
-    private static PlantTerraformTower terrainSource(PlayerLane lane, UUID owner, SemionMonsterEntity monster) {
-        int x = Mth.floor(monster.getX());
-        int z = Mth.floor(monster.getZ());
-        GridPosition sourcePosition = PlantSoilStates.sourceAtColumn(owner, x, z);
-        if (sourcePosition == null) {
-            return null;
-        }
-        for (Tower tower : lane.towers()) {
-            if (tower instanceof PlantTerraformTower terraformer
-                    && tower.health() > 0.0
-                    && owner.equals(tower.ownerPlayer())
-                    && sourcePosition.equals(tower.originalPosition())) {
-                return terraformer;
-            }
-        }
-        return null;
-    }
-
     private static SemionTowerEntity sourceEntity(PlayerLane lane, PlantTerraformTower source) {
         if (source == null || source.entityId().isEmpty()) {
             return null;

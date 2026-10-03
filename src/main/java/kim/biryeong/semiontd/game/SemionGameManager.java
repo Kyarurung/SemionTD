@@ -1,13 +1,10 @@
 package kim.biryeong.semiontd.game;
 
+import static kim.biryeong.semiontd.persistence.PersistenceRepositoryFactory.*;
+import kim.biryeong.semiontd.persistence.PersistenceRatingBackup;
+
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -51,25 +48,10 @@ import kim.biryeong.semiontd.map.GameArenaLoader;
 import kim.biryeong.semiontd.map.LobbyWorld;
 import kim.biryeong.semiontd.map.LobbyWorldLoader;
 import kim.biryeong.semiontd.music.SemionMusicService;
-import kim.biryeong.semiontd.persistence.AppliedMatchRepository;
-import kim.biryeong.semiontd.persistence.CascadingAppliedMatchRepository;
-import kim.biryeong.semiontd.persistence.CascadingMatchResultRepository;
-import kim.biryeong.semiontd.persistence.FileAppliedMatchRepository;
 import kim.biryeong.semiontd.persistence.FileMatchResultRepository;
-import kim.biryeong.semiontd.persistence.FileRatingEventRepository;
-import kim.biryeong.semiontd.persistence.FileRatingRepository;
-import kim.biryeong.semiontd.persistence.LoggingAppliedMatchRepository;
-import kim.biryeong.semiontd.persistence.LoggingMatchResultRepository;
 import kim.biryeong.semiontd.persistence.MatchResultRepository;
 import kim.biryeong.semiontd.persistence.PersistenceException;
-import kim.biryeong.semiontd.persistence.RatingEventRepository;
-import kim.biryeong.semiontd.persistence.RatingRepository;
-import kim.biryeong.semiontd.persistence.SemionPersistenceBackendType;
 import kim.biryeong.semiontd.persistence.SemionPersistenceConfig;
-import kim.biryeong.semiontd.persistence.SQLiteAppliedMatchRepository;
-import kim.biryeong.semiontd.persistence.SQLiteMatchResultRepository;
-import kim.biryeong.semiontd.persistence.SQLiteRatingEventRepository;
-import kim.biryeong.semiontd.persistence.SQLiteRatingRepository;
 import kim.biryeong.semiontd.progression.MatchProgressionReward;
 import kim.biryeong.semiontd.progression.HeroCompanionSkinPreference;
 import kim.biryeong.semiontd.progression.ProgressionService;
@@ -113,7 +95,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.Relative;
 import net.minecraft.world.level.GameType;
 
 public final class SemionGameManager {
@@ -128,8 +109,6 @@ public final class SemionGameManager {
     static final int COMBAT_SPEED_ENTRY_DELAY_TICKS = 2 * 20;
     private static final double COMBAT_SPEED_ENTRY_LOAD_RATIO = 0.8;
     private static final int COMBAT_SPEED_COOLDOWN_WAVES = 1;
-    private static final DateTimeFormatter RATING_BACKUP_TIMESTAMP_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS").withZone(ZoneOffset.UTC);
 
     private EconomyConfig economyConfig = EconomyConfig.defaultConfig();
     private WaveConfig waveConfig = WaveConfig.defaultConfig();
@@ -509,159 +488,6 @@ public final class SemionGameManager {
         }
     }
 
-    private static Path resolveSqlitePath(Path configDir, SemionPersistenceConfig persistenceConfig) {
-        if (configDir == null || persistenceConfig.backend() != SemionPersistenceBackendType.SQLITE) {
-            return null;
-        }
-        return resolveConfiguredSqlitePath(configDir, persistenceConfig);
-    }
-
-    private static Path resolveConfiguredSqlitePath(Path configDir, SemionPersistenceConfig persistenceConfig) {
-        if (configDir == null) {
-            return null;
-        }
-        Path configured = Path.of(persistenceConfig.sqlitePath());
-        return configured.isAbsolute() ? configured : configDir.resolve(configured).normalize();
-    }
-
-    static MatchResultRepository createMatchResultRepository(
-            SemionPersistenceConfig persistenceConfig,
-            Path sqlitePath,
-            Path filePath,
-            Path configDir
-    ) {
-        MatchResultRepository file = new FileMatchResultRepository(filePath);
-        MatchResultRepository log = new LoggingMatchResultRepository(fallbackLogPath(configDir, "match-results-fallback.log"));
-        if (sqlitePath == null) {
-            if (requiresSQLite(persistenceConfig)) {
-                throw new PersistenceException("SQLite match-result repository is required but no SQLite path is available.");
-            }
-            return new CascadingMatchResultRepository(file, log, log);
-        }
-        try {
-            return new CascadingMatchResultRepository(new SQLiteMatchResultRepository(sqlitePath), file, log);
-        } catch (RuntimeException exception) {
-            if (persistenceConfig.externalDbRequired()) {
-                throw new PersistenceException("SQLite match-result repository is required but initialization failed.", exception);
-            }
-            SemionTd.LOGGER.warn("SQLite match-result repository initialization failed; using file/log fallback.", exception);
-            return new CascadingMatchResultRepository(file, log, log);
-        }
-    }
-
-    static AppliedMatchRepository createAppliedMatchRepository(
-            SemionPersistenceConfig persistenceConfig,
-            Path sqlitePath,
-            Path filePath,
-            Path configDir
-    ) {
-        AppliedMatchRepository file = new FileAppliedMatchRepository(filePath);
-        AppliedMatchRepository log = new LoggingAppliedMatchRepository(fallbackLogPath(configDir, "applied-matches-fallback.log"));
-        if (sqlitePath == null) {
-            if (requiresSQLite(persistenceConfig)) {
-                throw new PersistenceException("SQLite applied-match repository is required but no SQLite path is available.");
-            }
-            return new CascadingAppliedMatchRepository(file, log, log);
-        }
-        try {
-            return new CascadingAppliedMatchRepository(new SQLiteAppliedMatchRepository(sqlitePath), file, log);
-        } catch (RuntimeException exception) {
-            if (persistenceConfig.externalDbRequired()) {
-                throw new PersistenceException("SQLite applied-match repository is required but initialization failed.", exception);
-            }
-            SemionTd.LOGGER.warn("SQLite applied-match repository initialization failed; using file/log fallback.", exception);
-            return new CascadingAppliedMatchRepository(file, log, log);
-        }
-    }
-
-    static RatingRepository createRatingRepository(
-            SemionPersistenceConfig persistenceConfig,
-            Path sqlitePath,
-            Path filePath
-    ) {
-        RatingRepository file = new FileRatingRepository(filePath);
-        if (sqlitePath == null) {
-            if (requiresSQLite(persistenceConfig)) {
-                throw new PersistenceException("SQLite rating repository is required but no SQLite path is available.");
-            }
-            return file;
-        }
-        try {
-            RatingRepository sqlite = new SQLiteRatingRepository(sqlitePath);
-            migrateFallbackRatingProfiles(file, sqlite);
-            return sqlite;
-        } catch (RuntimeException exception) {
-            if (persistenceConfig.externalDbRequired()) {
-                throw new PersistenceException("SQLite rating repository is required but initialization failed.", exception);
-            }
-            SemionTd.LOGGER.warn("SQLite rating repository initialization failed; using file fallback.", exception);
-            return file;
-        }
-    }
-
-    static void migrateFallbackRatingProfiles(RatingRepository fallback, RatingRepository primary) {
-        int migrated = 0;
-        for (PlayerRatingProfile fallbackProfile : fallback.findAllProfiles().values()) {
-            Optional<PlayerRatingProfile> existing = primary.findProfile(fallbackProfile.playerId());
-            if (existing.isPresent()
-                    && existing.get().updatedAtEpochMillis() >= fallbackProfile.updatedAtEpochMillis()) {
-                continue;
-            }
-            primary.saveProfile(fallbackProfile.playerId(), fallbackProfile);
-            migrated++;
-        }
-        if (migrated > 0) {
-            SemionTd.LOGGER.info("Migrated {} fallback rating profiles into primary rating repository.", migrated);
-        }
-    }
-
-    static void migrateFallbackRatingEvents(RatingEventRepository fallback, RatingEventRepository primary) {
-        int migrated = 0;
-        for (RatingMatchResult fallbackResult : fallback.findAllMatchResults().values()) {
-            if (primary.findMatchResult(fallbackResult.matchId()).isPresent()) {
-                continue;
-            }
-            primary.saveMatchResult(fallbackResult);
-            migrated++;
-        }
-        if (migrated > 0) {
-            SemionTd.LOGGER.info("Migrated {} fallback rating events into primary rating-event repository.", migrated);
-        }
-    }
-
-    static RatingEventRepository createRatingEventRepository(
-            SemionPersistenceConfig persistenceConfig,
-            Path sqlitePath,
-            Path filePath
-    ) {
-        RatingEventRepository file = new FileRatingEventRepository(filePath);
-        if (sqlitePath == null) {
-            if (requiresSQLite(persistenceConfig)) {
-                throw new PersistenceException("SQLite rating-event repository is required but no SQLite path is available.");
-            }
-            return file;
-        }
-        try {
-            RatingEventRepository sqlite = new SQLiteRatingEventRepository(sqlitePath);
-            migrateFallbackRatingEvents(file, sqlite);
-            return sqlite;
-        } catch (RuntimeException exception) {
-            if (persistenceConfig.externalDbRequired()) {
-                throw new PersistenceException("SQLite rating-event repository is required but initialization failed.", exception);
-            }
-            SemionTd.LOGGER.warn("SQLite rating-event repository initialization failed; using file fallback.", exception);
-            return file;
-        }
-    }
-
-    private static boolean requiresSQLite(SemionPersistenceConfig persistenceConfig) {
-        return persistenceConfig.backend() == SemionPersistenceBackendType.SQLITE && persistenceConfig.externalDbRequired();
-    }
-
-    private static Path fallbackLogPath(Path configDir, String fileName) {
-        return configDir == null ? null : configDir.resolve(fileName);
-    }
-
     public ReloadConfigResult reloadConfigs(MinecraftServer server) {
         if (configDir == null) {
             return new ReloadConfigResult(false, false, null);
@@ -728,7 +554,8 @@ public final class SemionGameManager {
             throw new PersistenceException("Semion TD config directory is not configured.");
         }
 
-        RatingSoftResetResult result = softResetRatingStore(configDir, persistenceConfig);
+        RatingSoftResetResult result = new RatingSoftResetResult(
+                PersistenceRatingBackup.reset(configDir, persistenceConfig));
         Path ratingProfilePath = configDir.resolve("ratings.json");
         Path ratingEventPath = configDir.resolve("rating-events.json");
         Path sqlitePath = resolveSqlitePath(configDir, persistenceConfig);
@@ -746,73 +573,6 @@ public final class SemionGameManager {
         pendingRatingRetryMatchResults.clear();
         pendingRatingRetryDelayTicks = 0;
         return result;
-    }
-
-    static RatingSoftResetResult softResetRatingStore(Path configDir, SemionPersistenceConfig persistenceConfig) {
-        if (configDir == null) {
-            throw new PersistenceException("Semion TD config directory is not configured.");
-        }
-
-        Path ratingProfilePath = configDir.resolve("ratings.json");
-        Path ratingEventPath = configDir.resolve("rating-events.json");
-        SemionPersistenceConfig safePersistenceConfig = persistenceConfig == null
-                ? SemionPersistenceConfig.defaultConfig()
-                : persistenceConfig;
-        Path sqlitePath = resolveSqlitePath(configDir, safePersistenceConfig);
-        Path backupPath = configDir.resolve("rating-backups")
-                .resolve("elo-softreset-" + RATING_BACKUP_TIMESTAMP_FORMATTER.format(Instant.now()));
-
-        try {
-            Files.createDirectories(backupPath);
-            backupFileIfExists(ratingProfilePath, backupPath.resolve("ratings.json"));
-            backupFileIfExists(ratingEventPath, backupPath.resolve("rating-events.json"));
-            if (sqlitePath != null) {
-                backupSqliteRatings(sqlitePath, backupPath.resolve(sqlitePath.getFileName()));
-            }
-            Files.deleteIfExists(ratingProfilePath);
-            Files.deleteIfExists(ratingEventPath);
-            if (sqlitePath != null) {
-                clearSqliteRatings(sqlitePath);
-            }
-        } catch (IOException | SQLException exception) {
-            throw new PersistenceException("Failed to soft reset ratings with backup " + backupPath, exception);
-        }
-        return new RatingSoftResetResult(backupPath);
-    }
-
-    private static void backupFileIfExists(Path source, Path target) throws IOException {
-        if (Files.exists(source)) {
-            Files.copy(source, target);
-        }
-    }
-
-    private static void backupSqliteRatings(Path sqlitePath, Path backupPath) throws IOException, SQLException {
-        checkpointSqlite(sqlitePath);
-        Files.copy(sqlitePath, backupPath);
-    }
-
-    private static void checkpointSqlite(Path sqlitePath) throws SQLException {
-        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + sqlitePath.toAbsolutePath());
-             var statement = connection.createStatement()) {
-            statement.execute("PRAGMA busy_timeout = 5000");
-            statement.execute("PRAGMA wal_checkpoint(FULL)");
-        }
-    }
-
-    private static void clearSqliteRatings(Path sqlitePath) throws SQLException {
-        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + sqlitePath.toAbsolutePath());
-             var statement = connection.createStatement()) {
-            statement.execute("PRAGMA busy_timeout = 5000");
-            connection.setAutoCommit(false);
-            try {
-                statement.executeUpdate("DELETE FROM rating_profiles");
-                statement.executeUpdate("DELETE FROM rating_events");
-                connection.commit();
-            } catch (SQLException exception) {
-                connection.rollback();
-                throw exception;
-            }
-        }
     }
 
     public void configureMusic(SemionMusicService musicService) {

@@ -36,17 +36,11 @@ import net.minecraft.world.phys.Vec3;
  * clearing the target, stopping navigation and dropping to the idle animation.
  */
 public class DeveloperTower extends ProductionTower {
-    /** Ticks the residual 오버킬 field keeps pulsing after a kill. */
-    private static final int OVERKILL_DURATION_TICKS = 40;
-
     /** How long 지연 로딩 stays in its weak phase. */
     private static final int LAZY_LOADING_WARMUP_TICKS = 200;
 
     /** Window 은신 uses to decide the tower has been left alone. */
     private static final int STEALTH_QUIET_TICKS = 60;
-
-    /** Extra ticks 캐시 미스 adds to the first attack after switching target. */
-    private static final int CACHE_MISS_PENALTY_TICKS = 10;
 
     private boolean waveActive;
     private int waveTicks;

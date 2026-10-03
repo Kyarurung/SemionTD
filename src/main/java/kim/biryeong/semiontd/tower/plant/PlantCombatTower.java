@@ -650,10 +650,6 @@ public class PlantCombatTower extends ProductionTower {
         return TowerBalanceRuntime.abilityTicks(soil.configId(), key);
     }
 
-    private int soilInt(PlantSoil soil, String key) {
-        return TowerBalanceRuntime.abilityInt(soil.configId(), key);
-    }
-
     protected double global(String key) {
         return TowerBalanceRuntime.ability(PlantTowers.GLOBAL_CONFIG_ID, key);
     }
