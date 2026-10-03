@@ -41,7 +41,7 @@ import kim.biryeong.semiontd.statistics.JobStatisticsTotals;
 import kim.biryeong.semiontd.statistics.TraitCombinationStatisticsEntry;
 import kim.biryeong.semiontd.statistics.TraitTowerStatisticsEntry;
 import kim.biryeong.semiontd.trait.TraitLoadoutSnapshot;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class SQLiteJobStatisticsStore {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -666,7 +666,7 @@ public final class SQLiteJobStatisticsStore {
         ArrayList<ParticipantFact> facts = new ArrayList<>();
         for (MatchParticipantResult participant : matchResult.participants()) {
             String rawJobId = participant.jobId();
-            ResourceLocation jobId = rawJobId == null ? null : ResourceLocation.tryParse(rawJobId);
+            Identifier jobId = rawJobId == null ? null : Identifier.tryParse(rawJobId);
             if (jobId == null) {
                 continue;
             }

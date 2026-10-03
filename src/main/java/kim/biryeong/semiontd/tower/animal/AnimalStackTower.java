@@ -19,7 +19,7 @@ import kim.biryeong.semiontd.tower.TowerUpgradeOption;
 import kim.biryeong.semiontd.tower.TowerDataKey;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,7 +29,7 @@ abstract class AnimalStackTower extends EntityBackedTower {
     static final String PACK = "job_animal_towers_g2";
     static final String UNION = "job_animal_towers_p";
     private static final TowerDataKey<Integer> PACK_HITS = TowerDataKey.of(
-            ResourceLocation.fromNamespaceAndPath("semiontd", "animal_pack_hits"), Integer.class);
+            Identifier.fromNamespaceAndPath("semiontd", "animal_pack_hits"), Integer.class);
     private int currentStacks;
     private int realStacks;
     private boolean leaderAuraActive;

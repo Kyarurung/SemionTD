@@ -10,7 +10,7 @@ import kim.biryeong.semiontd.config.ProgressionConfig;
 import kim.biryeong.semiontd.game.MatchResult;
 import kim.biryeong.semiontd.persistence.AppliedMatchRepository;
 import kim.biryeong.semiontd.persistence.FileAppliedMatchRepository;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 
 public final class ProgressionService {
@@ -56,7 +56,7 @@ public final class ProgressionService {
         return store.getOrCreateProfile(playerId, playerName);
     }
 
-    public SemionPlayerProfile saveSelectedJob(MinecraftServer server, UUID playerId, String playerName, ResourceLocation jobId) {
+    public SemionPlayerProfile saveSelectedJob(MinecraftServer server, UUID playerId, String playerName, Identifier jobId) {
         SemionPlayerProfile updated = store.getOrCreateProfile(playerId, playerName)
                 .updateSelectedJob(playerName, jobId);
         return store.putProfile(playerId, updated);

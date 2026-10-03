@@ -215,12 +215,16 @@ public final class SemionConfigLoader {
             write(path, defaults.toJson(), logger);
             return defaults;
         }
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonElement json = JsonParser.parseReader(reader);
+        try {
+            JsonElement json;
+            try (Reader reader = Files.newBufferedReader(path)) {
+                json = JsonParser.parseReader(reader);
+            }
             if (!json.isJsonObject()) {
                 throw new IllegalArgumentException("Augment config must be an object");
             }
             AugmentConfig value = AugmentConfig.fromJson(json.getAsJsonObject());
+            // Close the source before replacing it atomically on Windows.
             write(path, value.toJson(), logger);
             return value;
         } catch (IOException | RuntimeException exception) {

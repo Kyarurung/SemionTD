@@ -1,0 +1,4 @@
+Local compatibility source derived from kim.biryeong:danta-shader:1.0.2+1.21.8.
+Upstream fabric.mod.json declares MIT; the deployed LICENSE_danta-shader contains AGPLv3. This conflict is unresolved. Original license text and package names are preserved; no relicensing or public release is authorized.
+Baseline remapped source SHA256: 0700e7f9005b836e43040d1b0fe61fbd4a5ca2ad64f85cf5ec31344700def185
+This module is pending full 26.3 compilation, shader and client validation.

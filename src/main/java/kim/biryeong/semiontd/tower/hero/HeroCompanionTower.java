@@ -26,15 +26,15 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.TowerUpgradeOption;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 
 public final class HeroCompanionTower extends HeroPartyTower {
-    private static final ResourceLocation MAGE_SPLASH = ResourceLocation.fromNamespaceAndPath("semion-td", "hero_party_mage_splash");
-    private static final ResourceLocation KNIGHT_GUARD = ResourceLocation.fromNamespaceAndPath("semion-td", "hero_party_knight_guard");
-    private static final ResourceLocation BARD_AURA = ResourceLocation.fromNamespaceAndPath("semion-td", "hero_party_bard_aura");
-    private static final ResourceLocation BARD_ENCORE = ResourceLocation.fromNamespaceAndPath("semion-td", "hero_party_bard_encore");
-    private static final ResourceLocation ROGUE_HASTE = ResourceLocation.fromNamespaceAndPath("semion-td", "hero_party_rogue_haste");
+    private static final Identifier MAGE_SPLASH = Identifier.fromNamespaceAndPath("semion-td", "hero_party_mage_splash");
+    private static final Identifier KNIGHT_GUARD = Identifier.fromNamespaceAndPath("semion-td", "hero_party_knight_guard");
+    private static final Identifier BARD_AURA = Identifier.fromNamespaceAndPath("semion-td", "hero_party_bard_aura");
+    private static final Identifier BARD_ENCORE = Identifier.fromNamespaceAndPath("semion-td", "hero_party_bard_encore");
+    private static final Identifier ROGUE_HASTE = Identifier.fromNamespaceAndPath("semion-td", "hero_party_rogue_haste");
     private static final double[] KNIGHT_REDUCTION = {0.0, 0.07, 0.13, 0.20};
     private static final int[] KNIGHT_BASH_EVERY = {0, 4, 4, 3};
     private static final double[] KNIGHT_BASH_SLOW = {0.0, 0.25, 0.25, 0.35};

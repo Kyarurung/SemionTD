@@ -7,3 +7,30 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+include 'compat-danta-shader'
+project(':compat-danta-shader').projectDir = file('compat/danta-shader')
+
+include 'compat-friends-and-foes'
+project(':compat-friends-and-foes').projectDir = file('compat/friends-and-foes')
+
+include 'compat-friends-polymer'
+project(':compat-friends-polymer').projectDir = file('compat/friends-polymer')
+
+include 'compat-nightlights'
+project(':compat-nightlights').projectDir = file('compat/nightlights')
+
+include 'compat-nightlights-polymer'
+project(':compat-nightlights-polymer').projectDir = file('compat/nightlights-polymer')
+
+include 'compat-chatheads'
+project(':compat-chatheads').projectDir = file('compat/chatheads')
+
+include 'compat-worldedit-hang-fix'
+project(':compat-worldedit-hang-fix').projectDir = file('compat/worldedit-hang-fix')
+
+include 'compat-holodisplays'
+project(':compat-holodisplays').projectDir = file('compat/holodisplays')
+
+include 'compat-sylcurity'
+project(':compat-sylcurity').projectDir = file('compat/sylcurity')

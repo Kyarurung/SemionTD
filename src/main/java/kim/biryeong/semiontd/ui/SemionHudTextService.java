@@ -6,7 +6,7 @@ import static kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate.a
 import static kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate.damageReductionText;
 import static kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate.magicDamageText;
 
-import eu.pb4.placeholders.api.PlaceholderContext;
+import eu.pb4.placeholders.api.ServerPlaceholderContext;
 import eu.pb4.placeholders.api.PlaceholderResult;
 import eu.pb4.placeholders.api.Placeholders;
 import java.util.ArrayList;
@@ -37,7 +37,7 @@ import kim.biryeong.semiontd.tower.demonlord.DemonLordState;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordStates;
 import kim.biryeong.semiontd.tutorial.TutorialService.HighlightTarget;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -488,13 +488,13 @@ public final class SemionHudTextService {
 
     private static String selectedJobText(ServerPlayer viewer, SemionPlayer player) {
         if (viewer != null) {
-            PlaceholderResult result = Placeholders.parsePlaceholder(
+            PlaceholderResult result = Placeholders.parseServerPlaceholder(
                     SemionPlaceholders.SELECTED_JOB,
                     null,
-                    PlaceholderContext.of(viewer)
+                    ServerPlaceholderContext.of(viewer)
             );
             if (result.isValid()) {
-                return result.text().getString();
+                return result.component().getString();
             }
         }
         if (player != null) {
@@ -581,7 +581,7 @@ public final class SemionHudTextService {
         if (entry.entityType() == null || entry.entityType().isBlank()) {
             return "특수 적";
         }
-        ResourceLocation entityType = ResourceLocation.tryParse(entry.entityType());
+        Identifier entityType = Identifier.tryParse(entry.entityType());
         if (entityType == null) {
             return "특수 적";
         }
@@ -633,7 +633,7 @@ public final class SemionHudTextService {
             MatchMode matchMode
     ) {
         List<StartCandidate> candidates = server.getPlayerList().getPlayers().stream()
-                .map(player -> new StartCandidate(player.getUUID(), player.getGameProfile().getName()))
+                .map(player -> new StartCandidate(player.getUUID(), player.getGameProfile().name()))
                 .toList();
         return ParticipantSelectionService.selectReady(candidates, game.readyPlayerIds(), matchMode);
     }

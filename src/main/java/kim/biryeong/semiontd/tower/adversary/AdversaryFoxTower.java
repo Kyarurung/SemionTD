@@ -31,7 +31,7 @@ import kim.biryeong.semiontd.tower.TowerUpgradeOption;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -41,9 +41,9 @@ import net.minecraft.world.phys.Vec3;
 /** Runtime combat implementation for one Adversary fox. */
 public final class AdversaryFoxTower extends EntityBackedTower {
     private static final double LINE_HALF_WIDTH = 0.75;
-    private static final ResourceLocation RIVAL_MATCH = ResourceLocation.fromNamespaceAndPath("semiontd", "job_adversary_towers_g1");
+    private static final Identifier RIVAL_MATCH = Identifier.fromNamespaceAndPath("semiontd", "job_adversary_towers_g1");
     private static final TowerDataKey<UUID> FOX_ID = TowerDataKey.of(
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "adversary/fox_id"),
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "adversary/fox_id"),
             UUID.class
     );
 
@@ -506,7 +506,7 @@ public final class AdversaryFoxTower extends EntityBackedTower {
         if (!normalEntityHealthSyncPending) {
             // SemionTowerEntity normally clears vanilla's hurt cooldown after applying
             // damage. A hit fully consumed by logical overflow never reaches that path.
-            towerEntity.invulnerableTime = 0;
+            towerEntity.damageCooldownTime = 0;
         }
         return remainingDamage;
     }

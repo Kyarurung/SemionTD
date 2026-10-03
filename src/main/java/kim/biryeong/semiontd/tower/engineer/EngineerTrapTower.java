@@ -42,7 +42,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.level.block.Blocks;
@@ -55,7 +55,7 @@ import org.joml.Vector3f;
 
 public final class EngineerTrapTower extends EntityBackedTower {
     private static final MonsterDataKey<Long> PISTON_IMMUNITY_UNTIL = MonsterDataKey.of(
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "engineer_piston_immunity_until"), Long.class
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "engineer_piston_immunity_until"), Long.class
     );
 
     private final EngineerTowers.TrapKind kind;

@@ -1,0 +1,10 @@
+{
+	"values": [
+		"#minecraft:animals_spawnable_on",
+		"minecraft:sand",
+		"minecraft:red_sand",
+		"minecraft:coarse_dirt",
+		"minecraft:dirt",
+		"minecraft:grass_block"
+	]
+}

@@ -49,7 +49,7 @@ class AugmentCatalogStateTest {
         assertTrue(config.parametersFor("decisive_delivery").isEmpty());
         assertFalse(config.toJson().toString().contains("decisive_delivery"));
         assertEquals(7, config.parameter("cash_settlement", "diamondMultiplier", -1));
-        assertEquals(.20, config.parameter("engagement_plan_quick", "quickDamageBonus", -1));
+        assertEquals(.35, config.parameter("engagement_plan_quick", "quickDamageBonus", -1));
         for (int tier = 1; tier <= 3; tier++) {
             for (String key : List.of("damageBonus", "attackSpeedBonus", "maxHealthBonus")) {
                 assertEquals(tier / 20.0, config.parameter("beneficial_effect_" + tier, key, -1));
@@ -180,8 +180,8 @@ class AugmentCatalogStateTest {
         assertEquals(.35, defaults.parameter("tactical_designation_1", "damageBonus", -1));
         assertEquals(.65, defaults.parameter("tactical_designation_2", "damageBonus", -1));
         assertEquals(1.0, defaults.parameter("tactical_designation_3", "damageBonus", -1));
-        assertEquals(.20, defaults.parameter("battlefield_mastery", "bonusPerStack", -1));
-        assertEquals(.30, defaults.parameter("battlefield_mastery", "damageThreshold", -1));
+        assertEquals(.15, defaults.parameter("battlefield_mastery", "bonusPerStack", -1));
+        assertEquals(.20, defaults.parameter("battlefield_mastery", "damageThreshold", -1));
         assertEquals(4, defaults.parameter("battlefield_mastery", "maxStacks", -1));
         assertEquals(2, defaults.parameter("pulse_relay_blueprint", "chargedDamageRatio", -1));
         assertEquals(5, defaults.parameter("pulse_relay_blueprint", "attacksPerCharge", -1));

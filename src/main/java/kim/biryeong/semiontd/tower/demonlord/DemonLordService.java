@@ -29,7 +29,7 @@ import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.ChatFormatting;
 import kim.biryeong.semiontd.SemionTd;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -103,8 +103,8 @@ public final class DemonLordService {
     }
 
     /** 전투 배속 보정: 클라이언트 쪽 공격 충전 표시를 서버 평타 간격에 맞춥니다. */
-    private static final ResourceLocation TICK_ATTACK_SPEED_MODIFIER_ID =
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_tick_attack_speed");
+    private static final Identifier TICK_ATTACK_SPEED_MODIFIER_ID =
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_tick_attack_speed");
 
     /** 바닐라 기본 비행 속도. */
     private static final float BASE_FLYING_SPEED = 0.05F;
@@ -112,8 +112,8 @@ public final class DemonLordService {
     /** 플레이어별로 마지막으로 맞춘 배속. 바뀌면 쿨타임 표시를 다시 보냅니다. */
     private static final Map<UUID, Float> LAST_TICK_RATIO = new ConcurrentHashMap<>();
 
-    private static final ResourceLocation MOVE_SPEED_MODIFIER_ID =
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
+    private static final Identifier MOVE_SPEED_MODIFIER_ID =
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
 
     private static final Component BLADE_NAME =
             Component.literal("마검").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD);
@@ -335,9 +335,9 @@ public final class DemonLordService {
             restoreFlight(player);
             releaseAggro(player, gameTime);
             if (state.consumePactEndedNotice()) {
-                player.displayClientMessage(Component.literal("파멸의 계약이 끝났습니다. 레벨과 스탯이 처음으로 돌아갑니다.")
+                player.sendSystemMessage(Component.literal("파멸의 계약이 끝났습니다. 레벨과 스탯이 처음으로 돌아갑니다.")
                         .withStyle(ChatFormatting.DARK_RED), false);
-                player.playNotifySound(SoundEvents.WITHER_DEATH, SoundSource.PLAYERS, 0.6f, 1.2f);
+                kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player, SoundEvents.WITHER_DEATH, SoundSource.PLAYERS, 0.6f, 1.2f);
             }
             return;
         }
@@ -524,7 +524,7 @@ public final class DemonLordService {
         releaseAggro(player);
         restoreFlight(player);
         setHeldSlot(player, DemonLordSkill.BLADE_SLOT);
-        player.displayClientMessage(
+        player.sendSystemMessage(
                 Component.literal("전투에서 제외되었습니다. 다음 라운드에 부활합니다.").withStyle(ChatFormatting.DARK_RED),
                 false
         );
@@ -538,7 +538,7 @@ public final class DemonLordService {
      * the player can hear whether the swing was fully wound up.
      */
     private static void playSwing(ServerPlayer attacker, double charge) {
-        attacker.swing(InteractionHand.MAIN_HAND, true);
+        attacker.swing(InteractionHand.MAIN_HAND, attacker.getMainHandItem().getAttackAnimation(), true);
         if (!(attacker.level() instanceof ServerLevel level)) {
             return;
         }
@@ -587,7 +587,7 @@ public final class DemonLordService {
 
     private static void syncBossBar(ServerPlayer player, DemonLordState state) {
         ServerBossEvent bar = BOSS_BARS.computeIfAbsent(player.getUUID(), id -> {
-            ServerBossEvent created = new ServerBossEvent(
+            ServerBossEvent created = new ServerBossEvent(java.util.UUID.randomUUID(),
                     Component.empty(), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
             created.addPlayer(player);
             return created;
@@ -697,7 +697,7 @@ public final class DemonLordService {
             return;
         }
         // 스탯 보너스에 전투 배속을 곱합니다. 곱연산 수정자라 (1 + 보너스) × 배속 - 1을 넣습니다.
-        double ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0;
+        double ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0;
         double bonus = state.inCombat() ? (1.0 + state.moveSpeedBonus()) * ratio - 1.0 : 0.0;
         AttributeModifier existing = attribute.getModifier(MOVE_SPEED_MODIFIER_ID);
         if (bonus <= 0.0) {
@@ -905,10 +905,10 @@ public final class DemonLordService {
      * 직접 판단하고, 서버 쪽 값은 서버 틱으로 줄어 표시와 어긋나기 때문입니다.
      */
     private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks) {
-        ResourceLocation group = player.getCooldowns().getCooldownGroup(new ItemStack(skill.item()));
+        Identifier group = player.getCooldowns().getCooldownGroup(new ItemStack(skill.item()));
         player.getCooldowns().removeCooldown(group);
         player.connection.send(new net.minecraft.network.protocol.game.ClientboundCooldownPacket(group,
-                kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(player.getServer(), remainingServerTicks)));
+                kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(player.level().getServer(), remainingServerTicks)));
     }
 
     /**
@@ -928,7 +928,7 @@ public final class DemonLordService {
     }
 
     private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
-        float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.getServer()) : 1.0F;
+        float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
         Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
         if (previous != null && Math.abs(previous - ratio) > 1.0E-3F) {
             syncSkillCooldowns(player, state, now);

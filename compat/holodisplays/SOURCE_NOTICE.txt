@@ -1,0 +1,2 @@
+Local Minecraft 26.3 compatibility build of https://github.com/Furqit/HoloDisplays/tree/3105ede10487cd0d3cd2993f3b2ef566c0af4c81
+Original author and license notices preserved. No upstream release is claimed.

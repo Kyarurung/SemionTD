@@ -36,7 +36,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.dialog.body.PlainMessage;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -154,13 +154,13 @@ final class SemionDialogBodyTest {
         assertEquals(List.of("팀", "플레이어", "직업", "다이아", "에메랄드", "수입", "타워"),
                 labels.stream().map(Component::getString).toList());
         assertEquals(List.of(
-                        ChatFormatting.WHITE.getColor(),
-                        ChatFormatting.WHITE.getColor(),
-                        ChatFormatting.WHITE.getColor(),
-                        ChatFormatting.AQUA.getColor(),
-                        ChatFormatting.GREEN.getColor(),
-                        ChatFormatting.YELLOW.getColor(),
-                        ChatFormatting.GOLD.getColor()
+                        net.minecraft.network.chat.TextColor.WHITE.getValue(),
+                        net.minecraft.network.chat.TextColor.WHITE.getValue(),
+                        net.minecraft.network.chat.TextColor.WHITE.getValue(),
+                        net.minecraft.network.chat.TextColor.AQUA.getValue(),
+                        net.minecraft.network.chat.TextColor.GREEN.getValue(),
+                        net.minecraft.network.chat.TextColor.YELLOW.getValue(),
+                        net.minecraft.network.chat.TextColor.GOLD.getValue()
                 ),
                 labels.stream().map(label -> label.getStyle().getColor().getValue()).toList());
     }
@@ -170,7 +170,7 @@ final class SemionDialogBodyTest {
         Component job = SemionDialogService.playerStatusJob("화이트직업");
 
         assertEquals("화이트직업", job.getString());
-        assertEquals(ChatFormatting.WHITE.getColor(), job.getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.WHITE.getValue(), job.getStyle().getColor().getValue());
     }
 
     @Test
@@ -193,8 +193,8 @@ final class SemionDialogBodyTest {
         assertEquals(460, header.width());
         assertEquals(420, detailHeader.width());
         assertFalse(header.contents().getString().contains("──────"));
-        assertEquals(ChatFormatting.WHITE.getColor(), divider.contents().getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.WHITE.getColor(), detailDivider.contents().getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.WHITE.getValue(), divider.contents().getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.WHITE.getValue(), detailDivider.contents().getStyle().getColor().getValue());
         assertTrue(divider.contents().getStyle().isStrikethrough());
         assertEquals("직업 목록", SemionDialogService.jobStatisticsListHeader().contents().getString());
     }
@@ -263,12 +263,12 @@ final class SemionDialogBodyTest {
                 ),
                 summaryCells.stream().map(Component::getString).toList());
         assertFalse(summaryCells.stream().map(Component::getString).anyMatch(text -> text.contains("통과")));
-        assertEquals(ChatFormatting.AQUA.getColor(), headerCells.get(0).getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.DARK_GRAY.getColor(),
+        assertEquals(net.minecraft.network.chat.TextColor.AQUA.getValue(), headerCells.get(0).getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.DARK_GRAY.getValue(),
                 headerCells.get(1).getSiblings().getFirst().getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.GREEN.getColor(),
+        assertEquals(net.minecraft.network.chat.TextColor.GREEN.getValue(),
                 headerCells.get(2).getSiblings().getFirst().getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.DARK_GRAY.getColor(),
+        assertEquals(net.minecraft.network.chat.TextColor.DARK_GRAY.getValue(),
                 headerCells.get(3).getSiblings().getFirst().getStyle().getColor().getValue());
     }
 
@@ -449,7 +449,7 @@ final class SemionDialogBodyTest {
 
     @Test
     void traitSelectionSummaryUsesYellowForSelectedTrait() {
-        var selectedTrait = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+        var selectedTrait = net.minecraft.resources.Identifier.fromNamespaceAndPath(
                 "semion-td-test",
                 "selected"
         );
@@ -526,7 +526,7 @@ final class SemionDialogBodyTest {
     @Test
     void traitTooltipUsesTraitAndSlotHeaderWithDividersAroundAbility() {
         SemionTrait trait = new SemionTrait(
-                ResourceLocation.fromNamespaceAndPath("semion-td-test", "ignite"),
+                Identifier.fromNamespaceAndPath("semion-td-test", "ignite"),
                 1,
                 Component.literal("점화"),
                 List.of(Component.literal("설명")),
@@ -538,9 +538,9 @@ final class SemionDialogBodyTest {
         Component tooltip = SemionDialogService.traitTooltip(trait, TraitSlot.SECONDARY);
         String[] lines = tooltip.getString().split("\n", -1);
 
-        assertEquals(ChatFormatting.YELLOW.getColor(), tooltip.getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.DARK_GRAY.getColor(), tooltip.getSiblings().getFirst().getStyle().getColor().getValue());
-        assertEquals(ChatFormatting.WHITE.getColor(), tooltip.getSiblings().get(1).getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.YELLOW.getValue(), tooltip.getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.DARK_GRAY.getValue(), tooltip.getSiblings().getFirst().getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.WHITE.getValue(), tooltip.getSiblings().get(1).getStyle().getColor().getValue());
         assertEquals(5, lines.length);
         assertEquals("점화 | 부특성 50%", lines[0]);
         assertFalse(lines[1].isBlank());

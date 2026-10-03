@@ -457,3 +457,12 @@
 5. 주민 ADV 경험치와 평판은 `villagerAdv`에서 조정합니다.
 6. `/semiontd reload`를 실행합니다.
 7. `/semiontd tower list`, 타워 UI, 실제 설치/업그레이드로 값이 반영됐는지 확인합니다.
+
+
+## 공개 패치와 기본 설정의 동기화
+
+기본 설정은 `src/main/resources/semiontd/balance-defaults/tower_balance.json`과 `augment_balance.json`에서 배포된다. [적용된 패치 기록](https://semiontd.biryeong.kim/patches)의 동일 설정 경로는 마지막 적용값으로 대조한다. 표시 이름이 같은 타워도 있으므로 이름 대신 원래 타워 ID와 설정 경로를 사용한다. 틱과 초, 비율과 퍼센트를 구분한다.
+
+현재 회귀 기준은 적용 기록 18건의 최종 경로 187개다. 사용 중인 185개 경로를 공개 도감 `5e3a47fbdf1be38258b3a86ed48dcbd36792e2219f771886f3eda1fb623feab3`과 교차 확인했고, 이전 기본 파일과 달랐던 타워 81개 값과 증강 6개 값을 동기화했다. 제거된 `semiontd:decisive_delivery`의 과거 2개 값은 복원하지 않는다.
+
+`ConfigPublishedPatchContractTest`와 `src/test/resources/balance/applied-patch-values.json`은 각 값의 패치 출처를 보존하고, 새 설정 파일 생성 및 실제 런타임 로딩 후 값을 확인한다. 기존 운영 설정의 명시적 오버라이드는 유지한다. 사용자가 삭제한 운영 `tower_balance.json`은 이번 작업에서 복원하지 않았으며, 다음 승인된 서버 시작 시 새 번들의 기본 파일이 생성된다. 패치 동기화는 리팩토링의 동작 보존 검증과 별도로 수행한다.

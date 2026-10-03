@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "com.phoen1x.nightlightspatch.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "ModBlockMixin",
+    "ModCreativeTabMixin",
+    "ModItemMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

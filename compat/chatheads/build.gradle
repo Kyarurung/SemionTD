@@ -1,0 +1,17 @@
+plugins { id 'net.fabricmc.fabric-loom' }
+group = 'local.semion.compat'
+version = '0.4+26.3-local'
+base { archivesName = 'chatheads' }
+repositories { mavenCentral(); maven { url 'https://maven.nucleoid.xyz' } }
+dependencies {
+    minecraft 'com.mojang:minecraft:26.3'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.161.0+26.3'
+    implementation 'eu.pb4:placeholder-api:3.2.0+26.3'
+    implementation 'eu.pb4:polymer-resource-pack:0.18.2+26.3'
+    implementation 'eu.pb4:polymer-autohost:0.18.2+26.3'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 25 }
+java { withSourcesJar() }
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand version: project.version } }
+jar { from('LICENSE'); from('SOURCE_NOTICE.txt') }

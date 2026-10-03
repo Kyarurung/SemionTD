@@ -31,7 +31,7 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.Vec3;
 
@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
  * 각 기관의 행동을 한 번 실행합니다.</p>
  */
 public final class BodyTower extends EntityBackedTower {
-    private static final List<ResourceLocation> SKIN_STACK_SOURCES = stackSources("skin");
+    private static final List<Identifier> SKIN_STACK_SOURCES = stackSources("skin");
 
     private final Map<UUID, Integer> genitalHitCounts = new HashMap<>();
     private int heartDeathStacks;
@@ -166,8 +166,8 @@ public final class BodyTower extends EntityBackedTower {
     private void applySkinStack(SemionTowerEntity source) {
         double reduction = BodyBalance.skinReductionPerStack(type());
         int ticks = BodyBalance.skinReductionTicks(type());
-        ResourceLocation openSource = null;
-        for (ResourceLocation stackSource : SKIN_STACK_SOURCES) {
+        Identifier openSource = null;
+        for (Identifier stackSource : SKIN_STACK_SOURCES) {
             if (source.hasTimedEffectSource(TimedEffectType.TOWER_DAMAGE_REDUCTION, stackSource)) {
                 source.refreshTimedEffect(TimedEffectType.TOWER_DAMAGE_REDUCTION, stackSource, reduction, ticks);
             } else if (openSource == null) {
@@ -342,11 +342,11 @@ public final class BodyTower extends EntityBackedTower {
         source.setYBodyRot(yaw);
     }
 
-    private static List<ResourceLocation> stackSources(String name) {
+    private static List<Identifier> stackSources(String name) {
         return List.of(
-                ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_1"),
-                ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_2"),
-                ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_3")
+                Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_1"),
+                Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_2"),
+                Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "body/" + name + "/stack_3")
         );
     }
 

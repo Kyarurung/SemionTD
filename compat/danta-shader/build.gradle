@@ -1,0 +1,37 @@
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+group = 'kim.biryeong'
+version = '1.0.2+26.3-local'
+base { archivesName = 'danta-shader' }
+
+repositories {
+    mavenCentral()
+    maven { url 'https://maven.nucleoid.xyz' }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:26.3'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.161.0+26.3'
+    implementation 'eu.pb4:polymer-core:0.18.2+26.3'
+    implementation 'eu.pb4:polymer-virtual-entity:0.18.2+26.3'
+    implementation 'eu.pb4:polymer-resource-pack:0.18.2+26.3'
+    implementation 'eu.pb4:polymer-resource-pack-extras:0.18.2+26.3'
+    implementation 'eu.pb4:map-canvas-api:0.9.1+26.2'
+    implementation 'net.kyori:adventure-platform-fabric:7.2.0'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 25
+}
+java { withSourcesJar() }
+
+processResources {
+    inputs.properties(version: project.version, minecraft_version: rootProject.minecraft_version, loader_version: rootProject.loader_version)
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, minecraft_version: rootProject.minecraft_version, loader_version: rootProject.loader_version
+    }
+}

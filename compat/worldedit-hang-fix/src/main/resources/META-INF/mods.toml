@@ -1,0 +1,22 @@
+modLoader = "javafml"
+loaderVersion = "[31,)"
+license = "LGPLv3"
+issueTrackerURL = "https://github.com/Fallen-Breath/worldedit-hang-fix/issues"
+
+[[mods]]
+modId = "${id}"
+version = "${version}"
+displayName = "${name}"
+displayURL = "https://github.com/Fallen-Breath/worldedit-hang-fix"
+authors = "Fallen_Breath"
+description = '''
+A simple mod that prevents WorldEdit from hanging the Minecraft server when the server is stopping
+'''
+logoFile = "icon.png"
+
+[[dependencies."${id}"]]
+modId = "minecraft"
+mandatory = true
+versionRange = "${minecraft_dependency}"
+ordering = "NONE"
+side = "BOTH"

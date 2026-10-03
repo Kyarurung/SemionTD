@@ -29,7 +29,7 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.decoration.ArmorStand;
@@ -46,8 +46,8 @@ import net.minecraft.world.item.Items;
  */
 public class ArmyTower extends ProductionTower {
     /** Single source key so the summed command bonus stays capped in one place. */
-    private static final ResourceLocation COMMAND_SOURCE =
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "army_command");
+    private static final Identifier COMMAND_SOURCE =
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "army_command");
 
     private int service;
     private int pendingServiceGain;
@@ -565,7 +565,7 @@ public class ArmyTower extends ProductionTower {
      * is only that promotion, command and discharge are visible at all, and the palette already
      * differs per style, so 승진(BUFF, green) and 전역(PULSE) read differently without new art.
      */
-    private boolean playRankVfx(PlayerLane lane, net.minecraft.resources.ResourceLocation style, String tag) {
+    private boolean playRankVfx(PlayerLane lane, net.minecraft.resources.Identifier style, String tag) {
         SemionTowerEntity source = entity(lane).orElse(null);
         if (source == null || !source.isAlive()) {
             return false;
@@ -595,13 +595,13 @@ public class ArmyTower extends ProductionTower {
         BARRAGE(AreaVfxStyles.SPLASH),
         DISCHARGE(AreaVfxStyles.PULSE);
 
-        private final ResourceLocation style;
+        private final Identifier style;
 
-        DebugVfx(ResourceLocation style) {
+        DebugVfx(Identifier style) {
             this.style = style;
         }
 
-        private ResourceLocation style() {
+        private Identifier style() {
             return style;
         }
     }

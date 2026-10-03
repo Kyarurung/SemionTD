@@ -27,7 +27,7 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.Vec3;
 
@@ -215,7 +215,7 @@ public class ThunderTower extends ProductionTower {
         if (lastStunTick != Long.MIN_VALUE && now - lastStunTick < ThunderBalance.stunCooldownTicks()) {
             return;
         }
-        ResourceLocation immunitySource = ResourceLocation.fromNamespaceAndPath(
+        Identifier immunitySource = Identifier.fromNamespaceAndPath(
                 SemionTd.MOD_ID,
                 "thunder_stun/" + ownerPlayer()
         );

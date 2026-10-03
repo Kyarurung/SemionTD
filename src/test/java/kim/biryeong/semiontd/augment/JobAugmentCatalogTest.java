@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import kim.biryeong.semiontd.job.JobRegistry;
 import net.minecraft.SharedConstants;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class JobAugmentCatalogTest {
                 default -> job;
             };
             String reviewPrefix = String.format(java.util.Locale.ROOT, "J%02d-", index + 1);
-            assertTrue(JobRegistry.find(ResourceLocation.parse(owner)).isPresent(), owner);
+            assertTrue(JobRegistry.find(Identifier.parse(owner)).isPresent(), owner);
             for (String suffix : List.of("s", "g1", "g2", "p")) {
                 String reviewId = reviewPrefix + suffix.toUpperCase(java.util.Locale.ROOT);
                 var entry = entries.stream().filter(candidate -> candidate.reviewId().equals(reviewId)).findFirst().orElseThrow();

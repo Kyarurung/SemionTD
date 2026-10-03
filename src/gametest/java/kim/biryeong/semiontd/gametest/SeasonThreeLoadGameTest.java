@@ -44,7 +44,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
@@ -200,7 +200,7 @@ public final class SeasonThreeLoadGameTest {
                 BlockPos base = base(index);
                 for (int x = base.getX() >> 4; x <= (base.getX() + 17) >> 4; x++) {
                     for (int z = base.getZ() >> 4; z <= (base.getZ() + 31) >> 4; z++) {
-                        long key = ChunkPos.asLong(x, z);
+                        long key = ChunkPos.pack(x, z);
                         if (!level.getForceLoadedChunks().contains(key)) {
                             level.setChunkForced(x, z, true);
                             forcedChunks.add(key);
@@ -238,7 +238,7 @@ public final class SeasonThreeLoadGameTest {
                 UUID owner = UUID.nameUUIDFromBytes(("s3-wave-" + round + "-" + stage + "-" + index).getBytes(StandardCharsets.UTF_8));
                 SemionPlayer player = new SemionPlayer(owner, "load-" + index, team, laneId,
                         new PlayerEconomy(EconomyConfig.defaultConfig()));
-                player.assignJob(JobRegistry.find(ResourceLocation.parse(board.job())).orElseThrow());
+                player.assignJob(JobRegistry.find(Identifier.parse(board.job())).orElseThrow());
                 players.put(owner, player);
                 BlockPos base = base(index);
                 PlayerLane lane = new PlayerLane(team, laneId, owner, level, layout(base, laneId));

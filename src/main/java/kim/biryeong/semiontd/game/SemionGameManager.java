@@ -108,7 +108,7 @@ import kim.biryeong.semiontd.ui.SemionText;
 import kim.biryeong.semiontd.util.Scheduler;
 import kim.biryeong.semiontd.web.WebCatalogExporter;
 import kim.biryeong.semiontd.augment.AugmentConfig;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -286,7 +286,7 @@ public final class SemionGameManager {
         JobRegistry.configureAvailability(this.jobAvailabilityConfig);
     }
 
-    public boolean setJobEnabled(ResourceLocation jobId, boolean enabled) {
+    public boolean setJobEnabled(Identifier jobId, boolean enabled) {
         if (configDir == null
                 || jobId == null
                 || JobRegistry.find(jobId).isEmpty()
@@ -903,7 +903,7 @@ public final class SemionGameManager {
         return ratingService.topProfiles();
     }
 
-    public SemionPlayerProfile saveSelectedJob(MinecraftServer server, UUID playerId, String playerName, ResourceLocation jobId) {
+    public SemionPlayerProfile saveSelectedJob(MinecraftServer server, UUID playerId, String playerName, Identifier jobId) {
         return progressionService.saveSelectedJob(server, playerId, playerName, jobId);
     }
 
@@ -1007,9 +1007,9 @@ public final class SemionGameManager {
 
     private void showBuildList(ServerPlayer player, boolean includeDebugGuides, int publicPage, int myPage) {
         SemionPlayerProfile profile = progressionService.profile(
-                player.getServer(),
+                player.level().getServer(),
                 player.getUUID(),
-                player.getGameProfile().getName()
+                player.getGameProfile().name()
         );
         if (includeDebugGuides) {
             dialogService.showDebugBuildGuides(player, buildGuideService, profile);
@@ -1038,7 +1038,7 @@ public final class SemionGameManager {
         if (guide.isEmpty()) {
             return Optional.empty();
         }
-        progressionService.rememberRecentBuildCode(server, player.getUUID(), player.getGameProfile().getName(), guide.get().code());
+        progressionService.rememberRecentBuildCode(server, player.getUUID(), player.getGameProfile().name(), guide.get().code());
         return guide;
     }
 
@@ -1067,7 +1067,7 @@ public final class SemionGameManager {
             } catch (RuntimeException exception) {
                 SemionTd.LOGGER.warn(
                         "Failed to send player {} to the Semion TD lobby; disconnecting for a clean reconnect.",
-                        player.getGameProfile().getName(),
+                        player.getGameProfile().name(),
                         exception
                 );
                 disconnectForLobbyReset(player);
@@ -1288,9 +1288,9 @@ public final class SemionGameManager {
             return SandboxStartResult.PLAYER_IN_MATCH;
         }
         try {
-            return startSandbox(server, player.getUUID(), player.getGameProfile().getName(), GameArenaLoader.load(server, mapConfig));
+            return startSandbox(server, player.getUUID(), player.getGameProfile().name(), GameArenaLoader.load(server, mapConfig));
         } catch (ArenaLoadException | RuntimeException exception) {
-            SemionTd.LOGGER.warn("Failed to start Semion TD sandbox for {}.", player.getGameProfile().getName(), exception);
+            SemionTd.LOGGER.warn("Failed to start Semion TD sandbox for {}.", player.getGameProfile().name(), exception);
             return SandboxStartResult.FAILED;
         }
     }
@@ -1307,9 +1307,9 @@ public final class SemionGameManager {
             return TutorialStartResult.PLAYER_IN_MATCH;
         }
         try {
-            return startTutorial(server, player.getUUID(), player.getGameProfile().getName(), GameArenaLoader.load(server, mapConfig));
+            return startTutorial(server, player.getUUID(), player.getGameProfile().name(), GameArenaLoader.load(server, mapConfig));
         } catch (ArenaLoadException | RuntimeException exception) {
-            SemionTd.LOGGER.warn("Failed to start Semion TD tutorial for {}.", player.getGameProfile().getName(), exception);
+            SemionTd.LOGGER.warn("Failed to start Semion TD tutorial for {}.", player.getGameProfile().name(), exception);
             return TutorialStartResult.FAILED;
         }
     }
@@ -1583,7 +1583,7 @@ public final class SemionGameManager {
         try {
             sendPlayerToLobby(server, player);
         } catch (ArenaLoadException exception) {
-            SemionTd.LOGGER.warn("Failed to return practice player {} to lobby.", player.getGameProfile().getName(), exception);
+            SemionTd.LOGGER.warn("Failed to return practice player {} to lobby.", player.getGameProfile().name(), exception);
         }
     }
 
@@ -1763,7 +1763,7 @@ public final class SemionGameManager {
         }
         Optional<AssignedParticipant> assignment = findLateJoinAssignment(
                 playerId,
-                player.getGameProfile().getName()
+                player.getGameProfile().name()
         );
         if (assignment.isEmpty()) {
             return LateJoinResult.NO_SLOT;
@@ -1845,14 +1845,14 @@ public final class SemionGameManager {
                 && team.memberIds().size() < SemionTeam.MAX_PLAYERS
                 && team.laneGroup().lane(assignment.laneId()).isEmpty();
         if (!slotAvailable) {
-            assignment = findLateJoinAssignment(playerId, player.getGameProfile().getName()).orElse(null);
+            assignment = findLateJoinAssignment(playerId, player.getGameProfile().name()).orElse(null);
         }
         if (assignment == null) {
             player.sendSystemMessage(SemionText.prefixedError("참가할 수 있는 팀에 빈자리가 없어 중도 참여가 취소되었습니다."));
             return false;
         }
 
-        SemionJob job = profile(server, playerId, player.getGameProfile().getName())
+        SemionJob job = profile(server, playerId, player.getGameProfile().name())
                 .selectedJobResource()
                 .flatMap(JobRegistry::find)
                 .filter(JobRegistry::isEnabled)
@@ -1962,7 +1962,7 @@ public final class SemionGameManager {
             MinecraftServer server,
             UUID playerId,
             TraitSlot slot,
-            ResourceLocation traitId
+            Identifier traitId
     ) {
         if (!traitsEnabled()) {
             return TraitSelectionSession.SelectionResult.DISABLED;
@@ -2090,11 +2090,11 @@ public final class SemionGameManager {
 
     public void handlePlayerJoin(ServerPlayer player) {
         musicService.handlePlayerJoin(player);
-        MinecraftServer server = player.getServer();
+        MinecraftServer server = player.level().getServer();
         if (server == null) {
             return;
         }
-        profile(server, player.getUUID(), player.getGameProfile().getName());
+        profile(server, player.getUUID(), player.getGameProfile().name());
         VanillaTeamBridge.ensureTeams(server);
 
         Scheduler.INSTANCE.submit((s) -> {
@@ -2110,7 +2110,7 @@ public final class SemionGameManager {
                 try {
                     sendPlayerToLobby(s, player);
                 } catch (ArenaLoadException exception) {
-                    SemionTd.LOGGER.warn("Failed to send late-joining player {} to lobby.", player.getGameProfile().getName(), exception);
+                    SemionTd.LOGGER.warn("Failed to send late-joining player {} to lobby.", player.getGameProfile().name(), exception);
                 }
                 String lateJoinHint = activeGame.matchMode() == MatchMode.NORMAL && activeGame.currentRound() <= LATE_JOIN_MAX_ROUND
                         ? " 5라운드까지는 /중도참여로 경기에 참가할 수 있습니다."
@@ -2138,7 +2138,7 @@ public final class SemionGameManager {
                     sidebarHudService.refreshNow(server, activeGame, matchMode, practiceViewerIds());
                 }
             } catch (ArenaLoadException exception) {
-                SemionTd.LOGGER.warn("Failed to send player {} to lobby.", player.getGameProfile().getName(), exception);
+                SemionTd.LOGGER.warn("Failed to send player {} to lobby.", player.getGameProfile().name(), exception);
             }
         },1);
     }
@@ -2148,7 +2148,7 @@ public final class SemionGameManager {
             return;
         }
         UUID playerId = player.getUUID();
-        MinecraftServer server = player.getServer();
+        MinecraftServer server = player.level().getServer();
         pendingLateJoins.remove(playerId);
         if (activeGame != null && activeGame.canConfigureRoster()) {
             activeGame.markNotReady(playerId);
@@ -2361,7 +2361,7 @@ public final class SemionGameManager {
                 server,
                 game,
                 player.getUUID(),
-                player.getGameProfile().getName()
+                player.getGameProfile().name()
         );
     }
 
@@ -2371,11 +2371,11 @@ public final class SemionGameManager {
                 playerId,
                 playerName
         );
-        Optional<ResourceLocation> selectedJobId = profile.selectedJobResource();
+        Optional<Identifier> selectedJobId = profile.selectedJobResource();
         if (selectedJobId.isEmpty()) {
             return false;
         }
-        ResourceLocation jobId = selectedJobId.get();
+        Identifier jobId = selectedJobId.get();
         if (!game.selectJob(playerId, jobId)) {
             SemionTd.LOGGER.warn(
                     "Ignoring persisted Semion TD job {} for player {}; the job is not available.",
@@ -2508,7 +2508,7 @@ public final class SemionGameManager {
 
     private static void playTraitSelectionChime(MinecraftServer server) {
         server.getPlayerList().getPlayers().forEach(player ->
-                player.playNotifySound(SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.MASTER, 1.0F, 1.0F)
+                kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player, SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.MASTER, 1.0F, 1.0F)
         );
     }
 
@@ -2581,7 +2581,7 @@ public final class SemionGameManager {
             );
         }
         server.getPlayerList().getPlayers().forEach(player -> {
-            player.playNotifySound(SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.MUSIC, 1557f, 1f);
+            kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player, SoundEvents.STONE_BUTTON_CLICK_ON, SoundSource.MUSIC, 1557f, 1f);
         });
     }
 
@@ -2622,7 +2622,7 @@ public final class SemionGameManager {
         } catch (RuntimeException disconnectException) {
             SemionTd.LOGGER.warn(
                     "Failed to disconnect player {} after lobby reset failure.",
-                    player.getGameProfile().getName(),
+                    player.getGameProfile().name(),
                     disconnectException
             );
         }

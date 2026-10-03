@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "nightlights",
+  "version": "${version}",
+  "name": "Night Lights",
+  "description": "",
+  "authors": [
+    "samgj15",
+    "Joosh",
+    "Flechazo"
+  ],
+  "contact": {},
+  "license": "LGPLv3",
+  "icon": "nightlights.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.flechazo.nightlights.NightLights"
+    ]
+  },
+  "mixins": [
+    "nightlights.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": ">=0.161.0+26.3"
+  }
+}

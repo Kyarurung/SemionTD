@@ -2839,7 +2839,7 @@ public record TowerBalanceConfig(
         putUpgrade(upgrades, DeveloperTowers.TEST_BUILD, DeveloperTowers.RELEASE.id(), 170);
         putUpgrade(upgrades, DeveloperTowers.TEST_BUILD, DeveloperTowers.LTS.id(), 160);
         putUpgrade(upgrades, DeveloperTowers.WORKBENCH, DeveloperTowers.DEPLOY_SERVER.id(), 80);
-        putUpgrade(upgrades, DeveloperTowers.DEPLOY_SERVER, DeveloperTowers.OPS_CENTER.id(), 160);
+        putUpgrade(upgrades, DeveloperTowers.DEPLOY_SERVER, DeveloperTowers.OPS_CENTER.id(), 155);
         putUpgrade(upgrades, DeveloperTowers.TESTER, DeveloperTowers.DEBUGGER.id(), 70);
         putUpgrade(upgrades, DeveloperTowers.DEBUGGER, DeveloperTowers.DEVELOPER.id(), 140);
     }

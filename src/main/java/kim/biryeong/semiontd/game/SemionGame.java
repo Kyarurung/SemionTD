@@ -78,7 +78,7 @@ import kim.biryeong.semiontd.ui.SemionText;
 import kim.biryeong.semiontd.ui.SemionTitleService;
 import kim.biryeong.semiontd.web.WebCatalogExporter;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -815,7 +815,7 @@ public final class SemionGame {
         return java.util.Collections.unmodifiableMap(selectedJobs);
     }
 
-    public boolean selectJob(UUID playerId, ResourceLocation jobId) {
+    public boolean selectJob(UUID playerId, Identifier jobId) {
         if (!canConfigureRoster()) {
             return false;
         }
@@ -844,12 +844,12 @@ public final class SemionGame {
         return selectedTraitLoadouts.getOrDefault(playerId, TraitLoadout.none());
     }
 
-    public TraitSelectionSession.SelectionResult selectTrait(UUID playerId, TraitSlot slot, ResourceLocation traitId) {
+    public TraitSelectionSession.SelectionResult selectTrait(UUID playerId, TraitSlot slot, Identifier traitId) {
         boolean runningSandboxParticipant = sandboxMode && isActiveParticipant(playerId);
         if (!canConfigureRoster() && !runningSandboxParticipant) {
             return TraitSelectionSession.SelectionResult.STARTED;
         }
-        ResourceLocation normalizedTraitId = traitId == null ? BuiltInTraits.NONE_ID : traitId;
+        Identifier normalizedTraitId = traitId == null ? BuiltInTraits.NONE_ID : traitId;
         if (TraitRegistry.find(normalizedTraitId).isEmpty()) {
             return TraitSelectionSession.SelectionResult.UNKNOWN_TRAIT;
         }
@@ -2283,7 +2283,7 @@ public final class SemionGame {
         long gasPerSec = economy.gasPerSec();
         mineral += TraitEffects.startingMineralBonus(player.traitLoadout());
         for (TraitSlot slot : TraitSlot.values()) {
-            ResourceLocation traitId = player.traitLoadout().traitId(slot);
+            Identifier traitId = player.traitLoadout().traitId(slot);
             Optional<SemionTrait> trait = TraitRegistry.find(traitId);
             if (trait.isEmpty()) {
                 continue;

@@ -58,8 +58,8 @@ final class AugmentDescriptionsTest {
         assertFalse(heat.contains("공격 간격"));
         String mastery = describe("battlefield_mastery", defaults);
         assertTrue(mastery.contains("체력 피해를 받고 생존"));
-        assertTrue(mastery.contains("최종 피해와 최대 체력 +20%"));
-        assertTrue(mastery.contains("최대 체력의 30%"));
+        assertTrue(mastery.contains("최종 피해와 최대 체력 +15%"));
+        assertTrue(mastery.contains("최대 체력의 20%"));
         assertTrue(describe("twin_squadron", defaults).contains("정확히 두 기"));
         String barricade = describe("folding_barricade_blueprint", defaults);
         assertTrue(barricade.contains("한 번에 받는 피해 최대 15"));
@@ -75,7 +75,7 @@ final class AugmentDescriptionsTest {
         assertTrue(describe("capacitor_post_blueprint", defaults).contains("충전당 추가 피해 110"));
         assertTrue(describe("cash_settlement", defaults).startsWith("매 라운드 처음 보내는 인컴"));
         assertTrue(describe("low_pressure_high_yield", defaults).startsWith("매 라운드 처음 보내는 인컴"));
-        assertEquals("전투 시작 후 8초 동안 타워의 최종 피해 +20%.", describe("engagement_plan_quick", defaults));
+        assertEquals("전투 시작 후 8초 동안 타워의 최종 피해 +35%.", describe("engagement_plan_quick", defaults));
         for (int tier = 1; tier <= 3; tier++) {
             String percent = tier * 5 + "%";
             assertEquals("타워의 최종 피해 +" + percent + ", 공격 속도 +" + percent + ", 최대 체력 +" + percent + ".",

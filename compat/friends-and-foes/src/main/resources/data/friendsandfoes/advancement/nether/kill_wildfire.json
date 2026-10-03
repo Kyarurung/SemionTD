@@ -1,0 +1,37 @@
+{
+  "parent": "friendsandfoes:nether/find_citadel",
+  "display": {
+    "icon": {
+      "id": "friendsandfoes:wildfire_crown_fragment"
+    },
+    "title": {
+      "translate": "advancements.friendsandfoes.nether.kill_wildfire.title"
+    },
+    "description": {
+      "translate": "advancements.friendsandfoes.nether.kill_wildfire.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "killed_wildfire": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "entity": "this",
+          "predicate": {
+            "entity_type": "friendsandfoes:wildfire"
+          },
+          "type": "minecraft:entity_properties"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "killed_wildfire"
+    ]
+  ]
+}

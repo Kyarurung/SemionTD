@@ -7,7 +7,7 @@ import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.end.EndTowers;
 import kim.biryeong.semiontd.tower.warlock.WarlockTowers;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class TraitEffects {
     private static final double BASE_WAVE_STARTED_SELL_REFUND_RATE = 0.50;
@@ -15,7 +15,7 @@ public final class TraitEffects {
     private TraitEffects() {
     }
 
-    public static double effectScale(TraitLoadout loadout, ResourceLocation traitId) {
+    public static double effectScale(TraitLoadout loadout, Identifier traitId) {
         if (loadout == null || traitId == null) {
             return 0.0;
         }
@@ -254,7 +254,7 @@ public final class TraitEffects {
         );
     }
 
-    private static double value(ResourceLocation traitId, String key) {
+    private static double value(Identifier traitId, String key) {
         return TraitBalanceRuntime.value(traitId, key);
     }
 }

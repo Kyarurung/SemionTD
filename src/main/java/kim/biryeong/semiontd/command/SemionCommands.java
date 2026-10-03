@@ -7,7 +7,7 @@ import kim.biryeong.semiontd.ui.PokerTableDialog;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
-import com.mojang.authlib.GameProfile;
+import net.minecraft.server.players.NameAndId;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -112,11 +112,11 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
-import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.phys.Vec3;
@@ -162,22 +162,22 @@ public final class SemionCommands {
     ) {
         dispatcher.register(literal("semiontd")
                 .then(literal("create")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> createGame(context.getSource(), gameManager)))
                 .then(literal("start")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> startGame(context.getSource(), gameManager)))
                 .then(literal("end")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> resetGame(context.getSource(), gameManager, "강제 종료")))
                 .then(literal("reset")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> resetGame(context.getSource(), gameManager, "리셋")))
                 .then(literal("reload")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> reloadConfigs(context.getSource(), gameManager)))
                 .then(literal("resourcepack")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(literal("reload")
                                 .executes(context -> reloadResourcePackAssets(
                                         context.getSource(),
@@ -186,7 +186,7 @@ public final class SemionCommands {
                                         configDir
                                 ))))
                 .then(literal("testmode")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(argument("enabled", BoolArgumentType.bool())
                                 .executes(context -> setTestMode(
                                         context.getSource(),
@@ -194,10 +194,10 @@ public final class SemionCommands {
                                         BoolArgumentType.getBool(context, "enabled")
                                 ))))
                 .then(literal("autojoin")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> autojoin(context.getSource(), gameManager)))
                 .then(literal("playerlimit")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(literal("add")
                                 .then(argument("player", GameProfileArgument.gameProfile())
                                         .executes(context -> addPlayerLimitBypass(
@@ -254,20 +254,20 @@ public final class SemionCommands {
                         .then(literal("top")
                                 .executes(context -> ratingTop(context.getSource(), gameManager)))
                         .then(literal("softreset")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                                 .executes(context -> ratingSoftReset(context.getSource(), gameManager))))
                 .then(literal("job")
                         .then(literal("list")
                                 .executes(context -> listJobs(context.getSource())))
                         .then(literal("manage")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                                 .executes(context -> manageJobs(context.getSource(), gameManager, null))
                                 .then(literal("official")
                                         .executes(context -> manageJobs(context.getSource(), gameManager, true)))
                                 .then(literal("creative")
                                         .executes(context -> manageJobs(context.getSource(), gameManager, false))))
                         .then(literal("enable")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                                 .then(argument("id", StringArgumentType.string())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                                 JobRegistry.all().stream()
@@ -283,7 +283,7 @@ public final class SemionCommands {
                                                 true
                                         ))))
                         .then(literal("disable")
-                                .requires(source -> source.hasPermission(2))
+                                .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                                 .then(argument("id", StringArgumentType.string())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                                 JobRegistry.all().stream()
@@ -312,11 +312,11 @@ public final class SemionCommands {
                                                 gameManager,
                                                 false
                                         )))
-                                .then(argument("id", ResourceLocationArgument.id())
+                                .then(argument("id", IdentifierArgument.id())
                                         .executes(context -> jobStatisticsDetailDialog(
                                                 context.getSource(),
                                                 gameManager,
-                                                ResourceLocationArgument.getId(context, "id").toString()
+                                                IdentifierArgument.getId(context, "id").toString()
                                         ))))
                         .then(literal("ui")
                                 .executes(context -> jobDialog(context.getSource(), gameManager))
@@ -545,7 +545,7 @@ public final class SemionCommands {
                                                 StringArgumentType.getString(context, "team")
                                         )))))
                 .then(literal("killboss")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(argument("team", StringArgumentType.word())
                                 .executes(context -> killBoss(
                                         context.getSource(),
@@ -674,7 +674,7 @@ public final class SemionCommands {
                                 .executes(context -> clearTrackedBuild(context.getSource(), gameManager)))));
 
         dispatcher.register(literal("semiontd-debug")
-                .requires(source -> source.hasPermission(2))
+                .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                 .then(literal("towerui")
                         .executes(context -> debugTowerDialog(context.getSource(), gameManager)))
                 .then(literal("tower")
@@ -1403,7 +1403,7 @@ public final class SemionCommands {
         return literal(rootName)
                 .executes(context -> openCosmeticShop(context.getSource(), cosmeticService))
                 .then(literal("points")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(literal("give")
                                 .then(argument("player", GameProfileArgument.gameProfile())
                                         .then(argument("amount", LongArgumentType.longArg(1))
@@ -1414,7 +1414,7 @@ public final class SemionCommands {
                                                         LongArgumentType.getLong(context, "amount")
                                                 ))))))
                 .then(literal("add")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(argument("id", StringArgumentType.word())
                                 .then(argument("price", LongArgumentType.longArg(0))
                                         .executes(context -> addCosmetic(
@@ -1435,7 +1435,7 @@ public final class SemionCommands {
                                                         StringArgumentType.getString(context, "slot")
                                                 ))))))
                 .then(literal("update")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(argument("id", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         cosmeticService.entries().stream().map(CosmeticCatalog.Entry::id),
@@ -1460,7 +1460,7 @@ public final class SemionCommands {
                                                         StringArgumentType.getString(context, "slot")
                                                 ))))))
                 .then(literal("remove")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .then(argument("id", StringArgumentType.word())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         cosmeticService.entries().stream().map(CosmeticCatalog.Entry::id),
@@ -1472,28 +1472,28 @@ public final class SemionCommands {
                                         StringArgumentType.getString(context, "id")
                                 ))))
                 .then(literal("list")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> listCosmetics(context.getSource(), cosmeticService)))
                 .then(literal("reload")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER))
                         .executes(context -> reloadCosmetics(context.getSource(), cosmeticService)));
     }
 
     private static int grantCosmeticPoints(
             CommandSourceStack source,
             SemionGameManager gameManager,
-            Collection<GameProfile> targets,
+            Collection<NameAndId> targets,
             long amount
     ) {
         if (targets.size() != 1) {
             failure(source, "치장 포인트는 한 번에 한 플레이어에게만 지급할 수 있습니다.");
             return 0;
         }
-        GameProfile target = targets.iterator().next();
-        String targetName = target.getName() == null || target.getName().isBlank()
-                ? target.getId().toString()
-                : target.getName();
-        var updated = gameManager.grantCosmeticCurrency(target.getId(), targetName, amount);
+        NameAndId target = targets.iterator().next();
+        String targetName = target.name() == null || target.name().isBlank()
+                ? target.id().toString()
+                : target.name();
+        var updated = gameManager.grantCosmeticCurrency(target.id(), targetName, amount);
         if (updated.isEmpty()) {
             failure(source, "치장 포인트를 저장하지 못했거나 보유량 최대치를 초과했습니다.");
             return 0;
@@ -1710,7 +1710,7 @@ public final class SemionCommands {
             failure(source, "참여 중인 경기가 없습니다.");
             return 0;
         }
-        return game.augmentService().handle(game, player, input, source.hasPermission(2));
+        return game.augmentService().handle(game, player, input, source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> traitCommand(
@@ -1928,16 +1928,16 @@ public final class SemionCommands {
     private static int addPlayerLimitBypass(
             CommandSourceStack source,
             SemionGameManager gameManager,
-            Collection<GameProfile> profiles
+            Collection<NameAndId> profiles
     ) {
         List<String> added = new ArrayList<>();
         List<String> existing = new ArrayList<>();
-        for (GameProfile profile : profiles) {
-            if (profile.getId() == null) {
+        for (NameAndId profile : profiles) {
+            if (profile.id() == null) {
                 continue;
             }
             String name = playerLimitBypassName(profile);
-            if (gameManager.addPlayerLimitBypass(profile.getId(), name)) {
+            if (gameManager.addPlayerLimitBypass(profile.id(), name)) {
                 added.add(name);
             } else {
                 existing.add(name);
@@ -1958,16 +1958,16 @@ public final class SemionCommands {
     private static int removePlayerLimitBypass(
             CommandSourceStack source,
             SemionGameManager gameManager,
-            Collection<GameProfile> profiles
+            Collection<NameAndId> profiles
     ) {
         List<String> removed = new ArrayList<>();
         List<String> missing = new ArrayList<>();
-        for (GameProfile profile : profiles) {
-            if (profile.getId() == null) {
+        for (NameAndId profile : profiles) {
+            if (profile.id() == null) {
                 continue;
             }
             String name = playerLimitBypassName(profile);
-            if (gameManager.removePlayerLimitBypass(profile.getId())) {
+            if (gameManager.removePlayerLimitBypass(profile.id())) {
                 removed.add(name);
             } else {
                 missing.add(name);
@@ -2059,8 +2059,8 @@ public final class SemionCommands {
         return 1;
     }
 
-    private static String playerLimitBypassName(GameProfile profile) {
-        return profile.getName() == null || profile.getName().isBlank() ? profile.getId().toString() : profile.getName();
+    private static String playerLimitBypassName(NameAndId profile) {
+        return profile.name() == null || profile.name().isBlank() ? profile.id().toString() : profile.name();
     }
 
     private static int ready(CommandSourceStack source, SemionGameManager gameManager) throws CommandSyntaxException {
@@ -2358,7 +2358,7 @@ public final class SemionCommands {
         );
         return switch (result) {
             case SUCCESS -> {
-                success(source, owner.getGameProfile().getName() + "님의 샌드박스 관전으로 이동했습니다.");
+                success(source, owner.getGameProfile().name() + "님의 샌드박스 관전으로 이동했습니다.");
                 yield 1;
             }
             case TARGET_NOT_IN_SANDBOX -> {
@@ -2718,7 +2718,7 @@ public final class SemionCommands {
         result.requesterId()
                 .flatMap(requesterId -> Optional.ofNullable(source.getServer().getPlayerList().getPlayer(requesterId)))
                 .ifPresent(requester -> requester.sendSystemMessage(SemionText.prefixed(Component.literal(
-                        senderPlayer.getGameProfile().getName() + "님에게 다이아 " + result.amount() + "개를 받았습니다."
+                        senderPlayer.getGameProfile().name() + "님에게 다이아 " + result.amount() + "개를 받았습니다."
                 ).withStyle(ChatFormatting.GREEN))));
         success(source, "다이아 " + result.amount() + "개를 보냈습니다.");
         return 1;
@@ -2798,12 +2798,12 @@ public final class SemionCommands {
         ServerPlayer target = targetPlayer == null ? source.getPlayerOrException() : targetPlayer;
         SemionGame game = gameManager.playableGame(target.getUUID()).orElse(null);
         if (game == null) {
-            failure(source, "대상 플레이어의 진행 중인 게임 또는 샌드박스가 없습니다: " + target.getGameProfile().getName());
+            failure(source, "대상 플레이어의 진행 중인 게임 또는 샌드박스가 없습니다: " + target.getGameProfile().name());
             return 0;
         }
         SemionPlayer semionPlayer = game.players().get(target.getUUID());
         if (semionPlayer == null) {
-            failure(source, "현재 게임 참가자가 아닙니다: " + target.getGameProfile().getName());
+            failure(source, "현재 게임 참가자가 아닙니다: " + target.getGameProfile().name());
             return 0;
         }
 
@@ -2814,7 +2814,7 @@ public final class SemionCommands {
             economy.addEmerald(amount);
         }
 
-        success(source, target.getGameProfile().getName()
+        success(source, target.getGameProfile().name()
                 + "에게 "
                 + (currency == CurrencyDebugType.DIAMOND ? "다이아" : "에메랄드")
                 + " "
@@ -2828,7 +2828,7 @@ public final class SemionCommands {
 
     private static int profile(CommandSourceStack source, SemionGameManager gameManager) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        var profile = gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().getName());
+        var profile = gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().name());
         success(source, "프로필 장식재화=" + profile.cosmeticCurrency()
                 + ", 플레이=" + profile.gamesPlayed()
                 + ", 승=" + profile.wins()
@@ -2992,7 +2992,7 @@ public final class SemionCommands {
             String rawJobId,
             boolean enabled
     ) {
-        ResourceLocation jobId;
+        Identifier jobId;
         try {
             jobId = parseJobId(rawJobId);
         } catch (IllegalArgumentException exception) {
@@ -3061,7 +3061,7 @@ public final class SemionCommands {
             SemionGameManager gameManager,
             String rawJobId
     ) throws CommandSyntaxException {
-        ResourceLocation jobId = ResourceLocation.tryParse(rawJobId);
+        Identifier jobId = Identifier.tryParse(rawJobId);
         if (jobId == null) {
             failure(source, "올바르지 않은 직업 ID입니다: " + rawJobId);
             return 0;
@@ -3177,7 +3177,7 @@ public final class SemionCommands {
             failure(source, exception.getMessage());
             return 0;
         }
-        ResourceLocation traitId;
+        Identifier traitId;
         try {
             traitId = parseTraitId(rawTraitId);
         } catch (IllegalArgumentException exception) {
@@ -3224,7 +3224,7 @@ public final class SemionCommands {
             return 0;
         }
 
-        ResourceLocation jobId;
+        Identifier jobId;
         try {
             jobId = parseJobId(rawJobId);
         } catch (IllegalArgumentException exception) {
@@ -3259,7 +3259,7 @@ public final class SemionCommands {
             job = selectedJob.get();
         }
 
-        gameManager.saveSelectedJob(source.getServer(), playerId, player.getGameProfile().getName(), job.id());
+        gameManager.saveSelectedJob(source.getServer(), playerId, player.getGameProfile().name(), job.id());
         success(source, "직업을 선택했습니다: "
                 + job.id()
                 + " => "
@@ -3712,7 +3712,7 @@ public final class SemionCommands {
     private static int heroSkin(CommandSourceStack source, SemionGameManager gameManager)
             throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().getName());
+        gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().name());
         new HeroCompanionSkinGui(player, gameManager).open();
         return 1;
     }
@@ -4182,7 +4182,7 @@ public final class SemionCommands {
                 "DEBUG1",
                 "디버그 추천 빌드",
                 player.getUUID(),
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 jobId,
                 currentRound + 3,
                 primaryActions
@@ -4191,7 +4191,7 @@ public final class SemionCommands {
                 "DEBUG2",
                 "초반 인컴 압박 빌드",
                 player.getUUID(),
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 jobId,
                 currentRound + 5,
                 List.of(
@@ -4205,7 +4205,7 @@ public final class SemionCommands {
                 "DEBUG3",
                 "방어 안정화 빌드",
                 player.getUUID(),
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 jobId,
                 currentRound + 7,
                 List.of(
@@ -4390,12 +4390,12 @@ public final class SemionCommands {
         return TeamId.valueOf(teamName.toUpperCase());
     }
 
-    private static ResourceLocation parseJobId(String rawJobId) {
-        ResourceLocation parsed = ResourceLocation.tryParse(rawJobId);
+    private static Identifier parseJobId(String rawJobId) {
+        Identifier parsed = Identifier.tryParse(rawJobId);
         if (parsed != null && rawJobId.contains(":")) {
             return parsed;
         }
-        ResourceLocation defaulted = ResourceLocation.tryBuild(SemionTd.MOD_ID, rawJobId);
+        Identifier defaulted = Identifier.tryBuild(SemionTd.MOD_ID, rawJobId);
         if (defaulted == null) {
             throw new IllegalArgumentException("잘못된 직업 ID입니다: " + rawJobId);
         }
@@ -4410,25 +4410,25 @@ public final class SemionCommands {
         };
     }
 
-    private static ResourceLocation parseTraitId(String rawTraitId) {
-        ResourceLocation parsed = ResourceLocation.tryParse(rawTraitId);
+    private static Identifier parseTraitId(String rawTraitId) {
+        Identifier parsed = Identifier.tryParse(rawTraitId);
         if (parsed != null && rawTraitId.contains(":")) {
             return parsed;
         }
-        ResourceLocation defaulted = ResourceLocation.tryBuild(SemionTd.MOD_ID, rawTraitId);
+        Identifier defaulted = Identifier.tryBuild(SemionTd.MOD_ID, rawTraitId);
         if (defaulted == null) {
             throw new IllegalArgumentException("잘못된 특성 ID입니다: " + rawTraitId);
         }
         return defaulted;
     }
 
-    private static String traitName(ResourceLocation traitId) {
+    private static String traitName(Identifier traitId) {
         return TraitRegistry.find(traitId)
                 .map(trait -> trait.displayName().getString())
                 .orElse(traitId.toString());
     }
 
-    private static String traitSelectionFailureMessage(TraitSelectionSession.SelectionResult result, ResourceLocation traitId) {
+    private static String traitSelectionFailureMessage(TraitSelectionSession.SelectionResult result, Identifier traitId) {
         return switch (result) {
             case NOT_PARTICIPANT -> "현재 특성 선택 대상 참가자가 아닙니다.";
             case UNKNOWN_TRAIT -> "알 수 없는 특성입니다: " + traitId + ". /semiontd trait list를 확인하세요.";
@@ -4495,7 +4495,7 @@ public final class SemionCommands {
         for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
             candidates.add(new StartCandidate(
                     player.getUUID(),
-                    player.getGameProfile().getName(),
+                    player.getGameProfile().name(),
                     gameManager.ratingProfile(player.getUUID())
                             .map(PlayerRatingProfile::displayElo)
                             .orElse(PlayerRatingProfile.INITIAL_DISPLAY_ELO)

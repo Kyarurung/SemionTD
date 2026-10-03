@@ -13,7 +13,7 @@ import kim.biryeong.semiontd.tower.demonlord.DemonLordStates;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * The demon lord builder: the player is the defense. Skills are bought straight into key slots from
@@ -23,7 +23,7 @@ import net.minecraft.resources.ResourceLocation;
  * level curve, which is this builder's only source of scaling.
  */
 public final class DemonLordTowerJob extends SemionJob {
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_towers");
+    public static final Identifier ID = Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_towers");
 
     public DemonLordTowerJob() {
         super(

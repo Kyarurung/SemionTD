@@ -28,7 +28,7 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
@@ -212,7 +212,7 @@ public final class ThunderGameTest {
                     "thunder-stun-target", 500.0);
 
             first.onAttackResolved(towerEntity(context, first), target.entity(), 1.0, 1.0, 1.0, false);
-            ResourceLocation ownerImmunity = immunitySource(owner);
+            Identifier ownerImmunity = immunitySource(owner);
             require(target.entity().hasTimedEffectSource(TimedEffectType.MONSTER_STUN_IMMUNITY, ownerImmunity),
                     "The first stun must add the owner's shared immunity.");
             require(target.entity().isStunned(), "Electric shock must apply the shared stun state.");
@@ -342,8 +342,8 @@ public final class ThunderGameTest {
         }
     }
 
-    private static ResourceLocation immunitySource(UUID owner) {
-        return ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "thunder_stun/" + owner);
+    private static Identifier immunitySource(UUID owner) {
+        return Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "thunder_stun/" + owner);
     }
 
     private static ThunderTower tower(

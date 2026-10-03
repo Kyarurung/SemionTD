@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "friendsandfoes-polymer-patch",
+  "version": "${version}",
+  "name": "Polymer Patch for Friends&Foes",
+  "description": "Polymer Patch for Friends&Foes",
+  "authors": [
+    "Drex"
+  ],
+  "license": "MIT",
+  "icon": "assets/friendsandfoes-polymer-patch/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "me.drex.fafpatch.impl.FriendsAndFoesPatch"
+    ]
+  },
+  "mixins": [
+    "friendsandfoes-polymer-patch.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "java": ">=21",
+    "friendsandfoes": "*",
+    "polymer-core": "*",
+    "fabric-api": "*",
+    "minecraft": "26.3"
+  }
+}

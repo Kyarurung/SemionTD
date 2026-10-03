@@ -19,7 +19,7 @@ import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerDataKey;
 import kim.biryeong.semiontd.tower.TowerType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
@@ -29,7 +29,7 @@ import net.minecraft.world.phys.Vec3;
 public final class OceanWaterTower extends EntityBackedTower {
     private static final double EPSILON = 1.0E-9;
     private static final TowerDataKey<UUID> SUPPLY_TARGET_ID = TowerDataKey.of(
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "ocean/water_supply_target"),
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "ocean/water_supply_target"),
             UUID.class
     );
     private static final BlockState WATER_MARKER = Blocks.LIGHT.defaultBlockState()

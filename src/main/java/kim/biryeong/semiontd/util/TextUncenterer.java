@@ -9,10 +9,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.PlainTextContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class TextUncenterer {
-    private static final ResourceLocation DEFAULT_FONT_ID = ResourceLocation.withDefaultNamespace("default");
+    private static final Identifier DEFAULT_FONT_ID = Identifier.withDefaultNamespace("default");
     private static final int FONT_SIZE = 8;
 
     private TextUncenterer() {
@@ -181,7 +181,8 @@ public final class TextUncenterer {
     }
 
     private static int getTextWidth(Style style, String string) {
-        ResourceLocation fontId = style.getFont() == null ? DEFAULT_FONT_ID : style.getFont();
+        Identifier fontId = style.getFont() instanceof net.minecraft.network.chat.FontDescription.Resource font
+                ? font.id() : DEFAULT_FONT_ID;
         return DefaultFonts.REGISTRY.getDefaultedFont(fontId).getTextWidth(string, FONT_SIZE);
     }
 

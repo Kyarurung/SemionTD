@@ -159,7 +159,7 @@ public final class SemionSidebarHudService {
 
     private void updateActionbar(ServerPlayer player, SemionGame game) {
         SemionHudTextService.actionbarTextFor(player.getUUID(), game)
-                .ifPresent(component -> player.displayClientMessage(component, true));
+                .ifPresent(component -> player.sendSystemMessage(component, true));
     }
 
     private void updateActionbar(
@@ -169,7 +169,7 @@ public final class SemionSidebarHudService {
             boolean highlightOn
     ) {
         SemionHudTextService.actionbarTextFor(player.getUUID(), game, highlightTarget, highlightOn)
-                .ifPresent(component -> player.displayClientMessage(component, true));
+                .ifPresent(component -> player.sendSystemMessage(component, true));
     }
 
     private List<Component> sidebarLinesFor(

@@ -51,7 +51,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +66,7 @@ public class SemionTd implements ModInitializer {
     public void onInitialize() {
         SemionCosmeticItems.register();
         PolymerResourcePackUtils.addModAssets(MOD_ID);
+        kim.biryeong.semiontd.ui.rp.PolyFactoryResourceCompatibility.register();
         SemionEntityTypes.register();
         BuiltInTraits.register();
 
@@ -142,11 +143,11 @@ public class SemionTd implements ModInitializer {
         cosmeticService.registerUseProtection();
         Events.initialize(gameManager, skyboxService, tipService, cosmeticService);
 
-        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, ResourceLocation.fromNamespaceAndPath("ttt", "aligned_message"), AlignedMessage.MAP_CODEC);
-        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, ResourceLocation.fromNamespaceAndPath("ttt", "aligned_item"), AlignedItemBody.MAP_CODEC);
-        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, ResourceLocation.fromNamespaceAndPath("ttt", "header_message"), HeaderMessage.MAP_CODEC);
-        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, ResourceLocation.fromNamespaceAndPath("ttt", "image"), ImageBody.MAP_CODEC);
-        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, ResourceLocation.fromNamespaceAndPath("ttt", "split_aligned_message"), SplitAlignedMessage.MAP_CODEC);
+        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, Identifier.fromNamespaceAndPath("ttt", "aligned_message"), AlignedMessage.MAP_CODEC);
+        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, Identifier.fromNamespaceAndPath("ttt", "aligned_item"), AlignedItemBody.MAP_CODEC);
+        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, Identifier.fromNamespaceAndPath("ttt", "header_message"), HeaderMessage.MAP_CODEC);
+        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, Identifier.fromNamespaceAndPath("ttt", "image"), ImageBody.MAP_CODEC);
+        Registry.register(BuiltInRegistries.DIALOG_BODY_TYPE, Identifier.fromNamespaceAndPath("ttt", "split_aligned_message"), SplitAlignedMessage.MAP_CODEC);
         ImageHandler.init();
         SemionUiFont.init();
         kim.biryeong.semiontd.ui.rp.GambleGlyphs.init();

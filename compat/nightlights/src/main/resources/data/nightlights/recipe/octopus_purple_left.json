@@ -1,0 +1,20 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "I# ",
+        "GNG",
+        "RBR"
+    ],
+    "key": {
+        "#": "#minecraft:buttons",
+        "I": "minecraft:ink_sac",
+        "G": "minecraft:glass",
+        "N": "minecraft:glowstone_dust",
+        "R": "minecraft:redstone",
+        "B": "#c:dyes/purple"
+    },
+    "result": {
+        "id": "nightlights:octopus_purple"
+    },
+    "group": "octopus_purple"
+}

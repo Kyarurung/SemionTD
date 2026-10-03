@@ -75,8 +75,8 @@ public final class DemonLordGameTest {
 
     @GameTest
     public void selfDesignationsBoostBladeAndAltarDamageExactlyOnce(GameTestHelper context) {
-        net.minecraft.world.level.ChunkPos.rangeClosed(new net.minecraft.world.level.ChunkPos(context.getLevel().getSharedSpawnPos()), 2)
-                .forEach(pos -> context.getLevel().getChunk(pos.x, pos.z));
+        net.minecraft.world.level.ChunkPos.rangeClosed(net.minecraft.world.level.ChunkPos.containing(context.getLevel().getRespawnData().pos()), 2)
+                .forEach(pos -> context.getLevel().getChunk(pos.x(), pos.z()));
         context.runAfterDelay(10, () -> checkSelfDesignationDamage(context));
     }
 
@@ -101,7 +101,7 @@ public final class DemonLordGameTest {
             target = spawnTarget(context, lane, new BlockPos(5, 2, 5), 10000, 0);
             for (DemonLordSkillTower source : java.util.Arrays.asList(null, altar)) {
                 double health = target.runtime().health();
-                target.entity().invulnerableTime = 0;
+                target.entity().damageCooldownTime = 0;
                 var result = DemonLordService.dealDamage(player, lane, source, target.entity(), 20, DamageType.MAGIC);
                 requireClose(32, result.dealtDamage(), "Blade and skill damage must each receive the reduced 1.6x modifier once.");
                 requireClose(health - 32, target.runtime().health(), "Actual enemy HP must match the reported damage.");
@@ -159,7 +159,7 @@ public final class DemonLordGameTest {
             state.augments().finishSpell(player, lane, state, 2);
             requireClose(855, target.runtime().health(), "Throne cooldown must suppress another pair of replays.");
             var visuals = context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
-                    player.getBoundingBox().inflate(3), entity -> entity.getTags().contains(SemionEntityTypes.RUNTIME_NO_SAVE_TAG));
+                    player.getBoundingBox().inflate(3), entity -> entity.entityTags().contains(SemionEntityTypes.RUNTIME_NO_SAVE_TAG));
             require(visuals.size() == 2 && visuals.stream().allMatch(net.minecraft.world.entity.decoration.ArmorStand::isMarker),
                     "Exactly two untargetable marker visuals must represent the echoes.");
             state.standDown();
@@ -445,7 +445,10 @@ public final class DemonLordGameTest {
 
     @GameTest
     public void demonLordDrawsAggroOnlyInsideDefenseRange(GameTestHelper context) {
-        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        var fixture = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                Vec3.atCenterOf(context.absolutePos(new BlockPos(12, 2, 3))), GameType.ADVENTURE,
+                UUID.randomUUID(), "demon-aggro-test");
+        ServerPlayer player = fixture.player();
         PlayerLane lane = failedLane(context, player.getUUID());
         prepareFloor(context);
         SpawnedTarget target = spawnTarget(context, lane, new BlockPos(3, 2, 3), 2, 100.0, 0.0);
@@ -470,7 +473,10 @@ public final class DemonLordGameTest {
             require(goal.canUse(), "A monster inside defense range must be able to target the demon lord.");
             goal.start();
             require(target.entity().getTarget() == player,
-                    "The nearby final-defense monster must acquire the demon lord.");
+                    "The nearby final-defense monster must acquire the demon lord. actual=" + target.entity().getTarget()
+                            + "; player=" + player.getUUID() + "; indexed=" + context.getLevel().getEntity(player.getUUID())
+                            + "; playerRemoved=" + player.isRemoved() + "; targetPosition=" + target.entity().position()
+                            + "; playerPosition=" + player.position());
             requireClose(10.0, DemonLordService.dealDamage(
                             player, lane, null, target.entity(), 10.0, DamageType.TRUE).dealtDamage(),
                     "The demon lord must be able to damage a failed monster from another lane.");
@@ -481,7 +487,7 @@ public final class DemonLordGameTest {
         } finally {
             target.entity().discard();
             DemonLordStates.clear(player.getUUID());
-            player.discard();
+            fixture.close();
         }
     }
 
@@ -611,7 +617,7 @@ public final class DemonLordGameTest {
 
     private static SemionPlayer demonLordPlayer(ServerPlayer player) {
         SemionPlayer semionPlayer = new SemionPlayer(
-                player.getUUID(), player.getGameProfile().getName(), TeamId.RED, 1,
+                player.getUUID(), player.getGameProfile().name(), TeamId.RED, 1,
                 new PlayerEconomy(EconomyConfig.defaultConfig()));
         semionPlayer.assignJob(new DemonLordTowerJob());
         return semionPlayer;

@@ -13,7 +13,7 @@ import kim.biryeong.semiontd.tower.demonlord.DemonLordStates;
 import kim.biryeong.semiontd.tower.frost.FrostFullOperationService;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -78,7 +78,7 @@ public final class Events {
                 FrostFullOperationService.cleanupPlayer(player);
             });
         });
-        ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
+        ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register((player, origin, destination) -> {
             kim.biryeong.semiontd.ui.GambleRevealService.clear(player.getUUID());
             skyboxService.handlePlayerWorldChanged(player);
             gameManager.handlePlayerWorldChanged(player);
@@ -104,10 +104,10 @@ public final class Events {
         // 레인·엔티티·파티클을 건드리면 서버 스레드 밖에서 월드를 만지게 되어 연결이 끊깁니다.
         // 그래서 여기서는 값싼 상태 확인만 하고, 실제 시전은 서버 스레드로 넘깁니다.
         Stimuli.global().listen(PlayerC2SPacketEvent.EVENT, (player, packet) -> {
-            if (packet instanceof net.minecraft.network.protocol.game.ServerboundSwingPacket swing) {
+            if (packet instanceof net.minecraft.network.protocol.game.ServerboundPunchPacket) {
                 // 검기 패시브: 좌클릭 휘두름마다 검기를 쏩니다. 네티 스레드이므로 서버 스레드로 넘깁니다.
-                MinecraftServer swingServer = player.getServer();
-                if (swing.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND && swingServer != null
+                MinecraftServer swingServer = player.level().getServer();
+                if (swingServer != null
                         && DemonLordStates.isInCombat(player.getUUID())) {
                     swingServer.execute(() -> DemonLordService.handleSwing(gameManager, player));
                 }
@@ -124,7 +124,7 @@ public final class Events {
             if (!DemonLordStates.isInCombat(player.getUUID())) {
                 return EventResult.PASS;
             }
-            MinecraftServer server = player.getServer();
+            MinecraftServer server = player.level().getServer();
             if (server == null) {
                 return EventResult.PASS;
             }

@@ -3,7 +3,7 @@ package kim.biryeong.semiontd.entity.tower.vfx;
 import kim.biryeong.semiontd.api.area.AreaVfxPalette;
 import kim.biryeong.semiontd.api.area.AreaVfxParticle;
 import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public enum BuilderPalette {
     VILLAGER(0xD9A441, 0xFFF1A8, "minecraft:wax_on", "minecraft:end_rod"),
@@ -76,8 +76,8 @@ public enum BuilderPalette {
         );
     }
 
-    private static ResourceLocation particleId(String id) {
-        ResourceLocation parsed = ResourceLocation.tryParse(id);
+    private static Identifier particleId(String id) {
+        Identifier parsed = Identifier.tryParse(id);
         if (parsed == null) {
             throw new IllegalArgumentException("Invalid particle id: " + id);
         }

@@ -1,6 +1,6 @@
 package kim.biryeong.semiontd.ui;
 
-import eu.pb4.placeholders.api.PlaceholderContext;
+import eu.pb4.placeholders.api.ServerPlaceholderContext;
 import eu.pb4.placeholders.api.PlaceholderResult;
 import eu.pb4.placeholders.api.Placeholders;
 import java.util.Comparator;
@@ -94,7 +94,7 @@ public final class SemionDisplayHudService {
     }
 
     private void updateActionbar(ServerPlayer player, SemionGame game) {
-        actionbarTextFor(player.getUUID(), game).ifPresent(component -> player.displayClientMessage(component, true));
+        actionbarTextFor(player.getUUID(), game).ifPresent(component -> player.sendSystemMessage(component, true));
     }
 
     private TextDisplayHud hud(ServerPlayer player) {
@@ -268,13 +268,13 @@ public final class SemionDisplayHudService {
 
     private static String selectedJobText(ServerPlayer viewer, SemionPlayer player) {
         if (viewer != null) {
-            PlaceholderResult result = Placeholders.parsePlaceholder(
+            PlaceholderResult result = Placeholders.parseServerPlaceholder(
                     SemionPlaceholders.SELECTED_JOB,
                     null,
-                    PlaceholderContext.of(viewer)
+                    ServerPlaceholderContext.of(viewer)
             );
             if (result.isValid()) {
-                return result.text().getString();
+                return result.component().getString();
             }
         }
         if (player != null) {
@@ -319,7 +319,7 @@ public final class SemionDisplayHudService {
             MatchMode matchMode
     ) {
         List<StartCandidate> candidates = server.getPlayerList().getPlayers().stream()
-                .map(player -> new StartCandidate(player.getUUID(), player.getGameProfile().getName()))
+                .map(player -> new StartCandidate(player.getUUID(), player.getGameProfile().name()))
                 .toList();
         return ParticipantSelectionService.selectReady(candidates, game.readyPlayerIds(), matchMode);
     }

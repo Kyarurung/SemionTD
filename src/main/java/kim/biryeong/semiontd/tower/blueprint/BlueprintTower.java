@@ -29,7 +29,7 @@ import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import kim.biryeong.semiontd.tower.thunder.ThunderVfx;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 
 /**
@@ -49,7 +49,7 @@ public class BlueprintTower extends ProductionTower {
 
     private static final kim.biryeong.semiontd.entity.monster.MonsterDataKey<Long> KNOCKBACK_IMMUNE_UNTIL =
             kim.biryeong.semiontd.entity.monster.MonsterDataKey.of(
-                    ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_knockback_immune_until"), Long.class);
+                    Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_knockback_immune_until"), Long.class);
 
     private BlueprintStats cachedStats;
     private long lastThornsTick = Long.MIN_VALUE;
@@ -94,8 +94,8 @@ public class BlueprintTower extends ProductionTower {
      * 디버프·오라의 출처. 플레이어 한 명의 설계도 타워는 모두 같은 출처라서, 설계도를 여러 장 만들어도 같은 적에게 둔화·취약이,
      * 같은 아군에게 가속이 겹쳐 쌓이지 않습니다(다른 플레이어 것과는 겹침).
      */
-    private ResourceLocation source(String effect) {
-        return ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_" + effect + "/" + ownerPlayer());
+    private Identifier source(String effect) {
+        return Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "blueprint_" + effect + "/" + ownerPlayer());
     }
 
     // ------------------------------------------------------------------ targeting

@@ -1,0 +1,10 @@
+{
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [
+        "#nightlights:hanging_lights",
+        "#c:dyes/pink"
+    ],
+    "result": {
+        "id": "nightlights:hanging_lights_pink"
+    }
+}

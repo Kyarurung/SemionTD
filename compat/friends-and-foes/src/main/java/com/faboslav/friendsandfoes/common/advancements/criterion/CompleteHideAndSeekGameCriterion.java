@@ -1,0 +1,80 @@
+package com.faboslav.friendsandfoes.common.advancements.criterion;
+
+import com.faboslav.friendsandfoes.common.entity.RascalEntity;
+import com.faboslav.friendsandfoes.common.init.FriendsAndFoesCriterias;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.Optional;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+import net.minecraft.advancements.predicates.entity.EntityPredicate;
+import net.minecraft.advancements.predicates.ItemPredicate;
+import net.minecraft.advancements.triggers.Criterion;
+import net.minecraft.advancements.triggers.SimpleCriterionTrigger;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootContext;
+
+//? if <= 1.21.11 {
+/*import net.minecraft.advancements.criterion.CriterionValidator;
+*///?}
+
+public final class CompleteHideAndSeekGameCriterion extends SimpleCriterionTrigger<CompleteHideAndSeekGameCriterion.Conditions>
+{
+	public CompleteHideAndSeekGameCriterion() {
+	}
+
+	public Codec<CompleteHideAndSeekGameCriterion.Conditions> codec() {
+		return CompleteHideAndSeekGameCriterion.Conditions.CODEC;
+	}
+
+	public void trigger(ServerPlayer player, RascalEntity rascal, ItemStack stack) {
+		LootContext lootContext = EntityPredicate.createContext(player, rascal);
+		this.trigger(player, (conditions) -> {
+			return conditions.matches(lootContext, stack);
+		});
+	}
+
+	public record Conditions(Optional<Holder<LootItemCondition>> player, Optional<Holder<LootItemCondition>> rascal,
+							 Optional<ItemPredicate> item) implements SimpleCriterionTrigger.SimpleInstance
+	{
+		public static final Codec<CompleteHideAndSeekGameCriterion.Conditions> CODEC = RecordCodecBuilder.create((instance) -> {
+			return instance.group(LootItemCondition.CODEC.optionalFieldOf("player").forGetter(CompleteHideAndSeekGameCriterion.Conditions::player), LootItemCondition.CODEC.optionalFieldOf("rascal").forGetter(CompleteHideAndSeekGameCriterion.Conditions::rascal), ItemPredicate.CODEC.optionalFieldOf("item").forGetter(CompleteHideAndSeekGameCriterion.Conditions::item)).apply(instance, CompleteHideAndSeekGameCriterion.Conditions::new);
+		});
+
+		public static Criterion<Conditions> any() {
+			return FriendsAndFoesCriterias.COMPLETE_HIDE_AND_SEEK_GAME.get().createCriterion(new CompleteHideAndSeekGameCriterion.Conditions(Optional.empty(), Optional.empty(), Optional.empty()));
+		}
+
+		public static Criterion<Conditions> create(EntityPredicate.Builder playerPredicate) {
+			return FriendsAndFoesCriterias.COMPLETE_HIDE_AND_SEEK_GAME.get().createCriterion(new CompleteHideAndSeekGameCriterion.Conditions(Optional.of(EntityPredicate.wrap(playerPredicate)), Optional.empty(), Optional.empty()));
+		}
+
+		public boolean matches(LootContext rascal, ItemStack stack) {
+			if (this.rascal.isPresent() && !this.rascal.get().value().test(rascal)) {
+				return false;
+			} else {
+				return !this.item.isPresent() || this.item.get().test(stack);
+			}
+		}
+
+		//? if <= 1.21.11 {
+		/*public void validate(CriterionValidator validator) {
+			SimpleCriterionTrigger.SimpleInstance.super.validate(validator);
+			validator.validateEntity(this.rascal, ".rascal");
+		}
+		*///?}
+
+		public Optional<Holder<LootItemCondition>> player() {
+			return this.player;
+		}
+
+		public Optional<Holder<LootItemCondition>> rascal() {
+			return this.rascal;
+		}
+
+		public Optional<ItemPredicate> item() {
+			return this.item;
+		}
+	}
+}

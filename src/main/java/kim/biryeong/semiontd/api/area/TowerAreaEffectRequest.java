@@ -3,11 +3,11 @@ package kim.biryeong.semiontd.api.area;
 import java.util.Objects;
 import java.util.function.Predicate;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
 public record TowerAreaEffectRequest(
-        ResourceLocation effectId,
+        Identifier effectId,
         SemionTowerEntity source,
         Vec3 center,
         double radius,
@@ -32,7 +32,7 @@ public record TowerAreaEffectRequest(
     }
 
     public static TowerAreaEffectRequest aroundTower(
-            ResourceLocation effectId,
+            Identifier effectId,
             SemionTowerEntity source,
             double radius,
             TowerAreaTargetMode mode,

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import kim.biryeong.semiontd.tower.blueprint.BlueprintDesign;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public record SemionPlayerProfile(
         String lastKnownName,
@@ -111,7 +111,7 @@ public record SemionPlayerProfile(
         return copy(normalized, cosmeticCurrency, ownedCosmeticIds, selectedCosmeticIds, selectedJobId, selectedSkyboxId, tipsEnabled, recentBuildCodes);
     }
 
-    public SemionPlayerProfile updateSelectedJob(String playerName, ResourceLocation jobId) {
+    public SemionPlayerProfile updateSelectedJob(String playerName, Identifier jobId) {
         String normalized = playerName == null ? "" : playerName;
         String jobIdText = jobId == null ? "" : jobId.toString();
         if (normalized.equals(lastKnownName) && jobIdText.equals(selectedJobId)) {
@@ -137,11 +137,11 @@ public record SemionPlayerProfile(
         return copy(normalized, cosmeticCurrency, ownedCosmeticIds, selectedCosmeticIds, selectedJobId, selectedSkyboxId, enabled, recentBuildCodes);
     }
 
-    public Optional<ResourceLocation> selectedJobResource() {
+    public Optional<Identifier> selectedJobResource() {
         if (selectedJobId.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(ResourceLocation.tryParse(selectedJobId));
+        return Optional.ofNullable(Identifier.tryParse(selectedJobId));
     }
 
     public SemionPlayerProfile recordMatch(String playerName, boolean winner, long reward) {

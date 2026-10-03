@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "worldedithangfix",
+  "version": "${version}",
+  "name": "worldedit-hang-fix",
+  "description": "A simple mod that prevents WorldEdit from hanging the Minecraft server when the server is stopping",
+  "authors": [
+    "Fallen_Breath"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Fallen-Breath/worldedit-hang-fix",
+    "sources": "https://github.com/Fallen-Breath/worldedit-hang-fix"
+  },
+  "license": "LGPL-3.0",
+  "icon": "icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": []
+  },
+  "mixins": [
+    "worldedithangfix.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "worldedit": "*",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}

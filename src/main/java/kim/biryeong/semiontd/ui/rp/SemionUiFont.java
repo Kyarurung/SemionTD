@@ -8,11 +8,11 @@ import kim.biryeong.semiontd.SemionTd;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class SemionUiFont {
-    private static final ResourceLocation FONT_ID = ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "ui");
-    private static final Style STYLE = Style.EMPTY.withColor(0xFFFFFF).withFont(FONT_ID).withShadowColor(0);
+    private static final Identifier FONT_ID = Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "ui");
+    private static final Style STYLE = Style.EMPTY.withColor(0xFFFFFF).withFont(new net.minecraft.network.chat.FontDescription.Resource(FONT_ID)).withShadowColor(0);
     private static final char SPACE_1 = '\uE100';
     private static final char SPACE_5 = '\uE101';
     private static final char SPACE_10 = '\uE102';

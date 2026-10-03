@@ -26,7 +26,7 @@ import kim.biryeong.semiontd.summon.SummonMonsterType;
 import kim.biryeong.semiontd.summon.UtilitySupportProfile;
 import kim.biryeong.semiontd.tower.ProductionTowerCatalog;
 import kim.biryeong.semiontd.tower.ProductionTowerService;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /** Server-thread quote/commit operations; failed purchases never consume a contract or a ticket. */
 public final class AugmentEconomyService {
@@ -39,9 +39,9 @@ public final class AugmentEconomyService {
     }
 
     private static final MonsterDataKey<PurchaseBinding> PURCHASE = MonsterDataKey.of(
-            ResourceLocation.fromNamespaceAndPath("semiontd", "augment_purchase"), PurchaseBinding.class);
+            Identifier.fromNamespaceAndPath("semiontd", "augment_purchase"), PurchaseBinding.class);
     private static final MonsterDataKey<UUID> BODY_APPLIED = MonsterDataKey.of(
-            ResourceLocation.fromNamespaceAndPath("semiontd", "augment_purchase_body"), UUID.class);
+            Identifier.fromNamespaceAndPath("semiontd", "augment_purchase_body"), UUID.class);
 
     private AugmentEconomyService() {}
 

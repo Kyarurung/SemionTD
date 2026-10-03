@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 final class TimedEffectSetTest {
-    private static final ResourceLocation SOURCE = ResourceLocation.fromNamespaceAndPath("semion-td", "persistent-test");
+    private static final Identifier SOURCE = Identifier.fromNamespaceAndPath("semion-td", "persistent-test");
 
     @Test
     void persistentEffectsReplaceAndRemoveWithoutTickingDown() {

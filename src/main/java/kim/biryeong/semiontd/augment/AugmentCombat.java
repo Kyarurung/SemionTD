@@ -35,7 +35,7 @@ import kim.biryeong.semiontd.tower.legion.IllusionRuntimeTower;
 import kim.biryeong.semiontd.tower.queen.QueenCardTower;
 import kim.biryeong.semiontd.tower.plant.PlantMineTower;
 import kim.biryeong.semiontd.tower.warlock.WarlockTower;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.Vec3;
 
@@ -66,7 +66,7 @@ public final class AugmentCombat {
     private static final ThreadLocal<Boolean> EXTRA_ATTACK = ThreadLocal.withInitial(() -> false);
     private static final kim.biryeong.semiontd.entity.monster.MonsterDataKey<Boolean> SUPPRESSED_KILL =
             kim.biryeong.semiontd.entity.monster.MonsterDataKey.of(
-                    ResourceLocation.fromNamespaceAndPath("semiontd", "augment_suppressed_kill"), Boolean.class);
+                    Identifier.fromNamespaceAndPath("semiontd", "augment_suppressed_kill"), Boolean.class);
 
     public static void recordKillOrigin(Tower tower, Monster monster) {
         if (monster != null && (!allowsTriggers() || tower.isTemporaryCopy())) {monster.setData(SUPPRESSED_KILL, true);}
@@ -402,7 +402,7 @@ public final class AugmentCombat {
             if (amount <= 0.0) return;
             var origin = target.runtimeMonster();
             MonsterAreaEffectRequest request = new MonsterAreaEffectRequest(
-                    ResourceLocation.fromNamespaceAndPath("semiontd", "augment_domino_fire"), entity,
+                    Identifier.fromNamespaceAndPath("semiontd", "augment_domino_fire"), entity,
                     target.position(), parameter(tower, "domino_fire", "radius", 4), Set.of(target.getUUID()),
                     other -> other.runtimeMonster().targetTeam() == origin.targetTeam()
                             && other.runtimeMonster().targetLaneId() == origin.targetLaneId(),
@@ -703,7 +703,7 @@ public final class AugmentCombat {
     }
 
     private static <T> TowerDataKey<T> key(String id, Class<T> type) {
-        return TowerDataKey.of(ResourceLocation.fromNamespaceAndPath("semiontd", "augment_" + id), type);
+        return TowerDataKey.of(Identifier.fromNamespaceAndPath("semiontd", "augment_" + id), type);
     }
 
     private record Wave(int round, long startTick, boolean triangle, boolean twin, boolean independent,

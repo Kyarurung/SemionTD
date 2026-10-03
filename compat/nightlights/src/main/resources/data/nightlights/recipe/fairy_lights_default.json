@@ -1,0 +1,9 @@
+{
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [
+        "#nightlights:fairy_lights"
+    ],
+    "result": {
+        "id": "nightlights:fairy_lights_default"
+    }
+}

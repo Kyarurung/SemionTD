@@ -571,8 +571,8 @@
       "redirectRatio": 0.35
     },
     "semiontd:battlefield_mastery": {
-      "bonusPerStack": 0.2,
-      "damageThreshold": 0.3,
+      "bonusPerStack": 0.15,
+      "damageThreshold": 0.2,
       "maxStacks": 4.0
     },
     "semiontd:biased_armor": {
@@ -614,7 +614,7 @@
     "semiontd:engagement_plan": {
       "longDamageBonus": 0.25,
       "longDamageReduction": 0.15,
-      "quickDamageBonus": 0.2,
+      "quickDamageBonus": 0.35,
       "transitionTicks": 160.0
     },
     "semiontd:finishing_fire_1": {
@@ -648,7 +648,7 @@
       "areaPerTier": 0.15
     },
     "semiontd:forbidden_blueprint": {
-      "payoutMultiplier": 0.9,
+      "payoutMultiplier": 0.95,
       "ticketCount": 2.0,
       "ticketValue": 450.0
     },
@@ -741,8 +741,8 @@
       "hatchWaves": 1.0,
       "hatchedDamage": 200.0,
       "hatchedHealth": 1000.0,
-      "hatchedIntervalTicks": 30.0,
-      "hatchedRange": 5.0
+      "hatchedIntervalTicks": 10.0,
+      "hatchedRange": 15.0
     },
     "semiontd:support_performance": {
       "incomeBonus": 10.0,

@@ -14,7 +14,7 @@ import kim.biryeong.semiontd.tower.EntityBackedTower;
 import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.entity.monster.MonsterDataKey;
 import kim.biryeong.semiontd.augment.AugmentCombat;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
 /**
@@ -73,7 +73,7 @@ public final class PlantSoilEnvironment {
                 continue;
             }
             if (roots) {
-                MonsterDataKey<Integer> stunnedRound = new MonsterDataKey<>(ResourceLocation.fromNamespaceAndPath(
+                MonsterDataKey<Integer> stunnedRound = new MonsterDataKey<>(Identifier.fromNamespaceAndPath(
                         "semiontd", "plant_root_entry/" + owner), Integer.class);
                 int round = lane.towers().stream().findFirst().map(Tower::currentRound).orElse(0);
                 if (monster.getData(stunnedRound).orElse(-1) != round) {

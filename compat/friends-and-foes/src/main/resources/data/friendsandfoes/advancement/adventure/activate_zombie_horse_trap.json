@@ -1,0 +1,29 @@
+{
+	"parent": "minecraft:adventure/root",
+	"display": {
+		"icon": {
+			"id": "minecraft:chainmail_helmet"
+		},
+		"title": {
+			"translate": "advancements.friendsandfoes.survival.activate_zombie_horse_trap.title"
+		},
+		"description": {
+			"translate": "advancements.friendsandfoes.survival.activate_zombie_horse_trap.description"
+		},
+		"frame": "goal",
+		"show_toast": true,
+		"announce_to_chat": true,
+		"hidden": true
+	},
+	"criteria": {
+		"friendsandfoes:activate_zombie_horse_trap": {
+			"conditions": {},
+			"trigger": "friendsandfoes:activate_zombie_horse_trap"
+		}
+	},
+	"requirements": [
+		[
+			"friendsandfoes:activate_zombie_horse_trap"
+		]
+	]
+}

@@ -107,7 +107,7 @@ public final class AugmentService {
                     SemionTitleService.showAugmentRarity(online, offer.rarity().markup(rarityName(offer.rarity()) + " 증강"));
                     online.sendSystemMessage(SemionText.prefixedMini("R" + milestone + " "
                             + rarityLabel(offer.rarity()) + " 증강 · 잠시 뒤 카드 세 장을 공개합니다."));
-                    online.playNotifySound(switch (offer.rarity()) {
+                    kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(online, switch (offer.rarity()) {
                         case SILVER -> SoundEvents.NOTE_BLOCK_PLING.value();
                         case GOLD -> SoundEvents.PLAYER_LEVELUP;
                         case PRISMATIC -> SoundEvents.AMETHYST_BLOCK_CHIME;
@@ -151,7 +151,7 @@ public final class AugmentService {
             if (warning > 0 && warnedSeconds.getOrDefault(player.uuid(), Integer.MAX_VALUE) > warning) {
                 warnedSeconds.put(player.uuid(), warning);
                 online.sendSystemMessage(SemionText.prefixedPlain("증강 선택 마감까지 " + remaining + "초입니다. /증강"));
-                online.playNotifySound(SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.7F, 1.2F);
+                kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(online, SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.7F, 1.2F);
             }
         }
     }
@@ -205,7 +205,7 @@ public final class AugmentService {
 
     private static String jobLabel(AugmentDefinition card) {
         if (card.requiredJobId() == null) {return "";}
-        return " [" + kim.biryeong.semiontd.job.JobRegistry.find(net.minecraft.resources.ResourceLocation.parse(card.requiredJobId()))
+        return " [" + kim.biryeong.semiontd.job.JobRegistry.find(net.minecraft.resources.Identifier.parse(card.requiredJobId()))
                 .map(job -> MiniMessage.miniMessage().escapeTags(job.displayName().getString())).orElse(card.requiredJobId()) + "]";
     }
 
@@ -1128,7 +1128,7 @@ public final class AugmentService {
             entityBacked.runtimeEntity(lane).filter(net.minecraft.world.entity.Entity::isAlive).ifPresent(source -> {
                 for (var point : AugmentTowerService.minePreview(lane, tower.position())) {
                     kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService.showAreaEffect(source,
-                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("semiontd", "augment_mine_preview"),
+                            net.minecraft.resources.Identifier.fromNamespaceAndPath("semiontd", "augment_mine_preview"),
                             kim.biryeong.semiontd.api.area.AreaVfxStyles.PULSE, point,
                             parameter(game, "ambush_workshop_blueprint", "triggerRadius", 1.25), List.of(), 0, 0, 0);
                 }
@@ -1218,7 +1218,7 @@ public final class AugmentService {
         if (!game.augmentsEnabled() || !game.isActiveParticipant(online.getUUID()) || !alive(game, player)
                 || online.hasDisconnected() || game.phase() == RoundPhase.WAITING || game.phase() == RoundPhase.ENDED) {return true;}
         if (isDemonLord(player)) {
-            online.displayClientMessage(Component.literal("지정형 증강은 마왕 자신에게 자동 적용됩니다."), true);
+            online.sendSystemMessage(Component.literal("지정형 증강은 마왕 자신에게 자동 적용됩니다."), true);
             return true;
         }
         var state = player.augments();
@@ -1268,7 +1268,7 @@ public final class AugmentService {
         }
         grantTargetTool(game, online, player);
         var active = state.targetToolSelection().orElseThrow();
-        online.displayClientMessage(Component.literal(AugmentCatalog.find(active.augmentId()).orElseThrow().displayName()
+        online.sendSystemMessage(Component.literal(AugmentCatalog.find(active.augmentId()).orElseThrow().displayName()
                 + " · " + AugmentTargetTool.targetLabel(active, lane)), true);
         refreshHeldTargetPreview(game, online, player);
         return true;
@@ -1580,7 +1580,7 @@ public final class AugmentService {
         Component message = SemionText.prefixed(Component.literal(player.name() + " · ")
                 .append(cardWithHover(card, game.augmentConfig(), player))
                 .append(Component.literal(" 확정")));
-        for (ServerPlayer viewer : online.getServer().getPlayerList().getPlayers()) {
+        for (ServerPlayer viewer : online.level().getServer().getPlayerList().getPlayers()) {
             if (game.isActiveParticipant(viewer.getUUID()) || game.isMatchSpectator(viewer.getUUID())) {
                 viewer.sendSystemMessage(message);
             }

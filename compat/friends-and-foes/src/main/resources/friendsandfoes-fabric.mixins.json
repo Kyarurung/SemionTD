@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "package": "com.faboslav.friendsandfoes.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "PatrolSpawnerMixin",
+    "PointOfInterestTypesAccessor",
+    "SpawnHelperMixin",
+    "StructureEntityProcessorMixin",
+    "StructureTemplateEntitySpawnMixin"
+  ],
+  "client": []
+}

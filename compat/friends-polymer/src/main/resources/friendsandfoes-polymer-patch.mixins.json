@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "package": "me.drex.fafpatch.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "mod.TotemEffectPacketMixin",
+    "mod.entity.LivingEntityMixin",
+    "mod.entity.VillagerMixin",
+    "mod.registry.EntitySerializersMixin",
+    "mod.registry.FabricEntityDataRegistryImplAccessor",
+    "mod.registry.FriendsAndFoesBlocksMixin",
+    "mod.registry.FriendsAndFoesEntityTypesMixin",
+    "mod.registry.FriendsAndFoesItemGroupsMixin",
+    "mod.registry.FriendsAndFoesItemsMixin",
+    "mod.registry.FriendsAndFoesMixin",
+    "mod.registry.FriendsAndFoesParticleTypesMixin",
+    "mod.registry.FriendsAndFoesPointOfInterestTypesMixin",
+    "mod.registry.FriendsAndFoesPotionsMixin",
+    "mod.registry.FriendsAndFoesSoundEventsMixin",
+    "mod.registry.FriendsAndFoesStatusEffectsMixin",
+    "mod.registry.FriendsAndFoesVillagerProfessionsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+	}
+}

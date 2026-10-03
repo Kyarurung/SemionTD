@@ -35,7 +35,7 @@ final class SemionDialogServiceJobAvailabilityTest {
         Component label = SemionDialogService.jobButtonLabel(job, false);
 
         assertEquals("✕ " + job.displayName().getString() + " (비활성화)", label.getString());
-        assertEquals(ChatFormatting.RED.getColor(), label.getStyle().getColor().getValue());
+        assertEquals(net.minecraft.network.chat.TextColor.RED.getValue(), label.getStyle().getColor().getValue());
         assertEquals("", SemionDialogService.jobSelectionCommand(job));
         assertTrue(SemionDialogService.jobTooltip(job, false).getString()
                 .contains("관리자에 의해 비활성화된 직업입니다."));

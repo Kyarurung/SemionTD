@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "id": "friendsandfoes",
+  "version": "4.0.27+mc26.3-local",
+  "name": "Friends&Foes",
+  "description": "Adds outvoted and forgotten mobs from the mob vote, expanding on their original concepts and introducing new vanilla-like features.",
+  "authors": [
+    "Faboslav"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Faboslav/friends-and-foes",
+    "sources": "https://github.com/Faboslav/friends-and-foes",
+    "issues": "https://github.com/Faboslav/friends-and-foes/issues",
+    "wiki": "https://github.com/Faboslav/friends-and-foes/wiki",
+    "discord": "https://discord.com/invite/QGwFvvMQCn"
+  },
+  "license": "CC-BY-NC-ND-4.0",
+  "icon": "icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.faboslav.friendsandfoes.fabric.FriendsAndFoesFabric"
+    ],
+    "preLaunch": [
+      "com.llamalad7.mixinextras.MixinExtrasBootstrap::init"
+    ]
+  },
+  "mixins": [
+    "friendsandfoes-common.mixins.json",
+    "friendsandfoes-fabric.mixins.json"
+  ],
+  "accessWidener": "friendsandfoes.accesswidener",
+  "depends": {
+    "minecraft": "26.3",
+    "fabricloader": ">=0.19.5",
+    "fabric-api": ">=0.161.0+26.3",
+    "resourcefullib": ">=5.0.0"
+  },
+  "recommends": {
+    "yet_another_config_lib_v3": "*",
+    "modmenu": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "Discord": "https://discord.com/invite/QGwFvvMQCn",
+        "Wiki": "https://github.com/Faboslav/friends-and-foes/wiki",
+        "CurseForge": "https://www.curseforge.com/minecraft/mc-mods/friends-and-foes",
+        "Modrinth": "https://modrinth.com/mod/friends-and-foes"
+      }
+    },
+    "catalogue": {
+      "configFactory": "com.faboslav.friendsandfoes.fabric.modcompat.CatalogueCompat",
+      "icon": {
+        "image": "icon.png"
+      }
+    },
+    "mc-publish": {
+      "dependencies": [
+        "fabric-api(required){curseforge:306612}{modrinth:P7dR8mSH}",
+        "resourcefullib(required){curseforge:570073}{modrinth:G1hIVOrD}",
+        "yet_another_config_lib_v3(optional){curseforge:667299}{modrinth:1eAoo2KR}",
+        "modmenu(optional){curseforge:308702}{modrinth:mOgUt4GM}"
+      ]
+    }
+  }
+}

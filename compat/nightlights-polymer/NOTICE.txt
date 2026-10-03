@@ -1,0 +1,4 @@
+Upstream: https://github.com/SunPhoen1x/Night-Lights-Patch
+Commit: 3e6c3176c075d21a5c497948cf29eddacca35aa9
+Local Minecraft 26.3 mappings, Fabric PacketContext and registration-hook compatibility changes.
+Upstream LICENSE says CC0; fabric.mod.json says LGPL-3.0-only. Both declarations are preserved without resolving or changing their terms.

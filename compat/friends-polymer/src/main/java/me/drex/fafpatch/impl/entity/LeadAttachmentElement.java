@@ -1,0 +1,41 @@
+package me.drex.fafpatch.impl.entity;
+
+import eu.pb4.polymer.virtualentity.api.data.EntityData;
+import eu.pb4.polymer.virtualentity.api.elements.GenericEntityElement;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import org.apache.commons.lang3.function.Consumers;
+
+import java.util.List;
+import java.util.function.Consumer;
+
+public class LeadAttachmentElement extends GenericEntityElement {
+    public LeadAttachmentElement() {
+        this.syncedData.set(EntityData.SILENT, true);
+        this.syncedData.set(EntityData.NO_GRAVITY, true);
+        this.syncedData.set(EntityData.FLAGS, (byte) ((1 << EntityData.INVISIBLE_FLAG_INDEX)));
+    }
+
+
+    @Override
+    public void startWatching(ServerPlayer player, Consumer<Packet<ClientGamePacketListener>> packetConsumer) {
+        super.startWatching(player, packetConsumer);
+        var scale = new AttributeInstance(Attributes.SCALE, Consumers.nop());
+        scale.setBaseValue(0.25);
+        packetConsumer.accept(new ClientboundUpdateAttributesPacket(this.getEntityId(), List.of(
+            scale
+        )));
+    }
+
+    @Override
+    protected EntityType<? extends Entity> getEntityType() {
+        return EntityTypes.VEX;
+    }
+}

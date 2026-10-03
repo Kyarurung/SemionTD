@@ -1,0 +1,9 @@
+{
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [
+        "#nightlights:hanging_lights"
+    ],
+    "result": {
+        "id": "nightlights:hanging_lights_default"
+    }
+}

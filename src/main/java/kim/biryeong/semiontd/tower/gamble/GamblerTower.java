@@ -30,7 +30,7 @@ import kim.biryeong.semiontd.ui.SemionText;
 import kim.biryeong.semiontd.ui.GambleRevealService;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.decoration.ArmorStand;
@@ -39,7 +39,7 @@ import net.minecraft.world.item.Items;
 
 public final class GamblerTower extends ProductionTower {
     static final TowerDataKey<GambleState> STATE = TowerDataKey.of(
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "gamble/state"), GambleState.class
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "gamble/state"), GambleState.class
     );
 
     private transient PlayerLane lane;
@@ -384,7 +384,7 @@ public final class GamblerTower extends ProductionTower {
         syncMaxHealth(effectBaseMaxHealth(), false);
         syncHealth(currentMaxHealth() * healthRatio);
         onStateChanged(lane);
-        var player = source.getServer().getPlayerList().getPlayer(ownerPlayer());
+        var player = source.level().getServer().getPlayerList().getPlayer(ownerPlayer());
         if (lastBetReveal != null) {
             GambleRevealService.start(player, lastBetReveal);
         }
@@ -566,8 +566,8 @@ public final class GamblerTower extends ProductionTower {
                             ? ParticleTypes.WITCH : ParticleTypes.HAPPY_VILLAGER,
                     source.getX(), source.getY() + 1.0, source.getZ(), 40, 0.55, 0.65, 0.55, 0.08);
         }
-        if (source.getServer() != null) {
-            var player = source.getServer().getPlayerList().getPlayer(ownerPlayer());
+        if (source.level().getServer() != null) {
+            var player = source.level().getServer().getPlayerList().getPlayer(ownerPlayer());
             if (player != null) {
                 player.sendSystemMessage(SemionText.prefixedPlain(
                         "누적 도박 점수 " + signed(state().cumulativeScore()) + " 달성! "

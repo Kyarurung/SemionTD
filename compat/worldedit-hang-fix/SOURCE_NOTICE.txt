@@ -1,0 +1,2 @@
+Local Minecraft26.3 compatibility build of https://github.com/Fallen-Breath/worldedit-hang-fix/tree/v1.0.5
+Original author and license notices preserved. No upstream release is claimed.

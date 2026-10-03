@@ -29,7 +29,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -50,12 +50,12 @@ public final class FrostFullOperationService {
     private static final float FULL_OPERATION_SOUND_PITCH = 0.75F;
     private static final Component ACTIVATION_NAME = Component.literal("냉동창고 완전 가동")
             .withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
-    private static final ResourceLocation CHILL_PULSE_ID =
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "frost_full_operation_chill");
-    private static final ResourceLocation DAMAGE_REDUCTION_ID =
-            ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "frost_full_operation_damage_reduction");
-    private static final ResourceLocation FULL_OPERATION_AMBIENT_SOUND_ID =
-            ResourceLocation.withDefaultNamespace("ambient.soul_sand_valley.loop");
+    private static final Identifier CHILL_PULSE_ID =
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "frost_full_operation_chill");
+    private static final Identifier DAMAGE_REDUCTION_ID =
+            Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "frost_full_operation_damage_reduction");
+    private static final Identifier FULL_OPERATION_AMBIENT_SOUND_ID =
+            Identifier.withDefaultNamespace("ambient.soul_sand_valley.loop");
     private static final Map<UUID, PlayerState> STATES = new ConcurrentHashMap<>();
 
     private FrostFullOperationService() {
@@ -197,7 +197,7 @@ public final class FrostFullOperationService {
             return false;
         }
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        return data != null && data.getUnsafe().getBooleanOr(ACTIVATION_ITEM_KEY, false);
+        return data != null && data.copyTag().getBooleanOr(ACTIVATION_ITEM_KEY, false);
     }
 
     static PlayerState stateForTest(UUID ownerPlayer) {
@@ -227,19 +227,19 @@ public final class FrostFullOperationService {
 
     private static void startFullOperationPresentation(ServerPlayer player) {
         player.setTicksFrozen(player.getTicksRequiredToFreeze());
-        player.playNotifySound(
+        kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player,
                 SoundEvents.ANVIL_USE,
                 SoundSource.PLAYERS,
                 1.25F,
                 1.05F
         );
-        player.playNotifySound(
+        kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player,
                 SoundEvents.BREEZE_WIND_CHARGE_BURST.value(),
                 SoundSource.AMBIENT,
                 1.0F,
                 FULL_OPERATION_SOUND_PITCH
         );
-        player.playNotifySound(
+        kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player,
                 SoundEvents.AMBIENT_SOUL_SAND_VALLEY_LOOP.value(),
                 SoundSource.AMBIENT,
                 1.0F,

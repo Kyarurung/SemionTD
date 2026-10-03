@@ -13,11 +13,11 @@ import kim.biryeong.semiontd.entity.visual.ParrotVisual;
 import kim.biryeong.semiontd.entity.visual.WolfVisual;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.description.TowerDescriptionRegistry;
-import net.minecraft.world.entity.animal.CatVariants;
-import net.minecraft.world.entity.animal.Parrot;
+import net.minecraft.world.entity.animal.feline.CatVariants;
+import net.minecraft.world.entity.animal.parrot.Parrot;
 import net.minecraft.world.entity.animal.wolf.WolfVariants;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 
@@ -163,7 +163,7 @@ public final class PetTowers {
             return ItemStack.EMPTY;
         }
         return BuiltInRegistries.ITEM
-                .getOptional(ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, path))
+                .getOptional(Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, path))
                 .map(ItemStack::new)
                 .orElse(ItemStack.EMPTY);
     }

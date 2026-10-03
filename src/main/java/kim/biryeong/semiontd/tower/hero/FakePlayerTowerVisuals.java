@@ -20,7 +20,7 @@ import kim.biryeong.semiontd.tower.pet.PetTowers;
 import kim.biryeong.semiontd.tower.pirate.PirateTowers;
 import kim.biryeong.semiontd.tower.succubus.SuccubusTowers;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
-import net.minecraft.network.protocol.game.ClientboundAnimatePacket;
+import net.minecraft.network.protocol.game.ClientboundSwingAnimationPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
@@ -139,9 +139,9 @@ public final class FakePlayerTowerVisuals {
         if (visual == null) {
             return;
         }
-        ClientboundAnimatePacket packet = new ClientboundAnimatePacket(
-                visual.fakePlayer,
-                ClientboundAnimatePacket.SWING_MAIN_HAND
+        ClientboundSwingAnimationPacket packet = new ClientboundSwingAnimationPacket(
+                visual.fakePlayer.getId(), net.minecraft.world.InteractionHand.MAIN_HAND,
+                visual.fakePlayer.getMainHandItem().getAttackAnimation()
         );
         visual.viewers().forEach(viewer -> viewer.connection.send(packet));
     }
@@ -180,9 +180,7 @@ public final class FakePlayerTowerVisuals {
     private static GameProfile profile(ServerLevel level, EntityBackedTower tower) {
         Property pirateTexture = pirateTexture(tower.type());
         if (pirateTexture != null) {
-            GameProfile profile = new GameProfile(UUID.nameUUIDFromBytes(("semion-td:pirate-skin-v2:" + tower.type().id()).getBytes(StandardCharsets.UTF_8)), displayProfileName(tower.type()));
-            profile.getProperties().put("textures", pirateTexture);
-            return profile;
+            return new GameProfile(UUID.nameUUIDFromBytes(("semion-td:pirate-skin-v2:" + tower.type().id()).getBytes(StandardCharsets.UTF_8)), displayProfileName(tower.type()), new com.mojang.authlib.properties.PropertyMap(com.google.common.collect.ImmutableMultimap.of("textures", pirateTexture)));
         }
         if (SuccubusTowers.isSuccubus(tower.type())) {
             return succubusProfile(tower.ownerPlayer());
@@ -196,17 +194,13 @@ public final class FakePlayerTowerVisuals {
                 UUID visualId = UUID.nameUUIDFromBytes(
                         ("semion-td:hero:" + tower.ownerPlayer()).getBytes(StandardCharsets.UTF_8)
                 );
-                GameProfile profile = new GameProfile(visualId, displayProfileName(tower.type()));
-                profile.getProperties().putAll(owner.getGameProfile().getProperties());
-                return profile;
+                return new GameProfile(visualId, displayProfileName(tower.type()), owner.getGameProfile().properties());
             }
         }
         HeroCompanionRole role = HeroPartyTowers.role(tower.type()).orElse(null);
         if (role != null) {
             GameProfile skinProfile = HeroCompanionSkins.profile(tower.ownerPlayer(), role);
-            GameProfile profile = new GameProfile(skinProfile.getId(), displayProfileName(tower.type()));
-            profile.getProperties().putAll(skinProfile.getProperties());
-            return profile;
+            return new GameProfile(skinProfile.id(), displayProfileName(tower.type()), skinProfile.properties());
         }
         UUID uuid = UUID.nameUUIDFromBytes("semion-td:hero-party:unknown".getBytes(StandardCharsets.UTF_8));
         return new GameProfile(uuid, "용사 타워");
@@ -219,9 +213,7 @@ public final class FakePlayerTowerVisuals {
     private static GameProfile uniqueVisualProfile(GameProfile skinProfile, SemionTowerEntity anchor) {
         UUID visualId = UUID.nameUUIDFromBytes(
                 ("semion-td:tower-visual:" + anchor.getUUID()).getBytes(StandardCharsets.UTF_8));
-        GameProfile profile = new GameProfile(visualId, skinProfile.getName());
-        profile.getProperties().putAll(skinProfile.getProperties());
-        return profile;
+        return new GameProfile(visualId, skinProfile.name(), skinProfile.properties());
     }
 
     private static Property pirateTexture(TowerType type) {
@@ -240,18 +232,14 @@ public final class FakePlayerTowerVisuals {
     static GameProfile petOwnerProfile(UUID ownerId, TowerType type) {
         UUID visualId = UUID.nameUUIDFromBytes(
                 ("semion-td:pet-owner:" + type.id() + ":" + ownerId).getBytes(StandardCharsets.UTF_8));
-        GameProfile profile = new GameProfile(visualId, displayProfileName(type));
-        profile.getProperties().put("textures", new Property(
-                "textures", PET_OWNER_TEXTURE_VALUE, PET_OWNER_TEXTURE_SIGNATURE));
-        return profile;
+        return new GameProfile(visualId, displayProfileName(type), new com.mojang.authlib.properties.PropertyMap(com.google.common.collect.ImmutableMultimap.of("textures", new Property(
+                "textures", PET_OWNER_TEXTURE_VALUE, PET_OWNER_TEXTURE_SIGNATURE))));
     }
 
     static GameProfile succubusProfile(UUID ownerId) {
         UUID visualId = UUID.nameUUIDFromBytes(("semion-td:succubus:" + ownerId).getBytes(StandardCharsets.UTF_8));
-        GameProfile profile = new GameProfile(visualId, displayProfileName(SuccubusTowers.SUCCUBUS));
-        profile.getProperties().put("textures", new Property(
-                "textures", SUCCUBUS_TEXTURE_VALUE, SUCCUBUS_TEXTURE_SIGNATURE));
-        return profile;
+        return new GameProfile(visualId, displayProfileName(SuccubusTowers.SUCCUBUS), new com.mojang.authlib.properties.PropertyMap(com.google.common.collect.ImmutableMultimap.of("textures", new Property(
+                "textures", SUCCUBUS_TEXTURE_VALUE, SUCCUBUS_TEXTURE_SIGNATURE))));
     }
 
     static UUID companionProfileId(HeroCompanionRole role) {

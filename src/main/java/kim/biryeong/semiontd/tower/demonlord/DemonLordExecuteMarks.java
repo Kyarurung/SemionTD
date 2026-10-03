@@ -147,7 +147,7 @@ public final class DemonLordExecuteMarks {
 
     private static PlayerTeam team() {
         PlayerTeam team = new PlayerTeam(new Scoreboard(), TEAM_NAME);
-        team.setColor(ChatFormatting.RED);
+        team.setColor(java.util.Optional.of(net.minecraft.world.scores.TeamColor.RED));
         return team;
     }
 }

@@ -15,12 +15,12 @@ import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerDataKey;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.entity.visual.EntityVisual;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 
 public final class EndTower extends EntityBackedTower {
     public static final String CONFIG_ID = EndTowers.CONFIG_ID;
-    private static final TowerDataKey<EndTowerState> STATE = TowerDataKey.of(ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "end_tower_state"), EndTowerState.class);
+    private static final TowerDataKey<EndTowerState> STATE = TowerDataKey.of(Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "end_tower_state"), EndTowerState.class);
     private final EndConfig config;
     private final EndTransferController transfers;
     private final EndCombat combat;

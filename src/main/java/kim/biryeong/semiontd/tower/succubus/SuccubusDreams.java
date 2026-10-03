@@ -24,7 +24,7 @@ import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.EntityBackedTower;
 import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.phys.Vec3;
 
@@ -33,8 +33,8 @@ public final class SuccubusDreams {
     public static final String LUCID = "job_succubus_g1";
     public static final String CONTAGION = "job_succubus_g2";
     public static final String SLEEPWALK = "job_succubus_p";
-    private static final ResourceLocation EFFECT_SOURCE = ResourceLocation.fromNamespaceAndPath("semion-td", "succubus_dream");
-    private static final ResourceLocation SPREAD_EFFECT = ResourceLocation.fromNamespaceAndPath("semion-td", "succubus_dream_spread");
+    private static final Identifier EFFECT_SOURCE = Identifier.fromNamespaceAndPath("semion-td", "succubus_dream");
+    private static final Identifier SPREAD_EFFECT = Identifier.fromNamespaceAndPath("semion-td", "succubus_dream_spread");
     private static final Map<TowerKey, DreamState> TOWERS = new HashMap<>();
     private static final Map<UUID, DreamState> MONSTERS = new HashMap<>();
     private static final Map<TowerKey, Long> LULLABY_READY_AT = new HashMap<>();
@@ -379,7 +379,7 @@ public final class SuccubusDreams {
         if (sourceEntity == null) return;
         int[] remaining = {(int) lane.augmentSnapshot().parameter(CONTAGION, "maxTargets", 2)};
         MonsterAreaEffectRequest request = new MonsterAreaEffectRequest(
-                ResourceLocation.fromNamespaceAndPath("semion-td", "nightmare_contagion"), sourceEntity,
+                Identifier.fromNamespaceAndPath("semion-td", "nightmare_contagion"), sourceEntity,
                 dead.position(), lane.augmentSnapshot().parameter(CONTAGION, "radius", 3), Set.of(dead.getUUID()),
                 target -> !isAsleep(target), AreaVfxSpec.onChange(AreaVfxStyles.DEBUFF));
         SemionTdApi.areaEffects().applyToMonsters(request, target -> {

@@ -9,7 +9,7 @@ import eu.pb4.polymer.virtualentity.api.ElementHolder;
 import eu.pb4.polymer.virtualentity.api.attachment.EntityAttachment;
 import eu.pb4.polymer.virtualentity.api.elements.BlockDisplayElement;
 import eu.pb4.polymer.virtualentity.api.elements.DisplayElement;
-import eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData;
+import eu.pb4.polymer.virtualentity.api.data.EntityData;
 import eu.pb4.polymer.virtualentity.api.elements.InteractionElement;
 import java.util.List;
 import java.util.Objects;
@@ -55,7 +55,7 @@ import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -75,7 +75,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
-import xyz.nucleoid.packettweaker.PacketContext;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 
 public final class SemionTowerEntity extends PathfinderMob implements AnimatedEntity, LaneDefenseEntity, HealingTarget {
     public static final double FINAL_DEFENSE_TARGET_RANGE = 7.0;
@@ -114,7 +114,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private EntityVisual visual = EntityVisual.vanilla(EntityVisual.DEFAULT_TOWER_ENTITY_TYPE);
     private String blockbenchModelId;
     private SemionAnimationState animationState = SemionAnimationState.IDLE;
-    private EntityType<?> polymerEntityType = EntityType.ARMOR_STAND;
+    private EntityType<?> polymerEntityType = net.minecraft.world.entity.EntityTypes.ARMOR_STAND;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
     private LivingEntityHolder<SemionTowerEntity> holder;
     private boolean deathVisualShown;
@@ -310,7 +310,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             return;
         }
         super.aiStep();
-        invulnerableTime = 0;
+        damageCooldownTime = 0;
         double previousMaxHealthBonus = activeTimedEffectMagnitude(TimedEffectType.TOWER_MAX_HEALTH_BONUS);
         double previousFlatMaxHealthBonus = activeTimedEffectMagnitude(TimedEffectType.TOWER_FLAT_MAX_HEALTH_BONUS);
         double previousFlatMaxHealthReduction = activeTimedEffectMagnitude(
@@ -696,7 +696,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         }
     }
 
-    public boolean applyTimedEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude, int durationTicks) {
+    public boolean applyTimedEffect(TimedEffectType type, Identifier sourceId, double magnitude, int durationTicks) {
         if (rejectsExternalEffect(type)) return false;
         if (runtimeTower != null) {
             magnitude = runtimeTower.adjustIncomingTimedEffectMagnitude(type, magnitude);
@@ -717,7 +717,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         return applied;
     }
 
-    public boolean refreshTimedEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude, int durationTicks) {
+    public boolean refreshTimedEffect(TimedEffectType type, Identifier sourceId, double magnitude, int durationTicks) {
         if (rejectsExternalEffect(type)) return false;
         if (runtimeTower != null) {
             magnitude = runtimeTower.adjustIncomingTimedEffectMagnitude(type, magnitude);
@@ -738,7 +738,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         return refreshed;
     }
 
-    public boolean setPersistentEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude) {
+    public boolean setPersistentEffect(TimedEffectType type, Identifier sourceId, double magnitude) {
         if (rejectsExternalEffect(type)) return false;
         boolean changed = timedEffects.setPersistent(type, sourceId, magnitude);
         if (changed) {
@@ -795,7 +795,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private void copyPersistentTraitEffect(
             SemionTowerEntity source,
             TimedEffectType type,
-            ResourceLocation sourceId
+            Identifier sourceId
     ) {
         setPersistentEffect(type, sourceId, source.timedEffects.persistentMagnitude(type, sourceId));
     }
@@ -816,7 +816,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         return timedEffects.remainingTicks(type);
     }
 
-    public boolean hasTimedEffectSource(TimedEffectType type, ResourceLocation sourceId) {
+    public boolean hasTimedEffectSource(TimedEffectType type, Identifier sourceId) {
         return timedEffects.hasSource(type, sourceId) || timedEffects.hasPersistent(type, sourceId);
     }
 
@@ -824,7 +824,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         return timedEffects.hasPersistent(type);
     }
 
-    public boolean hasPersistentEffect(TimedEffectType type, ResourceLocation sourceId) {
+    public boolean hasPersistentEffect(TimedEffectType type, Identifier sourceId) {
         return timedEffects.hasPersistent(type, sourceId);
     }
 
@@ -1056,10 +1056,10 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             return AnimatedEntity.super.getPolymerEntityType(context);
         }
         if (usesMoobloomOverlayVisual()) {
-            return EntityType.INTERACTION;
+            return net.minecraft.world.entity.EntityTypes.INTERACTION;
         }
         if (usesBlockDisplayOverlayVisual()) {
-            return EntityType.ARMOR_STAND;
+            return net.minecraft.world.entity.EntityTypes.ARMOR_STAND;
         }
         return polymerEntityType;
     }
@@ -1069,7 +1069,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             List<Pair<EquipmentSlot, ItemStack>> items,
             ServerPlayer player
     ) {
-        if (polymerEntityType != EntityType.ALLAY) {
+        if (polymerEntityType != net.minecraft.world.entity.EntityTypes.ALLAY) {
             return items;
         }
         return items.stream()
@@ -1127,11 +1127,11 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (holder != null) {
             for (var element : holder.getElements()) {
                 if (element instanceof DisplayElement display) {
-                    packets.add(selectionGlowPacket(display.getEntityId(), display.getDataTracker().get(EntityTrackedData.FLAGS), highlight));
+                    packets.add(selectionGlowPacket(display.getEntityId(), display.getSyncedData().get(EntityData.FLAGS), highlight));
                 }
             }
         } else if (blockDisplayElement != null) {
-            packets.add(selectionGlowPacket(blockDisplayElement.getEntityId(), blockDisplayElement.getDataTracker().get(EntityTrackedData.FLAGS), highlight));
+            packets.add(selectionGlowPacket(blockDisplayElement.getEntityId(), blockDisplayElement.getSyncedData().get(EntityData.FLAGS), highlight));
         } else {
             net.minecraft.world.entity.Entity rendered = moobloomVisualEntity != null ? moobloomVisualEntity : this;
             if (runtimeTower instanceof kim.biryeong.semiontd.tower.EntityBackedTower backed) {
@@ -1158,7 +1158,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     @Override
-    public void knockback(double strength, double x, double z) {
+    public void knockback(double strength, double x, double z,
+            net.minecraft.world.damagesource.DamageSource source, float damage, boolean comesFromEffect) {
     }
 
     /**
@@ -1237,7 +1238,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (runtimeTower != null && runtimeTower.preventLethalDamage(this, damageSource, damageAmount)) {return;}
         if (runtimeTower != null && kim.biryeong.semiontd.tower.legion.LegionAugments.preventLethal(runtimeTower, this, damageAmount)) {return;}
         super.actuallyHurt(serverLevel, damageSource, (float) damageAmount);
-        invulnerableTime = 0;
+        damageCooldownTime = 0;
         double currentHealth = getHealth();
         if (runtimeTower != null) {
             runtimeTower.syncHealth(currentHealth);
@@ -1281,7 +1282,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
                 && EndTowers.isBaseEndTower(runtimeTower.type())
                 && endTower.state() == EndTowerState.DRAGON
                 && blockbenchModelId == null
-                && polymerEntityType == EntityType.ENDER_DRAGON;
+                && polymerEntityType == net.minecraft.world.entity.EntityTypes.ENDER_DRAGON;
     }
 
     public boolean hasEndCoreInteractionHitbox() {
@@ -1423,7 +1424,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             moobloomVisualEntity.setNoGravity(true);
             moobloomVisualEntity.noPhysics = true;
             moobloomVisualEntity.setSilent(true);
-            moobloomVisualEntity.setInvulnerable(true);
+            moobloomVisualEntity.setPermanentlyInvulnerable(true);
             moobloomVisualEntity.setPersistenceRequired();
             moobloomVisualEntity.addTag(SemionEntityTypes.RUNTIME_NO_SAVE_TAG);
             moobloomVisualEntity.setPos(getX(), getY(), getZ());
@@ -1544,16 +1545,16 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     private void setPolymerEntityType(String entityTypeId) {
         if (entityTypeId == null || entityTypeId.isBlank()) {
-            polymerEntityType = EntityType.VILLAGER;
+            polymerEntityType = net.minecraft.world.entity.EntityTypes.VILLAGER;
             return;
         }
-        ResourceLocation id = ResourceLocation.tryParse(entityTypeId);
+        Identifier id = Identifier.tryParse(entityTypeId);
         if (id == null) {
-            polymerEntityType = EntityType.VILLAGER;
+            polymerEntityType = net.minecraft.world.entity.EntityTypes.VILLAGER;
             return;
         }
 
-        polymerEntityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(EntityType.VILLAGER);
+        polymerEntityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(net.minecraft.world.entity.EntityTypes.VILLAGER);
     }
 
     private void installBilModel(String modelId) {
@@ -1573,7 +1574,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     private void applyVisualScale(EntityVisual visual) {
         double scale = visual == null ? EntityVisual.DEFAULT_SCALE : visual.scale();
-        if (blockbenchModelId == null && polymerEntityType == EntityType.END_CRYSTAL) {
+        if (blockbenchModelId == null && polymerEntityType == net.minecraft.world.entity.EntityTypes.END_CRYSTAL) {
             scale = END_CRYSTAL_COLLISION_SCALE;
         } else if (usesMoobloomOverlayVisual()) {
             scale = MOOBLOOM_COLLISION_SCALE;

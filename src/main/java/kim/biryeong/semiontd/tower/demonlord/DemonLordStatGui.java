@@ -61,7 +61,7 @@ public final class DemonLordStatGui extends SimpleGui {
                     .addLoreLineRaw(Component.literal(affordable ? "클릭: 투자" : "남은 포인트가 없습니다.")
                             .withStyle(affordable ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY));
             if (affordable) {
-                builder.setCallback((clicked, type, action) -> {
+                builder.setCallback((clicked, type, action, clickedGui) -> {
                     if (tryAllocate(state, stat)) {
                         state.markLoadoutDirty();
                         refresh();
@@ -73,7 +73,7 @@ public final class DemonLordStatGui extends SimpleGui {
 
         setSlot(22, new GuiElementBuilder(Items.BARRIER)
                 .setName(Component.literal("닫기").withStyle(ChatFormatting.RED))
-                .setCallback((clicked, type, action) -> close()));
+                .setCallback((clicked, type, action, clickedGui) -> close()));
     }
 
     static boolean tryAllocate(DemonLordState state, DemonLordStat stat) {

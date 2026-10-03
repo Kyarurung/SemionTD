@@ -16,7 +16,7 @@ import java.util.function.LongSupplier;
 import kim.biryeong.semiontd.game.RoundPhase;
 import kim.biryeong.semiontd.game.SemionGame;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -304,10 +304,10 @@ public final class SemionMusicService {
     }
 
     private void playMusic(ServerPlayer player, SemionMusicTrack track) {
-        player.playNotifySound(SoundEvent.createVariableRangeEvent(track.eventId()), SoundSource.RECORDS, 1.0F, 1.0F);
+        kim.biryeong.semiontd.util.SemionPlayerPackets.playSound(player, SoundEvent.createVariableRangeEvent(track.eventId()), SoundSource.RECORDS, 1.0F, 1.0F);
     }
 
-    private void stopMusic(ServerPlayer player, ResourceLocation eventId) {
+    private void stopMusic(ServerPlayer player, Identifier eventId) {
         player.connection.send(new ClientboundStopSoundPacket(eventId, SoundSource.RECORDS));
     }
 
@@ -324,7 +324,7 @@ public final class SemionMusicService {
     }
 
     private static final class PlayerMusicState {
-        private ResourceLocation playingEventId;
+        private Identifier playingEventId;
         private long playingTrackStartedAtTick = -1L;
         private boolean clientStopped = true;
     }

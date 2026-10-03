@@ -1,0 +1,4 @@
+Upstream: https://github.com/Flechazo098/night-lights
+Commit: a41549c2fe2e04ab39c973544a53d66e4fd02a59 (26.1-fabric)
+Local server-side Minecraft 26.3 compatibility build; original registration IDs and assets retained.
+Upstream LICENSE.txt says MIT; fabric.mod.json says LGPLv3. Both upstream declarations are preserved without resolving or changing their terms.

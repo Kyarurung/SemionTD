@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.AnvilInputGui;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import kim.biryeong.semiontd.game.SemionGameManager;
@@ -13,7 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.entity.SkullBlockEntity;
+import net.minecraft.util.Util;
 
 public final class HeroCompanionSkinInputGui extends AnvilInputGui {
     private static final long LOOKUP_TIMEOUT_SECONDS = 10L;
@@ -41,7 +42,7 @@ public final class HeroCompanionSkinInputGui extends AnvilInputGui {
                 .orElse(""));
         setSlot(1, new GuiElementBuilder(Items.ARROW)
                 .setName(Component.literal("목록으로 돌아가기").withStyle(ChatFormatting.YELLOW))
-                .setCallback((slot, type, action) -> new HeroCompanionSkinGui(player, gameManager).open()));
+                .setCallback((slot, type, action, clickedGui) -> new HeroCompanionSkinGui(player, gameManager).open()));
         refreshAction();
     }
 
@@ -62,21 +63,21 @@ public final class HeroCompanionSkinInputGui extends AnvilInputGui {
         }
         if (preview != null) {
             setSlot(2, new GuiElementBuilder(Items.PLAYER_HEAD)
-                    .setSkullOwner(preview, player.getServer())
-                    .setName(Component.literal(preview.getName() + " 스킨 적용")
+                    .setProfile(preview)
+                    .setName(Component.literal(preview.name() + " 스킨 적용")
                             .withStyle(ChatFormatting.GREEN))
                     .addLoreLine(Component.literal("검색 결과를 확인했습니다.").withStyle(ChatFormatting.GRAY))
                     .addLoreLine(Component.literal("클릭: 계정에 저장").withStyle(ChatFormatting.AQUA))
                     .glow()
-                    .setCallback((slot, type, action) -> applyPreview()));
+                    .setCallback((slot, type, action, clickedGui) -> applyPreview()));
             return;
         }
-        GuiElementBuilder searchButton = new GuiElementBuilder(status == null ? Items.LIME_DYE : Items.BARRIER)
+        GuiElementBuilder searchButton = new GuiElementBuilder(status == null ? Items.DYE.lime() : Items.BARRIER)
                 .setName(Component.literal(status == null ? "이름으로 검색" : status)
                         .withStyle(status == null ? ChatFormatting.GREEN : ChatFormatting.RED))
                 .addLoreLine(Component.literal("정확한 Minecraft 플레이어 이름을 입력하세요.")
                         .withStyle(ChatFormatting.GRAY))
-                .setCallback((slot, type, action) -> beginSearch());
+                .setCallback((slot, type, action, clickedGui) -> beginSearch());
         setSlot(2, searchButton);
     }
 
@@ -94,9 +95,9 @@ public final class HeroCompanionSkinInputGui extends AnvilInputGui {
         preview = null;
         status = null;
         refreshAction();
-        MinecraftServer server = player.getServer();
-        SkullBlockEntity.fetchGameProfile(query)
-                .thenApply(result -> result)
+        MinecraftServer server = player.level().getServer();
+        CompletableFuture.supplyAsync(
+                        () -> server.services().profileResolver().fetchByName(query), Util.ioPool())
                 .orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .whenComplete((result, error) -> server.execute(() ->
                         completeSearch(requestRevision, query, result, error)));
@@ -143,9 +144,9 @@ public final class HeroCompanionSkinInputGui extends AnvilInputGui {
             return;
         }
         if (!gameManager.saveHeroCompanionSkin(
-                player.getServer(),
+                player.level().getServer(),
                 player.getUUID(),
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 role,
                 skin
         )) {

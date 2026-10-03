@@ -1,0 +1,9 @@
+Private, dedicated-server compatibility port for Minecraft 26.3.
+Upstream: https://github.com/Faboslav/friends-and-foes
+Pinned commit: e980f98164f904888b7e256c9c0793992746fca3 (4.0.27 / Minecraft 26.2).
+Original Fabric resources: friendsandfoes-fabric-4.0.27+mc26.2.jar.
+Upstream license: CC-BY-NC-ND-4.0; see LICENSE.upstream.txt.
+This local adaptation is not published or redistributed.
+Client-only screens and renderers are excluded because this artifact is dedicated-server only.
+All server entities, items, AI, data fixers, registry identifiers, and source resource data are retained.
+Wildfire's server hitbox retains its upstream renderer SCALE value of 1.5 exactly.

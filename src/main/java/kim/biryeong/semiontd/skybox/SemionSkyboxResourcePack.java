@@ -8,10 +8,7 @@ import kim.biryeong.semiontd.SemionTd;
 import org.slf4j.Logger;
 
 public final class SemionSkyboxResourcePack {
-    private static final String VERTEX_SHADER_PATH =
-            "assets/minecraft/shaders/core/rendertype_item_entity_translucent_cull.vsh";
-    private static final String FRAGMENT_SHADER_PATH =
-            "assets/minecraft/shaders/core/rendertype_item_entity_translucent_cull.fsh";
+    private static final java.util.List<String> SHADER_NAMES = java.util.List.of("entity", "item");
     private static final String BASE_MODEL = """
             {
               "format_version": "1.21.6",
@@ -37,75 +34,6 @@ public final class SemionSkyboxResourcePack {
             }
             """;
 
-    private static final String VERTEX_SHADER = """
-            #version 150
-
-            #moj_import <minecraft:light.glsl>
-            #moj_import <minecraft:fog.glsl>
-            #moj_import <minecraft:dynamictransforms.glsl>
-            #moj_import <minecraft:projection.glsl>
-
-            in vec3 Position;
-            in vec4 Color;
-            in vec2 UV0;
-            in vec2 UV1;
-            in ivec2 UV2;
-            in vec3 Normal;
-
-            uniform sampler2D Sampler2;
-
-            out float sphericalVertexDistance;
-            out float cylindricalVertexDistance;
-            out vec4 vertexColor;
-            out vec4 originalColor;
-            out vec2 texCoord0;
-            out vec2 texCoord1;
-            out vec2 texCoord2;
-
-            void main() {
-                gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
-
-                sphericalVertexDistance = fog_spherical_distance(Position);
-                cylindricalVertexDistance = fog_cylindrical_distance(Position);
-                vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color) * texelFetch(Sampler2, UV2 / 16, 0);
-                originalColor = Color;
-                texCoord0 = UV0;
-                texCoord1 = UV1;
-                texCoord2 = UV2;
-            }
-            """;
-
-    private static final String FRAGMENT_SHADER = """
-            #version 150
-
-            #moj_import <minecraft:fog.glsl>
-            #moj_import <minecraft:dynamictransforms.glsl>
-
-            uniform sampler2D Sampler0;
-
-            in float sphericalVertexDistance;
-            in float cylindricalVertexDistance;
-            in vec4 vertexColor;
-            in vec4 originalColor;
-            in vec2 texCoord0;
-            in vec2 texCoord1;
-
-            out vec4 fragColor;
-
-            void main() {
-                vec4 textureColor = texture(Sampler0, texCoord0);
-                vec4 color = textureColor * vertexColor * ColorModulator;
-                if (color.a < 0.1) {
-                    discard;
-                }
-                if (abs(textureColor.a - (252.0 / 255.0)) < (0.5 / 255.0)) {
-                    fragColor = textureColor * originalColor * ColorModulator;
-                } else {
-                    fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
-                }
-            }
-            """;
-
     private SemionSkyboxResourcePack() {
     }
 
@@ -123,8 +51,14 @@ public final class SemionSkyboxResourcePack {
         if (library.isEmpty()) {
             return;
         }
-        builder.addStringData(VERTEX_SHADER_PATH, patchVertexShader(builder.getStringDataOrSource(VERTEX_SHADER_PATH), logger));
-        builder.addStringData(FRAGMENT_SHADER_PATH, patchFragmentShader(builder.getStringDataOrSource(FRAGMENT_SHADER_PATH), logger));
+        // Preserve the generated 26.3 pipelines, including Danta HUD and OIT.
+        for (String name : SHADER_NAMES) {
+            String prefix = "assets/minecraft/shaders/core/" + name;
+            String vertex = patchVertexShader(builder.getStringDataOrSource(prefix + ".vsh"), logger);
+            String fragment = patchFragmentShader(builder.getStringDataOrSource(prefix + ".fsh"), logger);
+            builder.addStringData(prefix + ".vsh", vertex);
+            builder.addStringData(prefix + ".fsh", fragment);
+        }
         builder.addStringData("assets/" + SemionTd.MOD_ID + "/models/item/skybox_base.json", BASE_MODEL);
 
         for (SemionSkybox skybox : library.skyboxes()) {
@@ -149,54 +83,88 @@ public final class SemionSkyboxResourcePack {
     }
 
     static String patchVertexShader(String source, Logger logger) {
-        if (source == null || source.isBlank()) {
-            return VERTEX_SHADER;
-        }
-        if (source.contains("out vec4 originalColor;")) {
+        requireModernShader(source);
+        if (source.contains("semionSkyboxOriginalColor")) {
             return source;
         }
-        String patched = source.replace(
-                "out vec4 vertexColor;",
-                "out vec4 vertexColor;\nout vec4 originalColor;"
-        ).replace(
-                "    texCoord0 = UV0;",
-                "    originalColor = Color;\n    texCoord0 = UV0;"
-        );
-        if (patched.equals(source) || !patched.contains("originalColor = Color;")) {
-            logger.warn("Could not merge the Semion TD skybox vertex shader with the generated pack; using the 1.21.8 base shader.");
-            return VERTEX_SHADER;
+        requireFreeVarying(source);
+        String main = "void main() {";
+        if (!source.contains(main)) {
+            throw new IllegalStateException("Cannot merge skybox vertex shader: main entry point missing");
         }
-        return patched;
+        return source.replace(main, "layout(location = 8) out vec4 semionSkyboxOriginalColor;\n\n"
+                + main + "\n    semionSkyboxOriginalColor = Color;");
     }
 
     static String patchFragmentShader(String source, Logger logger) {
-        if (source == null || source.isBlank()) {
-            return FRAGMENT_SHADER;
-        }
-        if (source.contains("252.0 / 255.0")) {
+        requireModernShader(source);
+        if (source.contains("semionSkyboxOriginalColor")) {
             return source;
         }
-        String patched = source.replace(
-                "in vec4 vertexColor;",
-                "in vec4 vertexColor;\nin vec4 originalColor;"
-        ).replace(
-                "    vec4 color = texture(Sampler0, texCoord0) * vertexColor * ColorModulator;",
-                "    vec4 textureColor = texture(Sampler0, texCoord0);\n"
-                        + "    vec4 color = textureColor * vertexColor * ColorModulator;"
-        );
-        String fogLine = "    fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, "
-                + "FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);";
-        String fogBranch = "    if (abs(textureColor.a - (252.0 / 255.0)) < (0.5 / 255.0)) {\n"
-                + "        fragColor = textureColor * originalColor * ColorModulator;\n"
-                + "    } else {\n"
-                + "        fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, "
-                + "FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);\n"
-                + "    }";
-        patched = patched.replace(fogLine, fogBranch);
-        if (patched.equals(source) || !patched.contains("252.0 / 255.0")) {
-            logger.warn("Could not merge the Semion TD skybox fragment shader with the generated pack; using the 1.21.8 base shader.");
-            return FRAGMENT_SHADER;
+        requireFreeVarying(source);
+        String main = "void main() {";
+        if (!source.contains(main) || !source.contains("Sampler0") || !source.contains("texCoord0")) {
+            throw new IllegalStateException("Cannot merge skybox fragment shader: texture entry point missing");
         }
-        return patched;
+
+        // Keep cutoff, overlay, glint and every OIT phase in the base shader. Only
+        // the alpha-252 atlas pixels bypass cardinal light, the lightmap and fog.
+        String patched = replaceInputUses(source, "vertexColor", "semionSkyboxOriginalColor");
+        patched = replaceInputUses(patched, "vertexPerFaceColorBack", "semionSkyboxOriginalColor");
+        patched = replaceInputUses(patched, "vertexPerFaceColorFront", "semionSkyboxOriginalColor");
+        patched = replaceInputUses(patched, "lightMapColor", "vec4(1.0)");
+        patched = replaceInputUses(patched, "overlayColor", "vec4(0.0, 0.0, 0.0, 1.0)");
+        patched = patched.replace("apply_fog(", "semion_skybox_fog(");
+
+        String support = """
+                vec4 semion_skybox_fog(vec4 color, float sphericalDistance, float cylindricalDistance,
+                        float environmentalStart, float environmentalEnd, float renderStart,
+                        float renderEnd, vec4 fogColor) {
+                    return semionSkyboxMarker ? color : apply_fog(color, sphericalDistance,
+                            cylindricalDistance, environmentalStart, environmentalEnd,
+                            renderStart, renderEnd, fogColor);
+                }
+
+                """;
+        // The marker must also exist in OIT_ALPHA_ONLY, even when the first
+        // base helper function is inside an alpha-phase preprocessor guard.
+        java.util.regex.Matcher header = java.util.regex.Pattern.compile(
+                "(?m)^#(?:version|extension)[^\\n]*(?:\\n|$)").matcher(patched);
+        int declarationPosition = 0;
+        while (header.find()) {
+            declarationPosition = header.end();
+        }
+        String declarations = "layout(location = 8) in vec4 semionSkyboxOriginalColor;\n"
+                + "bool semionSkyboxMarker;\n\n";
+        patched = patched.substring(0, declarationPosition) + declarations
+                + patched.substring(declarationPosition);
+        // The fog wrapper shares the base helper's preprocessor context.
+        java.util.regex.Matcher function = java.util.regex.Pattern.compile(
+                "(?m)^\\w+\\s+\\w+\\s*\\([^;]*?\\)\\s*\\{").matcher(patched);
+        int firstFunction = function.find() ? function.start() : patched.indexOf(main);
+        patched = patched.substring(0, firstFunction) + support + patched.substring(firstFunction);
+        return patched.replace(main, main + "\n    semionSkyboxMarker = abs(texture(Sampler0, texCoord0).a"
+                + " - (252.0 / 255.0)) < (0.5 / 255.0);");
+    }
+
+    private static String replaceInputUses(String source, String input, String skyboxValue) {
+        if (!source.contains("in vec4 " + input + ";")) {
+            return source;
+        }
+        String expression = "(semionSkyboxMarker ? " + skyboxValue + " : " + input + ")";
+        String patched = source.replaceAll("\\b" + input + "\\b", java.util.regex.Matcher.quoteReplacement(expression));
+        return patched.replace("in vec4 " + expression + ";", "in vec4 " + input + ";");
+    }
+
+    private static void requireModernShader(String source) {
+        if (source == null || !source.contains("#version 330")) {
+            throw new IllegalStateException("Semion skyboxes require the generated Minecraft 26.3 shader sources");
+        }
+    }
+
+    private static void requireFreeVarying(String source) {
+        if (java.util.regex.Pattern.compile("layout\\s*\\(\\s*location\\s*=\\s*8\\s*\\)").matcher(source).find()) {
+            throw new IllegalStateException("Skybox varying location 8 conflicts with an existing shader extension");
+        }
     }
 }

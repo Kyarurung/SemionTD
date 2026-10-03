@@ -125,7 +125,7 @@ public final class AreaEffectService implements AreaEffectApi {
     }
 
     private PlayerLane activeLane(SemionTowerEntity source) {
-        MinecraftServer server = source.getServer();
+        MinecraftServer server = source.level().getServer();
         if (server == null) {
             return null;
         }
@@ -147,7 +147,7 @@ public final class AreaEffectService implements AreaEffectApi {
 
     private static <T> AreaEffectResult<T> apply(
             SemionTowerEntity source,
-            net.minecraft.resources.ResourceLocation effectId,
+            net.minecraft.resources.Identifier effectId,
             Vec3 center,
             double radius,
             kim.biryeong.semiontd.api.area.AreaVfxSpec vfx,

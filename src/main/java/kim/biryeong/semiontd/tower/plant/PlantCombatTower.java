@@ -26,7 +26,7 @@ import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerDataKey;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -717,7 +717,7 @@ public class PlantCombatTower extends ProductionTower {
                 .map(SemionTowerEntity.class::cast);
     }
 
-    private static ResourceLocation plantId(String path) {
-        return ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "plant/" + path);
+    private static Identifier plantId(String path) {
+        return Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "plant/" + path);
     }
 }

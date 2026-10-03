@@ -1,0 +1,2 @@
+Local Minecraft 26.3 compatibility build of https://github.com/sylvxa/sylcurity/tree/17ec6abda695e1d64d4a4d6159a133e1e30d2d09
+Original author and license notices preserved. No upstream release is claimed.

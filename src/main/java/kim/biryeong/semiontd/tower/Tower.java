@@ -29,9 +29,9 @@ import net.minecraft.world.phys.Vec3;
 
 public abstract class Tower {
     private static final TowerDataKey<Double> PERMANENT_MAX_HEALTH_BONUS = TowerDataKey.of(
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("semion-td", "tower/permanent_max_health_bonus"), Double.class);
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("semion-td", "tower/permanent_max_health_bonus"), Double.class);
     private static final TowerDataKey<Double> PERMANENT_FLAT_DAMAGE_BONUS = TowerDataKey.of(
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("semion-td", "tower/permanent_flat_damage_bonus"), Double.class);
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("semion-td", "tower/permanent_flat_damage_bonus"), Double.class);
     private TowerType type;
     private final UUID ownerPlayer;
     private final TeamId teamId;
@@ -57,7 +57,7 @@ public abstract class Tower {
     private TraitLoadout traitLoadout = TraitLoadout.none();
     private double traitMaxHealthBonus;
     private static final TowerDataKey<UUID> LOGICAL_ID = new TowerDataKey<>(
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("semiontd", "augment_logical_id"), UUID.class);
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("semiontd", "augment_logical_id"), UUID.class);
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
     private PlayerLane attachedLane;
     private boolean temporaryCopy;
@@ -425,7 +425,7 @@ public abstract class Tower {
                     || value instanceof Double number && Double.isFinite(number)
                     || value instanceof Float number && Float.isFinite(number)) {
                 values.put(key.id().toString(), value);
-            } else if (value instanceof UUID || value instanceof net.minecraft.resources.ResourceLocation || value instanceof Enum<?>) {
+            } else if (value instanceof UUID || value instanceof net.minecraft.resources.Identifier || value instanceof Enum<?>) {
                 values.put(key.id().toString(), value.toString());
             } else {
                 omitted.add(key.id().toString());

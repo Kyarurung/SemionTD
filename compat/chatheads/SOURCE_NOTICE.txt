@@ -1,0 +1,2 @@
+Local Minecraft26.3 compatibility build of https://github.com/CampHQmc/ServerChatHeads/tree/8cc2c72b74b7f524941ebbfa1597193b4e5adb03
+Original author and license notices preserved. No upstream release is claimed.

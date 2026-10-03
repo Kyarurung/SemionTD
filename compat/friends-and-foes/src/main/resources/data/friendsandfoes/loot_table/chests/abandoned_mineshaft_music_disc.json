@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "friendsandfoes:music_disc_around_the_corner",
+          "condition": {
+            "chance": 0.095,
+            "type": "minecraft:random_chance"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -6,14 +6,14 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.summon.SummonMonsterType;
 import kim.biryeong.semiontd.tower.TowerType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public abstract class SemionJob {
-    private final ResourceLocation id;
+    private final Identifier id;
     private final Component displayName;
     private final List<Component> description;
 
-    protected SemionJob(ResourceLocation id, Component displayName, List<Component> description) {
+    protected SemionJob(Identifier id, Component displayName, List<Component> description) {
         this.id = Objects.requireNonNull(id, "id");
         this.displayName = Objects.requireNonNull(displayName, "displayName");
         this.description = List.copyOf(description == null ? List.of() : description);
@@ -23,7 +23,7 @@ public abstract class SemionJob {
         this(parseId(id), Component.literal(displayName), components(description));
     }
 
-    public final ResourceLocation id() {
+    public final Identifier id() {
         return id;
     }
 
@@ -114,8 +114,8 @@ public abstract class SemionJob {
     public void onMonsterKilled(JobContext context, Monster monster, long mineralReward) {
     }
 
-    private static ResourceLocation parseId(String id) {
-        ResourceLocation parsed = ResourceLocation.tryParse(Objects.requireNonNull(id, "id"));
+    private static Identifier parseId(String id) {
+        Identifier parsed = Identifier.tryParse(Objects.requireNonNull(id, "id"));
         if (parsed == null) {
             throw new IllegalArgumentException("Invalid job id: " + id);
         }

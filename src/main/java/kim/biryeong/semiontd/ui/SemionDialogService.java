@@ -4,10 +4,6 @@ import kim.biryeong.semiontd.tower.gamble.PokerTableTower;
 import kim.biryeong.semiontd.tower.gamble.GamblerTower;
 import kim.biryeong.semiontd.tower.gamble.GambleBalance;
 import kim.biryeong.semiontd.tower.gamble.GambleTowers;
-import de.tomalbrc.avatarrenderer.AvatarRendererMod;
-import de.tomalbrc.avatarrenderer.impl.AvatarRenderer;
-import de.tomalbrc.avatarrenderer.impl.SkinLoader;
-import java.awt.image.BufferedImage;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -19,12 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import kim.biryeong.semiontd.buildguide.BuildGuide;
@@ -166,9 +157,6 @@ public final class SemionDialogService {
     private static final String DIAMOND_GRADIENT = "<gradient:#ffffff:#d5fff6:#a1fbe8:#4aedd9:#20c5b5:#1aaaa7:#11727a:#145e53>";
     private static final String GRADIENT_CLOSE = "</gradient>";
     private static final DateTimeFormatter STATISTICS_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
-    private static final ConcurrentMap<SmallAvatarKey, Component> SMALL_AVATAR_CACHE = new ConcurrentHashMap<>();
-    private static final Set<String> AVATAR_LOAD_REQUESTS = ConcurrentHashMap.newKeySet();
-    private static final ExecutorService AVATAR_LOADER = Executors.newFixedThreadPool(2, Thread.ofPlatform().daemon().name("semiontd-avatar-loader-", 0).factory());
 
     public void showGameStatus(ServerPlayer player, SemionGame game) {
         ArrayList<DialogBody> bodies = new ArrayList<>();
@@ -634,7 +622,7 @@ public final class SemionDialogService {
 
     private static String traitSelectionSummaryAbilityLine(
             String label,
-            net.minecraft.resources.ResourceLocation traitId,
+            net.minecraft.resources.Identifier traitId,
             TraitSlot slot
     ) {
         boolean noEffect = TraitLoadout.isNone(traitId);
@@ -663,7 +651,7 @@ public final class SemionDialogService {
 
     private static String traitSelectionLoadoutLine(
             String label,
-            net.minecraft.resources.ResourceLocation traitId
+            net.minecraft.resources.Identifier traitId
     ) {
         String color = TraitLoadout.isNone(traitId) ? "dark_red" : "yellow";
         String name = TraitLoadout.isNone(traitId) ? "선택 안 함" : traitName(traitId);
@@ -1914,13 +1902,13 @@ public final class SemionDialogService {
         }
         for (AugmentService.CardLine card : screen.cards()) {
             ItemStack icon = new ItemStack(switch (card.category()) {
-                case "TRADE_OFF" -> Items.CHAIN;
+                case "TRADE_OFF" -> Items.IRON_CHAIN;
                 case "TOWER" -> Items.SCAFFOLDING;
                 case "GAME_CHANGER" -> Items.NETHER_STAR;
                 case "INCOME" -> Items.EMERALD;
                 default -> Items.COMPASS;
             });
-            bodies.add(new ItemBody(icon, Optional.of(new PlainMessage(miniMessage(card.text()), AUGMENT_BODY_WIDTH - 24)),
+            bodies.add(new ItemBody(net.minecraft.world.item.ItemStackTemplate.fromNonEmptyStack(icon), Optional.of(new PlainMessage(miniMessage(card.text()), AUGMENT_BODY_WIDTH - 24)),
                     false, false, 16, 16));
         }
         List<ActionButton> actions = screen.buttons().stream()
@@ -2168,21 +2156,21 @@ public final class SemionDialogService {
         return "/semiontd trait select " + slotName + " " + trait.id().getPath();
     }
 
-    private static String traitName(net.minecraft.resources.ResourceLocation traitId) {
+    private static String traitName(net.minecraft.resources.Identifier traitId) {
         return TraitRegistry.find(traitId)
                 .map(trait -> trait.displayName().getString())
                 .orElse(traitId.toString());
     }
 
-    private static String traitEffectSummary(net.minecraft.resources.ResourceLocation traitId, TraitSlot slot) {
+    private static String traitEffectSummary(net.minecraft.resources.Identifier traitId, TraitSlot slot) {
         return TraitRegistry.find(traitId)
                 .map(trait -> trait.effectSummary(slot).getString())
                 .orElse("효과 정보 없음");
     }
 
     private static String traitName(String traitId) {
-        net.minecraft.resources.ResourceLocation parsed =
-                traitId == null ? null : net.minecraft.resources.ResourceLocation.tryParse(traitId);
+        net.minecraft.resources.Identifier parsed =
+                traitId == null ? null : net.minecraft.resources.Identifier.tryParse(traitId);
         return parsed == null ? String.valueOf(traitId) : traitName(parsed);
     }
 
@@ -2646,7 +2634,7 @@ public final class SemionDialogService {
         var stats = participant.stats();
         MutableComponent body = Component.empty()
                 .append(TextUncenterer.filler(8))
-                .append(avatarComponent(participant.playerName(), AvatarVariant.RESULT))
+                .append(UiPlayerAvatarService.avatarComponent(participant.playerName(), UiPlayerAvatarService.AvatarVariant.RESULT))
                 .append(miniMessage(" <white>" + participant.playerName() + "</white>"
                         + " <dark_gray>[</dark_gray>"
                         + (participant.winner() ? "<gold>승리</gold>" : "<gray>패배</gray>")
@@ -2750,7 +2738,7 @@ public final class SemionDialogService {
                 playerStatusAvatar(row.playerName()),
                 name,
                 PLAYER_STATUS_AVATAR_WIDTH + PLAYER_STATUS_NAME_WIDTH - PLAYER_STATUS_BODY_JOB_SHIFT,
-                AvatarVariant.COMPACT.imageSize,
+                UiPlayerAvatarService.AvatarVariant.COMPACT.imageSize(),
                 TextUncenterer.width(name)
         );
         return playerStatusTableRow(
@@ -2839,109 +2827,8 @@ public final class SemionDialogService {
                 .append(TextUncenterer.filler(remainingWidth - leftPaddingWidth));
     }
 
-    private static Component avatarComponent(String playerName, AvatarVariant variant) {
-        SmallAvatarKey key = new SmallAvatarKey(playerName, variant);
-        Component cached = SMALL_AVATAR_CACHE.get(key);
-        if (cached != null) {
-            return cached;
-        }
-
-        loadAvatar(playerName);
-        SmallAvatarKey defaultKey = new SmallAvatarKey("Steve", variant);
-        return SMALL_AVATAR_CACHE.computeIfAbsent(defaultKey, SemionDialogService::defaultSmallAvatar);
-    }
-
     static Component playerStatusAvatar(String playerName) {
-        return avatarComponent(playerName, AvatarVariant.COMPACT);
-    }
-
-    private static void loadAvatar(String playerName) {
-        if (!AVATAR_LOAD_REQUESTS.add(playerName)) {
-            return;
-        }
-        AVATAR_LOADER.execute(() -> {
-            try {
-                SkinLoader.load(playerName).ifPresent(skin -> {
-                    for (AvatarVariant variant : AvatarVariant.values()) {
-                        SmallAvatarKey key = new SmallAvatarKey(playerName, variant);
-                        SMALL_AVATAR_CACHE.put(key, AvatarRenderer.asTextComponent(
-                                avatarImage(skin, variant),
-                                variant.yOffset()
-                        ));
-                    }
-                });
-            } catch (RuntimeException ignored) {
-                // Keep the bundled Steve fallback.
-            }
-        });
-    }
-
-    private static Component defaultSmallAvatar(SmallAvatarKey key) {
-        try (var stream = AvatarRendererMod.class.getResourceAsStream("/steve.png")) {
-            if (stream == null) {
-                return Component.empty();
-            }
-            BufferedImage skin = javax.imageio.ImageIO.read(stream);
-            if (skin == null) {
-                return Component.empty();
-            }
-            return AvatarRenderer.asTextComponent(avatarImage(skin, key.variant()), key.variant().yOffset());
-        } catch (java.io.IOException exception) {
-            return Component.empty();
-        }
-    }
-
-    private static BufferedImage avatarImage(BufferedImage skin, AvatarVariant variant) {
-        BufferedImage face = new BufferedImage(variant.imageSize(), variant.imageSize(), BufferedImage.TYPE_INT_ARGB);
-        boolean hasFaceOverlay = skin.getHeight() >= 64;
-        for (int y = 0; y < 8; y++) {
-            for (int x = 0; x < 8; x++) {
-                int color = skinPixel(skin, 8 + x, 8 + y);
-                if (hasFaceOverlay) {
-                    int overlay = skinPixel(skin, 40 + x, 8 + y);
-                    if ((overlay >>> 24) > 16) {
-                        color = overlay;
-                    }
-                }
-                if ((color >>> 24) != 0) {
-                    int targetX = 1 + x * variant.pixelScale();
-                    int targetY = 1 + y * variant.pixelScale();
-                    for (int dy = 0; dy < variant.pixelScale(); dy++) {
-                        for (int dx = 0; dx < variant.pixelScale(); dx++) {
-                            face.setRGB(targetX + dx, targetY + dy, color);
-                        }
-                    }
-                }
-            }
-        }
-
-        BufferedImage outlined = new BufferedImage(variant.imageSize(), variant.imageSize(), BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < face.getHeight(); y++) {
-            for (int x = 0; x < face.getWidth(); x++) {
-                if ((face.getRGB(x, y) >>> 24) == 0) {
-                    continue;
-                }
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dx = -1; dx <= 1; dx++) {
-                        int ox = x + dx;
-                        int oy = y + dy;
-                        if (ox >= 0 && ox < outlined.getWidth() && oy >= 0 && oy < outlined.getHeight()
-                                && (outlined.getRGB(ox, oy) >>> 24) == 0) {
-                            outlined.setRGB(ox, oy, 0xFF000000);
-                        }
-                    }
-                }
-            }
-        }
-        for (int y = 0; y < face.getHeight(); y++) {
-            for (int x = 0; x < face.getWidth(); x++) {
-                int color = face.getRGB(x, y);
-                if ((color >>> 24) != 0) {
-                    outlined.setRGB(x, y, color);
-                }
-            }
-        }
-        return outlined;
+        return UiPlayerAvatarService.avatarComponent(playerName, UiPlayerAvatarService.AvatarVariant.COMPACT);
     }
 
     private static Component statisticsOverview(JobStatisticsSnapshot snapshot) {
@@ -3425,13 +3312,6 @@ public final class SemionDialogService {
         return epochMillis <= 0L ? "-" : STATISTICS_TIME_FORMAT.format(Instant.ofEpochMilli(epochMillis));
     }
 
-    private static int skinPixel(BufferedImage skin, int x, int y) {
-        if (x < 0 || y < 0 || x >= skin.getWidth() || y >= skin.getHeight()) {
-            return 0;
-        }
-        return skin.getRGB(x, y);
-    }
-
     private static String teamListMarkup(java.util.Set<TeamId> teams) {
         if (teams.isEmpty()) {
             return "<gray>없음</gray>";
@@ -3570,36 +3450,6 @@ public final class SemionDialogService {
             JobStatisticsEntry entry,
             boolean registered
     ) {
-    }
-
-    private enum AvatarVariant {
-        COMPACT(1, 10, 25),
-        RESULT(2, 18, 20);
-
-        private final int pixelScale;
-        private final int imageSize;
-        private final int yOffset;
-
-        AvatarVariant(int pixelScale, int imageSize, int yOffset) {
-            this.pixelScale = pixelScale;
-            this.imageSize = imageSize;
-            this.yOffset = yOffset;
-        }
-
-        int pixelScale() {
-            return pixelScale;
-        }
-
-        int imageSize() {
-            return imageSize;
-        }
-
-        int yOffset() {
-            return yOffset;
-        }
-    }
-
-    private record SmallAvatarKey(String playerName, AvatarVariant variant) {
     }
 
 }

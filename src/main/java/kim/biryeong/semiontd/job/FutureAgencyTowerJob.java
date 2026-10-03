@@ -8,10 +8,10 @@ import kim.biryeong.semiontd.tower.futureagency.FutureAgencyStates;
 import kim.biryeong.semiontd.tower.futureagency.FutureAgencyTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class FutureAgencyTowerJob extends SemionJob {
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, "future_agency_towers");
+    public static final Identifier ID = Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "future_agency_towers");
 
     public FutureAgencyTowerJob() {
         super(ID, Component.literal("미래기관 빌더"), List.of(

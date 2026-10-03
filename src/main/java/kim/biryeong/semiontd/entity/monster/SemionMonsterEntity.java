@@ -36,7 +36,7 @@ import kim.biryeong.semiontd.trait.TraitVfx;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -51,7 +51,7 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import xyz.nucleoid.packettweaker.PacketContext;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 
 public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity, HealingTarget, LaneDefenseEntity {
     private static final double DEFAULT_MELEE_RANGE = 2.5;
@@ -69,7 +69,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     public static final double DEMON_LORD_AGGRO_KEEP_RANGE = 16.0;
     private static final double DEFENSE_SEARCH_VERTICAL_PADDING = 3.0;
 
-    private EntityType<?> polymerEntityType = EntityType.ZOMBIE;
+    private EntityType<?> polymerEntityType = net.minecraft.world.entity.EntityTypes.ZOMBIE;
     private Monster runtimeMonster;
     private LaneRegionLayout laneLayout;
     private String blockbenchModelId;
@@ -381,13 +381,13 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         if (holder != null) {
             for (var element : holder.getElements()) {
                 if (element instanceof eu.pb4.polymer.virtualentity.api.elements.DisplayElement display) {
-                    byte flags = display.getDataTracker().get(eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS);
+                    byte flags = display.getSyncedData().get(eu.pb4.polymer.virtualentity.api.data.EntityData.FLAGS);
                     packets.add(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(display.getEntityId(), List.of(
                             net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
-                                    eu.pb4.polymer.virtualentity.api.tracker.EntityTrackedData.FLAGS,
+                                    eu.pb4.polymer.virtualentity.api.data.EntityData.FLAGS,
                                     on ? (byte) (flags | 0x40) : flags),
                             net.minecraft.network.syncher.SynchedEntityData.DataValue.create(
-                                    eu.pb4.polymer.virtualentity.api.tracker.DisplayTrackedData.GLOW_COLOR_OVERRIDE,
+                                    eu.pb4.polymer.virtualentity.api.data.DisplayEntityData.GLOW_COLOR_OVERRIDE,
                                     on ? color : display.getGlowColorOverride()))));
                 }
             }
@@ -627,7 +627,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         boolean oneShot = isOneShot(animationState);
-        if (holder == null && animationState == SemionAnimationState.ATTACK && polymerEntityType == EntityType.CREAKING) {
+        if (holder == null && animationState == SemionAnimationState.ATTACK && polymerEntityType == net.minecraft.world.entity.EntityTypes.CREAKING) {
             // 바닐라 모습의 크리킹은 엔티티 이벤트 4로 팔 휘두르기 동작을 봅니다.
             level().broadcastEntityEvent(this, (byte) 4);
         }
@@ -717,11 +717,11 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         super.setJumping(jumping && !isStunned() && !isRooted());
     }
 
-    public boolean applyTimedEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude, int durationTicks) {
+    public boolean applyTimedEffect(TimedEffectType type, Identifier sourceId, double magnitude, int durationTicks) {
         return timedEffects.apply(type, sourceId, magnitude, durationTicks);
     }
 
-    public boolean refreshTimedEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude, int durationTicks) {
+    public boolean refreshTimedEffect(TimedEffectType type, Identifier sourceId, double magnitude, int durationTicks) {
         return timedEffects.refresh(type, sourceId, magnitude, durationTicks);
     }
 
@@ -827,11 +827,11 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         ));
     }
 
-    public boolean hasTimedEffectSource(TimedEffectType type, ResourceLocation sourceId) {
+    public boolean hasTimedEffectSource(TimedEffectType type, Identifier sourceId) {
         return timedEffects.hasSource(type, sourceId);
     }
 
-    public boolean setPersistentEffect(TimedEffectType type, ResourceLocation sourceId, double magnitude) {
+    public boolean setPersistentEffect(TimedEffectType type, Identifier sourceId, double magnitude) {
         return timedEffects.setPersistent(type, sourceId, magnitude);
     }
 
@@ -1009,7 +1009,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     @Override
-    public void knockback(double strength, double x, double z) {
+    public void knockback(double strength, double x, double z,
+            net.minecraft.world.damagesource.DamageSource source, float damage, boolean comesFromEffect) {
     }
 
     private void installSummonAbilityGoals() {
@@ -1056,16 +1057,16 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     private void setPolymerEntityType(String entityTypeId) {
         if (entityTypeId == null || entityTypeId.isBlank()) {
-            polymerEntityType = EntityType.ZOMBIE;
+            polymerEntityType = net.minecraft.world.entity.EntityTypes.ZOMBIE;
             return;
         }
 
-        ResourceLocation id = ResourceLocation.tryParse(entityTypeId);
+        Identifier id = Identifier.tryParse(entityTypeId);
         if (id == null) {
-            polymerEntityType = EntityType.ZOMBIE;
+            polymerEntityType = net.minecraft.world.entity.EntityTypes.ZOMBIE;
             return;
         }
 
-        polymerEntityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(EntityType.ZOMBIE);
+        polymerEntityType = BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(net.minecraft.world.entity.EntityTypes.ZOMBIE);
     }
 }

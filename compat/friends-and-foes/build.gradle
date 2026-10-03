@@ -1,0 +1,28 @@
+plugins { id 'net.fabricmc.fabric-loom' }
+group = 'com.faboslav.friendsandfoes'
+version = '4.0.27+mc26.3-local'
+base { archivesName = 'friendsandfoes-fabric' }
+repositories {
+    mavenCentral()
+    maven { url 'https://api.modrinth.com/maven' }
+}
+dependencies {
+    minecraft 'com.mojang:minecraft:26.3'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.161.0+26.3'
+    implementation('maven.modrinth:resourceful-lib:P6Jq77km') { transitive = false }
+    implementation 'maven.modrinth:yacl:3.9.7+26.3-fabric'
+}
+loom { accessWidenerPath = file('src/main/resources/friendsandfoes.accesswidener') }
+sourceSets.main.java {
+    exclude '**/common/client/particle/**', '**/common/client/render/entity/feature/**', '**/common/client/render/entity/model/**', '**/common/client/render/entity/renderer/**', '**/common/client/render/entity/state/**'
+    exclude '**/KeyframeAnimator.java', '**/ModelPartAnimator.java'
+    exclude '**/common/events/client/**'
+    exclude '**/FriendsAndFoesClient.java', '**/FriendsAndFoesFabricClient.java'
+    exclude '**/FriendsAndFoesEntityModelLayers.java', '**/FriendsAndFoesEntityRenderers.java'
+    exclude '**/EntityRenderDispatcherMixin.java', '**/IntegratedServerLoaderMixin.java', '**/ModelPartAccessor.java'
+    exclude '**/ParticleResourcesMixin.java', '**/PlayerSkinProvider.java'
+    exclude '**/CatalogueCompat.java', '**/ModMenuCompat.java'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 25 }
+java { withSourcesJar() }

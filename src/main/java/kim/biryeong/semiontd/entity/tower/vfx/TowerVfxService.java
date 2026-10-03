@@ -66,8 +66,6 @@ import kim.biryeong.semiontd.tower.undead.UndeadTowers;
 import kim.biryeong.semiontd.tower.villager.VillagerTowers;
 import kim.biryeong.semiontd.tower.warlock.WarlockTowers;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.mcbrincie.apel.lib.renderers.BaseApelRenderer;
-import net.mcbrincie.apel.lib.util.math.bezier.QuadraticBezierCurve;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -148,8 +146,8 @@ public final class TowerVfxService {
     private static volatile Consumer<Vec3> prophecyLightningTestObserver;
     private static volatile Consumer<Vec3> bodyHeartbeatTestObserver;
     private static volatile BiConsumer<Vec3, Vec3> bodyEyeLaserTestObserver;
-    private static final Set<net.minecraft.resources.ResourceLocation> MISSING_STYLE_WARNINGS = ConcurrentHashMap.newKeySet();
-    private static final Map<net.minecraft.resources.ResourceLocation, Long> STYLE_ERROR_LOG_TICKS = new ConcurrentHashMap<>();
+    private static final Set<net.minecraft.resources.Identifier> MISSING_STYLE_WARNINGS = ConcurrentHashMap.newKeySet();
+    private static final Map<net.minecraft.resources.Identifier, Long> STYLE_ERROR_LOG_TICKS = new ConcurrentHashMap<>();
 
     private TowerVfxService() {
     }
@@ -358,7 +356,7 @@ public final class TowerVfxService {
         if (observer != null) {
             observer.accept(impact);
         }
-        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level, EntitySpawnReason.TRIGGERED);
+        LightningBolt lightning = net.minecraft.world.entity.EntityTypes.LIGHTNING_BOLT.create(level, EntitySpawnReason.TRIGGERED);
         if (lightning != null) {
             lightning.setVisualOnly(true);
             lightning.setPos(impact.x, impact.y, impact.z);
@@ -722,7 +720,7 @@ public final class TowerVfxService {
     }
 
     static List<Vec3> collectLinePoints(Vec3 start, Vec3 end, int points) {
-        CollectingApelRenderer collector = new CollectingApelRenderer();
+        CollectingParticleRenderer collector = new CollectingParticleRenderer();
         collector.drawLine(
                 ParticleTypes.END_ROD,
                 0,
@@ -747,8 +745,8 @@ public final class TowerVfxService {
 
     public static void showAreaEffect(
             SemionTowerEntity tower,
-            net.minecraft.resources.ResourceLocation effectId,
-            net.minecraft.resources.ResourceLocation styleId,
+            net.minecraft.resources.Identifier effectId,
+            net.minecraft.resources.Identifier styleId,
             Vec3 center,
             double radius,
             List<Vec3> appliedPositions,
@@ -769,9 +767,9 @@ public final class TowerVfxService {
                 ? List.of()
                 : appliedPositions.stream().limit(config.maxSampledHitRays()).toList();
         String rawTowerTypeId = tower.runtimeTower().type().id().replace('#', '/');
-        net.minecraft.resources.ResourceLocation towerTypeId = net.minecraft.resources.ResourceLocation.tryParse(rawTowerTypeId);
+        net.minecraft.resources.Identifier towerTypeId = net.minecraft.resources.Identifier.tryParse(rawTowerTypeId);
         if (towerTypeId == null || rawTowerTypeId.indexOf(':') < 0) {
-            towerTypeId = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(SemionTd.MOD_ID, rawTowerTypeId);
+            towerTypeId = net.minecraft.resources.Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, rawTowerTypeId);
         }
         AreaVfxContext visual = new AreaVfxContext(
                 effectId,
@@ -1561,7 +1559,7 @@ public final class TowerVfxService {
 
     private static void sendVanilla(
             EventContext context,
-            Consumer<CollectingApelRenderer> draw,
+            Consumer<CollectingParticleRenderer> draw,
             VfxConfig config,
             Map<UUID, Integer> packetCounts
     ) {
@@ -1569,7 +1567,7 @@ public final class TowerVfxService {
         if (recipients.isEmpty()) {
             return;
         }
-        CollectingApelRenderer collector = new CollectingApelRenderer();
+        CollectingParticleRenderer collector = new CollectingParticleRenderer();
         draw.accept(collector);
         LaneStats stats = stats(context.lane());
         stats.vanillaRequestedPoints.add(collector.points.size());
@@ -1618,7 +1616,7 @@ public final class TowerVfxService {
             return;
         }
         GCBParticleS2CPacket payload = gcbPayload(particleOptions, particle, shape);
-        Packet<ClientCommonPacketListener> packet = ServerPlayNetworking.createS2CPacket(payload);
+        Packet<ClientCommonPacketListener> packet = ServerPlayNetworking.createClientboundPacket(payload);
         for (Recipient recipient : recipients) {
             recipient.send(packet);
         }
@@ -1999,8 +1997,8 @@ public final class TowerVfxService {
             ));
         }
 
-        private void send(Consumer<CollectingApelRenderer> draw) {
-            CollectingApelRenderer collector = new CollectingApelRenderer();
+        private void send(Consumer<CollectingParticleRenderer> draw) {
+            CollectingParticleRenderer collector = new CollectingParticleRenderer();
             draw.accept(collector);
             for (ParticlePoint point : collector.points) {
                 player.connection.send(new ClientboundLevelParticlesPacket(
@@ -2110,12 +2108,65 @@ public final class TowerVfxService {
         }
     }
 
-    private static final class CollectingApelRenderer extends BaseApelRenderer {
+    private record QuadraticBezierCurve(Vector3f start, Vector3f end, Vector3f control) {
+        Vector3f point(float t) {
+            float inverse = 1.0F - t;
+            return new Vector3f(start).mul(inverse * inverse)
+                    .add(new Vector3f(control).mul(2.0F * inverse * t))
+                    .add(new Vector3f(end).mul(t * t));
+        }
+    }
+
+    // Sampling is local: APEL has no 26.3 build, and these shapes only need JOML.
+    private static final class CollectingParticleRenderer {
         private final List<ParticlePoint> points = new ArrayList<>();
 
-        @Override
         public void drawParticle(ParticleOptions particle, int step, Vector3f position) {
             points.add(new ParticlePoint(particle, new Vec3(position.x, position.y, position.z)));
+        }
+
+        void drawLine(ParticleOptions particle, int step, Vector3f origin, Vector3f start,
+                      Vector3f end, Vector3f rotation, int amount) {
+            sample(particle, step, origin, rotation, amount,
+                    index -> new Vector3f(start).lerp(end, fraction(index, amount)));
+        }
+
+        void drawBezier(ParticleOptions particle, int step, Vector3f origin,
+                        QuadraticBezierCurve curve, Vector3f rotation, int amount) {
+            sample(particle, step, origin, rotation, amount,
+                    index -> curve.point(fraction(index, amount)));
+        }
+
+        void drawEllipse(ParticleOptions particle, int step, Vector3f origin,
+                         float radius, float stretch, Vector3f rotation, int amount) {
+            sample(particle, step, origin, rotation, amount, index -> {
+                double angle = 2.0 * Math.PI * index / amount;
+                return new Vector3f((float) Math.cos(angle) * radius, (float) Math.sin(angle) * stretch, 0);
+            });
+        }
+
+        void drawEllipsoid(ParticleOptions particle, int step, Vector3f origin,
+                           float xRadius, float yRadius, float zRadius, Vector3f rotation, int amount) {
+            sample(particle, step, origin, rotation, amount, index -> {
+                double y = 1.0 - 2.0 * (index + 0.5) / amount;
+                double radius = Math.sqrt(Math.max(0.0, 1.0 - y * y));
+                double angle = Math.PI * (3.0 - Math.sqrt(5.0)) * index;
+                return new Vector3f((float) (Math.cos(angle) * radius) * xRadius,
+                        (float) y * yRadius, (float) (Math.sin(angle) * radius) * zRadius);
+            });
+        }
+
+        private void sample(ParticleOptions particle, int step, Vector3f origin,
+                            Vector3f rotation, int amount, java.util.function.IntFunction<Vector3f> point) {
+            org.joml.Quaternionf quaternion = new org.joml.Quaternionf()
+                    .rotateZ(rotation.z).rotateY(rotation.y).rotateX(rotation.x);
+            for (int index = 0; index < amount; index++) {
+                drawParticle(particle, step, point.apply(index).rotate(quaternion).add(origin));
+            }
+        }
+
+        private static float fraction(int index, int amount) {
+            return amount <= 1 ? 0.0F : index / (float) (amount - 1);
         }
     }
 

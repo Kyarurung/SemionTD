@@ -92,9 +92,9 @@ public final class SemionTipService {
             return;
         }
         gameManager.saveTipsEnabled(
-                player.getServer(),
+                player.level().getServer(),
                 player.getUUID(),
-                player.getGameProfile().getName(),
+                player.getGameProfile().name(),
                 enabled
         );
         TipConfig config = gameManager.tipConfig();
@@ -121,9 +121,9 @@ public final class SemionTipService {
 
     private SemionPlayerProfile profile(ServerPlayer player) {
         return gameManager.profile(
-                player.getServer(),
+                player.level().getServer(),
                 player.getUUID(),
-                player.getGameProfile().getName()
+                player.getGameProfile().name()
         );
     }
 

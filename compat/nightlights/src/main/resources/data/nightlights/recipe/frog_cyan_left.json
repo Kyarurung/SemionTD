@@ -1,0 +1,20 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "I# ",
+        "GNG",
+        "RBR"
+    ],
+    "key": {
+        "#": "#minecraft:buttons",
+        "I": "minecraft:lily_pad",
+        "G": "minecraft:glass",
+        "N": "minecraft:glowstone_dust",
+        "R": "minecraft:redstone",
+        "B": "#c:dyes/cyan"
+    },
+    "result": {
+        "id": "nightlights:frog_cyan"
+    },
+    "group": "frog_cyan"
+}

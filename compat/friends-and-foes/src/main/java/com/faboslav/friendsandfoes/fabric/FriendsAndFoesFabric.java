@@ -1,0 +1,188 @@
+package com.faboslav.friendsandfoes.fabric;
+
+import com.faboslav.friendsandfoes.common.FriendsAndFoes;
+import com.faboslav.friendsandfoes.common.events.AddItemGroupEntriesEvent;
+import com.faboslav.friendsandfoes.common.events.item.RegisterBrewingRecipesEvent;
+import com.faboslav.friendsandfoes.common.events.lifecycle.*;
+import com.faboslav.friendsandfoes.common.init.*;
+import com.faboslav.friendsandfoes.common.util.ServerWorldSpawnersUtil;
+import com.faboslav.friendsandfoes.common.world.spawner.IceologerSpawner;
+import com.faboslav.friendsandfoes.common.world.spawner.IllusionerSpawner;
+import com.faboslav.friendsandfoes.fabric.events.FabricReloadListener;
+import com.faboslav.friendsandfoes.fabric.mixin.PointOfInterestTypesAccessor;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
+import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
+
+import net.fabricmc.fabric.api.registry.FlammableBlockRegistry;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.SpawnPlacements;
+import net.minecraft.world.entity.ai.village.poi.PoiTypes;
+import net.minecraft.world.level.block.BeehiveBlock;
+import net.minecraft.world.level.block.LightningRodBlock;
+import net.minecraft.world.level.dimension.BuiltinDimensionTypes;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ConstantValue;
+import net.minecraft.world.level.storage.loot.providers.number.ints.UniformGenerator;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
+//? if <= 1.21.11 {
+/*import com.faboslav.friendsandfoes.common.events.entity.RegisterVillagerTradesEvent;
+import net.minecraft.world.item.trading.VillagerTrade;
+*///?}
+
+public final class FriendsAndFoesFabric implements ModInitializer
+{
+	@Override
+	public void onInitialize() {
+		FriendsAndFoes.init();
+		addCustomStructurePoolElements();
+		initEvents();
+		FriendsAndFoes.lateInit();
+		registerPointOfInterestStates();
+	}
+
+	private static void initEvents() {
+		RegisterReloadListenerEvent.EVENT.invoke(new RegisterReloadListenerEvent((id, listener) -> {
+			ResourceManagerHelper.get(PackType.SERVER_DATA).registerReloadListener(new FabricReloadListener(id, listener));
+		}));
+
+
+		ServerLifecycleEvents.SYNC_DATA_PACK_CONTENTS.register((player, joined) ->
+			DatapackSyncEvent.EVENT.invoke(new DatapackSyncEvent(player)));
+
+		ServerLevelEvents.LOAD.register(((server, world) -> {
+			//? if <= 1.21.11 {
+			/*registerVillagerTrades();
+			*///?}
+
+			if (
+				world.isClientSide()
+				//? if >=26.2 {
+				|| !world.dimensionTypeRegistration().is(BuiltinDimensionTypes.OVERWORLD)
+				//?} else {
+				/*|| world.dimensionTypeRegistration() != BuiltinDimensionTypes.OVERWORLD
+				 *///?}
+			) {
+				return;
+			}
+
+			ServerWorldSpawnersUtil.register(world, new IceologerSpawner());
+			ServerWorldSpawnersUtil.register(world, new IllusionerSpawner());
+		}));
+
+		// 26.3 brewing mappings and container conversions are retained as datapack recipes.
+
+		RegisterFlammabilityEvent.EVENT.invoke(new RegisterFlammabilityEvent(FlammableBlockRegistry.getDefaultInstance()::add));
+		RegisterEntityAttributesEvent.EVENT.invoke(new RegisterEntityAttributesEvent(FabricDefaultAttributeRegistry::register));
+		RegisterEntitySpawnRestrictionsEvent.EVENT.invoke(new RegisterEntitySpawnRestrictionsEvent(FriendsAndFoesFabric::registerPlacement));
+		AddSpawnBiomeModificationsEvent.EVENT.invoke(new AddSpawnBiomeModificationsEvent((tag, spawnGroup, entityType, weight, minGroupSize, maxGroupSize) -> {
+			BiomeModifications.addSpawn(biomeSelector -> biomeSelector.hasTag(tag) && biomeSelector.hasTag(BiomeTags.IS_OVERWORLD), spawnGroup, entityType, weight, minGroupSize, maxGroupSize);
+		}));
+
+		SetupEvent.EVENT.invoke(new SetupEvent(Runnable::run));
+
+		CreativeModeTabEvents.MODIFY_OUTPUT_ALL.register((itemGroup, entries) ->
+			AddItemGroupEntriesEvent.EVENT.invoke(
+				new AddItemGroupEntriesEvent(
+					AddItemGroupEntriesEvent.Type.toType(BuiltInRegistries.CREATIVE_MODE_TAB.getResourceKey(itemGroup).orElse(null)),
+					itemGroup,
+					itemGroup.hasAnyItems(),
+					entries::accept
+				)
+			)
+		);
+
+		LootTableEvents.MODIFY.register((lootTableResourceKey, lootBuilder, lootTableSource, registries) -> {
+			if (lootTableSource.isBuiltin() && (lootTableResourceKey.equals(ResourceKey.create(Registries.LOOT_TABLE, FriendsAndFoes.makeNamespacedId("chests/abandoned_mineshaft"))))) {
+				lootBuilder.withPool(LootPool.lootPool()
+					.setRolls(net.minecraft.core.Holder.direct(new ConstantValue(1)))
+					.add(LootItem.lootTableItem(FriendsAndFoesItems.MUSIC_DISC_AROUND_THE_CORNER.get()))
+					//? if >= 26.1 {
+					.when(LootItemRandomChanceCondition.randomChance(0.095F).build())
+					//?} else {
+					/*.conditionally(LootItemRandomChanceCondition.randomChance(0.095F).build())
+					*///?}
+					.apply(SetItemCountFunction.setCount(net.minecraft.core.Holder.direct(new ConstantValue(1))))
+				);
+			}
+		});
+	}
+
+	//? if <= 1.21.11 {
+	/*private static void registerVillagerTrades() {
+		var trades = VillagerTrades.TRADES;
+		//? if >=1.21.5 {
+		var profession = FriendsAndFoesVillagerProfessions.BEEKEEPER_KEY;
+		//?} else {
+		/^var profession = FriendsAndFoesVillagerProfessions.BEEKEEPER.get();
+		^///?}
+
+		Int2ObjectMap<VillagerTrades.ItemListing[]> profTrades = trades.computeIfAbsent(profession, key -> new Int2ObjectOpenHashMap<>());
+		Int2ObjectMap<List<VillagerTrades.ItemListing>> listings = new Int2ObjectOpenHashMap<>();
+
+		for (int i = 1; i <= 5; i++) {
+			if (profTrades.containsKey(i)) {
+				List<VillagerTrades.ItemListing> list = Arrays.stream(profTrades.get(i)).collect(Collectors.toList());
+				listings.put(i, list);
+			} else {
+				listings.put(i, new ArrayList<>());
+			}
+		}
+
+		RegisterVillagerTradesEvent.EVENT.invoke(new RegisterVillagerTradesEvent(profession, (i, listing) -> listings.get(i.intValue()).add(listing)));
+
+		for (int i = 1; i <= 5; i++) {
+			profTrades.put(i, listings.get(i).toArray(new VillagerTrades.ItemListing[0]));
+		}
+	}
+	*///?}
+
+	private static <T extends Mob> void registerPlacement(
+		EntityType<T> type,
+		RegisterEntitySpawnRestrictionsEvent.Placement<T> placement
+	) {
+		SpawnPlacements.register(type, placement.location(), placement.heightmap(), placement.predicate());
+	}
+
+	public static void registerPointOfInterestStates() {
+		FriendsAndFoesBlocks.BLOCKS.getEntries().forEach(block -> {
+			if(block.get() instanceof BeehiveBlock || block.get() instanceof LightningRodBlock) {
+				//? if >=1.21.3 {
+				var poiHolder = BuiltInRegistries.POINT_OF_INTEREST_TYPE.get(block.getId());
+				//?} else {
+				/*var poiHolder = BuiltInRegistries.POINT_OF_INTEREST_TYPE.getHolder(block.getId());
+				*///?}
+
+				poiHolder.ifPresent(poiTypeReference -> PointOfInterestTypesAccessor.callRegisterStates(
+					poiTypeReference,
+					PoiTypes.getBlockStates(block.get())
+				));
+			}
+		});
+	}
+
+	private static void addCustomStructurePoolElements() {
+		ServerLifecycleEvents.SERVER_STARTING.register(FriendsAndFoesStructurePoolElements::init);
+	}
+}

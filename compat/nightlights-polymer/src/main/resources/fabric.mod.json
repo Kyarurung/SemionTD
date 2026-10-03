@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "night-lights-patch",
+  "version": "${version}",
+  "name": "Night Lights Patch",
+  "description": "A Polymer Patch mod for Night Lights.",
+  "authors": [
+    "Sun_Phoen1x"
+  ],
+  "contact": {
+    "homepage": "https://discord.gg/czfFedprM4"
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/night-lights-patch/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.phoen1x.nightlightspatch.impl.NightLightsPatch"
+    ]
+  },
+  "mixins": [
+    "night-lights-patch.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "26.3",
+    "java": ">=25",
+    "fabric-api": ">=0.161.0+26.3",
+    "nightlights": ">=1.3.0",
+    "polymer-core": ">=0.18.2+26.3",
+    "polymer-blocks": ">=0.18.2+26.3",
+    "polymer-resource-pack": ">=0.18.2+26.3",
+    "polymer-resource-pack-extras": ">=0.18.2+26.3",
+    "polymer-virtual-entity": ">=0.18.2+26.3",
+    "factorytools": ">=0.12.1+26.3"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}

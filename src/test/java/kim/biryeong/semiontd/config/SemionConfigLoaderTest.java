@@ -23,7 +23,7 @@ import kim.biryeong.semiontd.tower.legion.LegionTowers;
 import kim.biryeong.semiontd.tower.warlock.WarlockTowers;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -88,7 +88,7 @@ final class SemionConfigLoaderTest {
     @Test
     void jobAvailabilityIsCreatedSavedAndReloaded() {
         LoadedConfigs defaults = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test"));
-        ResourceLocation disabledJob = ResourceLocation.fromNamespaceAndPath("semion-td", "nether");
+        Identifier disabledJob = Identifier.fromNamespaceAndPath("semion-td", "nether");
         JobAvailabilityConfig updated = defaults.jobAvailability().withEnabled(disabledJob, false);
 
         assertTrue(Files.exists(tempDir.resolve("jobs.json")));
@@ -101,7 +101,7 @@ final class SemionConfigLoaderTest {
 
     @Test
     void invalidJobAvailabilityRetainsLastKnownGood() throws Exception {
-        ResourceLocation disabledJob = ResourceLocation.fromNamespaceAndPath("semion-td", "nether");
+        Identifier disabledJob = Identifier.fromNamespaceAndPath("semion-td", "nether");
         JobAvailabilityConfig lastKnownGood = JobAvailabilityConfig.defaultConfig()
                 .withEnabled(disabledJob, false);
         Files.createDirectories(tempDir);

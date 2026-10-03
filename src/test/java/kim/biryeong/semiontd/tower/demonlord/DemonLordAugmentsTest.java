@@ -82,7 +82,7 @@ class DemonLordAugmentsTest {
         state.settleTargetedAugments(5);
         assertEquals(1, state.augments().targetedProgress().mastery());
         assertEquals(1, state.augments().targetedProgress().heat());
-        assertEquals(baseline * 1.04, state.maxHealth(), 1e-6);
+        assertEquals(baseline * 1.03, state.maxHealth(), 1e-6);
 
         state.enterCombat();
         state.augments().beginTargeted(snapshot, 6, state.maxHealth());
@@ -104,7 +104,7 @@ class DemonLordAugmentsTest {
         }
         assertEquals(5, state.augments().targetedProgress().heat());
         assertEquals(1, state.augments().targetedProgress().mastery(), "Non-enemy damage cannot build mastery");
-        assertEquals(.98, state.augments().damageMultiplier(snapshot, 0), 1e-6);
+        assertEquals(.97, state.augments().damageMultiplier(snapshot, 0), 1e-6);
         DemonLordStates.clear(owner);
         DemonLordStates.resetProgression(owner);
         assertEquals(0, DemonLordStates.getOrCreate(owner).augments().targetedProgress().heat());
