@@ -36,11 +36,11 @@ import xyz.nucleoid.map_templates.BlockBounds;
  * Runtime behaviour that the unit suite cannot reach: pressure zones are deployed onto the lane
  * path rather than around the turtle, and the deployed set tracks the turtle roster.
  */
-public final class AtlantisTowerIntegrationTest {
+public final class AtlantisTowerIntegrationTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
     private static final UUID OWNER = stableUuid("atlantis-zone-owner");
     private static final UUID OTHER = stableUuid("atlantis-other-owner");
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void deepPressureSpreadsToOnlyTwoEnemiesAndExtraAttacksDoNotSpread(GameTestHelper context) {
         UUID owner = stableUuid("atlantis-augment-spread");
         PlayerLane lane = augmentLane(context, owner);
@@ -79,7 +79,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void chainExplosionRecursInsideZonesButStopsAfterTwelveUniqueCarriers(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         UUID owner = stableUuid("atlantis-augment-chain");
@@ -134,7 +134,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void turtleDeathFillsOnlyTwelveCarriersAndKeepsNativeMagicAttribution(GameTestHelper context) {
         UUID owner = stableUuid("atlantis-augment-death");
         PlayerLane lane = augmentLane(context, owner);
@@ -170,7 +170,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest(maxTicks = 140)
+    @GameTest(maxTicks = 140, structure = "semion-td-gametest:combat_arena")
     public void tsunamiWaitsSixSecondsAndPullsOneEdgeEnemyAtMostTwoBlocks(GameTestHelper context) {
         UUID owner = stableUuid("atlantis-augment-tsunami");
         PlayerLane lane = augmentLane(context, owner);
@@ -187,7 +187,8 @@ public final class AtlantisTowerIntegrationTest {
         edge.setPos(initial);
         edge.setNoGravity(true);
         turtle.onWaveStarted(lane, 5);
-        context.runAtTickTime(119, () -> {
+        long waveStartTick = context.getTick();
+        context.runAtTickTime(waveStartTick + 119, () -> {
             try {
                 AtlantisStates.rebuild(owner, lane);
                 turtle.tick(lane);
@@ -199,7 +200,7 @@ public final class AtlantisTowerIntegrationTest {
                 context.fail(Component.literal(error.getMessage()));
             }
         });
-        context.runAtTickTime(121, () -> {
+        context.runAtTickTime(waveStartTick + 121, () -> {
             try {
                 AtlantisStates.rebuild(owner, lane);
                 turtle.tick(lane);
@@ -233,7 +234,7 @@ public final class AtlantisTowerIntegrationTest {
         return new PlayerLane(TeamId.RED, 1, owner, context.getLevel(), layout);
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void turtlePlacementDeploysZonesAheadOnThePathNotAroundTheTower(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -268,7 +269,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void zoneCapacityFollowsTurtleTiersAndStopsAtTheGlobalCap(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -297,7 +298,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void removingATurtleReclaimsItsZones(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -323,7 +324,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void zonesAreScopedToTheirOwningPlayer(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -349,7 +350,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void turtleAtTheStartOfThePathSkipsZonesInsteadOfClampingThem(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -369,7 +370,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void finalDefenseRelaysZonesOntoTheApproachKeepingTheSameCount(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -423,7 +424,7 @@ public final class AtlantisTowerIntegrationTest {
      * The turtle tooltip promises damage reduction to allies standing in the zone. Nothing else
      * reads {@link PressureZone#allyDamageReduction()}, so without this the promise is silent.
      */
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void zonesShieldFriendlyTowersStandingInsideThem(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -459,7 +460,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void destroyedTurtleDropsZonesUntilTheNextRoundReset(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisStates.clearAll();
@@ -484,7 +485,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void pressureBurstDamagesItsCarrierAndNearbyTargetsAsMagic(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisPressure.clearAll();
@@ -520,7 +521,7 @@ public final class AtlantisTowerIntegrationTest {
         }
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void anotherTowerKillingTheCarrierStillTriggersPressure(GameTestHelper context) {
         TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
         AtlantisPressure.clearAll();
