@@ -115,4 +115,107 @@ public final class EndTowerAugmentCombatTest extends TowerCoreAugmentFixture {
         var result = source.damageTargetResult(target, damage);
         source.recordAttack(target, damage, result.outgoingDamage(), result.dealtDamage(), result.killed());
     }
+
+    @GameTest
+    public void dragonLifeStealUsesActualOverkillAndSeparateSplashDamage(GameTestHelper context) {
+        try (Fixture fixture = new Fixture(context)) {
+            TowerType base = EndTowers.BASE_END_TOWER;
+            TowerType giant = new TowerType(base.id(), base.displayName(), base.category(), base.mineralCost(),
+                    2000, base.range(), base.damage(), base.attackIntervalTicks(), base.aggroPriority(),
+                    base.description(), base.visual(), base.upgradeOptions());
+            EndTower core = fixture.end(giant);
+            for (int i = 0; i < 10; i++) {
+                fixture.add(new EndTower(EndTowers.T3_SHULKER_TOWER, fixture.owner, TeamId.RED, 1, fixture.position(1)));
+            }
+            for (int i = 0; i < 4; i++) {
+                fixture.add(new EndTower(EndTowers.T3_END_CRYSTAL_TOWER, fixture.owner, TeamId.RED, 1, fixture.position(2)));
+            }
+            core.onWaveStarted(fixture.lane, 5);
+            for (int i = 0; i < EndConfig.RUNTIME.transfer().durationTicks(); i++) {core.tick(fixture.lane);}
+            require(core.state() == EndTowerState.DRAGON, "The fixture starts with enough health to evolve into a dragon.");
+            require(core.transferStats().shulkerCount() == 30, "Thirty shulker stacks still grant the first life-steal step.");
+            SemionTowerEntity source = fixture.entity(core);
+            SemionMonsterEntity primary = fixture.target(source.position().add(1, 0, 0), 30);
+            SemionMonsterEntity secondary = fixture.target(primary.position().add(0, 0, .1), 5000);
+            source.setHealth(10);
+            core.syncHealth(10);
+            var result = core.damageResolvedTargetResult(source, primary, 300,
+                    kim.biryeong.semiontd.entity.monster.DamageType.PHYSICAL);
+            source.recordAttack(primary, 300, result.outgoingDamage(), result.dealtDamage(), result.killed());
+            requireClose(30, result.dealtDamage(), "Overkill is limited to actual health lost.");
+            requireClose(198, 5000 - secondary.runtimeMonster().health(), "Splash keeps its resolved outgoing damage.");
+            requireClose(14.98, core.health(), "The primary heals 3 from actual 30 damage; splash heals 1.98 using the 300 outgoing snapshot.");
+            for (double invalid : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+                core.onAttackResolved(source, secondary, 0, 0, invalid, false);
+            }
+            requireClose(14.98, core.health(), "Invalid hits cannot heal the dragon.");
+            source.setHealth((float) (core.currentMaxHealth() - .05));
+            core.syncHealth(source.getHealth());
+            core.onAttackResolved(source, secondary, 30, 0, 30, false);
+            requireClose(core.currentMaxHealth(), core.health(), "The dragon cannot overheal.");
+            require(core.transferStats().shulkerCount() == 30, "Healing never consumes progression stacks.");
+            requireClose(kim.biryeong.semiontd.ui.SemionDialogService.currentTowerPrimaryDamage(core, source),
+                    core.lifeStealDisplayDamage(), "The efficiency preview uses the same target-free damage as the detail dialog.");
+            context.succeed();
+        }
+    }
+
+
+    @GameTest
+    public void sixStageDragonReportsPrimaryAndEachSplashHealingSeparately(GameTestHelper context) {
+        for (int scenario = 0; scenario <= 6; scenario++) {
+            int splashTargets = scenario <= 2 ? scenario : 1;
+            try (Fixture fixture = new Fixture(context)) {
+                EndTower core = fixture.end(EndTowers.BASE_END_TOWER);
+                for (int i = 0; i < 60; i++) {
+                    fixture.add(new EndTower(EndTowers.T3_SHULKER_TOWER, fixture.owner, TeamId.RED, 1, fixture.position(1)));
+                }
+                for (int i = 0; i < 4; i++) {
+                    fixture.add(new EndTower(EndTowers.T3_END_CRYSTAL_TOWER, fixture.owner, TeamId.RED, 1, fixture.position(2)));
+                }
+                core.onWaveStarted(fixture.lane, 5);
+                for (int i = 0; i < EndConfig.RUNTIME.transfer().durationTicks(); i++) {core.tick(fixture.lane);}
+                require(core.transferStats().shulkerCount() == 180, "Six existing stages require 180 shulker stacks.");
+                require(core.state() == EndTowerState.DRAGON, "The transferred core is a dragon.");
+                SemionTowerEntity source = fixture.entity(core);
+                SemionMonsterEntity primary = fixture.target(source.position().add(1, 0, 0), scenario == 3 ? 10 : 10000);
+                if (scenario == 4 || scenario == 5) {
+                    primary.applyTimedEffect(kim.biryeong.semiontd.effect.TimedEffectType.MONSTER_DAMAGE_REDUCTION,
+                            scenario == 4 ? 1 : .5, 1000);
+                }
+                java.util.List<SemionMonsterEntity> secondaries = new java.util.ArrayList<>();
+                for (int i = 0; i < splashTargets; i++) {
+                    secondaries.add(fixture.target(primary.position().add(0, 0, .1 * (i + 1)), 10000));
+                }
+                if (scenario == 6) {
+                    secondaries.getFirst().applyTimedEffect(
+                            kim.biryeong.semiontd.effect.TimedEffectType.MONSTER_DAMAGE_REDUCTION, .5, 1000);
+                }
+                source.setHealth(100);
+                core.syncHealth(100);
+                require(core.currentMaxHealth() > 1000, "The heal must not be hidden by the health cap.");
+                var result = core.damageResolvedTargetResult(source, primary, 250,
+                        kim.biryeong.semiontd.entity.monster.DamageType.PHYSICAL);
+                source.recordAttack(primary, 250, result.outgoingDamage(), result.dealtDamage(), result.killed());
+                double expectedPrimaryDamage = scenario == 3 ? 10 : scenario == 4 ? 0 : scenario == 5 ? 125 : 250;
+                double expectedPrimaryHealing = scenario == 3 ? 6 : scenario == 4 ? 0 : 18;
+                double expectedSplashDamage = scenario == 4 ? 0 : scenario == 6 ? 82.5 : 165;
+                double expectedSplashHealing = scenario == 4 ? 0 : scenario == 6 ? 5.94 : 11.88;
+                requireClose(expectedPrimaryDamage, result.dealtDamage(), "Primary damage honors health and reductions.");
+                for (SemionMonsterEntity secondary : secondaries) {
+                    requireClose(expectedSplashDamage, 10000 - secondary.runtimeMonster().health(), "Each splash deals 66% actual damage.");
+                }
+                double actualHealing = core.health() - 100;
+                requireClose(expectedPrimaryHealing + expectedSplashHealing * splashTargets, actualHealing,
+                        "Splash healing uses its actual damage and the original outgoing attack snapshot.");
+                System.out.println("END_LIFESTEAL_SPLASH_VERIFY scenario=" + scenario
+                        + " primaryDamage=" + result.dealtDamage()
+                        + " primaryHealing=" + expectedPrimaryHealing + " splashTargets=" + splashTargets
+                        + " splashDamageEach=" + expectedSplashDamage + " actualHealing=" + actualHealing
+                        + " measuredSplashHealingEach=" + (splashTargets == 0 ? 0 : (actualHealing - expectedPrimaryHealing) / splashTargets));
+            }
+        }
+        context.succeed();
+    }
+
 }

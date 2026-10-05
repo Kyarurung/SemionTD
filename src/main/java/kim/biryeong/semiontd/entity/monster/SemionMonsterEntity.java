@@ -460,6 +460,17 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         return Math.max(DEFENSE_TARGET_LEASH_RANGE, attackRange());
     }
 
+    public void rewindLanePath(Vec3 destination, double progress) {
+        getNavigation().stop();
+        for (var goal : goalSelector.getAvailableGoals()) {
+            if (goal.getGoal() instanceof LaneFollowGoal) {goal.stop();}
+        }
+        getMoveControl().setWantedPosition(destination.x, destination.y, destination.z, 0);
+        setDeltaMovement(Vec3.ZERO);
+        teleportTo(destination.x, destination.y, destination.z);
+        if (runtimeMonster != null) {runtimeMonster.syncLaneProgress(progress);}
+    }
+
     public int nextPathPointIndex() {
         if (laneLayout == null) {
             return 0;

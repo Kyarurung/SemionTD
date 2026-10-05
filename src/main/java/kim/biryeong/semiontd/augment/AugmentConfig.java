@@ -39,6 +39,7 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
                 values.forEach((key, value) -> {
                     // The retired per-round budget must not become a concurrent population limit.
                     if (normalized.equals("semiontd:job_insect_towers_g2") && key.equals("roundCap")) {return;}
+                    if (normalized.equals("semiontd:job_end_towers_p") && key.equals("statRatio")) {return;}
                     if (!defaults.containsKey(key)) {throw new IllegalArgumentException("Unknown augment parameter: " + id + "." + key);}
                     validateParameter(key, value);
                     copy.get(normalized).put(key, value);

@@ -148,7 +148,7 @@ public final class LegionTowerRuntimeTest extends GameTestParticipantFixture {
         context.succeed();
     }
 
-    @GameTest(maxTicks = 80, structure = "semion-td-gametest:combat_arena")
+    @GameTest(maxTicks = 80, structure = "semion-td-gametest:combat_arena", environment = "semion-td-gametest:clone_targeting")
     public void illusionCloneAttacksSharedSourceTargetInsteadOfScanningOwnTarget(GameTestHelper context) {
         UUID playerId = stableUuid("red-clone-shared-target-owner");
         BlockPos anchor = new BlockPos(8, 0, 8);

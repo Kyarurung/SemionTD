@@ -541,7 +541,7 @@ final class SemionConfigLoaderTest {
         assertEquals(30.0, global.get("absorptionHeal"));
         assertEquals(140.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageThreshold", -1.0));
         assertEquals(0.65, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "threshold", -1.0));
-        assertEquals(20.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageScale", -1.0));
+        assertEquals(40.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageScale", -1.0));
         assertEquals(2000.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "healthThreshold", -1.0));
         assertEquals(500.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "healthScale", -1.0));
         assertEquals(2.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "splashEvery", -1.0));

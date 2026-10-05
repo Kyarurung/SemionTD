@@ -46,6 +46,7 @@ class WarlockDescriptionTest {
         assertTrue(description.contains("체력 40% 이하"));
         assertTrue(description.contains("각성 시 체력을 회복하고, 재생이 증가합니다."));
         assertEquals(9, rangedDescriptionLines.size());
+        assertFalse(description.contains("생명력 흡수 효율:"));
         assertEquals("능력치는 높아질수록 증가 효율이 감소합니다.",
                 rangedDescriptionLines.getLast().replaceAll("<[^>]+>", ""));
         assertFalse(rangedMarkup.contains("{ability."));
@@ -64,6 +65,8 @@ class WarlockDescriptionTest {
         assertTrue(meleeDescription.contains("체력 40% 이하"));
         assertTrue(meleeDescription.contains("각성 시 체력을 회복하고, 추가 피해와 이동 속도가 증가합니다."));
         assertEquals(9, meleeDescriptionLines.size());
+        assertFalse(meleeDescription.contains("생명력 흡수 효율:"));
+        assertFalse(meleeDescription.contains("아군 타워가 남아 있어도 현재 라운드 흡수 스택"));
         assertEquals("능력치는 높아질수록 증가 효율이 감소합니다.",
                 meleeDescriptionLines.getLast().replaceAll("<[^>]+>", ""));
         assertFalse(meleeMarkup.contains("{ability."));
@@ -117,5 +120,34 @@ class WarlockDescriptionTest {
 
     private static String plainDescription(TowerType type) {
         return String.join("\n", TowerBalanceRuntime.resolve(type).description()).replaceAll("<[^>]+>", "");
+    }
+
+    @Test
+    void lifeStealDisplayShowsTheEffectiveRateAndOriginalProgress() {
+        for (boolean ranged : new boolean[] {true, false}) {
+            double maximum = ranged ? .07 : .12;
+            int stages = ranged ? 14 : 12;
+            int every = ranged ? 10 : 1;
+            double step = ranged ? .005 : .01;
+            for (int stage = 0; stage <= stages; stage++) {
+                for (double damage : new double[] {40, 400, 4000}) {
+                    double expectedPercent = stage * (ranged ? 5 : 10) * (damage == 40 ? 1 : damage == 400 ? .1 : .01);
+                    String expectedText = kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate
+                            .formatNumber(Math.round(expectedPercent * 10) / 10.0) + "%";
+                    String details = String.join("\n", WarlockStatsView.core(new WarlockStatsView.CoreStats(
+                            stage * every, stage * every, false, false, null,
+                            new WarlockStatsView.CombatStats(0, 0, 15, 0, 8, false),
+                            new WarlockStatsView.DefenseStats(0, stage * step, maximum, damage, 0, .3, 0),
+                            new WarlockStatsView.ProgressionStats(true, stage * every, every, 0, 10,
+                                    false, false, 0, 1, 0, 2, false))))
+                            .replaceAll("<[^>]+>", "");
+                    String progress = stage == stages ? "(MAX)" : "(" + ((stage + 1) * every) + ")";
+                    assertTrue(details.contains("생명력 흡수: " + expectedText + " " + progress), details);
+                    assertTrue(details.contains("현재 피해 " + (int) damage + " 기준의 단계 반영 회복률"), details);
+                    assertTrue(details.contains("40 이하 100% · 400에서 10% · 4,000 이상 1%"), details);
+                    assertTrue(details.contains("범위는 감쇠 전 공격 피해 기준"), details);
+                }
+            }
+        }
     }
 }

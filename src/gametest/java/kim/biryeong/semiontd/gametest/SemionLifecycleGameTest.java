@@ -114,7 +114,7 @@ public final class SemionLifecycleGameTest implements CustomTestMethodInvoker {
         }
     }
 
-    @GameTest(maxTicks = 1200)
+    @GameTest(maxTicks = 1200, environment = "semion-td-gametest:arena_convergence")
     public void defaultArenaLaneMonstersConvergeNearBoss(GameTestHelper context) {
         GameArena arena;
         List<RuntimePlayerFixture> observers = new ArrayList<>();
@@ -155,10 +155,14 @@ public final class SemionLifecycleGameTest implements CustomTestMethodInvoker {
                 return;
             }
             var red = arena.teamArena(TeamId.RED).orElseThrow();
-            RuntimePlayerFixture.whenChunksTrackEntities(context, red.world(),
-                    java.util.stream.IntStream.rangeClosed(1, 5)
-                            .mapToObj(laneId -> red.layout().lane(laneId).orElseThrow())
-                            .flatMap(lane -> lane.pathPoints().stream()).distinct().toList(), () -> {
+            var pathPoints = java.util.stream.IntStream.rangeClosed(1, 5)
+                    .mapToObj(laneId -> red.layout().lane(laneId).orElseThrow())
+                    .flatMap(lane -> lane.pathPoints().stream()).distinct().toList();
+            for (var position : pathPoints) {
+                var chunk = new net.minecraft.world.level.ChunkPos((int) Math.floor(position.x) >> 4, (int) Math.floor(position.z) >> 4);
+                red.world().setChunkForced(chunk.x(), chunk.z(), true);
+            }
+            RuntimePlayerFixture.whenChunksTrackEntities(context, red.world(), pathPoints, () -> {
                     List<PlayerLane> lanes = new ArrayList<>();
                     List<SemionMonsterEntity> monsters = new ArrayList<>();
                     try {

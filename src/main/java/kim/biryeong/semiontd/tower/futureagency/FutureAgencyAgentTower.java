@@ -370,9 +370,7 @@ public final class FutureAgencyAgentTower extends ProductionTower {
     @Override
     public void onAttackResolved(SemionTowerEntity source, SemionMonsterEntity primary, double attempted,
                                  double outgoing, double dealt, boolean killed) {
-        if (dealt > 0 && primary != null && AugmentCombat.allowsTriggers() && augmentSnapshot().has(CROSSFIRE)) {
-            registerCrossfire(primary);
-        }
+        registerCrossfire(primary, dealt);
         if (dealt <= 0.0 || FutureAgencyTowers.role(type()) != FutureAgencyRole.SUPPRESSION || lane == null) return;
         int grade = FutureAgencyTowers.grade(type());
         FutureAgencyStates.PlayerState state = FutureAgencyStates.state(ownerPlayer());
@@ -398,11 +396,16 @@ public final class FutureAgencyAgentTower extends ProductionTower {
                 AreaEffectIds.tower(this, "future_suppression"), source, primary, radius,
                 AreaVfxSpec.onTrigger(AreaVfxStyles.DEBUFF)).withFilter(target -> selected.contains(target.getUUID()));
         TowerAreaDamage.applyResolved(this, source, request, ignored -> outgoing * Math.min(1.0, ratio), true,
-                (target, amount, secondaryKilled) -> {applySuppression(target, slow); TowerVfxService.showSecondaryAttack(source, target);});
+                (target, amount, secondaryKilled) -> {
+                    registerCrossfire(target, amount);
+                    applySuppression(target, slow);
+                    TowerVfxService.showSecondaryAttack(source, target);
+                });
     }
 
-    private void registerCrossfire(SemionMonsterEntity target) {
-        if (!waveActive || lane == null) return;
+    private void registerCrossfire(SemionMonsterEntity target, double dealt) {
+        if (!(dealt > 0) || target == null || !AugmentCombat.allowsTriggers() || !augmentSnapshot().has(CROSSFIRE)
+                || !waveActive || lane == null) return;
         FutureAgencyAgentTower original = carriedCopy ? lane.towers().stream()
                 .filter(FutureAgencyAgentTower.class::isInstance).map(FutureAgencyAgentTower.class::cast)
                 .filter(agent -> !agent.carriedCopy && ownerPlayer().equals(agent.ownerPlayer())

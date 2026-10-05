@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.tower.end;
 
 import java.util.ArrayList;
 import java.util.List;
+import kim.biryeong.semiontd.tower.DamageLifeSteal;
 
 import static kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate.*;
 import static kim.biryeong.semiontd.tower.end.EndFormatting.endText;
@@ -28,7 +29,12 @@ final class EndStatsView {
         lines.add(stackLine(stats.shulkerStacks(), stats.endCrystalStacks()));
         lines.add(formatPermanentHealth(defense.additionalHealth(), ""));
         lines.add(formatRegeneration(defense.currentRegeneration(), stackProgress(stats.shulkerStacks(), progression.regenerationStacks(), defense.currentRegeneration(), defense.maximumRegeneration())));
-        lines.add(formatLifeSteal(defense.currentLifeSteal(), stackProgress(stats.shulkerStacks(), progression.lifeStealStacks(), defense.currentLifeSteal(), defense.maximumLifeSteal())));
+        double lifeStealEfficiency = DamageLifeSteal.rate(defense.lifeStealDisplayDamage(),
+                EndCombat.lifeStealProgress(defense.currentLifeSteal(), defense.maximumLifeSteal()), 30.0);
+        lines.add(formatLifeStealEfficiency(lifeStealEfficiency, stackProgress(stats.shulkerStacks(), progression.lifeStealStacks(), defense.currentLifeSteal(), defense.maximumLifeSteal())));
+        lines.add("<gray>표시값은 현재 피해 " + formatNumber(defense.lifeStealDisplayDamage())
+                + " 기준의 단계 반영 회복률입니다. 실제 회복률은 대상의 방어와 남은 체력에 따라 달라질 수 있습니다.</gray>");
+        lines.add("<gray>생명력 흡수 효율: 대상별 실제 피해 30 이하 100% · 300에서 10% · 600에서 5% · 3,000 이상 1% (30 ÷ 실제 피해, 최소 1%)</gray>");
         lines.add(formatDamageReduction(defense.currentDamageReduction(), stackProgress(stats.shulkerStacks(), progression.damageReductionStacks(), defense.currentDamageReduction(), defense.maximumDamageReduction())));
         lines.add(formatPermanentDamage(combat.additionalAttackDamage(), ""));
         lines.add(formatAttackSpeedReduction(combat.attackIntervalReductionTicks(), stackProgress(stats.endCrystalStacks(), progression.attackSpeedStacks(), combat.attackIntervalReductionTicks(), combat.maximumAttackIntervalReductionTicks())));
@@ -57,7 +63,7 @@ final class EndStatsView {
     record CoreStats(EndTowerState state, int shulkerStacks, int endCrystalStacks, DefenseStats defense, CombatStats combat, EvolutionStats evolution, ProgressionStats progression) {
     }
 
-    record DefenseStats(double additionalHealth, double currentLifeSteal, double maximumLifeSteal, double currentDamageReduction, double maximumDamageReduction, double currentRegeneration, double maximumRegeneration) {
+    record DefenseStats(double additionalHealth, double currentLifeSteal, double maximumLifeSteal, double lifeStealDisplayDamage, double currentDamageReduction, double maximumDamageReduction, double currentRegeneration, double maximumRegeneration) {
     }
 
     record CombatStats(double additionalAttackDamage, double currentSplashRadius, double maximumSplashRadius, int attackIntervalReductionTicks, int maximumAttackIntervalReductionTicks, double currentAttackRange, double maximumAttackRange) {

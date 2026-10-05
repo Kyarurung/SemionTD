@@ -183,7 +183,15 @@
       "damageRatio": 0.75
     },
     "semiontd:job_end_towers_p": {
-      "statRatio": 0.5
+      "chargeTicks": 60,
+      "rushDamageRatio": 1.0,
+      "stunTicks": 200,
+      "knockbackDistance": 20,
+      "flightHeight": 10,
+      "width": 6,
+      "burnDurationTicks": 200,
+      "burnIntervalTicks": 20,
+      "burnDamageRatio": 0.25
     },
     "semiontd:job_ocean_s": {},
     "semiontd:job_ocean_g1": {

@@ -232,10 +232,14 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
                 || endTower.state() != EndTowerState.DRAGON) {
             return;
         }
-        double xOffset = target.getX() - getX();
-        double zOffset = target.getZ() - getZ();
+        faceDragonPosition(new Vec3(target.getX(), target.getEyeY(), target.getZ()));
+    }
+
+    public void faceDragonPosition(Vec3 target) {
+        double xOffset = target.x - getX();
+        double zOffset = target.z - getZ();
         double horizontalDistance = Math.sqrt(xOffset * xOffset + zOffset * zOffset);
-        double yOffset = target.getEyeY() - getEyeY();
+        double yOffset = target.y - getEyeY();
         float yaw = (float) (Math.toDegrees(Math.atan2(zOffset, xOffset)) + 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(yOffset, horizontalDistance));
         lockedDragonYaw = yaw;
@@ -573,6 +577,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     public boolean needsFinalDefenseReturn() {
         return finalDefense
+                && !(runtimeTower instanceof EndTower endTower && endTower.controlsAssaultFlight())
                 && laneLayout != null
                 && !laneLayout.isInsideFinalDefenseTowerArea(position());
     }
@@ -1662,7 +1667,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     private void clampToFinalDefenseAreaIfNeeded() {
-        if (!finalDefense || laneLayout == null || laneLayout.isInsideFinalDefenseTowerArea(position())) {
+        if (!finalDefense || laneLayout == null || laneLayout.isInsideFinalDefenseTowerArea(position())
+                || runtimeTower instanceof EndTower endTower && endTower.controlsAssaultFlight()) {
             return;
         }
 

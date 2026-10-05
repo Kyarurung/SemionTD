@@ -126,8 +126,17 @@ public class SemionTd implements ModInitializer {
         SemionTdApi.initializeInternal(new AreaEffectService(gameManager), areaVfxStyles);
         TowerVfxService.initialize(configs.vfx(), gameManager, areaVfxStyles);
         ServerLifecycleEvents.SERVER_STARTING.register(server -> areaVfxStyles.freeze());
-        ServerLifecycleEvents.SERVER_STARTED.register(server ->
-                balanceManagement = BalanceManagementBootstrap.start(server, gameManager, configDir));
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            balanceManagement = BalanceManagementBootstrap.start(server, gameManager, configDir);
+            var active = gameManager.captureBalanceBundle();
+            LOGGER.info("Runtime tower balance: end damageScale={}, ranged warlock damageScale={}, healthThreshold={}, healthScale={}, melee lifeCap={}",
+                    active.tower().ability("end_global", "damageScale", -1.0),
+                    active.tower().ability("ranged_warlock_tower", "damageScale", -1.0),
+                    active.tower().ability("ranged_warlock_tower", "healthThreshold", -1.0),
+                    active.tower().ability("ranged_warlock_tower", "healthScale", -1.0),
+                    active.tower().ability("melee_warlock_tower", "lifeCap", -1.0));
+            LOGGER.info("Runtime End assault parameters: {}", active.augment().parametersFor("job_end_towers_p"));
+        });
         ServerLifecycleEvents.SERVER_STARTED.register(balancePatchNotifier::start);
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             if (balanceManagement != null) { balanceManagement.close(); balanceManagement = null; }
