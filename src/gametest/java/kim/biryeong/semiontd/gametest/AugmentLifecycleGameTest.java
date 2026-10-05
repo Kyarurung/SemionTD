@@ -531,7 +531,7 @@ public final class AugmentLifecycleGameTest {
     private static void addLate(SemionGame game, GameTestHelper context, ServerPlayer player, int lane, int requestedRound) {
         require(game.addLateParticipant(context.getLevel().getServer(), player,
                 new AssignedParticipant(player.getUUID(), player.getGameProfile().name(), TeamId.RED, lane),
-                TraitLoadout.none(), JobRegistry.defaultJob(), requestedRound), "Late participant activation must succeed.");
+                TraitLoadout.none(), JobRegistry.find(UndeadTowerJob.ID).orElseThrow(), requestedRound), "Late participant activation must succeed.");
     }
 
     private static int draft(SemionGame game, ServerPlayer online, long revision, int slot) {

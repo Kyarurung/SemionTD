@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import kim.biryeong.semiontd.SemionTd;
+import kim.biryeong.semiontd.api.SemionTdApi;
+import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
@@ -1096,17 +1098,14 @@ public final class AdversaryFoxTower extends EntityBackedTower {
         if (lane == null || lane.arenaWorld() != source.level()) {
             return List.of();
         }
-        double radiusSqr = radius * radius;
-        return List.copyOf(lane.activeMonsters()).stream()
-                .filter(Monster::hasMinecraftEntity)
-                .map(monster -> lane.arenaWorld().getEntity(monster.minecraftEntityId()))
-                .filter(SemionMonsterEntity.class::isInstance)
-                .map(SemionMonsterEntity.class::cast)
-                .filter(monster -> source.isValidAttackTarget(monster)
-                        && monster.runtimeMonster() != null
-                        && !excluded.contains(monster.getUUID())
-                        && monster.position().distanceToSqr(center) <= radiusSqr)
-                .toList();
+        List<SemionMonsterEntity> targets = new ArrayList<>();
+        SemionTdApi.areaEffects().applyToMonsters(new MonsterAreaEffectRequest(
+                AreaEffectIds.tower(this, "attack_candidates"), source, center, radius,
+                excluded, source::isValidAttackTarget, AreaVfxSpec.none()), target -> {
+                    targets.add(target);
+                    return AreaEffectOutcome.UNCHANGED;
+                });
+        return targets;
     }
 
     private void beginOrMaintainMaceChannel(SemionTowerEntity source, SemionMonsterEntity target) {

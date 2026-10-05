@@ -1363,7 +1363,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             return;
         }
         var blockState = BlockDisplayVisual.blockState(visual);
-        if (blockState == null) {
+        if (blockState == null || blockState.isAir()) {
             discardBlockDisplayVisual();
             return;
         }

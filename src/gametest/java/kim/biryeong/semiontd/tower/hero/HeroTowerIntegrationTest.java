@@ -52,6 +52,26 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 
 public final class HeroTowerIntegrationTest {
+    private static void assertEmptyAnchor(GameTestHelper context, SemionTowerEntity anchor) {
+        anchor.tick();
+        try {
+            var field = SemionTowerEntity.class.getDeclaredField("blockDisplayElement");
+            field.setAccessible(true);
+            context.assertTrue(field.get(anchor) == null, "Empty anchors create no visible block display or light-level model");
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    @GameTest
+    public void heroPartyAnchorsHaveNoVisibleLightLevelModel(GameTestHelper context) {
+        for (var type : HeroPartyTowers.all()) {
+            context.assertTrue(kim.biryeong.semiontd.entity.visual.BlockDisplayVisual.blockState(type.visual()).isAir(),
+                    "Hero and every companion tier use an empty anchor instead of a visible level-15 light model");
+        }
+        context.succeed();
+    }
+
     @GameTest
     public void heroCommandTreeExposesShopQuestPartyAndCompanion(GameTestHelper context) {
         var dispatcher = context.getLevel().getServer().getCommands().getDispatcher();
@@ -160,6 +180,7 @@ public final class HeroTowerIntegrationTest {
                     "Selection glow must target the visible Hero, without changing shared entity flags.")) {
                 return;
             }
+            assertEmptyAnchor(context, (SemionTowerEntity) heroAnchor);
             heroAnchor.setYHeadRot(73.0F);
             heroAnchor.setXRot(-18.0F);
             game.tick(context.getLevel().getServer());
@@ -343,6 +364,14 @@ public final class HeroTowerIntegrationTest {
                 return;
             }
 
+            lane.moveTowersToFinalDefense();
+            assertEmptyAnchor(context, (SemionTowerEntity) heroAnchor);
+            game.tick(context.getLevel().getServer());
+            game.tick(context.getLevel().getServer());
+            var movedVisual = FakePlayerTowerVisuals.visualEntity((HeroTower) ((SemionTowerEntity) heroAnchor).runtimeTower()).orElseThrow();
+            context.assertTrue(movedVisual.position().distanceTo(heroAnchor.position()) < 0.01,
+                    "Visible Hero follows its invisible anchor after central movement");
+            context.assertValueEqual(2, activeVisualProfileIds(ownerId).size(), "Movement retains the Hero and companion visuals");
             game.close();
             closed = true;
             if (!check(context, activeVisualProfileIds(ownerId).isEmpty(),

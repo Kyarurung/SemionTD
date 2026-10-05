@@ -65,12 +65,9 @@ public final class GameArenaLoader {
     }
 
     private static RuntimeLevelConfig runtimeWorldConfig(MinecraftServer server, MapConfig config, MapTemplate template) {
-        return new RuntimeLevelConfig()
+        return RuntimeWorldDaylight.configure(new RuntimeLevelConfig())
                 .setGenerator(new TemplateChunkGenerator(server, template))
-                .setShouldTickTime(false)
-                .setClockTime(Fantasy.DEFAULT_CLOCK, Math.toIntExact(config.timeOfDay()))
                 .setDifficulty(Difficulty.NORMAL)
-                .setGameRule(GameRules.ADVANCE_TIME, false)
                 .setGameRule(GameRules.ADVANCE_WEATHER, false)
                 .setGameRule(GameRules.SPAWN_MOBS, false)
                 .setGameRule(GameRules.MOB_GRIEFING, false);

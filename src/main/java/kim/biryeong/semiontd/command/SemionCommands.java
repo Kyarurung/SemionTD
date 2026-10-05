@@ -2114,6 +2114,10 @@ public final class SemionCommands {
                 failure(source, "이미 중도 참여 특성을 선택 중입니다. /특성으로 창을 다시 여세요.");
                 yield 0;
             }
+            case JOB_REQUIRED -> {
+                failure(source, "사용 가능한 직업을 먼저 선택해야 중도 참여할 수 있습니다. 무직으로는 참가할 수 없습니다.");
+                yield 0;
+            }
             case NO_SLOT -> {
                 failure(source, "참가할 수 있는 팀에 빈자리가 없습니다.");
                 yield 0;

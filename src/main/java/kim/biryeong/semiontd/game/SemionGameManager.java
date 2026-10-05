@@ -203,6 +203,7 @@ public final class SemionGameManager {
         TOO_LATE,
         ALREADY_PARTICIPANT,
         ALREADY_PENDING,
+        JOB_REQUIRED,
         NO_SLOT,
         FAILED
     }
@@ -1529,6 +1530,9 @@ public final class SemionGameManager {
         if (pendingLateJoins.containsKey(playerId)) {
             return LateJoinResult.ALREADY_PENDING;
         }
+        if (selectedLateJoinJob(server, player) == null) {
+            return LateJoinResult.JOB_REQUIRED;
+        }
         Optional<AssignedParticipant> assignment = findLateJoinAssignment(
                 playerId,
                 player.getGameProfile().name()
@@ -1599,6 +1603,12 @@ public final class SemionGameManager {
         return Optional.empty();
     }
 
+    private SemionJob selectedLateJoinJob(MinecraftServer server, ServerPlayer player) {
+        return profile(server, player.getUUID(), player.getGameProfile().name())
+                .selectedJobResource().flatMap(JobRegistry::find)
+                .filter(SemionGame::canLateJoinWithJob).orElse(null);
+    }
+
     private boolean finishLateJoin(MinecraftServer server, UUID playerId, boolean timeout) {
         PendingLateJoin pending = pendingLateJoins.remove(playerId);
         SemionGame game = activeGame;
@@ -1607,6 +1617,11 @@ public final class SemionGameManager {
             return false;
         }
 
+        SemionJob job = selectedLateJoinJob(server, player);
+        if (job == null) {
+            player.sendSystemMessage(SemionText.prefixedError("사용 가능한 직업을 먼저 선택해야 중도 참여할 수 있습니다. 무직으로는 참가할 수 없습니다."));
+            return false;
+        }
         AssignedParticipant assignment = pending.assignment();
         SemionTeam team = game.teams().get(assignment.teamId());
         boolean slotAvailable = team != null && team.active() && !team.eliminated()
@@ -1620,11 +1635,6 @@ public final class SemionGameManager {
             return false;
         }
 
-        SemionJob job = profile(server, playerId, player.getGameProfile().name())
-                .selectedJobResource()
-                .flatMap(JobRegistry::find)
-                .filter(JobRegistry::isEnabled)
-                .orElse(JobRegistry.defaultJob());
         boolean joined = game.addLateParticipant(
                 server,
                 player,

@@ -1312,6 +1312,10 @@ public final class SemionGame {
         return true;
     }
 
+    public static boolean canLateJoinWithJob(SemionJob job) {
+        return job != null && !job.id().equals(JobRegistry.defaultJob().id()) && JobRegistry.isEnabled(job);
+    }
+
     public boolean addLateParticipant(
             MinecraftServer server,
             ServerPlayer player,
@@ -1320,7 +1324,7 @@ public final class SemionGame {
             SemionJob job,
             int requestedRound
     ) {
-        if (server == null || player == null || participant == null || job == null
+        if (server == null || player == null || participant == null || !canLateJoinWithJob(job)
                 || !rosterLocked || phase == RoundPhase.WAITING || phase == RoundPhase.ENDED
                 || requestedRound < 1 || requestedRound > 5
                 || !player.getUUID().equals(participant.uuid())) {
@@ -1806,12 +1810,18 @@ public final class SemionGame {
             if (!team.active() || team.eliminated()) {
                 continue;
             }
-            activeParticipants.stream()
+            List<AssignedParticipant> candidates = activeParticipants.stream()
                     .filter(participant -> participant.teamId() == team.id())
                     .filter(participant -> players.containsKey(participant.uuid()))
-                    .min(Comparator.comparingInt(AssignedParticipant::displayElo).reversed()
-                            .thenComparingInt(AssignedParticipant::laneId))
-                    .ifPresent(participant -> team.setLeader(participant.uuid()));
+                    .toList();
+            if (candidates.isEmpty()) {
+                continue;
+            }
+            int highestElo = candidates.stream().mapToInt(AssignedParticipant::displayElo).max().orElseThrow();
+            List<AssignedParticipant> leaders = candidates.stream()
+                    .filter(participant -> participant.displayElo() == highestElo)
+                    .toList();
+            team.setLeader(leaders.get(leaders.size() == 1 ? 0 : random.nextInt(leaders.size())).uuid());
         }
     }
 

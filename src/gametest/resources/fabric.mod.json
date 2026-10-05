@@ -10,6 +10,12 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.game.GameLeaderToolTest",
+      "kim.biryeong.semiontd.game.GamePlayerPvpTest",
+      "kim.biryeong.semiontd.game.GameParticipantLateJoinTest",
+      "kim.biryeong.semiontd.map.RuntimeWorldDaylightTest",
+      "kim.biryeong.semiontd.summon.invasion.InvasionSiegeTargetTest",
+      "kim.biryeong.semiontd.tower.adversary.AdversaryTowerCentralAttackTest",
       "kim.biryeong.semiontd.command.CommandCosmeticPointsTest",
       "kim.biryeong.semiontd.gametest.BugReportGameTest",
       "kim.biryeong.semiontd.gametest.BalanceRuntimeGameTest",

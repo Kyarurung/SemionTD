@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "publicPoolEnabled": false,
+  "enabled": true,
+  "publicPoolEnabled": true,
   "rarityWeights": {
     "GGG": 18,
     "GGP": 11,

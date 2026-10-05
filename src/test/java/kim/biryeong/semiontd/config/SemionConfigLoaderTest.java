@@ -148,7 +148,7 @@ final class SemionConfigLoaderTest {
                 """);
         AugmentConfig loaded = SemionConfigLoader.loadOrCreateAugments(path, AugmentConfig.defaults(), LoggerFactory.getLogger("test"));
         assertTrue(loaded.enabled());
-        assertFalse(loaded.publicPoolEnabled());
+        assertTrue(loaded.publicPoolEnabled());
         assertEquals(0.31, loaded.parameter("tactical_designation_1", "damageBonus", -1));
         assertEquals(AugmentConfig.defaults().parameter("tactical_designation_1", "damageReduction", -1),
                 loaded.parameter("tactical_designation_1", "damageReduction", -1));

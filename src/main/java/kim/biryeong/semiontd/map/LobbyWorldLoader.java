@@ -56,12 +56,9 @@ public final class LobbyWorldLoader {
     }
 
     private static RuntimeLevelConfig runtimeWorldConfig(MinecraftServer server, MapTemplate template) {
-        return new RuntimeLevelConfig()
+        return RuntimeWorldDaylight.configure(new RuntimeLevelConfig())
                 .setGenerator(new TemplateChunkGenerator(server, template))
-                .setShouldTickTime(false)
-                .setClockTime(Fantasy.DEFAULT_CLOCK, 6000)
                 .setDifficulty(Difficulty.PEACEFUL)
-                .setGameRule(GameRules.ADVANCE_TIME, false)
                 .setGameRule(GameRules.ADVANCE_WEATHER, false)
                 .setGameRule(GameRules.SPAWN_MOBS, false)
                 .setGameRule(GameRules.MOB_GRIEFING, false)

@@ -65,8 +65,11 @@ public final class RuntimePlayerFixture implements AutoCloseable {
 
     private static void awaitEntityTracking(GameTestHelper context, ServerLevel world,
             java.util.List<Vec3> positions, Runnable action, Runnable cleanup, int remainingTicks) {
-        boolean ready = positions.stream().allMatch(position -> world.getChunkAt(net.minecraft.core.BlockPos.containing(position))
-                .getFullStatus() == net.minecraft.server.level.FullChunkStatus.ENTITY_TICKING);
+        boolean ready = positions.stream().allMatch(position -> {
+            var chunk = world.getChunkAt(net.minecraft.core.BlockPos.containing(position));
+            return chunk.getFullStatus() == net.minecraft.server.level.FullChunkStatus.ENTITY_TICKING
+                    && world.areEntitiesActuallyLoadedAndTicking(chunk.getPos());
+        });
         if (ready) {
             action.run();
         } else if (remainingTicks == 0) {

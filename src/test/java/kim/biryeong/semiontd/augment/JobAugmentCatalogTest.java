@@ -62,8 +62,8 @@ class JobAugmentCatalogTest {
     @Test
     void everyJobDefaultIsBundledAndPartialConfigurationPreservesExplicitValues() {
         AugmentConfig defaults = AugmentConfig.defaults();
-        assertFalse(defaults.enabled());
-        assertFalse(defaults.publicPoolEnabled());
+        assertTrue(defaults.enabled());
+        assertTrue(defaults.publicPoolEnabled());
         for (var entry : JobAugmentCatalog.entries()) {
             assertEquals(entry.parameters(), defaults.parametersFor(entry.definition().id()), entry.reviewId());
             assertFalse(AugmentDescriptions.describe(entry.definition(), defaults).contains("{"), entry.reviewId());

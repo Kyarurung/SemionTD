@@ -79,7 +79,6 @@ public final class InvasionSummon extends BasicIncomeSummon {
                         abilityValue("minionDamageRatio", 0.15)));
             }
             case "siege_golem" -> {
-                entity.setIgnoresDefenses(true);
                 entity.setAttackStyle(InvasionAttacks.single(hit,
                         InvasionAttacks.at(seed -> InvasionVfx.groundSlam(1.6, seed))));
             }

@@ -231,9 +231,11 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
             if (!assertTrue(context, game.start(server, plan), "Game should start for late-join reservation test.")) {
                 return;
             }
+            manager.saveSelectedJob(server, firstLatePlayer.getUUID(), firstLatePlayer.getGameProfile().name(), NetherTowerJob.ID);
             if (!assertEquals(context, SemionGameManager.LateJoinResult.SELECTION_STARTED, manager.requestLateJoin(server, firstLatePlayer), "First reservation should start trait selection.")) {
                 return;
             }
+            manager.saveSelectedJob(server, secondLatePlayer.getUUID(), secondLatePlayer.getGameProfile().name(), NetherTowerJob.ID);
             if (!assertEquals(context, SemionGameManager.LateJoinResult.SELECTION_STARTED, manager.requestLateJoin(server, secondLatePlayer), "Second reservation should include the first reservation when balancing teams.")) {
                 return;
             }
@@ -254,6 +256,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
                 return;
             }
 
+            manager.saveSelectedJob(server, reassignedPlayer.getUUID(), reassignedPlayer.getGameProfile().name(), NetherTowerJob.ID);
             if (!assertEquals(context, SemionGameManager.LateJoinResult.SELECTION_STARTED, manager.requestLateJoin(server, reassignedPlayer), "Third reservation should start trait selection.")) {
                 return;
             }
@@ -298,6 +301,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
             if (!assertTrue(context, game.start(server, plan), "Game should start for late-join timeout test.")) {
                 return;
             }
+            manager.saveSelectedJob(server, timeoutPlayer.getUUID(), timeoutPlayer.getGameProfile().name(), NetherTowerJob.ID);
             if (!assertEquals(context, SemionGameManager.LateJoinResult.SELECTION_STARTED, manager.requestLateJoin(server, timeoutPlayer), "Timeout player should start trait selection.")) {
                 return;
             }
@@ -316,6 +320,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
             }
 
             setField(game, "currentRound", 5);
+            manager.saveSelectedJob(server, roundFivePlayer.getUUID(), roundFivePlayer.getGameProfile().name(), NetherTowerJob.ID);
             if (!assertEquals(context, SemionGameManager.LateJoinResult.SELECTION_STARTED, manager.requestLateJoin(server, roundFivePlayer), "Round five request should be accepted.")) {
                 return;
             }
@@ -379,7 +384,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
                 latePlayer,
                 lateParticipant,
                 TraitLoadout.none(),
-                JobRegistry.defaultJob(),
+                JobRegistry.find(NetherTowerJob.ID).orElseThrow(),
                 1
         ), "Late participant should join the active game.")) {
             return;

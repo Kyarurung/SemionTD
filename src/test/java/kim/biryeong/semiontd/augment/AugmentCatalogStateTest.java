@@ -151,10 +151,10 @@ class AugmentCatalogStateTest {
     }
 
     @Test
-    void defaultsAreDisabledAndHaveApprovedReserveRewards() {
+    void defaultsAreEnabledAndHaveApprovedReserveRewards() {
         AugmentConfig config = AugmentConfig.defaults();
-        assertFalse(config.enabled());
-        assertFalse(config.publicPoolEnabled());
+        assertTrue(config.enabled());
+        assertTrue(config.publicPoolEnabled());
         String[] rarities = {"silver", "gold", "prismatic"};
         int[] diamonds = {150, 300, 600};
         int[] income = {15, 30, 60};

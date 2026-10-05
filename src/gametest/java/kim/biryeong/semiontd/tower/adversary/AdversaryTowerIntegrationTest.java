@@ -361,6 +361,8 @@ public final class AdversaryTowerIntegrationTest {
         UUID owner = stableUuid("adversary-breeze-magic");
         PlayerLane lane = testLane(context, owner, 1, 0);
 
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
         try {
             TowerBalanceRuntime.apply(defaults);
             AdversaryFoxTower fox = fox(owner, 1, position(context, 3, 2, 3));
@@ -398,7 +400,7 @@ public final class AdversaryTowerIntegrationTest {
             failure.printStackTrace();
             context.fail(Component.literal("Adversary Breeze magic chain failed: " + failure.getMessage()));
         } finally {
-            lane.clearTowers();
+            group.closeRuntime();
             AdversaryProgressStates.clear(owner);
             TowerBalanceRuntime.apply(defaults);
         }

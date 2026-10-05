@@ -284,7 +284,7 @@ Semion TD는 서버 시작 또는 `/semiontd reload` 시 `config/semion-td/` 아
 
 - `templateId`: 아레나 template ID입니다. 기본값은 `semion-td:arena`입니다.
 - `originX`, `originY`, `originZ`: template 배치 원점입니다.
-- `timeOfDay`: 아레나 시간입니다.
+- `timeOfDay`: 기존 설정 파일 호환을 위해 유지합니다. SemionTD 로비와 경기장은 생성·로드 시 정오(6000틱)로 고정하며, 독립 시계를 일시 정지하고 일주기를 끕니다. 야간 값이 저장되어 있어도 정오를 적용합니다. 다른 서버 월드의 시간은 바꾸지 않습니다.
 - `regions`: template 내부 marker 이름입니다. `teamSpawn`, `laneSpawn`, `lanePath`, `laneWaypoint`, `finalWaypoint`, `bossSpawn`, `finalDefenseTower`를 씁니다.
 
 맵 설정은 다음 게임 생성부터 반영됩니다. 진행 중인 게임의 맵을 바꾸려면 게임을 리셋한 뒤 다시 생성합니다.
@@ -409,6 +409,14 @@ tick 값은 Minecraft 기준 `20 tick = 1초`로 계산합니다.
 ## `augment_balance.json`
 
 엔드 빌더 `semiontd:job_end_towers_p`는 라운드당 1회 돌진·브레스 효과입니다. 기본값은 `chargeTicks=60`, `rushDamageRatio=1.0`, `stunTicks=200`, `knockbackDistance=20`, `flightHeight=10`, `width=6`, `burnDurationTicks=200`, `burnIntervalTicks=20`, `burnDamageRatio=0.25`입니다. 이전 복제 효과의 `statRatio`는 기존 설정 로딩 때 무시하며, 생략된 새 키는 기본값을 사용합니다. 운영 설정 파일을 자동으로 덮어쓰지 않습니다.
+
+`enabled`와 `publicPoolEnabled`의 기본값은 모두 `true`입니다. 일반 게임의 생존 참가자에게 5·15·25라운드 준비 단계에서 증강 세 장 중 하나를 고르게 합니다. 샌드박스·튜토리얼·일반 게임이 아닌 모드에는 적용하지 않습니다. `enabled=false`는 증강 시스템 전체를, `publicPoolEnabled=false`는 정규 라운드 카드 제시를 끕니다. 기존 운영 설정의 명시적 값은 보존됩니다. 설정 변경은 실행 중 경기의 스냅샷을 바꾸지 않고 설정 재로드 후 새 경기에 반영됩니다.
+
+ELO 기록은 `rating.json`의 `enabled=true`로 켭니다. `teamEloMatchmakingEnabled`는 별도 팀 배정 옵션이며 ELO 기록 활성화만으로 바뀌지 않습니다.
+
+플레이어 간 피해는 공통 서버 피해 이벤트에서 차단합니다. 실제 플레이어가 가해자인 근접·소유 투사체·플레이어 출처가 기록된 간접 피해에 적용하며, 로비·경기·재접속에 관계없이 유지됩니다. 몬스터와 타워의 전투 및 플레이어형 외형만 가진 NPC에는 PvP 규칙을 적용하지 않습니다. 기존 `server.properties`의 `pvp=false`는 유지하며 별도 운영 설정 변경이나 자동 재시작은 필요하지 않습니다.
+
+일반 매치 팀장은 참가자의 표시 ELO가 가장 높은 사람으로 정하며, 최고값 동점자는 무작위로 선택합니다. 일반 매치 배치·재접속·라운드 준비 시 팀장에게만 3번째 슬롯의 `팀장 타깃` 블레이즈 막대를 지급합니다.
 
 엔드는 기존 30스택당 1단계·최대 10단계를 유지하고, 생명력 흡수의 기본 회복률은 현재 단계 ÷ 10으로 계산한다. 효율은 `clamp(30 / 기준 피해, 0.01, 1)`로, 피해 30 이하에서는 100%, 300에서는 10%, 600에서는 5%, 3,000 이상에서는 1%다. 회복량은 실제 피해 × (현재 단계 ÷ 10) × 효율이다. 기본 공격과 기존 범위 공격에 적용하며 화상·돌진에 새 흡수 효과를 추가하지 않는다.
 
