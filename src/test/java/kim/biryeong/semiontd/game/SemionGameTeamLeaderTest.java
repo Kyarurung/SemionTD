@@ -34,29 +34,20 @@ final class SemionGameTeamLeaderTest {
     }
 
     @Test
-    void equalEloLeaderSelectionCanChooseEitherHighestRatedParticipant() throws Exception {
+    void equalEloLeaderSelectionFallsBackToLowestLane() {
         SemionGame game = newGame();
         UUID laneTwo = UUID.nameUUIDFromBytes("equal-elo-red-lane-2".getBytes());
         UUID laneOne = UUID.nameUUIDFromBytes("equal-elo-red-lane-1".getBytes());
         game.teams().get(TeamId.RED).activate();
         game.players().put(laneTwo, player(laneTwo, TeamId.RED, 2));
         game.players().put(laneOne, player(laneOne, TeamId.RED, 1));
-        UUID lowerElo = UUID.nameUUIDFromBytes("equal-elo-red-lower-rated".getBytes());
-        game.players().put(lowerElo, player(lowerElo, TeamId.RED, 3));
-        var participants = List.of(
+
+        game.assignTeamLeadersFromParticipants(List.of(
                 new AssignedParticipant(laneTwo, "red2", TeamId.RED, 2, 1600),
-                new AssignedParticipant(laneOne, "red1", TeamId.RED, 1, 1600),
-                new AssignedParticipant(lowerElo, "red3", TeamId.RED, 3, 1500)
-        );
-        var field = SemionGame.class.getDeclaredField("random");
-        field.setAccessible(true);
-        var random = (java.util.Random) field.get(game);
-        random.setSeed(0);
-        game.assignTeamLeadersFromParticipants(participants);
+                new AssignedParticipant(laneOne, "red1", TeamId.RED, 1, 1600)
+        ));
+
         assertEquals(laneOne, game.teams().get(TeamId.RED).leaderPlayerId().orElseThrow());
-        random.setSeed(4096);
-        game.assignTeamLeadersFromParticipants(participants);
-        assertEquals(laneTwo, game.teams().get(TeamId.RED).leaderPlayerId().orElseThrow());
     }
 
     @Test

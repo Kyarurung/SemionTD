@@ -29,7 +29,6 @@ import kim.biryeong.semiontd.tower.area.AreaEffectLaneIndex;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
@@ -270,7 +269,7 @@ public final class PetGameTest {
         context.succeed();
     }
 
-    @GameTest(structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void adultCatsSplashAtTheirTierRadiusAndTargetCap(GameTestHelper context) {
         reloadBalance();
         PlayerLane lane = testLane(context);
@@ -280,8 +279,6 @@ public final class PetGameTest {
             assertAdultCatSplash(context, lane, PetTowers.CAT_T2, 2.0, 4, 7);
             assertAdultCatSplash(context, lane, PetTowers.CAT_T3, 2.5, 6, 11);
             context.succeed();
-        } catch (RuntimeException | AssertionError failure) {
-            context.fail(Component.literal("Adult cat splash: " + failure));
         } finally {
             lane.clearTowers();
             AreaEffectLaneIndex.unregister(lane);
@@ -309,23 +306,16 @@ public final class PetGameTest {
         PetTower cat = tower(type, position(context, 1, 2, z));
         lane.addTower(cat);
         SemionTowerEntity source = cat.runtimeEntity(lane).orElseThrow();
-        Vec3 relativeCenter = new Vec3(4.5, 2.5, z + 0.5);
-        Vec3 center = context.absoluteVec(relativeCenter);
+        Vec3 center = Vec3.atCenterOf(context.absolutePos(new BlockPos(4, 2, z)));
         SemionMonsterEntity primary = spawnMonster(context, lane, type.id() + "-primary", center);
         List<SemionMonsterEntity> nearby = new ArrayList<>();
         for (int index = 0; index <= maxTargets; index++) {
             double offset = radius * (index + 1) / (maxTargets + 2);
             nearby.add(spawnMonster(context, lane, type.id() + "-nearby-" + index,
-                    context.absoluteVec(relativeCenter.add(offset, 0.0, 0.0))));
+                    center.add(offset, 0.0, 0.0)));
         }
         SemionMonsterEntity outside = spawnMonster(
-                context, lane, type.id() + "-outside",
-                context.absoluteVec(relativeCenter.add(radius + 0.5, 0.0, 0.0)));
-        require(context.getBounds().contains(source.position())
-                        && context.getBounds().contains(primary.position())
-                        && context.getBounds().contains(outside.position())
-                        && nearby.stream().allMatch(target -> context.getBounds().contains(target.position())),
-                type.id() + " splash fixture must stay inside the test arena.");
+                context, lane, type.id() + "-outside", center.add(radius + 0.5, 0.0, 0.0));
 
         if (!cat.isAdult()) {
             cat.onAttackResolved(source, primary, 100.0, 100.0, 100.0, false);

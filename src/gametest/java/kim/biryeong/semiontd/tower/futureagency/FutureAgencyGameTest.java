@@ -35,8 +35,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 
-public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+public final class FutureAgencyGameTest {
+    @GameTest
     public void rescueAugmentsKeepTwoSurvivorsAndRestoreTheStartSnapshotOnlyOnce(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         FutureAgencyStates.clear(owner);
@@ -143,7 +143,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
                         kim.biryeong.semiontd.augment.AugmentChoice.none())).toList());
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void cleanLaneRecordGrantsTwoPolicyChoicesNextRound(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-clean-lane".getBytes(StandardCharsets.UTF_8));
         UUID opponent = UUID.nameUUIDFromBytes("future-agency-clean-lane-opponent".getBytes(StandardCharsets.UTF_8));
@@ -183,7 +183,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void suppressionReducesMoveAndAttackSpeedTogether(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-suppression".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -207,7 +207,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void survivorsStayCapped(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-carry".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -269,7 +269,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void finalDefenseDoesNotCreateSurvivorCopies(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-final-defense".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -301,7 +301,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void survivorDeathReplacementAndOriginalSaleRespectLink(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-death".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -354,7 +354,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void originalUpgradeSynchronizesSurvivorGradePositionAndHealthRatio(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-upgrade".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -394,7 +394,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void survivorLinksAreIsolatedByOwnerAndLane(GameTestHelper context) {
         UUID firstOwner = UUID.nameUUIDFromBytes("future-agency-owner-a".getBytes(StandardCharsets.UTF_8));
         UUID secondOwner = UUID.nameUUIDFromBytes("future-agency-owner-b".getBytes(StandardCharsets.UTF_8));
@@ -436,7 +436,7 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
         }
     }
 
-    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    @GameTest
     public void worldSaveKeepsCarryThroughFinalDefenseReset(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-world-save".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
