@@ -39,6 +39,7 @@ public enum BuilderPalette {
     PIRATE(0xFFD700, 0xC0C0C0, "minecraft:wax_on", "minecraft:end_rod"),
     /** 빌더 빌더: 청사진 파랑과 흰 선. */
     BLUEPRINT(0x2F6FDE, 0xE8F1FF, "minecraft:enchant", "minecraft:end_rod"),
+    MAGIC_SCHOOL(0x8B5CF6, 0xFBBF24, "minecraft:enchant", "minecraft:end_rod"),
     DEFAULT(0xE0E0E0, 0xFFFFFF, "minecraft:end_rod", "minecraft:crit");
 
     private final DustParticleOptions rayParticle;

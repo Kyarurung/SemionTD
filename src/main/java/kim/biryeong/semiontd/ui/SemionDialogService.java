@@ -5,6 +5,9 @@ import static kim.biryeong.semiontd.ui.UiDialogPresentation.*;
 import static kim.biryeong.semiontd.ui.UiDialogBodyRenderer.*;
 import static kim.biryeong.semiontd.ui.UiDialogTableLayout.*;
 
+import kim.biryeong.semiontd.tower.magicschool.HogwartsTower;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolWizardTower;
 import kim.biryeong.semiontd.tower.gamble.PokerTableTower;
 import kim.biryeong.semiontd.tower.gamble.GamblerTower;
 import kim.biryeong.semiontd.tower.gamble.GambleBalance;
@@ -1034,6 +1037,29 @@ public final class SemionDialogService {
                         BUTTON_WIDTH
                 ));
             }
+            if (tower instanceof HogwartsTower) {
+                actions.add(actionButton(
+                        "커리큘럼",
+                        "/semiontd magic_school curriculum "
+                                + managementPosition.x() + " "
+                                + managementPosition.y() + " "
+                                + managementPosition.z(),
+                        "마법학교의 커리큘럼을 확인합니다."
+                ));
+                actions.add(actionButton("마법사 스킨", "/semiontd magic_school skin "
+                        + managementPosition.x() + " " + managementPosition.y() + " " + managementPosition.z(),
+                        "신입생과 기숙사별 마법사의 스킨을 설정합니다. T3는 T2의 스킨을 공유합니다."));
+            }
+            if (tower instanceof MagicSchoolWizardTower) {
+                actions.add(actionButton(
+                        "주문",
+                        "/semiontd magic_school spells "
+                                + managementPosition.x() + " "
+                                + managementPosition.y() + " "
+                                + managementPosition.z(),
+                        "이 마법사가 사용할 주문을 확인하고 지정합니다."
+                ));
+            }
             if (!tower.isTemporaryCopy() && tower.canBeSold()) {
                 actions.add(actionButton(
                         tower.saleActionLabel(),
@@ -1634,6 +1660,10 @@ public final class SemionDialogService {
         }
 
         StringBuilder effects = new StringBuilder();
+        appendTimedEffect(effects, entity, TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS, "<green>레네르바테 공격력 +", "</green>");
+        double schoolProtection = kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombat.protection(entity);
+        if (schoolProtection > 0) effects.append("<blue>마법학교 보호: 받는 피해 -")
+                .append(percent(schoolProtection)).append(" (라운드 종료까지)</blue>\n");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_DAMAGE_BONUS, "<green>⚔ 피해 증가 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_ATTACK_SPEED_BONUS, "<green>⚡ 공속 증가 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_RANGE_BONUS, "<green>🎯 사거리 증가 +", "</green>");
@@ -1699,6 +1729,11 @@ public final class SemionDialogService {
     }
 
     static String formatTowerDamageStats(Tower tower, SemionTowerEntity entity, double currentDamage) {
+        if (tower instanceof MagicSchoolWizardTower wizard
+                && wizard.selectedSpell() == kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell.AVADA_KEDAVRA) {
+            return "<aqua>마법 피해: 대상 최대 체력의 "
+                    + percent(wizard.selectedSpell().value("maxHealthMultiplier")) + "</aqua>";
+        }
         if (tower instanceof GamblerTower gambler) {
             GamblerTower.AttackDamage damage = gambler.currentAttackDamage(entity);
             return formatAttackDamage(damage.physical(), "")
@@ -1746,7 +1781,14 @@ public final class SemionDialogService {
             return gambler.currentAttackDamage(towerEntity).physical();
         }
         double baseDamage = towerPrimaryDamage(tower);
-        if (tower.primaryDamageType() == DamageType.MAGIC && !SuccubusTowers.isSuccubusTower(tower.type())) {
+        if (tower instanceof MagicSchoolWizardTower wizard) {
+            var target = towerEntity == null ? null : towerEntity.currentAttackTarget();
+            double attack = towerEntity == null ? wizard.modifyAttackDamage(null, null, baseDamage)
+                    : wizard.resolveBasicAttackOutgoingDamage(towerEntity, target, towerEntity.attackDamageAmount(target));
+            return wizard.spellPrimaryDamage(target, attack);
+        }
+        if (tower.primaryDamageType() == DamageType.MAGIC && !SuccubusTowers.isSuccubusTower(tower.type())
+                && !(tower instanceof MagicSchoolWizardTower)) {
             return towerEntity == null
                     ? baseDamage
                     : tower.resolveOutgoingDamage(towerEntity, null, baseDamage);
@@ -1772,7 +1814,11 @@ public final class SemionDialogService {
             return;
         }
         body.append("<yellow>⭐ 고유 능력</yellow>\n");
-        for (String line : lines) {body.append("<dark_gray>-</dark_gray> <green>").append(PirateTowers.isPirateTower(tower.type()) ? PirateTowers.highlightAbilityNumbers(line) : line).append("</green>\n");
+        for (String line : lines) {
+            String formatted = PirateTowers.isPirateTower(tower.type()) ? PirateTowers.highlightAbilityNumbers(line)
+                    : tower instanceof MagicSchoolWizardTower
+                            ? MagicSchoolSpell.highlightAttackCoefficients(line) : line;
+            body.append("<dark_gray>-</dark_gray> <green>").append(formatted).append("</green>\n");
         }
     }
 

@@ -244,7 +244,7 @@ public record AugmentConfig(boolean enabled, boolean publicPoolEnabled,
                 "revivalCount", "roundCap", "activeCap", "roundReduction", "shots", "spawnCount", "stacks", "survivorCap",
                 "targets", "targetsPerRelay", "tickets", "transfersPerCharge", "waterPerCharge", "yardRadius", "gaugePerVolley").contains(key);
         boolean positive = Set.of("echoRatio", "bodyMultiplier", "healthMultiplier", "attackMultiplier", "costMultiplier", "damagePerHitCap").contains(key);
-        boolean integer = positiveInteger || Set.of("amount", "ticketValue", "advanceCap", "incomeBonus", "matchIncomeCap", "roundBonusCap", "neighborCount").contains(key);
+        boolean integer = positiveInteger || Set.of("amount", "ticketValue", "advanceCap", "incomeBonus", "matchIncomeCap", "roundBonusCap", "neighborCount", "proficiencyCapBonus").contains(key);
         double min = positiveInteger || key.equals("emeraldPerShell") ? 1 : positive ? Double.MIN_VALUE : 0;
         return new ParameterLimits(min, fraction ? 1 : 1_000_000, integer);
     }

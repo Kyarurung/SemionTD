@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.entity.tower;
 
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
 import de.tomalbrc.bil.api.AnimatedEntity;
 import de.tomalbrc.bil.api.AnimatedEntityHolder;
 import de.tomalbrc.bil.core.holder.entity.living.LivingEntityHolder;
@@ -160,8 +161,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     public void configure(Tower tower, LaneRegionLayout laneLayout) {
         runtimeTower = tower;
-        this.laneLayout = laneLayout;
-        laneId = tower.laneId();
+        this.laneLayout = tower.combatLane() == null ? laneLayout : tower.combatLane().laneLayout();
+        laneId = tower.combatLaneId();
         teamId = tower.teamId();
         ownerPlayer = tower.ownerPlayer();
         attackRange = tower.adjustAttackRange(tower.type().range());
@@ -411,7 +412,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             return Math.max(0.0, attackDamage - timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_REDUCTION));
         }
         double baseDamage = attackDamage + (runtimeTower == null ? 0.0 : runtimeTower.permanentFlatDamageBonus());
-        double damageAmount = baseDamage * (1.0 + timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_BONUS))
+        double damageAmount = baseDamage * (1.0 + timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_BONUS)
+                + timedEffects.magnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS))
                 + timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_FLAT_DAMAGE_REDUCTION);
         if (runtimeTower != null) {
@@ -517,12 +519,14 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         int adjustedInterval = runtimeTower == null ? attackIntervalTicks : runtimeTower.adjustAttackInterval(attackIntervalTicks);
         double attackSpeedMultiplier = 1.0
                 + convertedQueenAttackSpeedBonus()
+                + (runtimeTower == null ? 0.0 : runtimeTower.spellAttackSpeedBonus())
                 + AugmentCombat.beneficialBonus(runtimeTower, "attackSpeedBonus")
                 + timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION);
         int minimumInterval = runtimeTower == null ? 1 : Math.max(1, runtimeTower.minimumAttackIntervalTicks());
         int resolvedInterval = (int) Math.ceil(adjustedInterval / Math.max(0.01, attackSpeedMultiplier));
-        return Math.max(minimumInterval, resolvedInterval);
+        int interval = Math.max(minimumInterval, resolvedInterval);
+        return runtimeTower == null ? interval : Math.max(1, runtimeTower.resolveFinalAttackInterval(interval));
     }
 
     public boolean convertsDamageToAttackSpeed() {
@@ -534,6 +538,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         SemionMonsterEntity target = currentAttackTarget();
         Monster monster = target == null ? null : target.runtimeMonster();
         double bonus = timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_BONUS)
+                + timedEffects.magnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS)
                 + traitAdditiveDamageBonus(monster)
                 + TraitEffects.conditionalTargetDamageBonus(runtimeTower.traitLoadout(), monster,
                         target != null && target.hasDebuff())
@@ -789,6 +794,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             case TOWER_FLAT_DAMAGE_BONUS, TOWER_FLAT_RANGE_BONUS, TOWER_FLAT_MAX_HEALTH_BONUS,
                     TOWER_HEALTH_REGEN_PER_SECOND, TOWER_DAMAGE_BONUS, TOWER_ATTACK_SPEED_BONUS,
                     TOWER_RANGE_BONUS, TOWER_DAMAGE_REDUCTION, TOWER_MAX_HEALTH_BONUS,
+                    TOWER_PROTEGO, TOWER_PROTEGO_MAXIMA_AURA, TOWER_RENNERVATE_DAMAGE_BONUS,
                     TOWER_INCOME_DAMAGE_BONUS, TOWER_WAVE_DAMAGE_BONUS, TOWER_TRAIT_DAMAGE_BONUS,
                     TOWER_TRAIT_INCOME_DAMAGE_BONUS, TOWER_TRAIT_WAVE_DAMAGE_BONUS,
                     TOWER_FINAL_DAMAGE_BONUS, TOWER_TRAIT_MAX_HEALTH_BONUS,
@@ -807,6 +813,19 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     public double activeEffectMagnitude(TimedEffectType type) {
         return timedEffects.magnitude(type);
+    }
+
+    public void removeTimedEffect(TimedEffectType type) {
+        if (timedEffects.remove(type)) syncMaxHealthEffect(type, false);
+    }
+
+    public void cleanseDebuffs() {
+        for (TimedEffectType type : TimedEffectType.values()) {
+            if (type.isTowerDebuff()) removeTimedEffect(type);
+        }
+        for (var effect : java.util.List.copyOf(getActiveEffects())) {
+            if (!effect.getEffect().value().isBeneficial()) removeEffect(effect.getEffect());
+        }
     }
 
     public java.util.List<TimedEffectSet.Snapshot> effectSnapshot() {
@@ -938,7 +957,17 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         String previousDisplayName = getCustomName() == null ? null : getCustomName().getString();
         boolean previousNameVisible = isCustomNameVisible();
         runtimeTower = tower;
-        laneId = tower.laneId();
+        boolean changedLane = laneId != tower.combatLaneId();
+        laneId = tower.combatLaneId();
+        if (tower.combatLane() != null) laneLayout = tower.combatLane().laneLayout();
+        if (changedLane) {
+            recordCurrentAttackTarget(null);
+            setTarget(null);
+            getNavigation().stop();
+            Vec3 anchor = towerAnchorPosition(tower);
+            getMoveControl().setWantedPosition(anchor.x, anchor.y, anchor.z, 0);
+            setDeltaMovement(Vec3.ZERO);
+        }
         teamId = tower.teamId();
         ownerPlayer = tower.ownerPlayer();
         attackRange = tower.adjustAttackRange(tower.type().range());
@@ -1206,6 +1235,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
         double originalDamage = amount;
         double damageAmount = originalDamage * (1.0 - timedEffects.magnitude(TimedEffectType.TOWER_DAMAGE_REDUCTION));
+        damageAmount *= 1.0 - kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombat.protection(this);
         if (runtimeTower != null) {
             damageAmount = applyTraitIncomingDamage(damageAmount);
             damageAmount = runtimeTower.modifyIncomingDamage(this, damageSource, damageAmount);
@@ -1272,7 +1302,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private boolean usesFakePlayerOverlayVisual() {
         return blockbenchModelId == null
                 && runtimeTower != null
-                && PirateTowers.isPlayerVisual(runtimeTower.type());
+                && (PirateTowers.isPlayerVisual(runtimeTower.type())
+                        || MagicSchoolTowers.isWizard(runtimeTower.type()));
     }
 
     private boolean usesOneBlockEndCoreHitbox() {

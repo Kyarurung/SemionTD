@@ -168,6 +168,14 @@ public final class ProgressionService {
         return updated.equals(current) || store.putProfilePersisted(playerId, updated);
     }
 
+    public synchronized boolean saveMagicSchoolSkin(UUID playerId, String playerName, String kind,
+            HeroCompanionSkinPreference skin) {
+        if (playerId == null || kind == null || kind.isBlank() || skin != null && !skin.valid()) return false;
+        SemionPlayerProfile current = store.getOrCreateProfile(playerId, playerName);
+        SemionPlayerProfile updated = current.updateMagicSchoolSkin(playerName, kind, skin);
+        return updated.equals(current) || store.putProfilePersisted(playerId, updated);
+    }
+
     public synchronized Map<UUID, MatchProgressionReward> applyMatchResult(MinecraftServer server, MatchResult matchResult) {
         if (appliedMatchRepository.hasApplied(matchResult.matchId(), PROGRESSION_SUBSYSTEM)) {
             return Map.of();

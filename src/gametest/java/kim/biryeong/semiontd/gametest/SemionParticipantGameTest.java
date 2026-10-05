@@ -7247,7 +7247,10 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
         if (!assertPresent(context, JobRegistry.find(FrostTowerJob.ID), "Built-in reload should register the frost tower job.")) {
             return;
         }
-        if (!assertEquals(context, 154L, ProductionTowerCatalog.all().stream()
+        if (!assertPresent(context, JobRegistry.find(kim.biryeong.semiontd.job.MagicSchoolTowerJob.ID), "Built-in reload should register the magic school tower job.")) {
+            return;
+        }
+        if (!assertEquals(context, 156L, ProductionTowerCatalog.all().stream()
                 .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
                 .filter(entry -> !kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintId(entry.type().id()))
                 .filter(ProductionTowerCatalog.CatalogEntry::starter).count(), "Built-in reload should preserve every fixed job starter family independently of augments and personal blueprints.")) {

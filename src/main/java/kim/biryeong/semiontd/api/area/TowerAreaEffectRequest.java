@@ -14,8 +14,15 @@ public record TowerAreaEffectRequest(
         TowerAreaTargetMode targetMode,
         boolean includeSource,
         Predicate<AreaTowerTarget> targetFilter,
-        AreaVfxSpec vfx
+        AreaVfxSpec vfx,
+        boolean alliedTeam
 ) {
+    public TowerAreaEffectRequest(Identifier effectId, SemionTowerEntity source, Vec3 center,
+            double radius, TowerAreaTargetMode targetMode, boolean includeSource,
+            Predicate<AreaTowerTarget> targetFilter, AreaVfxSpec vfx) {
+        this(effectId, source, center, radius, targetMode, includeSource, targetFilter, vfx, false);
+    }
+
     public TowerAreaEffectRequest {
         Objects.requireNonNull(effectId, "effectId");
         Objects.requireNonNull(source, "source");
@@ -42,6 +49,11 @@ public record TowerAreaEffectRequest(
     }
 
     public TowerAreaEffectRequest withFilter(Predicate<AreaTowerTarget> filter) {
-        return new TowerAreaEffectRequest(effectId, source, center, radius, targetMode, includeSource, filter, vfx);
+        return new TowerAreaEffectRequest(effectId, source, center, radius, targetMode, includeSource, filter, vfx, alliedTeam);
+    }
+
+    public TowerAreaEffectRequest forAlliedTeam() {
+        return new TowerAreaEffectRequest(effectId, source, center, radius, TowerAreaTargetMode.ENTITIES,
+                includeSource, targetFilter, vfx, true);
     }
 }

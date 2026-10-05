@@ -10,6 +10,10 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowerIntegrationTest",
+      "kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombatTest",
+      "kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculumCombatTest",
+      "kim.biryeong.semiontd.tower.magicschool.MagicSchoolAugmentCombatTest",
       "kim.biryeong.semiontd.game.GameLeaderToolTest",
       "kim.biryeong.semiontd.game.GamePlayerPvpTest",
       "kim.biryeong.semiontd.game.GameParticipantLateJoinTest",

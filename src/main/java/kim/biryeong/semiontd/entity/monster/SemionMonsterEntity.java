@@ -81,6 +81,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private final List<Goal> summonAbilityGoals = new ArrayList<>();
     private NaturalWaveHealGoal waveAbilityGoal;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
+    private final kim.biryeong.semiontd.tower.magicschool.MagicSchoolMonsterSpells schoolSpells =
+            new kim.biryeong.semiontd.tower.magicschool.MagicSchoolMonsterSpells(this);
     private IgniteState ignite;
     private final Map<Tower, BeePoisonState> beePoisons = new IdentityHashMap<>();
     private LivingEntityHolder<SemionMonsterEntity> holder;
@@ -191,7 +193,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         TeamId senderTeam = monster.senderTeam().orElse(null);
         setCustomName(senderName != null && senderTeam != null
                 ? Component.literal(senderName).withStyle(teamColor(senderTeam))
-                : Component.literal(monster.id()));
+                : Component.literal(monster.displayName()));
         setCustomNameVisible(true);
         refreshSupportProgressName();
         setPolymerEntityType(monster.entityTypeId());
@@ -251,6 +253,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         tickStealthVisual();
         tickIgnite();
         tickBeePoisons();
+        schoolSpells.tick();
         timedEffects.tick();
         if (runtimeMonster != null) {
             runtimeMonster.expireShields(level().getGameTime());
@@ -326,6 +329,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
      * 없으면 예전처럼 바로 때립니다. 은신 유닛은 공격하는 동안 드러납니다.
      */
     public void startAttack(LivingEntity target) {
+        if (isDisarmed() || schoolSpells.controlled()) return;
         playAnimation(SemionAnimationState.ATTACK);
         if (attackStyle == null) {
             MonsterAttackStyle.strike(this, target, attackDamageAmount());
@@ -358,7 +362,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         pendingHitTarget = null;
         pendingHitTick = -1;
         // 휘두르는 도중 기절하면 헛손질입니다. 대상이 죽었으면 방식에 따라 주변만 맞을 수 있습니다.
-        if (isAlive() && !isStunned() && attackStyle != null) {
+        if (isAlive() && !isStunned() && !isDisarmed() && !schoolSpells.controlled() && attackStyle != null) {
             attackStyle.hit(this, target);
         }
     }
@@ -506,7 +510,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         TeamId team = runtimeMonster.senderTeam().orElse(null);
         var name = sender != null && team != null
                 ? Component.literal(sender).withStyle(teamColor(team))
-                : Component.literal(runtimeMonster.id());
+                : Component.literal(runtimeMonster.displayName());
         setCustomName(name.append(Component.literal(" · " + progress.get())));
     }
 
@@ -515,6 +519,10 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     public AppliedDamageResult applySemionDamageResult(DamageSource damageSource, double amount, DamageType damageType) {
+        if (damageType == DamageType.MAGIC) {
+            amount *= 1.0 + activeTimedEffectMagnitude(TimedEffectType.MONSTER_LUMOS)
+                    + activeTimedEffectMagnitude(TimedEffectType.MONSTER_CRUCIO_VULNERABILITY);
+        }
         if (!Double.isFinite(amount) || amount <= 0.0) {
             return new AppliedDamageResult(false, 0.0, 0.0, 0.0);
         }
@@ -589,7 +597,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return false;
         }
         double before = runtimeMonster.health();
-        runtimeMonster.heal(amount);
+        runtimeMonster.heal(amount * Math.max(0, 1 - activeTimedEffectMagnitude(TimedEffectType.MONSTER_HEAL_REDUCTION)));
         if (runtimeMonster.health() <= before) {
             return false;
         }
@@ -709,6 +717,14 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         return timedEffects.magnitude(TimedEffectType.MONSTER_STUN) > 0.0;
     }
 
+    public boolean isDisarmed() {
+        return timedEffects.magnitude(TimedEffectType.MONSTER_DISARM) > 0;
+    }
+
+    public kim.biryeong.semiontd.tower.magicschool.MagicSchoolMonsterSpells schoolSpells() {
+        return schoolSpells;
+    }
+
     public boolean isRooted() {
         return timedEffects.magnitude(TimedEffectType.MONSTER_ROOT) > 0.0;
     }
@@ -745,6 +761,10 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             magnitude -= Math.max(0.0, queen - 0.70);
         }
         return magnitude;
+    }
+
+    public void removeTimedEffect(TimedEffectType type) {
+        timedEffects.remove(type);
     }
 
     public int activeTimedEffectTicks(TimedEffectType type) {

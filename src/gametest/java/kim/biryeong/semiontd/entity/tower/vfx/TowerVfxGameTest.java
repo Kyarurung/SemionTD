@@ -76,6 +76,44 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class TowerVfxGameTest {
     @GameTest
+    public void magicSchoolSpellsUseTheSharedVisualQueueAndRespectDisable(GameTestHelper context) {
+        var observed = new ArrayList<MagicSchoolSpellVfx.Visual>();
+        TowerVfxService.setMagicSchoolTestObserver(observed::add);
+        var type = kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers.FRESHMAN;
+        var position = GridPosition.from(context.absolutePos(new BlockPos(1, 2, 1)));
+        var wizard = new kim.biryeong.semiontd.tower.magicschool.FreshmanTower(type, UUID.randomUUID(), TeamId.RED, 1, position, position);
+        var source = new SemionTowerEntity(SemionEntityTypes.TOWER, context.getLevel());
+        source.setPos(position.x(), position.y(), position.z());
+        source.configure(wizard, null);
+        try {
+            for (var towerType : kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers.all()) {
+                assertPalette(towerType, BuilderPalette.MAGIC_SCHOOL);
+            }
+            TowerVfxService.showSecondaryAttack(source, source.position().add(3, 0, 0));
+            if (observed.size() != 1 || observed.getFirst().kind() != MagicSchoolSpellVfx.Kind.ATTACK
+                    || observed.getFirst().spell() != kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell.EXPELLIARMUS) {
+                throw new AssertionError("Secondary rays must capture the selected spell, not the generic builder palette.");
+            }
+            observed.clear();
+            TowerVfxService.configure(new kim.biryeong.semiontd.config.VfxConfig(false, true, true, 4, null, null));
+            TowerVfxService.showSecondaryAttack(source, source.position().add(3, 0, 0));
+            TowerVfxService.showMagicSchoolVisual(source, wizard.selectedSpell(), MagicSchoolSpellVfx.Kind.SHIELD, source.position(), .7);
+            if (!observed.isEmpty()) throw new AssertionError("Disabled VFX must suppress spell attacks and persistent effects.");
+            var dispatcher = context.getLevel().getServer().getCommands().getDispatcher();
+            for (var spell : kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell.values()) {
+                var parsed = dispatcher.parse("semiontd-debug vfx magic_school " + spell.id(),
+                        context.getLevel().getServer().createCommandSourceStack());
+                if (parsed.getContext().getNodes().isEmpty() || parsed.getReader().canRead()) throw new AssertionError("Spell debug command must parse: " + spell);
+            }
+            context.succeed();
+        } finally {
+            TowerVfxService.setMagicSchoolTestObserver(null);
+            TowerVfxService.configure(kim.biryeong.semiontd.config.VfxConfig.defaultConfig());
+            source.discard();
+        }
+    }
+
+    @GameTest
     public void attackRangeChoosesExpectedHitParticle(GameTestHelper context) {
         if (TowerVfxService.visualKind(3.0) != TowerVfxService.AttackVisualKind.MELEE
                 || TowerVfxService.visualKind(3.01) != TowerVfxService.AttackVisualKind.RANGED) {

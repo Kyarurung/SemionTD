@@ -68,6 +68,7 @@ JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest
 | `semion-td:gamble_towers` | 겜블 빌더 | 라운드 지원 주사위와 무작위 능력치 도박으로 두 최종 전직을 노립니다. | 겜블 |
 | `semion-td:succubus` | 서큐버스 빌더 | 꿈과 수면을 누적해 아군을 강화하고 적을 처형합니다. | 서큐버스 |
 | `semion-td:body` | 신체 빌더 | 하나의 심장 박동에 맞춰 기관 타워들이 행동합니다. | 신체 |
+| `semion-td:magic_school` | 마법학교 빌더 | 주문 선택·커리큘럼·숙련도로 학생을 기숙사 마법사와 대마법사로 성장시킵니다. | [마법학교](magic-school-builder.md) |
 | `semion-td:pet_towers` | 반려동물 빌더 | 주인 주변에 반려를 배치하고 유대로 성장시킵니다. | 반려동물 |
 | `semion-td:developer` | 개발자 빌더 | 패치·버그·핫픽스로 타워를 조정하며 불안정을 관리합니다. | 개발자 |
 | `semion-td:frost` | 혹한 빌더 | 냉매와 빙결 장치로 적을 제어하고 전장을 냉각합니다. | 혹한 |

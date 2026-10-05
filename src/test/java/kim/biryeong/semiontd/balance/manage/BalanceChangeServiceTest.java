@@ -125,7 +125,7 @@ class BalanceChangeServiceTest {
         try (var service = service(new FakeRuntime())) {
             var fields = service.fields().stream().filter(field ->
                     field.id().startsWith("augment:/parameters/") || field.domain().equals("trait")).toList();
-            assertEquals(445, fields.stream().filter(field -> field.domain().equals("augment")).count());
+            assertEquals(447, fields.stream().filter(field -> field.domain().equals("augment")).count());
             assertEquals(32, fields.stream().filter(field -> field.domain().equals("trait")).count());
             var changes = fields.stream().map(field -> {
                 assertTrue(field.editable(), field.id());

@@ -23,6 +23,12 @@ public final class JobLaneLifecycle {
     }
 
     public static void beforeRoundReset(PlayerLane lane) {
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clear(lane.ownerPlayer());
+        for (var monster : lane.activeMonsters()) {
+            if (lane.arenaWorld().getEntity(monster.minecraftEntityId()) instanceof kim.biryeong.semiontd.entity.monster.SemionMonsterEntity entity) {
+                entity.schoolSpells().clearRound();
+            }
+        }
         LegionAugments.clear(lane);
         UndeadAugments.resetRound(lane);
         VillagerAdvAugments.resetWave(lane);
@@ -52,6 +58,7 @@ public final class JobLaneLifecycle {
     }
 
     public static TowerRoundMetricsTracker afterTowerWaveStarted(PlayerLane lane, int currentRound) {
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolDeathEaters.onWaveStarted(lane, currentRound);
         ResonanceService.captureWaveStart(lane);
         AugmentCombat.captureWaveStartHealth(lane);
         AdversaryAugments.captureWaveStart(lane);
@@ -65,6 +72,7 @@ public final class JobLaneLifecycle {
     }
 
     public static void beforeTowersCleared(PlayerLane lane) {
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clear(lane.ownerPlayer());
         LegionAugments.clear(lane);
         UndeadAugments.resetRound(lane);
         FrostAugments.endWave(lane);

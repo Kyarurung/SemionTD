@@ -224,6 +224,13 @@ public final class TimedEffectSet {
         }
     }
 
+    public boolean remove(TimedEffectType type) {
+        boolean changed = effects.remove(type) != null;
+        changed |= sourcedEffects.remove(type) != null;
+        changed |= persistentEffects.remove(type) != null;
+        return changed;
+    }
+
     private ActiveTimedEffect sourcedEffect(TimedEffectType type, Identifier sourceId) {
         if (type == null || sourceId == null) {
             return null;

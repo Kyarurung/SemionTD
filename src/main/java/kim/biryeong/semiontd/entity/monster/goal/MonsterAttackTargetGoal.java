@@ -20,7 +20,8 @@ public final class MonsterAttackTargetGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        return monster.isAlive() && monster.getTarget() != null && monster.getTarget().isAlive();
+        return monster.isAlive() && (monster.schoolSpells().controlled()
+                || monster.getTarget() != null && monster.getTarget().isAlive());
     }
 
     @Override
@@ -44,12 +45,13 @@ public final class MonsterAttackTargetGoal extends Goal {
             return;
         }
 
-        LivingEntity target = monster.getTarget();
+        boolean controlled = monster.schoolSpells().controlled();
+        LivingEntity target = controlled ? monster.schoolSpells().controlTarget() : monster.getTarget();
         if (target == null || !target.isAlive()) {
             monster.playAnimation(SemionAnimationState.IDLE);
             return;
         }
-        if (!monster.canTargetDefense(target)) {
+        if (!controlled && !monster.canTargetDefense(target)) {
             monster.setTarget(null);
             monster.getNavigation().stop();
             monster.playAnimation(SemionAnimationState.WALK);
@@ -69,13 +71,16 @@ public final class MonsterAttackTargetGoal extends Goal {
         }
 
         monster.getNavigation().stop();
-        if (cooldownTicks > 0) {
+        if (cooldownTicks > 0 || monster.isDisarmed()) {
             monster.playAnimation(SemionAnimationState.IDLE);
             return;
         }
 
-        // 공격 방식이 있는 몬스터는 애니메이션에서 무기가 닿는 틱에 피해가 들어갑니다(startAttack).
-        monster.startAttack(target);
+        if (controlled && target instanceof SemionMonsterEntity ally) {
+            monster.schoolSpells().attackControlled(ally);
+        } else {
+            monster.startAttack(target);
+        }
         cooldownTicks = monster.attackIntervalTicks();
     }
 }

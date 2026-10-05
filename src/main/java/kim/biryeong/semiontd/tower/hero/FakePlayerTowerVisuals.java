@@ -1,5 +1,7 @@
 package kim.biryeong.semiontd.tower.hero;
 
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSkins;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.datafixers.util.Pair;
@@ -134,6 +136,19 @@ public final class FakePlayerTowerVisuals {
         }
     }
 
+    public static synchronized void refreshMagicSchoolSkin(UUID ownerId,
+            MagicSchoolSkins.Kind kind) {
+        if (ownerId == null || kind == null) return;
+        var matching = VISUALS.entrySet().stream()
+                .filter(entry -> ownerId.equals(entry.getKey().ownerPlayer()) && kind.matches(entry.getKey().type()))
+                .map(Map.Entry::getValue).toList();
+        for (Visual visual : matching) {
+            VISUALS.remove(visual.tower);
+            visual.remove();
+            attach(visual.anchor, visual.tower);
+        }
+    }
+
     public static synchronized void playAttack(EntityBackedTower tower) {
         Visual visual = VISUALS.get(tower);
         if (visual == null) {
@@ -188,6 +203,13 @@ public final class FakePlayerTowerVisuals {
         if (PetTowers.isOwner(tower.type())) {
             return petOwnerProfile(tower.ownerPlayer(), tower.type());
         }
+        if (MagicSchoolTowers.isWizard(tower.type())) {
+            var owner = level.getServer().getPlayerList().getPlayer(tower.ownerPlayer());
+            var skins = MagicSchoolSkins.profile(tower.ownerPlayer(),
+                    MagicSchoolSkins.Kind.forTower(tower.type()),
+                    owner == null ? null : owner.getGameProfile());
+            return new GameProfile(skins.id(), displayProfileName(tower.type()), skins.properties());
+        }
         if (HeroPartyTowers.isHero(tower.type())) {
             ServerPlayer owner = level.getServer().getPlayerList().getPlayer(tower.ownerPlayer());
             if (owner != null) {
@@ -211,8 +233,10 @@ public final class FakePlayerTowerVisuals {
      * required for every placed tower, even when multiple towers intentionally share one skin.
      */
     private static GameProfile uniqueVisualProfile(GameProfile skinProfile, SemionTowerEntity anchor) {
+        String skinIdentity = anchor.runtimeTower() != null && MagicSchoolTowers.isWizard(anchor.runtimeTower().type())
+                ? ":" + skinProfile.id() : "";
         UUID visualId = UUID.nameUUIDFromBytes(
-                ("semion-td:tower-visual:" + anchor.getUUID()).getBytes(StandardCharsets.UTF_8));
+                ("semion-td:tower-visual:" + anchor.getUUID() + skinIdentity).getBytes(StandardCharsets.UTF_8));
         return new GameProfile(visualId, skinProfile.name(), skinProfile.properties());
     }
 
@@ -295,6 +319,9 @@ public final class FakePlayerTowerVisuals {
     }
 
     private static ItemStack mainHand(EntityBackedTower tower) {
+        if (MagicSchoolTowers.isWizard(tower.type())) {
+            return Items.STICK.getDefaultInstance();
+        }
         if (SuccubusTowers.isSuccubus(tower.type())) {
             return Items.AMETHYST_SHARD.getDefaultInstance();
         }

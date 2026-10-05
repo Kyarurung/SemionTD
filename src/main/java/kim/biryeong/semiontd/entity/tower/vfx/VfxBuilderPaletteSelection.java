@@ -147,6 +147,9 @@ final class VfxBuilderPaletteSelection {
         if (PirateTowers.isPirateTower(type)) {
             return BuilderPalette.PIRATE;
         }
+        if (kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers.isMagicSchoolTower(type)) {
+            return BuilderPalette.MAGIC_SCHOOL;
+        }
         return BuilderPalette.DEFAULT;
     }
 }

@@ -90,6 +90,7 @@ public final class JobRegistry {
         registerIfAbsent(new FrostTowerJob());
         registerIfAbsent(new PirateTowerJob());
         registerIfAbsent(new BlueprintTowerJob());
+        registerIfAbsent(new MagicSchoolTowerJob());
     }
 
     public static synchronized Optional<SemionJob> find(Identifier id) {
