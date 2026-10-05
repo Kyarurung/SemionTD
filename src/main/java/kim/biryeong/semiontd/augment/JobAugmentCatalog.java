@@ -389,7 +389,16 @@ final class JobAugmentCatalog {
                     Map.of("survivorCap", 2.0, "damageReduction", 0.25)),
             card("J31-P", "future_agency_towers", "p", "구조 타임루프", PRISMATIC,
                     "원본 요원이 처음 죽을 피해를 받으면 자신과 연결 생존자를 웨이브 시작 체력으로 복원합니다. 이번 웨이브에 죽은 연결 생존자도 복귀합니다. 원본마다 라운드당 1회이며 생존자를 추가 생성하거나 성장·시작 효과를 다시 발동하지 않습니다.",
-                    Map.of())
+                    Map.of()),
+            card("J32-S", "magic_school", "s", "머글의 지팡이", SILVER,
+                    "1단계 주문 '머글의 지팡이'를 해금합니다.", Map.of()),
+            card("J32-G1", "magic_school", "g1", "하늘을 나는 빗자루", GOLD,
+                    "다른 아군이 최종 방어선으로 이동할 때 내가 라인에서 전투 중이면 그 아군의 타워 1기가 내 라인을 지원합니다. 내가 이동할 때는 아직 라인에서 전투 중인 아군마다 내 마법사 1기를 보냅니다. 최대 체력, 현재 체력이 높은 순으로 선택하며 마법학교·마왕 빌더는 지원 상대에서 제외합니다. 지원한 라인의 수비가 끝나면 최종 방어선으로 이동합니다.", Map.of()),
+            card("J32-G2", "magic_school", "g2", "마법 대학원", GOLD,
+                    "주문 숙련도 획득량이 {proficiencyGainBonus:percent} 증가합니다. 다른 획득 보정과 곱연산하며 T3 마법사의 최대 주문 숙련도가 {proficiencyCapBonus} 증가합니다.",
+                    Map.of("proficiencyGainBonus", .3, "proficiencyCapBonus", 100.0)),
+            card("J32-P", "magic_school", "p", "용서받지 못할 저주", PRISMATIC,
+                    "아바다케다브라, 크루시오, 임페리오를 해금합니다. 5단계 주문을 사용할 수 있는 마법사에게 장착할 수 있으며 각 저주는 내 마법사 1기만 사용할 수 있습니다.", Map.of())
     );
 
     private JobAugmentCatalog() {}

@@ -9,10 +9,12 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.math.BigDecimal;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Map;
 import kim.biryeong.semiontd.persistence.SemionPersistenceConfig;
 import kim.biryeong.semiontd.rating.RatingConfig;
 import kim.biryeong.semiontd.trait.TraitSelectionConfig;
@@ -527,6 +529,14 @@ public final class SemionConfigLoader {
             String json = Files.readString(path);
             ConfigJsonProperties properties = ConfigJsonProperties.parse(json);
             String migratedJson = migrateLegacyVillagerAdvBuffs(json, defaults);
+            migratedJson = migrateLegacyHogwartsHealth(migratedJson);
+            migratedJson = migrateLegacyMagicSchoolStudents(migratedJson);
+            migratedJson = migrateMagicSchoolBaseStats(migratedJson);
+            migratedJson = migrateMagicSchoolProficiency(migratedJson);
+            migratedJson = migrateFreeHogwarts(migratedJson);
+            migratedJson = migrateMagicSchoolCurriculumBalance(migratedJson);
+            migratedJson = migrateMagicSchoolCombatBalance(migratedJson, defaults);
+            migratedJson = migrateMagicSchoolImperio(migratedJson);
             ConfigJsonProperties migratedProperties = migratedJson.equals(json)
                     ? properties
                     : ConfigJsonProperties.parse(migratedJson);
@@ -589,6 +599,269 @@ public final class SemionConfigLoader {
             write(path, merged, logger);
         }
         return merged;
+    }
+
+    private static String migrateLegacyMagicSchoolStudents(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject() || !root.getAsJsonObject().has("towers")
+                || !root.getAsJsonObject().get("towers").isJsonObject()) return json;
+        JsonObject towers = root.getAsJsonObject().getAsJsonObject("towers");
+        if (java.util.List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin").stream()
+                .anyMatch(house -> towers.has("magic_school_" + house + "_t2"))
+                || !towers.has("magic_school_freshman_t1")
+                || !towers.get("magic_school_freshman_t1").isJsonObject()) return json;
+        JsonObject student = towers.getAsJsonObject("magic_school_freshman_t1");
+        boolean changed = false;
+        for (String key : java.util.List.of("maxHealth", "damage", "attackIntervalTicks")) {
+            double previous = switch (key) { case "maxHealth" -> 80; case "damage" -> 12; default -> 20; };
+            JsonElement value = student.get(key);
+            if (value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
+                    && value.getAsDouble() == previous) {
+                student.addProperty(key, key.equals("maxHealth") ? 200 : 30);
+                changed = true;
+            }
+        }
+        return changed ? GSON.toJson(root) : json;
+    }
+
+    private static String migrateMagicSchoolBaseStats(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject global = legacySchoolObject(abilities, "magic_school_global");
+        if (global.has("baseStatsVersion")) return json;
+        JsonObject towers = legacySchoolObject(object, "towers");
+        for (String house : java.util.List.of("freshman", "gryffindor", "hufflepuff", "ravenclaw", "slytherin")) {
+            boolean freshman = house.equals("freshman");
+            String id = "magic_school_" + house + (freshman ? "_t1" : "_t2");
+            if (!towers.has(id) && !abilities.has(id)) continue;
+            JsonObject stats = legacySchoolObject(towers, id);
+            JsonObject values = legacySchoolObject(abilities, id);
+            double health = legacySchoolNumber(stats, "maxHealth", freshman ? 200 : 350);
+            double damage = legacySchoolNumber(stats, "damage", freshman ? 30 : 50);
+            double interval = legacySchoolNumber(stats, "attackIntervalTicks", freshman ? 30 : 18);
+            double healthBonus = legacySchoolNumber(values, "houseHealthBonus", house.equals("hufflepuff") ? .10 : 0);
+            double damageBonus = legacySchoolNumber(values, "houseDamageBonus", house.equals("slytherin") ? .10 : 0);
+            double reduction = legacySchoolNumber(values, "houseAttackIntervalReduction", house.equals("gryffindor") ? 1 : 0);
+            if (healthBonus > 1 || damageBonus > 1 || reduction != Math.rint(reduction) || interval != Math.rint(interval)) {
+                throw new IllegalArgumentException("Invalid legacy Magic School house stats: " + id);
+            }
+            if (freshman && interval == 30) interval = 24;
+            stats.addProperty("maxHealth", BigDecimal.valueOf(health).multiply(BigDecimal.ONE.add(BigDecimal.valueOf(healthBonus))));
+            stats.addProperty("damage", BigDecimal.valueOf(damage).multiply(BigDecimal.ONE.add(BigDecimal.valueOf(damageBonus))));
+            stats.addProperty("attackIntervalTicks", Math.max(1, (int) Math.round(interval - reduction)));
+            values.remove("houseHealthBonus");
+            values.remove("houseDamageBonus");
+            values.remove("houseAttackIntervalReduction");
+            towers.add(id, stats);
+            abilities.add(id, values);
+        }
+        global.addProperty("baseStatsVersion", 1);
+        abilities.add("magic_school_global", global);
+        object.add("abilities", abilities);
+        object.add("towers", towers);
+        return GSON.toJson(object);
+    }
+
+    private static String migrateMagicSchoolProficiency(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject global = legacySchoolObject(abilities, "magic_school_global");
+        double version = legacySchoolNumber(global, "proficiencyVersion", 0);
+        if (version >= 2) return json;
+        for (String house : java.util.List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin")) {
+            for (int tier : java.util.List.of(2, 3)) {
+                String id = "magic_school_" + house + "_t" + tier;
+                if (!abilities.has(id)) continue;
+                JsonObject values = legacySchoolObject(abilities, id);
+                double cap = legacySchoolNumber(values, "maxProficiency", -1);
+                if (cap == 300 || tier == 2 && version == 0 && cap == 200) {
+                    values.addProperty("maxProficiency", tier == 2 ? 250 : 400);
+                }
+            }
+        }
+        for (String key : java.util.List.of("proficiencyDamagePerPoint", "proficiencyHealthPerPoint")) {
+            if (legacySchoolNumber(global, key, -1) == .005) global.addProperty(key, .0015);
+        }
+        if (abilities.has("magic_school_spell_episkey")) {
+            JsonObject episkey = legacySchoolObject(abilities, "magic_school_spell_episkey");
+            if (legacySchoolNumber(episkey, "healingMultiplier", -1) == 2) episkey.addProperty("healingMultiplier", 1.5);
+        }
+        global.addProperty("proficiencyVersion", 2);
+        abilities.add("magic_school_global", global);
+        object.add("abilities", abilities);
+        return GSON.toJson(object);
+    }
+
+    private static String migrateFreeHogwarts(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject global = legacySchoolObject(abilities, "magic_school_global");
+        if (global.has("hogwartsVersion")) return json;
+        JsonObject towers = legacySchoolObject(object, "towers");
+        if (towers.has("magic_school_hogwarts_t1")) {
+            JsonObject school = legacySchoolObject(towers, "magic_school_hogwarts_t1");
+            if (legacySchoolNumber(school, "mineralCost", 0) == 300) school.addProperty("mineralCost", 0);
+        }
+        JsonObject costs = legacySchoolObject(object, "upgradeCosts");
+        for (String id : java.util.List.of("magic_school_hogwarts_t2", "magic_school_hogwarts_t3")) {
+            towers.remove(id);
+            abilities.remove(id);
+            costs.remove(id);
+        }
+        costs.remove("magic_school_hogwarts_t1->magic_school_hogwarts_t2");
+        costs.remove("magic_school_hogwarts_t2->magic_school_hogwarts_t3");
+        global.addProperty("hogwartsVersion", 1);
+        abilities.add("magic_school_global", global);
+        object.add("abilities", abilities);
+        object.add("towers", towers);
+        object.add("upgradeCosts", costs);
+        return GSON.toJson(object);
+    }
+
+    private static String migrateMagicSchoolCurriculumBalance(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject global = legacySchoolObject(abilities, "magic_school_global");
+        if (legacySchoolNumber(global, "curriculumBalanceVersion", 0) >= 2) return json;
+        Map<String, Double> formerDefaults = Map.of(
+                "spellPowerPerLevel", .10, "darkArtsDefensePerLevel", .10, "magicHistoryPerLevel", .25,
+                "magicHistoryMaxLevel", 4.0, "sortingHatCost", 150.0, "deathEaterCost", 100.0,
+                "duelingPracticeCost", 250.0);
+        var defaults = kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculum.defaultAbilities();
+        formerDefaults.forEach((key, former) -> {
+            if (!global.has("curriculumBalanceVersion") && global.has(key) && legacySchoolNumber(global, key, -1) == former) {
+                global.addProperty(key, defaults.get(key));
+            }
+        });
+        Map.of("spellPowerPerLevel", .08, "darkArtsDefensePerLevel", .08,
+                "spellPowerMaxLevel", 5.0, "darkArtsDefenseMaxLevel", 5.0).forEach((key, former) -> {
+            if (global.has(key) && legacySchoolNumber(global, key, -1) == former) {
+                global.addProperty(key, defaults.get(key));
+            }
+        });
+        global.addProperty("curriculumBalanceVersion", 2);
+        abilities.add("magic_school_global", global);
+        object.add("abilities", abilities);
+        return GSON.toJson(object);
+    }
+
+    private static String migrateMagicSchoolCombatBalance(String json, TowerBalanceConfig defaults) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject global = legacySchoolObject(abilities, "magic_school_global");
+        if (legacySchoolNumber(global, "combatBalanceVersion", 0) >= 1) return json;
+        Map.of("spellPowerCost", 100.0, "spellPowerCostIncrease", 75.0, "darkArtsDefenseCost", 90.0,
+                "spellTier2Cost", 200.0, "spellTier3Cost", 400.0, "spellTier4Cost", 700.0,
+                "spellTier5Cost", 1000.0).forEach((key, former) -> {
+            if (legacySchoolNumber(global, key, -1) == former) {
+                global.addProperty(key, defaults.ability("magic_school_global", key, former));
+            }
+        });
+        JsonObject towers = legacySchoolObject(object, "towers");
+        if (towers.has("magic_school_freshman_t1")) {
+            JsonObject student = legacySchoolObject(towers, "magic_school_freshman_t1");
+            if (legacySchoolNumber(student, "attackIntervalTicks", -1) == 24) {
+                student.addProperty("attackIntervalTicks", defaults.towers().get("magic_school_freshman_t1").attackIntervalTicks());
+            }
+        }
+        for (String house : java.util.List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin")) {
+            for (int tier : java.util.List.of(2, 3)) {
+                String id = "magic_school_" + house + "_t" + tier;
+                if (!towers.has(id)) continue;
+                JsonObject stats = legacySchoolObject(towers, id);
+                double formerHealth = tier == 2 ? (house.equals("hufflepuff") ? 385 : 350)
+                        : (house.equals("hufflepuff") ? 770 : 700);
+                double formerDamage = tier == 2 ? (house.equals("slytherin") ? 55 : 50)
+                        : (house.equals("slytherin") ? 132 : 120);
+                if (legacySchoolNumber(stats, "maxHealth", -1) == formerHealth) {
+                    stats.addProperty("maxHealth", defaults.towers().get(id).maxHealth());
+                }
+                if (legacySchoolNumber(stats, "damage", -1) == formerDamage) {
+                    stats.addProperty("damage", defaults.towers().get(id).damage());
+                }
+            }
+        }
+        String bombardaId = "magic_school_spell_bombarda";
+        if (abilities.has(bombardaId)) {
+            JsonObject spell = legacySchoolObject(abilities, bombardaId);
+            Map.of("damageMultiplier", .8, "radius", 1.5, "secondaryMultiplier", .5).forEach((key, former) -> {
+                if (legacySchoolNumber(spell, key, -1) == former) {
+                    spell.addProperty(key, defaults.ability(bombardaId, key, former));
+                }
+            });
+        }
+        global.addProperty("combatBalanceVersion", 1);
+        abilities.add("magic_school_global", global);
+        object.add("abilities", abilities);
+        object.add("towers", towers);
+        return GSON.toJson(object);
+    }
+
+    private static String migrateMagicSchoolImperio(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject object = root.getAsJsonObject();
+        JsonObject abilities = legacySchoolObject(object, "abilities");
+        JsonObject spell = legacySchoolObject(abilities, "magic_school_spell_imperio");
+        if (legacySchoolNumber(spell, "controlVersion", 0) >= 1) return json;
+        if (legacySchoolNumber(spell, "controlTicks", -1) == 60) spell.addProperty("controlTicks", 40);
+        spell.remove("cooldownTicks");
+        spell.addProperty("controlVersion", 1);
+        abilities.add("magic_school_spell_imperio", spell);
+        object.add("abilities", abilities);
+        return GSON.toJson(object);
+    }
+
+    private static JsonObject legacySchoolObject(JsonObject object, String key) {
+        JsonElement value = object.get(key);
+        if (value == null || value.isJsonNull()) return new JsonObject();
+        if (!value.isJsonObject()) throw new IllegalArgumentException("Invalid legacy Magic School object: " + key);
+        return value.getAsJsonObject();
+    }
+
+    private static double legacySchoolNumber(JsonObject object, String key, double fallback) {
+        JsonElement value = object.get(key);
+        if (value == null || value.isJsonNull()) return fallback;
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+            throw new IllegalArgumentException("Invalid legacy Magic School number: " + key);
+        }
+        double number = value.getAsDouble();
+        if (!Double.isFinite(number) || number < 0) {
+            throw new IllegalArgumentException("Invalid legacy Magic School number: " + key);
+        }
+        return number;
+    }
+
+    private static String migrateLegacyHogwartsHealth(String json) {
+        JsonElement root = JsonParser.parseString(json);
+        if (!root.isJsonObject() || !root.getAsJsonObject().has("towers")
+                || !root.getAsJsonObject().get("towers").isJsonObject()) {
+            return json;
+        }
+        JsonObject towers = root.getAsJsonObject().getAsJsonObject("towers");
+        if (towers.has("magic_school_hogwarts_t2") || towers.has("magic_school_hogwarts_t3")
+                || !towers.has("magic_school_hogwarts_t1")
+                || !towers.get("magic_school_hogwarts_t1").isJsonObject()) {
+            return json;
+        }
+        JsonObject school = towers.getAsJsonObject("magic_school_hogwarts_t1");
+        JsonElement health = school.get("maxHealth");
+        if (health == null || !health.isJsonPrimitive() || !health.getAsJsonPrimitive().isNumber()
+                || health.getAsDouble() != 300.0) {
+            return json;
+        }
+        school.addProperty("maxHealth", 1.0);
+        return GSON.toJson(root);
     }
 
     private static String migrateLegacyVillagerAdvBuffs(String json, TowerBalanceConfig defaults) {

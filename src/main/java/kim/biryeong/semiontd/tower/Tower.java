@@ -60,6 +60,7 @@ public abstract class Tower {
             net.minecraft.resources.Identifier.fromNamespaceAndPath("semiontd", "augment_logical_id"), UUID.class);
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
     private PlayerLane attachedLane;
+    private PlayerLane reinforcementLane;
     private boolean temporaryCopy;
     private UUID temporaryCopySourceId;
 
@@ -159,6 +160,29 @@ public abstract class Tower {
 
     public int laneId() {
         return laneId;
+    }
+
+    public final PlayerLane combatLane() {
+        return reinforcementLane == null ? attachedLane : reinforcementLane;
+    }
+
+    public final int combatLaneId() {
+        return reinforcementLane == null ? laneId : reinforcementLane.laneId();
+    }
+
+    public final PlayerLane reinforcementLane() {
+        return reinforcementLane;
+    }
+
+    public final void reinforceLane(PlayerLane destination, GridPosition position) {
+        if (attachedLane == null || destination == null || destination == attachedLane
+                || destination.teamId() != teamId || destination.arenaWorld() != attachedLane.arenaWorld()) {
+            throw new IllegalArgumentException("Reinforcements require another lane of the same team and world.");
+        }
+        reinforcementLane = destination;
+        currentPosition = position;
+        deployedAtFinalDefense = false;
+        onStateChanged(attachedLane);
     }
 
     public GridPosition position() {
@@ -600,6 +624,7 @@ public abstract class Tower {
 
     public void detachFromLane(PlayerLane lane) {
         if (attachedLane == lane) {
+            reinforcementLane = null;
             attachedLane = null;
         }
         traitLoadout = TraitLoadout.none();
@@ -698,6 +723,14 @@ public abstract class Tower {
 
     public double modifyAttackDamage(SemionTowerEntity towerEntity, SemionMonsterEntity target, double damageAmount) {
         return damageAmount;
+    }
+
+    public double spellAttackSpeedBonus() {
+        return 0.0;
+    }
+
+    public int resolveFinalAttackInterval(int intervalTicks) {
+        return intervalTicks;
     }
 
     /** Lets a tower amplify a beneficial timed effect before it is stored and shown in its detail UI. */
@@ -804,7 +837,8 @@ public abstract class Tower {
             return 0.0;
         }
         double damageWithTimedBonus = baseDamage * (1.0 + (towerEntity.convertsDamageToAttackSpeed()
-                ? 0.0 : towerEntity.activeEffectMagnitude(TimedEffectType.TOWER_DAMAGE_BONUS)));
+                ? 0.0 : towerEntity.activeEffectMagnitude(TimedEffectType.TOWER_DAMAGE_BONUS)
+                + towerEntity.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS)));
         return resolveBasicAttackOutgoingDamage(towerEntity, target, damageWithTimedBonus);
     }
 
@@ -1096,7 +1130,11 @@ public abstract class Tower {
     }
 
     public void resetForRound(PlayerLane lane) {
+        if (this instanceof EntityBackedTower backed) {
+            backed.runtimeEntity(lane).ifPresent(kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombat::clearRound);
+        }
         cooldownTicks = 0;
+        reinforcementLane = null;
         currentPosition = originalPosition;
         health = currentMaxHealth();
         deployedAtFinalDefense = false;
@@ -1108,6 +1146,7 @@ public abstract class Tower {
     }
 
     public void moveToFinalDefense(PlayerLane lane, GridPosition position) {
+        reinforcementLane = null;
         currentPosition = position;
         deployedAtFinalDefense = true;
         onStateChanged(lane);

@@ -21,16 +21,16 @@ class AugmentCatalogStateTest {
     private static final Predicate<AugmentDefinition> ALL = card -> true;
 
     @Test
-    void approvedCatalogHas168NormalNineReserveAndNineTowerCards() {
-        assertEquals(177, AugmentCatalog.definitions().size());
-        assertEquals(168, AugmentCatalog.normalDefinitions().size());
+    void approvedCatalogHas172NormalNineReserveAndNineTowerCards() {
+        assertEquals(181, AugmentCatalog.definitions().size());
+        assertEquals(172, AugmentCatalog.normalDefinitions().size());
         assertEquals(9, AugmentCatalog.reserveDefinitions().size());
         assertEquals(9, AugmentCatalog.normalDefinitions().stream().filter(AugmentDefinition::towerAugment).count());
-        assertEquals(177, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
+        assertEquals(181, AugmentCatalog.definitions().stream().map(AugmentDefinition::id).distinct().count());
         assertTrue(AugmentCatalog.find("honorable_retirement").isEmpty());
         assertTrue(AugmentCatalog.find("overcapacity_permit").isEmpty());
         assertTrue(AugmentCatalog.find("decisive_delivery").isEmpty());
-        assertEquals(List.of(45L, 80L, 43L), List.of(SILVER, GOLD, PRISMATIC).stream()
+        assertEquals(List.of(46L, 82L, 44L), List.of(SILVER, GOLD, PRISMATIC).stream()
                 .map(rarity -> AugmentCatalog.normalDefinitions().stream().filter(card -> card.rarity() == rarity).count()).toList());
         for (AugmentDefinition card : AugmentCatalog.definitions()) {
             for (String conflict : card.conflicts()) {
@@ -83,8 +83,8 @@ class AugmentCatalogStateTest {
     @Test
     void allJobCardsKeepStableOwnershipAndMergeValidatedDefaults() {
         var jobs = AugmentCatalog.definitions().stream().filter(card -> card.requiredJobId() != null).toList();
-        assertEquals(126, jobs.size());
-        assertEquals(31, jobs.stream().map(AugmentDefinition::requiredJobId).distinct().count());
+        assertEquals(130, jobs.size());
+        assertEquals(32, jobs.stream().map(AugmentDefinition::requiredJobId).distinct().count());
         for (String job : jobs.stream().map(AugmentDefinition::requiredJobId).distinct().toList()) {
             List<AugmentDefinition> owned = jobs.stream().filter(card -> job.equals(card.requiredJobId())).toList();
             String key = switch (job) {

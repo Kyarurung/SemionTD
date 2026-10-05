@@ -1,5 +1,9 @@
 package kim.biryeong.semiontd.command;
 
+import kim.biryeong.semiontd.tower.magicschool.CurriculumGui;
+import kim.biryeong.semiontd.tower.magicschool.HogwartsTower;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolWizardTower;
+import kim.biryeong.semiontd.tower.magicschool.SpellGui;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import kim.biryeong.semiontd.tower.gamble.PokerTableTower;
@@ -85,6 +89,7 @@ import kim.biryeong.semiontd.tower.thunder.ThunderTowers;
 import kim.biryeong.semiontd.tower.thunder.ThunderVfx;
 import kim.biryeong.semiontd.tower.hero.HeroCompanionRole;
 import kim.biryeong.semiontd.tower.hero.HeroCompanionSkinGui;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSkinGui;
 import kim.biryeong.semiontd.tower.hero.HeroPartyStates;
 import kim.biryeong.semiontd.tower.developer.DeveloperPatchGui;
 import kim.biryeong.semiontd.tower.developer.DeveloperTower;
@@ -357,6 +362,39 @@ public final class SemionCommands {
                                                         )))))))
                 .then(literal("gardener")
                         .executes(context -> gardenerSkills(context.getSource(), gameManager)))
+                .then(literal("magic_school")
+                        .then(literal("skin")
+                                .then(argument("x", IntegerArgumentType.integer())
+                                        .then(argument("y", IntegerArgumentType.integer())
+                                                .then(argument("z", IntegerArgumentType.integer())
+                                                        .executes(context -> magicSchoolSkin(context.getSource(), gameManager,
+                                                                new GridPosition(IntegerArgumentType.getInteger(context, "x"),
+                                                                        IntegerArgumentType.getInteger(context, "y"),
+                                                                        IntegerArgumentType.getInteger(context, "z"))))))))
+                        .then(literal("curriculum")
+                                .then(argument("x", IntegerArgumentType.integer())
+                                        .then(argument("y", IntegerArgumentType.integer())
+                                                .then(argument("z", IntegerArgumentType.integer())
+                                                        .executes(context -> magicSchoolCurriculum(
+                                                                context.getSource(), gameManager,
+                                                                new GridPosition(
+                                                                        IntegerArgumentType.getInteger(context, "x"),
+                                                                        IntegerArgumentType.getInteger(context, "y"),
+                                                                        IntegerArgumentType.getInteger(context, "z")
+                                                                )
+                                                        ))))))
+                        .then(literal("spells")
+                                .then(argument("x", IntegerArgumentType.integer())
+                                        .then(argument("y", IntegerArgumentType.integer())
+                                                .then(argument("z", IntegerArgumentType.integer())
+                                                        .executes(context -> magicSchoolSpells(
+                                                                context.getSource(), gameManager,
+                                                                new GridPosition(
+                                                                        IntegerArgumentType.getInteger(context, "x"),
+                                                                        IntegerArgumentType.getInteger(context, "y"),
+                                                                        IntegerArgumentType.getInteger(context, "z")
+                                                                )
+                                                        )))))))
                 .then(literal("hero")
                         .then(literal("skin")
                                 .executes(context -> heroSkin(context.getSource(), gameManager)))
@@ -692,6 +730,18 @@ public final class SemionCommands {
                                 .executes(context -> debugTranscendenceVfx(context.getSource())))
                         .then(literal("ignite")
                                 .executes(context -> debugIgniteVfx(context.getSource())))
+                        .then(literal("magic_school")
+                                .then(argument("spell", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            for (var spell : kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell.values()) builder.suggest(spell.id());
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(context -> {
+                                            var spell = kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell.find(StringArgumentType.getString(context, "spell"));
+                                            if (spell.isEmpty()) return 0;
+                                            TowerVfxService.showMagicSchoolDebug(context.getSource().getPlayerOrException(), spell.get());
+                                            return 1;
+                                        })))
                         .then(literal("magic_hit")
                                 .executes(context -> debugMagicHitVfx(context.getSource())))
                         .then(literal("ocean_supply")
@@ -3574,6 +3624,62 @@ public final class SemionCommands {
             return 0;
         }
         new kim.biryeong.semiontd.tower.plant.GardenerSkillGui(player, game, gardener.get()).open();
+        return 1;
+    }
+
+    private static int magicSchoolCurriculum(
+            CommandSourceStack source, SemionGameManager gameManager, GridPosition position
+    ) throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        ServerPlayer player = source.getPlayerOrException();
+        if (game == null) {
+            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
+            return 0;
+        }
+        PlayerLane lane = game.playerLane(player.getUUID()).orElse(null);
+        Tower tower = lane == null ? null : lane.towerAt(position);
+        if (!(tower instanceof HogwartsTower school)
+                || !player.getUUID().equals(tower.ownerPlayer())) {
+            failure(source, "자신이 설치한 호그와트에서 커리큘럼을 열 수 있습니다.");
+            return 0;
+        }
+        new CurriculumGui(player, game, school).open();
+        return 1;
+    }
+
+    private static int magicSchoolSkin(CommandSourceStack source, SemionGameManager gameManager, GridPosition position)
+            throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        ServerPlayer player = source.getPlayerOrException();
+        var lane = game == null ? null : game.playerLane(player.getUUID()).orElse(null);
+        var tower = lane == null ? null : lane.towerAt(position);
+        if (!(tower instanceof HogwartsTower school)
+                || !kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculum.canManageSchool(game, player.getUUID(), school)) {
+            failure(source, "자신이 설치한 호그와트에서 마법사 스킨을 설정할 수 있습니다.");
+            return 0;
+        }
+        gameManager.profile(source.getServer(), player.getUUID(), player.getGameProfile().name());
+        new MagicSchoolSkinGui(player, gameManager, game, school).open();
+        return 1;
+    }
+
+    private static int magicSchoolSpells(
+            CommandSourceStack source, SemionGameManager gameManager, GridPosition position
+    ) throws CommandSyntaxException {
+        SemionGame game = playableGame(source, gameManager);
+        ServerPlayer player = source.getPlayerOrException();
+        if (game == null) {
+            failure(source, "진행 중인 게임 또는 샌드박스가 없습니다.");
+            return 0;
+        }
+        PlayerLane lane = game.playerLane(player.getUUID()).orElse(null);
+        Tower tower = lane == null ? null : lane.towerAt(position);
+        if (!(tower instanceof MagicSchoolWizardTower wizard)
+                || !player.getUUID().equals(tower.ownerPlayer())) {
+            failure(source, "자신이 설치한 마법사의 주문을 지정할 수 있습니다.");
+            return 0;
+        }
+        new SpellGui(player, game, wizard).open();
         return 1;
     }
 

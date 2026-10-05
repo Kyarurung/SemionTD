@@ -341,6 +341,26 @@ public final class PlayerLane {
         return laneDefenseBroken;
     }
 
+    public boolean towersMovedToFinalDefense() {
+        return towersMovedToFinalDefense;
+    }
+
+    public boolean hasLaneCombatRemaining() {
+        return !clearedThisRound && !laneDefenseBroken
+                && (towers.stream().anyMatch(tower -> tower.countsForLaneDefense()
+                        && tower.reinforcementLane() == null && !tower.isDestroyed(this))
+                    || reinforcingTowers().stream().anyMatch(tower -> tower.countsForLaneDefense()
+                            && !tower.isDestroyed(tower.attachedLane())))
+                && (!waveMonsterSpawnQueue.isEmpty() || !summonedMonsterSpawnQueue.isEmpty()
+                || activeMonsters.stream().anyMatch(monster -> monster.health() > 0 && !monster.isRemoved()
+                        && !monster.inFinalDefenseCombat()));
+    }
+
+    public List<Tower> reinforcingTowers() {
+        return teamLaneGroup == null ? List.of() : teamLaneGroup.lanes().stream()
+                .flatMap(lane -> lane.towers().stream()).filter(tower -> tower.reinforcementLane() == this).toList();
+    }
+
     public void resetForRound() {
         JobLaneLifecycle.beforeRoundReset(this);
         for (Tower copy : towers.stream().filter(Tower::isTemporaryCopy).toList()) {removeTower(copy);}
@@ -588,6 +608,8 @@ public final class PlayerLane {
                 tower.onLaneCleared(this);
             }
             clearedThisRound = true;
+            kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculum.onLaneCleared(this, trackedRound, players);
+            kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clear(ownerPlayer);
         }
         IllagerRaidStates.playPendingActivationEffects(server, this);
     }
@@ -897,11 +919,18 @@ public final class PlayerLane {
     }
 
     public void moveTowersToFinalDefense() {
+        if (towersMovedToFinalDefense && reinforcingTowers().isEmpty()) return;
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clearCombatLane(this);
+        for (Tower visitor : reinforcingTowers()) {
+            PlayerLane ownerLane = visitor.attachedLane();
+            visitor.moveToFinalDefense(ownerLane, nextFinalDefenseTowerPosition(visitor));
+        }
         if (towersMovedToFinalDefense) {
             return;
         }
 
         for (Tower tower : List.copyOf(towers)) {
+            if (tower.reinforcementLane() != null) continue;
             if (!tower.participatesInFinalDefense()) {
                 tower.moveToFinalDefense(this, tower.position());
                 continue;
@@ -966,6 +995,10 @@ public final class PlayerLane {
                 allTowersDestroyed = false;
             }
         }
+        if (allTowersDestroyed && reinforcingTowers().stream().anyMatch(tower -> tower.countsForLaneDefense()
+                && !tower.isDestroyed(tower.attachedLane()))) {
+            allTowersDestroyed = false;
+        }
         if (!laneDefenseBroken && allTowersDestroyed
                 && !kim.biryeong.semiontd.tower.insect.InsectAugments.hasPendingDefender(this)) {
             laneDefenseBroken = true;
@@ -977,6 +1010,7 @@ public final class PlayerLane {
 
     private void notifyNearbyMonsterDeath(Monster monster, Vec3 deathPosition) {
         for (PlayerLane recipientLane : notificationLanes()) {
+            kim.biryeong.semiontd.tower.magicschool.MagicSchoolDeathEaters.onMonsterDeath(recipientLane, monster);
             kim.biryeong.semiontd.tower.frost.FrostAugments.onMonsterDeath(recipientLane, monster, deathPosition);
             for (Tower tower : List.copyOf(recipientLane.towers)) {
                 if (recipientLane.towerMembership.contains(tower)) {

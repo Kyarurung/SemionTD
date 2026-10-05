@@ -102,7 +102,10 @@ public final class AreaEffectService implements AreaEffectApi {
             for (SemionTowerEntity entity : level.getEntitiesOfClass(
                     SemionTowerEntity.class,
                     searchBox(request.center(), request.radius()),
-                    target -> validTowerEntity(request.source(), target)
+                    target -> request.alliedTeam()
+                            ? target.isAlive() && !target.isRemoved() && target.runtimeTower() != null
+                                    && request.source().teamId() == target.teamId()
+                            : validTowerEntity(request.source(), target)
             )) {
                 Tower tower = entity.runtimeTower();
                 boolean illusion = entity.isIllusionClone() || tower instanceof IllusionRuntimeTower;
@@ -116,7 +119,9 @@ public final class AreaEffectService implements AreaEffectApi {
         double radiusSqr = request.radius() * request.radius();
         List<AreaTowerTarget> filtered = candidates.values().stream()
                 .filter(target -> request.includeSource() || target.tower() != request.source().runtimeTower())
-                .filter(target -> validTowerTarget(request.source(), target))
+                .filter(target -> request.alliedTeam()
+                        ? target.tower().health() > 0 && request.source().teamId() == target.tower().teamId()
+                        : validTowerTarget(request.source(), target))
                 .filter(target -> towerPosition(target).distanceToSqr(request.center()) <= radiusSqr)
                 .filter(request.targetFilter())
                 .toList();
@@ -198,7 +203,7 @@ public final class AreaEffectService implements AreaEffectApi {
         return tower.health() > 0.0
                 && source.ownerPlayer().equals(tower.ownerPlayer())
                 && source.teamId() == tower.teamId()
-                && source.laneId() == tower.laneId();
+                && source.laneId() == tower.combatLaneId();
     }
 
     private static Optional<SemionTowerEntity> towerEntity(Tower tower, ServerLevel level) {

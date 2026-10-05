@@ -157,6 +157,18 @@ public final class TowerAttackMonsterGoal extends Goal {
     }
 
     private SemionMonsterEntity findTarget() {
+        SemionMonsterEntity selected = findPreferredTarget();
+        if (selected == null || !selected.schoolSpells().controlled()) return selected;
+        List<SemionMonsterEntity> alternatives = targetCandidates().stream()
+                .filter(target -> !target.schoolSpells().controlled() && isInAttackRange(target)).toList();
+        if (alternatives.isEmpty()) return selected;
+        SemionMonsterEntity preferred = tower.selectAttackTarget(alternatives);
+        cachedTarget = preferred != null ? preferred : alternatives.stream()
+                .min(Comparator.comparingDouble(tower::distanceToSqr)).orElse(selected);
+        return cachedTarget;
+    }
+
+    private SemionMonsterEntity findPreferredTarget() {
         SemionMonsterEntity forcedTarget = selectForcedTarget();
         if (forcedTarget != null) {
             cachedTarget = forcedTarget;

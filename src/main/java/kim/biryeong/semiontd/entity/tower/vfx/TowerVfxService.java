@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.entity.tower.vfx;
 
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,6 +39,8 @@ import kim.biryeong.semiontd.tower.area.AreaVfxStyleRegistryImpl;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.particles.DustParticleOptions;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolWizardTower;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.protocol.Packet;
@@ -100,6 +103,7 @@ public final class TowerVfxService {
     private static volatile BiConsumer<UUID, String> warlockAwakeningTestObserver;
     private static volatile Consumer<List<Vec3>> transcendenceTestObserver;
     private static volatile Consumer<Vec3> magicHitTestObserver;
+    private static volatile Consumer<MagicSchoolSpellVfx.Visual> magicSchoolTestObserver;
     private static volatile Consumer<Vec3> prophecyLightningTestObserver;
     private static volatile Consumer<Vec3> bodyHeartbeatTestObserver;
     private static volatile BiConsumer<Vec3, Vec3> bodyEyeLaserTestObserver;
@@ -140,6 +144,11 @@ public final class TowerVfxService {
         }
         Vec3 source = towerCenter(tower);
         Vec3 impact = targetCenter(target);
+        if (tower.runtimeTower() instanceof MagicSchoolWizardTower wizard) {
+            enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(wizard.selectedSpell(),
+                    MagicSchoolSpellVfx.Kind.ATTACK, source, impact, 0));
+            return;
+        }
         AttackVisualKind kind = visualKind(tower.attackRange());
         enqueue(new AttackEvent(context, source, impact, kind, false));
         if (!killedPrimaryTarget
@@ -197,7 +206,12 @@ public final class TowerVfxService {
         }
         EventContext context = context(tower, impact);
         if (context != null) {
-            enqueue(new AttackEvent(context, towerCenter(tower), impact, visualKind(tower.attackRange()), true));
+            if (tower.runtimeTower() instanceof MagicSchoolWizardTower wizard) {
+                enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(wizard.selectedSpell(),
+                        MagicSchoolSpellVfx.Kind.ATTACK, towerCenter(tower), impact, 0));
+            } else {
+                enqueue(new AttackEvent(context, towerCenter(tower), impact, visualKind(tower.attackRange()), true));
+            }
         }
     }
 
@@ -227,8 +241,51 @@ public final class TowerVfxService {
         Vec3 impact = targetCenter(target);
         EventContext context = context(tower, impact);
         if (context != null) {
-            enqueueMagicHit(context, impact);
+            if (tower.runtimeTower() instanceof MagicSchoolWizardTower wizard) {
+                enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(wizard.selectedSpell(),
+                        MagicSchoolSpellVfx.Kind.HIT, towerCenter(tower), impact, 0));
+            } else {
+                enqueueMagicHit(context, impact);
+            }
         }
+    }
+
+    public static void showMagicSchoolVisual(SemionTowerEntity tower, MagicSchoolSpell spell,
+            MagicSchoolSpellVfx.Kind kind, Vec3 center, double radius) {
+        if (!config.enabled() || tower == null || spell == null || center == null) return;
+        EventContext context = context(tower, center);
+        if (context != null) enqueueMagicSchool(context,
+                new MagicSchoolSpellVfx.Visual(spell, kind, towerCenter(tower), center, radius));
+    }
+
+    private static void enqueueMagicSchool(EventContext context, MagicSchoolSpellVfx.Visual visual) {
+        var observer = magicSchoolTestObserver;
+        if (observer != null) observer.accept(visual);
+        enqueue(new MagicSchoolEvent(context, visual));
+    }
+
+    static void setMagicSchoolTestObserver(Consumer<MagicSchoolSpellVfx.Visual> observer) {
+        magicSchoolTestObserver = observer;
+    }
+
+    public static void showMagicSchoolDebug(ServerPlayer player, MagicSchoolSpell spell) {
+        if (!config.enabled() || player == null || !(player.level() instanceof ServerLevel level)) return;
+        Vec3 source = player.getEyePosition();
+        Vec3 impact = source.add(player.getLookAngle().scale(5));
+        EventContext context = new EventContext(new VfxLaneKey(level.dimension(), TeamId.RED, 0),
+                player.getUUID(), BuilderPalette.MAGIC_SCHOOL, level.getGameTime(), List.of(Recipient.snapshot(player)));
+        enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(spell, MagicSchoolSpellVfx.Kind.ATTACK, source, impact, 0));
+        MagicSchoolSpellVfx.Kind kind = switch (spell) {
+            case PROTEGO -> MagicSchoolSpellVfx.Kind.SHIELD;
+            case EPISKEY -> MagicSchoolSpellVfx.Kind.HEAL;
+            case SECTUMSEMPRA -> MagicSchoolSpellVfx.Kind.WOUND;
+            case CRUCIO -> MagicSchoolSpellVfx.Kind.DOT;
+            case IMPERIO -> MagicSchoolSpellVfx.Kind.CONTROL;
+            default -> spell.defaultAbilities().containsKey("radius") ? MagicSchoolSpellVfx.Kind.AREA : MagicSchoolSpellVfx.Kind.HIT;
+        };
+        double radius = kind == MagicSchoolSpellVfx.Kind.SHIELD ? .7
+                : spell.defaultAbilities().containsKey("radius") ? spell.value("radius") : 0;
+        enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(spell, kind, source, impact, radius));
     }
 
     public static void showBodyHeartbeat(SemionTowerEntity tower) {
@@ -652,6 +709,15 @@ public final class TowerVfxService {
         if (observer != null) {
             observer.accept(event);
         }
+        if (tower.runtimeTower() instanceof MagicSchoolWizardTower
+                && effectId.getNamespace().equals(SemionTd.MOD_ID) && effectId.getPath().startsWith("magic_school_")) {
+            var spell = MagicSchoolSpell.find(effectId.getPath().substring("magic_school_".length()));
+            if (spell.isPresent()) {
+                enqueueMagicSchool(context, new MagicSchoolSpellVfx.Visual(spell.get(), MagicSchoolSpellVfx.Kind.AREA,
+                        towerCenter(tower), visualCenter, radius));
+                return;
+            }
+        }
         enqueue(new AreaEvent(context, event));
     }
 
@@ -820,7 +886,10 @@ public final class TowerVfxService {
                 continue;
             }
             stats.planned.increment();
-            if (event instanceof AttackEvent attack) {
+            if (event instanceof MagicSchoolEvent school) {
+                MagicSchoolSpellVfx.plan(school.visual, new PlannerOutput(school.context(), school.context().lane(),
+                        gameTime, batchConfig, vanillaPacketsByRecipient, gcbShapesByLane));
+            } else if (event instanceof AttackEvent attack) {
                 renderAttack(attack, gameTime, batchConfig, vanillaPacketsByRecipient, gcbShapesByLane);
             } else if (event instanceof AreaEvent area) {
                 renderArea(area, gameTime, batchConfig, vanillaPacketsByRecipient, gcbShapesByLane);
@@ -1654,6 +1723,15 @@ public final class TowerVfxService {
 
         void assignSequence(long sequence) {
             this.sequence = sequence;
+        }
+    }
+
+    private static final class MagicSchoolEvent extends PendingEvent {
+        private final MagicSchoolSpellVfx.Visual visual;
+
+        private MagicSchoolEvent(EventContext context, MagicSchoolSpellVfx.Visual visual) {
+            super(context, visual.kind() == MagicSchoolSpellVfx.Kind.ATTACK ? Phase.PRIMARY_ATTACK : Phase.AREA_DAMAGE);
+            this.visual = visual;
         }
     }
 

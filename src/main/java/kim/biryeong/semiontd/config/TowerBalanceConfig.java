@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import kim.biryeong.semiontd.tower.TowerCapacity;
 import kim.biryeong.semiontd.tower.TowerType;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculum;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpell;
 import kim.biryeong.semiontd.tower.ancientcity.AncientCityStates;
 import kim.biryeong.semiontd.tower.ancientcity.AncientCityTowers;
 import kim.biryeong.semiontd.tower.adversary.AdversaryBalance;
@@ -263,8 +266,11 @@ public record TowerBalanceConfig(
         addPetTowers(towers);
         kim.biryeong.semiontd.tower.augment.AugmentTowers.all().forEach(type -> addTower(towers, type));
         addPirateTowers(towers);
+        MagicSchoolTowers.all().forEach(type -> addTower(towers, type));
 
         LinkedHashMap<String, Long> upgradeCosts = new LinkedHashMap<>();
+        MagicSchoolTowers.houseWizards().forEach(type -> putUpgrade(upgradeCosts, MagicSchoolTowers.FRESHMAN, type.id(), 200));
+        MagicSchoolTowers.houseWizards().forEach(type -> putUpgrade(upgradeCosts, type, MagicSchoolTowers.archWizardFor(type).id(), 450));
         putUpgrade(upgradeCosts, VillagerTowers.T1_SPLASH_TOWER, "villager_splash_t2", 110);
         putUpgrade(upgradeCosts, VillagerTowers.T2_LIBRARIAN_TOWER, "villager_splash_t3", 180);
         putUpgrade(upgradeCosts, VillagerTowers.T1_GOLEM_TOWER, "t2_golem_tower", 180);
@@ -932,6 +938,29 @@ public record TowerBalanceConfig(
         putFrostAbilities(abilities);
         putPetAbilities(abilities);
         putPirateAbilities(abilities);
+        putAbilities(abilities, MagicSchoolTowers.CONFIG_ID, Map.of(
+                "waveProficiencyBase", 10.0, "proficiencyDamagePerPoint", 0.0015,
+                "proficiencyHealthPerPoint", 0.0015, "sortingHatCost", 80.0, "baseStatsVersion", 1.0,
+                "proficiencyVersion", 2.0, "hogwartsVersion", 1.0, "curriculumBalanceVersion", 2.0,
+                "combatBalanceVersion", 1.0));
+        var curriculumAbilities = new LinkedHashMap<>(abilities.get(MagicSchoolTowers.CONFIG_ID));
+        curriculumAbilities.putAll(MagicSchoolCurriculum.defaultAbilities());
+        for (MagicSchoolSpell spell : MagicSchoolSpell.values()) {
+            putAbilities(abilities, spell.configId(), spell.defaultAbilities());
+        }
+        putAbilities(abilities, MagicSchoolTowers.CONFIG_ID, curriculumAbilities);
+        for (TowerType wizard : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
+            putAbilities(abilities, wizard.id(), Map.of(
+                    "maxProficiency", MagicSchoolTowers.isFreshman(wizard) ? 100.0 : MagicSchoolTowers.isHouseWizard(wizard) ? 250.0 : 400.0,
+                    "proficiencyGainBonus", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.RAVENCLAW) ? 0.15 : 0.0,
+                    "wandAttackIntervalReduction", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.GRYFFINDOR) ? 1.0 : 0.0,
+                    "wandHealthBonus", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.HUFFLEPUFF) ? 0.10
+                            : MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.RAVENCLAW) ? 0.05 : 0.0,
+                    "wandDamageBonus", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.SLYTHERIN) ? 0.10
+                            : MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.RAVENCLAW) ? 0.05 : 0.0,
+                    "mentorProficiency", MagicSchoolTowers.isFreshman(wizard) ? 8.0 : MagicSchoolTowers.isHouseWizard(wizard) ? 15.0 : 0.0,
+                    TowerCapacity.CONFIG_KEY, 2.0));
+        }
 
         TowerBalanceConfig fallback = new TowerBalanceConfig(
                 towers,
@@ -2024,6 +2053,44 @@ public record TowerBalanceConfig(
                 "summon.durationTicks", "summon.minimumPricePerLevel");
         validateIntegral(blueprint, true, "summon.countPerLevel",
                 "summon.intervalTicksPerLevel", "summon.durationTicksPerLevel");
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "waveProficiencyBase", "sortingHatCost");
+        validateRange(MagicSchoolTowers.CONFIG_ID, "baseStatsVersion", 1, 1);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "proficiencyVersion", 2, 2);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "hogwartsVersion", 1, 1);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "curriculumBalanceVersion", 2, 2);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "combatBalanceVersion", 1, 1);
+        for (MagicSchoolSpell spell : MagicSchoolSpell.values()) {
+            for (String key : spell.defaultAbilities().keySet()) {
+                validatePositive(spell.configId(), key);
+                if (key.endsWith("Ticks") || key.endsWith("Stacks") || key.equals("hitsToStun") || key.equals("attacksPerExtraTarget")
+                        || key.equals("waveAggroBonus")) {
+                    validateIntegral(spell.configId(), false, key);
+                }
+                if (key.endsWith("Reduction") || key.equals("attackSpeedPenalty")) {
+                    validateRange(spell.configId(), key, 0, .99);
+                }
+            }
+        }
+        for (String key : MagicSchoolCurriculum.defaultAbilities().keySet()) {
+            if (key.endsWith("Cost") || key.endsWith("CostIncrease")) validateIntegral(MagicSchoolTowers.CONFIG_ID, true, key);
+            if (key.endsWith("MaxLevel")) validateIntegral(MagicSchoolTowers.CONFIG_ID, false, key);
+        }
+        validateRatios(MagicSchoolTowers.CONFIG_ID, "spellPowerPerLevel", "darkArtsDefensePerLevel", "magicHistoryPerLevel");
+        validateRatios(MagicSchoolTowers.CONFIG_ID, "duelingPracticeHealthRatio", "duelingPracticeProficiencyRatio");
+        validatePositive(MagicSchoolTowers.CONFIG_ID, "mentorRadius");
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "deathEaterProficiencyPerRound");
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "spellPracticePerTier", "spellPracticeRepeatBonus");
+        validateRatios(MagicSchoolTowers.CONFIG_ID, "spellTransferDamageRatio", "potionsHealRatio", "explosiveBarrelDamageRatio");
+        validatePositive(MagicSchoolTowers.CONFIG_ID, "potionsHealRatio", "explosiveBarrelRadius");
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, false, "spellTransferMaxTargets", "spellTransferCooldownTicks",
+                "transfigurationCooldownTicks", "barrelHealth", "barrelHealthRound1", "barrelHealthRound2", "barrelHealthRound3");
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "quidditchBaseReward", "quidditchRewardIncrease", "quidditchMaxIncreases", "barrelAggro");
+        validateRatios(MagicSchoolTowers.CONFIG_ID, "proficiencyDamagePerPoint", "proficiencyHealthPerPoint");
+        for (TowerType wizard : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
+            validatePositive(wizard.id(), "maxProficiency");
+            validateRatios(wizard.id(), "proficiencyGainBonus", "wandHealthBonus", "wandDamageBonus");
+            validateIntegral(wizard.id(), true, "wandAttackIntervalReduction", "mentorProficiency", TowerCapacity.CONFIG_KEY);
+        }
     }
 
     private void validatePetAbilities() {

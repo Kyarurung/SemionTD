@@ -98,6 +98,7 @@ public final class TeamLaneGroup {
         for (PlayerLane lane : lanes) {
             lane.tick(server, economyService, players, monsterScalingConfig, roundElapsedTicks);
             if (lane.clearedThisRound()) {
+                kim.biryeong.semiontd.tower.magicschool.MagicSchoolBroomsticks.beforeFinalDefense(this, lane, players);
                 lane.moveTowersToFinalDefense();
                 List<DefenderEntity> defenders = lane.releaseDefendersToFinalDefense();
                 for (DefenderEntity defender : defenders) {

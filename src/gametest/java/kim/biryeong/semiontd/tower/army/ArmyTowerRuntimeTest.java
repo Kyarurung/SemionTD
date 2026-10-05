@@ -65,8 +65,8 @@ public final class ArmyTowerRuntimeTest {
             require(ProductionTowerCatalog.all().stream()
                     .filter(entry -> entry.availability() == ProductionTowerCatalog.Availability.JOB)
                     .filter(entry -> !kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.isBlueprintId(entry.type().id()))
-                    .filter(ProductionTowerCatalog.CatalogEntry::starter).count() == 154,
-                    "Built-ins must include 154 job starters including the ticket-gated joker, poker table, gardener, and new demon lord skills.");
+                    .filter(ProductionTowerCatalog.CatalogEntry::starter).count() == 156,
+                    "Built-ins must include 156 job starters including the ticket-gated joker, poker table, gardener, demon lord skills, Hogwarts, and freshman.");
             require(ProductionTowerService.availableTowers(game, owner).stream()
                     .filter(entry -> ArmyTowers.isArmyTower(entry.type())).count() == 3,
                     "Army must expose headquarters, guard, and combat starters.");

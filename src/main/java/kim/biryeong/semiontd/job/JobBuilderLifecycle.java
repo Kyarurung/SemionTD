@@ -54,6 +54,7 @@ public final class JobBuilderLifecycle {
             Map.entry(IllagerTowerJob.ID, new JobIllagerLifecycle()),
             Map.entry(InsectTowerJob.ID, new JobInsectLifecycle()),
             Map.entry(MageTowerJob.ID, new JobMageLifecycle()),
+            Map.entry(MagicSchoolTowerJob.ID, new JobMagicSchoolLifecycle()),
             Map.entry(PirateTowerJob.ID, new JobPirateLifecycle()),
             Map.entry(PlantTowerJob.ID, new JobPlantLifecycle()),
             Map.entry(QueenTowerJob.ID, new JobQueenLifecycle()),

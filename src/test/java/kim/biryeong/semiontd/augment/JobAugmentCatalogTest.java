@@ -21,7 +21,7 @@ class JobAugmentCatalogTest {
             "legion_towers", "resonance_towers", "illager_towers", "nether", "end_towers", "ocean", "ancient_city",
             "hero_party", "succubus", "adversary_towers", "engineer_towers", "queen_towers", "atlantis_towers",
             "plant_towers", "army", "thunder", "demon_lord_towers", "gamble", "body", "pet_towers",
-            "developer_towers", "frost", "pirate", "mage_towers", "insect_towers", "future_agency_towers");
+            "developer_towers", "frost", "pirate", "mage_towers", "insect_towers", "future_agency_towers", "magic_school");
 
     @BeforeAll
     static void bootstrap() {
@@ -32,8 +32,8 @@ class JobAugmentCatalogTest {
     @Test
     void allReviewIdsKeepTheirRegisteredBuilderAndOriginalCards() {
         var entries = JobAugmentCatalog.entries();
-        assertEquals(126, entries.size());
-        assertEquals(126, entries.stream().map(JobAugmentCatalog.Entry::reviewId).distinct().count());
+        assertEquals(130, entries.size());
+        assertEquals(130, entries.stream().map(JobAugmentCatalog.Entry::reviewId).distinct().count());
         for (int index = 0; index < JOBS.size(); index++) {
             String job = JOBS.get(index);
             String owner = "semion-td:" + switch (job) {
@@ -75,7 +75,7 @@ class JobAugmentCatalogTest {
         assertFalse(changed.isEnabled("job_mage_towers_p"));
         assertTrue(changed.isEnabled("job_mage_towers_s"));
         assertEquals(changed, AugmentConfig.fromJson(changed.toJson()));
-        assertEquals(126, changed.parameters().keySet().stream().filter(id -> id.startsWith("semiontd:job_")).count());
+        assertEquals(130, changed.parameters().keySet().stream().filter(id -> id.startsWith("semiontd:job_")).count());
     }
 
     @Test

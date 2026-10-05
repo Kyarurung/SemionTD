@@ -786,7 +786,14 @@
     "semiontd:winning_barrage": {
       "charges": 3.0,
       "damageBonus": 0.6
-    }
+    },
+    "semiontd:job_magic_school_s": {},
+    "semiontd:job_magic_school_g1": {},
+    "semiontd:job_magic_school_g2": {
+      "proficiencyGainBonus": 0.3,
+      "proficiencyCapBonus": 100.0
+    },
+    "semiontd:job_magic_school_p": {}
   },
   "disabledIds": []
 }

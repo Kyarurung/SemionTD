@@ -70,6 +70,7 @@ import kim.biryeong.semiontd.tower.ProductionTowerCatalogs;
 import kim.biryeong.semiontd.tower.engineer.EngineerRedstoneBossBarService;
 import kim.biryeong.semiontd.tower.hero.HeroCompanionRole;
 import kim.biryeong.semiontd.tower.hero.HeroCompanionSkins;
+import kim.biryeong.semiontd.tower.magicschool.MagicSchoolSkins;
 import kim.biryeong.semiontd.tower.hero.FakePlayerTowerVisuals;
 import kim.biryeong.semiontd.tower.illager.IllagerRaidBossBarService;
 import kim.biryeong.semiontd.tower.legion.IllusionCloneSpawnQueue;
@@ -622,6 +623,7 @@ public final class SemionGameManager {
         SemionPlayerProfile profile = progressionService.profile(server, playerId, playerName);
         HeroCompanionSkins.load(playerId, profile.heroCompanionSkins());
         kim.biryeong.semiontd.tower.blueprint.BlueprintLibrary.load(playerId, profile.blueprints());
+        MagicSchoolSkins.load(playerId, profile.magicSchoolSkins());
         return profile;
     }
 
@@ -708,6 +710,14 @@ public final class SemionGameManager {
         }
         HeroCompanionSkins.set(playerId, role, skin);
         FakePlayerTowerVisuals.refreshSkin(playerId, role);
+        return true;
+    }
+
+    public boolean saveMagicSchoolSkin(UUID playerId, String playerName, MagicSchoolSkins.Kind kind,
+            HeroCompanionSkinPreference skin) {
+        if (kind == null || !progressionService.saveMagicSchoolSkin(playerId, playerName, kind.id(), skin)) return false;
+        MagicSchoolSkins.set(playerId, kind, skin);
+        FakePlayerTowerVisuals.refreshMagicSchoolSkin(playerId, kind);
         return true;
     }
 
@@ -1975,6 +1985,7 @@ public final class SemionGameManager {
             activeGame = null;
         }
         HeroCompanionSkins.clearAll();
+        MagicSchoolSkins.clearAll();
         clearRatingProfileCache();
         clearStartCountdown();
         clearTraitSelection();
