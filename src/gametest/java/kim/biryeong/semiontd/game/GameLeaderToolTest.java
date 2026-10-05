@@ -1,7 +1,6 @@
 package kim.biryeong.semiontd.game;
 
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import kim.biryeong.semiontd.config.EconomyConfig;
@@ -55,7 +54,7 @@ public final class GameLeaderToolTest extends GameTestParticipantFixture {
     }
 
     @GameTest
-    public void tiedHighestEloUsesRandomChoiceAndNeverIncludesLowerElo(GameTestHelper context) {
+    public void tiedHighestEloUsesLowestLaneAndNeverIncludesLowerElo(GameTestHelper context) {
         var game = new SemionGame(EconomyConfig.defaultConfig(), new WaveConfig(List.of(), 20, null), testArena(context));
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();
@@ -65,18 +64,12 @@ public final class GameLeaderToolTest extends GameTestParticipantFixture {
                 new AssignedParticipant(UUID.randomUUID(), "blue", TeamId.BLUE, 1, 1500));
         try {
             context.assertTrue(game.start(context.getLevel().getServer(), new ParticipantSelectionPlan(MatchMode.NORMAL, participants, Set.of(), 2)), "Match starts");
-            for (int choice = 0; choice < 2; choice++) {
-                int selected = choice;
-                setField(game, "random", new Random() {
-                    @Override
-                    public int nextInt(int bound) {
-                        context.assertValueEqual(2, bound, "Random draw includes only the tied highest ELO players");
-                        return selected;
-                    }
-                });
-                game.assignTeamLeadersFromParticipants(participants);
-                context.assertValueEqual(choice == 0 ? first : second,
-                        game.teams().get(TeamId.RED).leaderPlayerId().orElseThrow(), "Either top ELO participant can win the random draw");
+            context.assertValueEqual(first, game.teams().get(TeamId.RED).leaderPlayerId().orElseThrow(),
+                    "Match start chooses the lowest lane among the highest ELO participants");
+            for (int attempt = 0; attempt < 100; attempt++) {
+                game.assignTeamLeadersFromParticipants(attempt % 2 == 0 ? participants : participants.reversed());
+                context.assertValueEqual(first, game.teams().get(TeamId.RED).leaderPlayerId().orElseThrow(),
+                        "Candidate order never changes the lowest tied lane selection");
             }
             context.succeed();
         } finally {

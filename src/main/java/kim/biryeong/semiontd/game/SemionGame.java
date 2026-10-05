@@ -1818,10 +1818,11 @@ public final class SemionGame {
                 continue;
             }
             int highestElo = candidates.stream().mapToInt(AssignedParticipant::displayElo).max().orElseThrow();
-            List<AssignedParticipant> leaders = candidates.stream()
+            AssignedParticipant leader = candidates.stream()
                     .filter(participant -> participant.displayElo() == highestElo)
-                    .toList();
-            team.setLeader(leaders.get(leaders.size() == 1 ? 0 : random.nextInt(leaders.size())).uuid());
+                    .min(Comparator.comparingInt(AssignedParticipant::laneId))
+                    .orElseThrow();
+            team.setLeader(leader.uuid());
         }
     }
 
