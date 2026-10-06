@@ -69,7 +69,8 @@ public final class AcquireLaneDefenseTargetGoal extends Goal {
      * 찾았을 때만 도는 차선책이라, 그 레인에 지킬 타워가 있으면 그쪽이 먼저입니다.
      */
     private LivingEntity findDemonLordTarget() {
-        double targetRange = monster.defenseTargetSearchRange();
+        double targetRange = Math.max(monster.defenseTargetSearchRange(), kim.biryeong.semiontd.config.TowerBalanceRuntime.ability(
+                kim.biryeong.semiontd.tower.demonlord.DemonLordTowers.GLOBAL_CONFIG_ID, "aggroRange", 24.0));
         AABB targetBox = monster.getBoundingBox().inflate(targetRange);
         return monster.level().getEntities(monster, targetBox, entity -> {
                     if (!(entity instanceof ServerPlayer player) || !player.isAlive()) {

@@ -632,7 +632,7 @@ public final class DemonLordService {
      * 등급 단위(20%)로는 불가능하기 때문입니다. 일시(transient) 수정자라 저장되지 않고, 값이
      * 달라질 때만 갱신해 매 틱 속성을 흔들지 않습니다.
      */
-    private static void syncMoveSpeed(ServerPlayer player, DemonLordState state) {
+    static void syncMoveSpeed(ServerPlayer player, DemonLordState state) {
         AttributeInstance attribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (attribute == null) {
             return;
@@ -868,7 +868,7 @@ public final class DemonLordService {
         }
     }
 
-    private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
+    static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
         float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
         Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
         if (previous != null && Math.abs(previous - ratio) > 1.0E-3F) {

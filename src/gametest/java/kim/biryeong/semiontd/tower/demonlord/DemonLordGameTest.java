@@ -460,11 +460,15 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             target.runtime().syncLaneProgress(1.0);
             require(target.runtime().state() == MonsterState.REACHED_BOSS,
                     "A monster that broke through must enter the reached-boss state.");
-            Vec3 center = Vec3.atCenterOf(context.absolutePos(new BlockPos(12, 2, 3)));
-            player.teleportTo(center.x, center.y, center.z);
+            Vec3 far = Vec3.atCenterOf(context.absolutePos(new BlockPos(33, 2, 3)));
+            player.teleportTo(far.x, far.y, far.z);
 
             AcquireLaneDefenseTargetGoal goal = new AcquireLaneDefenseTargetGoal(target.entity());
-            require(!goal.canUse(), "A distant final-defense monster must keep following its lane path.");
+            require(!goal.canUse(), "A monster beyond the demon lord aggro range must keep following its lane path.");
+
+            Vec3 outsideTowerRange = Vec3.atCenterOf(context.absolutePos(new BlockPos(12, 2, 3)));
+            player.teleportTo(outsideTowerRange.x, outsideTowerRange.y, outsideTowerRange.z);
+            require(goal.canUse(), "The demon lord must draw aggro from beyond the tower aggro range.");
 
             Vec3 nearby = Vec3.atCenterOf(context.absolutePos(new BlockPos(10, 2, 3)));
             player.teleportTo(nearby.x, nearby.y, nearby.z);
@@ -488,6 +492,44 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             target.entity().discard();
             DemonLordStates.clear(player.getUUID());
             fixture.close();
+        }
+    }
+
+    @GameTest
+    public void combatSpeedScalesDemonLordMovementAttackAndFlight(GameTestHelper context) {
+        TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        var tickRates = context.getLevel().getServer().tickRateManager();
+        float originalRate = tickRates.tickrate();
+        try {
+            DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
+            state.enterCombat();
+            tickRates.setTickRate(20.0F);
+            DemonLordService.syncMoveSpeed(player, state);
+            DemonLordService.syncTickScale(player, state, context.getLevel().getGameTime());
+            double normalMove = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            double normalAttack = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED);
+            float normalFlying = player.getAbilities().getFlyingSpeed();
+
+            tickRates.setTickRate(40.0F);
+            DemonLordService.syncMoveSpeed(player, state);
+            DemonLordService.syncTickScale(player, state, context.getLevel().getGameTime());
+            requireClose(normalMove * 2.0, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                    "Double combat speed must double the demon lord's movement speed.");
+            requireClose(normalAttack * 2.0, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED),
+                    "Double combat speed must double the demon lord's attack speed.");
+            requireClose(normalFlying * 2.0, player.getAbilities().getFlyingSpeed(),
+                    "Double combat speed must double the demon lord's flying speed.");
+
+            tickRates.setTickRate(20.0F);
+            DemonLordService.syncMoveSpeed(player, state);
+            DemonLordService.syncTickScale(player, state, context.getLevel().getGameTime());
+            requireClose(normalMove, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                    "Normal speed must restore the demon lord's movement speed.");
+            context.succeed();
+        } finally {
+            tickRates.setTickRate(originalRate);
+            DemonLordStates.clear(player.getUUID());
         }
     }
 

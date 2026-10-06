@@ -7463,7 +7463,8 @@
       "statSkillRangePerPoint": 0.03,
       "statMoveSpeedPerPoint": 0.03,
       "statMoveSpeedCap": 0.5,
-      "autoIncomeThreshold": 0.7
+      "autoIncomeThreshold": 0.7,
+      "aggroRange": 24.0
     },
     "t1_wave_of_malice_tower": {
       "towerSlotCost": 3.0,

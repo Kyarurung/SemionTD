@@ -5271,6 +5271,7 @@ public record TowerBalanceConfig(
         // 에메랄드가 라운드 한도의 이 비율 이상이면 인컴을 자동으로 보냅니다. 플레이어가 막대로
         // 따로 고르지 않았을 때의 기본값입니다.
         global.put("autoIncomeThreshold", 0.7);
+        global.put("aggroRange", 24.0);
         putAbilities(abilities, DemonLordTowers.GLOBAL_CONFIG_ID, global);
 
         // 8·9번 슬롯 패시브. 구매가(다이아)와 효과 수치입니다.
