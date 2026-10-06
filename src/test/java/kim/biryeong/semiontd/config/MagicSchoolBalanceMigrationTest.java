@@ -91,6 +91,32 @@ class MagicSchoolBalanceMigrationTest {
         assertEquals(3.3, loaded.ability("magic_school_spell_bombarda", "radius", -1));
     }
 
+    @Test void protectionDefaultsMigrateOnceAndCustomValuesRemainAuthoritative() throws Exception {
+        Path path = directory.resolve("tower_balance.json");
+        Files.writeString(path, """
+                {"abilities":{"magic_school_global":{"nerfBalanceVersion":1},
+                  "magic_school_spell_protego":{"damageReduction":0.4},
+                  "magic_school_spell_protego_maxima":{"damageReduction":0.5}}}
+                """);
+        var first = SemionConfigLoader.load(directory, LoggerFactory.getLogger("test")).towerBalance();
+        assertEquals(.20, first.ability("magic_school_spell_protego", "damageReduction", -1));
+        assertEquals(.30, first.ability("magic_school_spell_protego_maxima", "damageReduction", -1));
+        assertEquals(.05, first.ability("magic_school_spell_protego_maxima", "auraReduction", -1));
+        var saved = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        saved.getAsJsonObject("abilities").getAsJsonObject("magic_school_spell_protego").addProperty("damageReduction", .4);
+        saved.getAsJsonObject("abilities").getAsJsonObject("magic_school_spell_protego_maxima").addProperty("damageReduction", .65);
+        Files.writeString(path, saved.toString());
+        var reloaded = SemionConfigLoader.load(directory, LoggerFactory.getLogger("test")).towerBalance();
+        assertEquals(.4, reloaded.ability("magic_school_spell_protego", "damageReduction", -1));
+        assertEquals(.65, reloaded.ability("magic_school_spell_protego_maxima", "damageReduction", -1));
+        saved.getAsJsonObject("abilities").getAsJsonObject("magic_school_global").remove("protectionBalanceVersion");
+        saved.getAsJsonObject("abilities").getAsJsonObject("magic_school_spell_protego").addProperty("damageReduction", .35);
+        Files.writeString(path, saved.toString());
+        var custom = SemionConfigLoader.load(directory, LoggerFactory.getLogger("test")).towerBalance();
+        assertEquals(.35, custom.ability("magic_school_spell_protego", "damageReduction", -1));
+        assertEquals(.65, custom.ability("magic_school_spell_protego_maxima", "damageReduction", -1));
+    }
+
     @Test void graduateCapMigratesOnceAndPrismRewardBackfills() throws Exception {
         Path path = directory.resolve("augment_balance.json");
         Files.writeString(path, """

@@ -121,8 +121,9 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             wizard.selectSpell(MagicSchoolSpell.PROTEGO);
             f.lane.markWaveStarted(1);
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
+            double before = source.getHealth();
             source.hurt(source.damageSources().generic(), 250);
-            check(source.getHealth() > 50, "Reduction must be applied before testing lethality.");
+            requireClose(before - 200, source.getHealth(), "Twenty-percent protection must reduce the hit before testing lethality.");
             source.setInvulnerableTime(0);
             source.hurt(source.damageSources().generic(), 1000);
             requireClose(wizard.currentMaxHealth() * .08, source.getHealth(), "A fatal hit must leave exactly eight percent health.");

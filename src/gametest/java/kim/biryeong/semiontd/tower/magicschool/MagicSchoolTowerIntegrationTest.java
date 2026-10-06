@@ -75,6 +75,53 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void protectionSurvivesReconnectPlacementAndDialogShowsCombinedPercentage(GameTestHelper context) throws Exception {
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        UUID owner = player.getUUID();
+        var game = game(context, owner, UUID.randomUUID());
+        var connection = player.connection;
+        var sent = new ArrayList<Packet<?>>();
+        try {
+            player.connection = new ServerGamePacketListenerImpl(player.level().getServer(), new Connection(PacketFlow.SERVERBOUND),
+                    player, CommonListenerCookie.createInitial(player.getGameProfile(), false)) {
+                @Override public void send(Packet<?> packet) { sent.add(packet); }
+            };
+            var lane = game.playerLane(owner).orElseThrow();
+            var economy = game.players().get(owner).economy();
+            for (int tier = 2; tier <= 4; tier++) MagicSchoolCurriculum.unlockSpellTier(owner, tier, economy);
+            var plot = GridPosition.from(BlockPos.containing(lane.laneLayout().positionAt(.3)));
+            MagicSchoolWizardTower protectedWizard = null;
+            for (int i = 0; i < 4; i++) {
+                var wizard = (MagicSchoolWizardTower) add(lane, MagicSchoolTowers.BRAVE_ARCHWIZARD,
+                        new GridPosition(plot.x() + i, plot.y(), plot.z()));
+                require(wizard.selectSpell(MagicSchoolSpell.PROTEGO_MAXIMA), "The unlocked protection must be selectable.");
+                wizard.runtimeEntity(lane).orElseThrow().setNoAi(true);
+                wizard.onWaveStarted(lane, 1);
+                if (i == 0) protectedWizard = wizard;
+            }
+            var entity = protectedWizard.runtimeEntity(lane).orElseThrow();
+            var manager = new SemionGameManager();
+            var activeGame = SemionGameManager.class.getDeclaredField("activeGame");
+            activeGame.setAccessible(true);
+            activeGame.set(manager, game);
+            manager.handlePlayerDisconnect(player);
+            kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
+            require(game.restorePlayerPlacement(player.level().getServer(), player), "The join path must restore the existing participant.");
+            requireClose(.3998375, MagicSchoolSpellCombat.protection(entity), "Reconnect placement preserves the existing protection sources.");
+            manager.dialogService().showTowerDetails(player, game, protectedWizard);
+            String packet = sent.stream().filter(ClientboundShowDialogPacket.class::isInstance).findFirst().orElseThrow().toString();
+            require(packet.contains("39.98375%") && packet.contains("곱연산"), "The delivered dialog must show the actual combined protection.");
+            double before = entity.getHealth();
+            entity.hurt(entity.damageSources().generic(), 100);
+            requireClose(60.01625, before - entity.getHealth(), "The restored participant retains the same actual damage factor.");
+        } finally {
+            player.connection = connection;
+            game.close();
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void placementChargesCostsAndLimitsHogwartsPerPlayerUntilSold(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         UUID teammate = UUID.randomUUID();

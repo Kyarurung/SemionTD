@@ -944,6 +944,7 @@ public record TowerBalanceConfig(
                 "proficiencyVersion", 2.0, "hogwartsVersion", 1.0, "curriculumBalanceVersion", 2.0,
                 "combatBalanceVersion", 1.0, "nerfBalanceVersion", 1.0));
         var curriculumAbilities = new LinkedHashMap<>(abilities.get(MagicSchoolTowers.CONFIG_ID));
+        curriculumAbilities.put("protectionBalanceVersion", 1.0);
         curriculumAbilities.putAll(MagicSchoolCurriculum.defaultAbilities());
         for (MagicSchoolSpell spell : MagicSchoolSpell.values()) {
             putAbilities(abilities, spell.configId(), spell.defaultAbilities());
@@ -2062,6 +2063,7 @@ public record TowerBalanceConfig(
         validateRange(MagicSchoolTowers.CONFIG_ID, "curriculumBalanceVersion", 2, 2);
         validateRange(MagicSchoolTowers.CONFIG_ID, "combatBalanceVersion", 1, 1);
         validateRange(MagicSchoolTowers.CONFIG_ID, "nerfBalanceVersion", 1, 1);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "protectionBalanceVersion", 1, 1);
         validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "curseProficiencyThreshold");
         validatePositive(MagicSchoolTowers.CONFIG_ID, "curseLowProficiencyAttackSpeedMultiplier");
         validateRatios(MagicSchoolTowers.CONFIG_ID, "curseLowProficiencyAttackSpeedMultiplier");

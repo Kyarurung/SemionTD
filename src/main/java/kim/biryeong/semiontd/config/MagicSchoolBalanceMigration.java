@@ -73,6 +73,18 @@ final class MagicSchoolBalanceMigration {
         return object.toString();
     }
 
+    static String migrateProtection(String json) {
+        var root = JsonParser.parseString(json);
+        if (!root.isJsonObject()) return json;
+        JsonObject abilities = child(root.getAsJsonObject(), "abilities");
+        JsonObject global = child(abilities, MagicSchoolTowers.CONFIG_ID);
+        if (number(global, "protectionBalanceVersion", 0) >= 1) return json;
+        replace(child(abilities, "magic_school_spell_protego"), "damageReduction", .4, .2);
+        replace(child(abilities, "magic_school_spell_protego_maxima"), "damageReduction", .5, .3);
+        global.addProperty("protectionBalanceVersion", 1);
+        return root.toString();
+    }
+
     static void migrateAugments(JsonObject root) {
         JsonObject parameters = child(root, "parameters");
         String id = "semiontd:job_magic_school_g2";

@@ -34,9 +34,10 @@ public final class MagicSchoolSpellCombat {
     }
 
     public static double protection(SemionTowerEntity target) {
-        double aura = target.activeEffectMagnitude(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA);
-        double cap = MagicSchoolSpell.PROTEGO_MAXIMA.value("auraReduction") * MagicSchoolSpell.PROTEGO_MAXIMA.ticks("maxAuraStacks");
-        return Math.min(1, target.activeEffectMagnitude(TimedEffectType.TOWER_PROTEGO) + Math.min(cap, aura));
+        double aura = target.activeMultiplicativeEffectMagnitude(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA,
+                MagicSchoolSpell.PROTEGO_MAXIMA.ticks("maxAuraStacks"));
+        double self = target.activeMultiplicativeEffectMagnitude(TimedEffectType.TOWER_PROTEGO, 1);
+        return 1.0 - (1.0 - self) * (1.0 - aura);
     }
 
     public static void applySelfProtection(MagicSchoolWizardTower wizard, SemionTowerEntity source) {
@@ -49,7 +50,7 @@ public final class MagicSchoolSpellCombat {
     public static void onWaveStarted(MagicSchoolWizardTower wizard, SemionTowerEntity source) {
         applySelfProtection(wizard, source);
         if (wizard.selectedSpell() == MagicSchoolSpell.PROTEGO_MAXIMA) {
-            Identifier contribution = id("protego_" + source.getUUID());
+            Identifier contribution = id("protego_" + wizard.logicalId());
             var spell = MagicSchoolSpell.PROTEGO_MAXIMA;
             SemionTdApi.areaEffects().applyToTowers(allies(source, spell), target -> {
                 target.entity().orElseThrow().setPersistentEffect(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA,

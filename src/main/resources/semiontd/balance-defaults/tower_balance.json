@@ -8862,7 +8862,7 @@
     },
     "magic_school_spell_protego": {
       "waveAggroBonus": 60.0,
-      "damageReduction": 0.4,
+      "damageReduction": 0.2,
       "damageMultiplier": 0.5
     },
     "magic_school_spell_wingardium_leviosa": {
@@ -8903,7 +8903,7 @@
     },
     "magic_school_spell_protego_maxima": {
       "waveAggroBonus": 60.0,
-      "damageReduction": 0.5,
+      "damageReduction": 0.3,
       "radius": 6.0,
       "auraReduction": 0.05,
       "maxAuraStacks": 3.0,
@@ -9009,6 +9009,7 @@
       "baseStatsVersion": 1.0,
       "combatBalanceVersion": 1.0,
       "nerfBalanceVersion": 1.0,
+      "protectionBalanceVersion": 1.0,
       "advancedSpellsCost": 350.0,
       "curseProficiencyThreshold": 500.0,
       "curseLowProficiencyAttackSpeedMultiplier": 0.1

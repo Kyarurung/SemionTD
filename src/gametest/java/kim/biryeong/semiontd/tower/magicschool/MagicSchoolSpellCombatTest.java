@@ -107,8 +107,8 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             var primary = f.monster(3, 10000);
             var near = f.monster(4, 10000);
             var far = f.monster(5, 10000);
-            near.setPos(primary.position().add(1.2, 0, 0));
-            far.setPos(primary.position().add(1.21, 0, 0));
+            near.setPos(Math.nextDown(primary.getX() + 1.2), primary.getY(), primary.getZ());
+            far.setPos(Math.nextUp(primary.getX() + 1.2), primary.getY(), primary.getZ());
             hit(wizard, primary);
             requireClose(9976, primary.getHealth(), "The primary hit must not receive splash twice.");
             requireClose(9985, near.getHealth(), "Expulso splash must use 50% attack, not the reduced primary hit.");
@@ -224,7 +224,7 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void protectionAddsThreeAlliedAurasAndSurvivesSpellChangesUntilRoundEnd(GameTestHelper context) {
+    public void protectionMultipliesThreeAlliedAurasAndSurvivesSpellChangesUntilRoundEnd(GameTestHelper context) {
         try (var f = new Fixture(context)) {
             var protectedWizard = f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, 0);
             var source = protectedWizard.runtimeEntity(f.lane).orElseThrow();
@@ -233,15 +233,15 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
                 var wizard = i == 0 ? protectedWizard : f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, i);
                 wizard.onWaveStarted(f.lane, 1);
             }
-            requireClose(.65, MagicSchoolSpellCombat.protection(source), "Self 50% and three 5% auras must add to 65%, capped at three sources.");
+            requireClose(.3998375, MagicSchoolSpellCombat.protection(source), "Self 30% and three 5% auras must multiply to 39.98375%, capped at three sources.");
             var recipient = ally.runtimeEntity(f.lane).orElseThrow();
-            requireClose(.15, MagicSchoolSpellCombat.protection(recipient), "An ally receives only the capped 15% aura.");
+            requireClose(.142625, MagicSchoolSpellCombat.protection(recipient), "An ally receives three independent 5% auras.");
             double before = source.getHealth();
             source.hurt(source.damageSources().generic(), 100);
-            requireClose(before - 35, source.getHealth(), "Actual incoming damage must use the additive protection.");
+            requireClose(before - 60.01625, source.getHealth(), "Actual incoming damage must use multiplicative protection.");
             protectedWizard.selectSpell(MagicSchoolSpell.PROTEGO);
             protectedWizard.selectSpell(MagicSchoolSpell.STUPEFY);
-            requireClose(.65, MagicSchoolSpellCombat.protection(source), "Protection must last through spell changes until round end.");
+            requireClose(.3998375, MagicSchoolSpellCombat.protection(source), "Protection must last through spell changes until round end.");
             f.lane.resetForRound();
             requireClose(0, MagicSchoolSpellCombat.protection(protectedWizard.runtimeEntity(f.lane).orElseThrow()), "Round reset removes all protection.");
         }
@@ -437,14 +437,14 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void protegoReducesDamageByFortyPercentAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
+    public void protegoReducesDamageByTwentyPercentAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
         try (var f = new Fixture(context)) {
             var wizard = f.wizard(MagicSchoolSpell.PROTEGO, 0);
             wizard.onWaveStarted(f.lane, 1);
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
             double health = source.getHealth();
             source.hurt(source.damageSources().generic(), 100);
-            requireClose(health - 60, source.getHealth(), "Protego alone must reduce received damage by forty percent.");
+            requireClose(health - 80, source.getHealth(), "Protego alone must reduce received damage by twenty percent.");
             var target = f.monster(3, 10000);
             double attack = source.attackDamageAmount(target);
             hit(wizard, target);
@@ -724,6 +724,106 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void schoolProtectionMultipliesWithGeneralReductionWithoutChangingGeneralStacking(GameTestHelper context) {
+        for (int scenario = 0; scenario < 5; scenario++) {
+            try (var f = new Fixture(context)) {
+                var wizard = f.wizard(scenario == 4 ? MagicSchoolSpell.EXPELLIARMUS : MagicSchoolSpell.PROTEGO_MAXIMA, 0);
+                var entity = wizard.runtimeEntity(f.lane).orElseThrow();
+                if (scenario != 4) {
+                    wizard.onWaveStarted(f.lane, 1);
+                    for (int i = 1; i <= 3; i++) f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, i).onWaveStarted(f.lane, 1);
+                    if (scenario == 2 || scenario == 3) entity.setPersistentEffect(TimedEffectType.TOWER_PROTEGO,
+                            MagicSchoolSpellCombat.id("protego_self"), .50);
+                }
+                if (scenario == 1 || scenario >= 3) entity.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_REDUCTION,
+                        MagicSchoolSpellCombat.id("review_general_a"), .30, 2);
+                if (scenario == 4) entity.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_REDUCTION,
+                        MagicSchoolSpellCombat.id("review_general_b"), .20, 200);
+                double expected = new double[]{60.01625, 42.011375, 42.86875, 30.008125, 50}[scenario];
+                double before = entity.getHealth();
+                entity.hurt(entity.damageSources().generic(), 100);
+                requireClose(expected, before - entity.getHealth(), "Actual protection case " + scenario);
+                System.out.println("SCHOOL_PROTECTION case=" + scenario + " damage=" + (before - entity.getHealth()));
+                if (scenario == 1) {
+                    entity.tick();
+                    entity.tick();
+                    requireClose(0, entity.activeTimedEffectMagnitude(TimedEffectType.TOWER_DAMAGE_REDUCTION), "The ordinary buff must expire.");
+                    before = entity.getHealth();
+                    entity.setInvulnerableTime(0);
+                    entity.hurt(entity.damageSources().generic(), 100);
+                    requireClose(60.01625, before - entity.getHealth(), "The school protection survives expiration of an unrelated buff.");
+                }
+            }
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void schoolProtectionKeepsOneAuraWhenCasterEntityIsReplaced(GameTestHelper context) {
+        try (var f = new Fixture(context)) {
+            var wizard = f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, 0);
+            var ally = f.wizard(MagicSchoolSpell.EXPELLIARMUS, 1);
+            wizard.onWaveStarted(f.lane, 1);
+            var target = ally.runtimeEntity(f.lane).orElseThrow();
+            requireClose(.05, MagicSchoolSpellCombat.protection(target), "One caster supplies one aura.");
+            var originalEntity = wizard.runtimeEntity(f.lane).orElseThrow();
+            var replacement = new HouseWizardTower(wizard.type(), wizard.ownerPlayer(), wizard.teamId(),
+                    wizard.laneId(), wizard.originalPosition(), wizard.position());
+            replacement.copyFrom(wizard, 0);
+            f.lane.replaceTower(wizard, replacement);
+            var nextEntity = replacement.runtimeEntity(f.lane).orElseThrow();
+            check(!originalEntity.getUUID().equals(nextEntity.getUUID()), "Replacement must create a different entity.");
+            check(wizard.logicalId().equals(replacement.logicalId()), "The logical caster identity must survive replacement.");
+            MagicSchoolSpellCombat.onWaveStarted(replacement, nextEntity);
+            MagicSchoolSpellCombat.onWaveStarted(replacement, nextEntity);
+            requireClose(.05, MagicSchoolSpellCombat.protection(target), "Replacement and repeated callbacks cannot add another aura.");
+            double before = target.getHealth();
+            target.hurt(target.damageSources().generic(), 100);
+            requireClose(95, before - target.getHealth(), "The duplicate-source rule must hold for actual damage.");
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void schoolProtectionHandlesZeroImmunityAndReductionIgnoringDamage(GameTestHelper context) {
+        for (int scenario = 0; scenario < 4; scenario++) {
+            try (var f = new Fixture(context)) {
+                var wizard = f.wizard(MagicSchoolSpell.EXPELLIARMUS, 0);
+                var entity = wizard.runtimeEntity(f.lane).orElseThrow();
+                entity.setPersistentEffect(scenario == 2 ? TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA : TimedEffectType.TOWER_PROTEGO,
+                        MagicSchoolSpellCombat.id("review_limit"), scenario == 0 ? 0 : 1);
+                double before = entity.getHealth();
+                if (scenario == 3) entity.hurtIgnoringReductions(entity.damageSources().generic(), 100);
+                else entity.hurt(entity.damageSources().generic(), 100);
+                requireClose(scenario == 0 || scenario == 3 ? 100 : 0, before - entity.getHealth(),
+                        "Zero, immunity and reduction-ignoring damage retain their exact rules: " + scenario);
+            }
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void schoolProtectionPreservesPhysicalMagicAndReductionIgnoringDamageRules(GameTestHelper context) {
+        for (int scenario = 0; scenario < 3; scenario++) {
+            try (var f = new Fixture(context)) {
+                var wizard = f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, 0);
+                wizard.onWaveStarted(f.lane, 1);
+                for (int i = 1; i <= 3; i++) f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, i).onWaveStarted(f.lane, 1);
+                var entity = wizard.runtimeEntity(f.lane).orElseThrow();
+                entity.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_REDUCTION, .30, 200);
+                var attacker = f.monster(5, 10000);
+                var damageSource = scenario == 0 ? entity.damageSources().mobAttack(attacker) : entity.damageSources().magic();
+                double before = entity.getHealth();
+                if (scenario == 2) entity.hurtIgnoringReductions(damageSource, 100);
+                else entity.hurt(damageSource, 100);
+                requireClose(scenario == 2 ? 100 : 42.011375, before - entity.getHealth(),
+                        "Physical and magic hits use protection while reduction-ignoring damage bypasses it: " + scenario);
+            }
+        }
+        context.succeed();
+    }
 
     private static final class Fixture implements AutoCloseable {
         final GameTestHelper context;

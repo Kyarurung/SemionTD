@@ -539,6 +539,7 @@ public final class SemionConfigLoader {
             migratedJson = migrateMagicSchoolCombatBalance(migratedJson, defaults);
             migratedJson = migrateMagicSchoolImperio(migratedJson);
             migratedJson = MagicSchoolBalanceMigration.migrate(migratedJson, defaults);
+            migratedJson = MagicSchoolBalanceMigration.migrateProtection(migratedJson);
             ConfigJsonProperties migratedProperties = migratedJson.equals(json)
                     ? properties
                     : ConfigJsonProperties.parse(migratedJson);
