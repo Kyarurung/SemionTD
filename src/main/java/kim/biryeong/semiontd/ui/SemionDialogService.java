@@ -1494,16 +1494,16 @@ public final class SemionDialogService {
         SemionPlayer semionPlayer = game.players().get(player.getUUID());
         boolean owned = semionPlayer != null && tower.ownerPlayer().equals(player.getUUID());
         SummonMonsterType unit = IncomeTowerService.unit(game, tower.summonId()).orElse(null);
-        IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(game.waveConfig(), game.currentRound());
-        double level = IncomeTowerBalance.statMultiplier(tower.level());
+        double healthScale = IncomeTowerBalance.healthMultiplier(tower.level(), game.currentRound());
+        double attackScale = IncomeTowerBalance.attackDamageMultiplier(tower.level(), game.currentRound());
         StringBuilder body = new StringBuilder();
         body.append("<gradient:#f472b6:#a78bfa><bold>인컴 타워</bold></gradient>\n");
         body.append("<white><bold>").append(tower.type().displayName()).append("</bold></white> <yellow>Lv.")
                 .append(tower.level()).append('/').append(IncomeTowerBalance.MAX_LEVEL).append("</yellow>\n");
         body.append("<divider>\n");
         if (unit != null) {
-            body.append("<white>보내는 유닛</white> 체력 <red>").append(Math.round(unit.maxHealth() * level * scale.health()))
-                    .append("</red> · 공격력 <gold>").append(Math.round(unit.attackDamage() * level * scale.attackDamage()))
+            body.append("<white>보내는 유닛</white> 체력 <red>").append(Math.round(unit.maxHealth() * healthScale))
+                    .append("</red> · 공격력 <gold>").append(Math.round(unit.attackDamage() * attackScale))
                     .append("</gold> <dark_gray>(이번 라운드 기준)</dark_gray>\n");
         }
         body.append("<white>라운드 인컴</white> <aqua>+").append(IncomeTowerService.incomeOf(game, tower)).append("</aqua>\n");

@@ -5293,9 +5293,11 @@ public record TowerBalanceConfig(
         legionEcho.put("cost", 260.0);
         legionEcho.put("copies", 5.0);
         putAbilities(abilities, "demon_lord_passive_legion_echo", legionEcho);
-        LinkedHashMap<String, Double> boundless = new LinkedHashMap<>();
-        boundless.put("cost", 120.0);
-        putAbilities(abilities, "demon_lord_passive_boundless", boundless);
+        LinkedHashMap<String, Double> dread = new LinkedHashMap<>();
+        dread.put("cost", 120.0);
+        dread.put("damageBonus", 0.1);
+        dread.put("defenseBonus", 0.1);
+        putAbilities(abilities, "demon_lord_passive_dread", dread);
         LinkedHashMap<String, Double> bladeWave = new LinkedHashMap<>();
         bladeWave.put("cost", 200.0);
         bladeWave.put("damageRatio", 0.6);

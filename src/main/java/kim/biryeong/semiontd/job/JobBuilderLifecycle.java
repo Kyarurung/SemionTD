@@ -109,7 +109,7 @@ public final class JobBuilderLifecycle {
 
     public static void onPlayerDisconnected(ServerPlayer player) {
         kim.biryeong.semiontd.ui.GambleRevealService.clear(player.getUUID());
-        DemonLordService.cleanupPlayer(player);
+        DemonLordService.disconnectPlayer(player);
         FrostFullOperationService.cleanupPlayer(player);
     }
 

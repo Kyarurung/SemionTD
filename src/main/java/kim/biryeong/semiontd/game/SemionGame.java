@@ -1477,7 +1477,6 @@ public final class SemionGame {
      * 보냅니다. 레인은 소환 몹의 인컴 레인 배분 규칙을 따릅니다.
      */
     private void dispatchIncomeTowers() {
-        IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(waveConfig, currentRound);
         java.util.Random guardRandom = new java.util.Random();
         for (SemionTeam team : livingTeams()) {
             for (PlayerLane lane : team.laneGroup().lanes()) {
@@ -1493,7 +1492,7 @@ public final class SemionGame {
                     if (demonLord != null && demonLord.loadout().hasPassive(
                             kim.biryeong.semiontd.tower.demonlord.DemonLordPassive.INVASION_GUARD)) {
                         // 침공군 호위: 적 레인으로 보내는 대신 무작위 아군 라인을 이 웨이브 동안 지킵니다.
-                        IncomeTowerService.createDispatch(this, owner, incomeTower, owner.teamId(), lane.laneId(), scale)
+                        IncomeTowerService.createDispatch(this, owner, incomeTower, owner.teamId(), lane.laneId())
                                 .ifPresent(unit -> kim.biryeong.semiontd.tower.demonlord.DemonLordPassives.deployInvasionGuard(
                                         lane, incomeTower.type(), unit, currentRound, guardRandom));
                         continue;
@@ -1505,7 +1504,7 @@ public final class SemionGame {
                         continue;
                     }
                     IncomeTowerService.createDispatch(this, owner, incomeTower, targetTeam.get().id(),
-                            targetLane.get().laneId(), scale).ifPresent(monster -> {
+                            targetLane.get().laneId()).ifPresent(monster -> {
                         monster.setSenderName(owner.name());
                         monster.setOrigin(MonsterOrigin.NORMAL_PAID);
                         monster.applyAttackModifiers(

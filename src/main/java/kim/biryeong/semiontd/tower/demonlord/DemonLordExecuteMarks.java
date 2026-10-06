@@ -53,7 +53,7 @@ public final class DemonLordExecuteMarks {
         }
         double ratio = TowerBalanceRuntime.ability(altar.type().id(), "executeHealthRatio", 0.50);
         Map<Integer, SemionMonsterEntity> now = new HashMap<>();
-        List<PlayerLane> lanes = state.boundless() ? lane.teamLanes() : List.of(lane);
+        List<PlayerLane> lanes = List.of(lane);
         for (PlayerLane each : lanes) {
             if (each.arenaWorld() == null) {
                 continue;

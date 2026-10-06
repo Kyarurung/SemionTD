@@ -35,8 +35,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 
-public final class FutureAgencyGameTest {
-    @GameTest
+public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void rescueAugmentsKeepTwoSurvivorsAndRestoreTheStartSnapshotOnlyOnce(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         FutureAgencyStates.clear(owner);
@@ -143,7 +143,7 @@ public final class FutureAgencyGameTest {
                         kim.biryeong.semiontd.augment.AugmentChoice.none())).toList());
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void cleanLaneRecordGrantsTwoPolicyChoicesNextRound(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-clean-lane".getBytes(StandardCharsets.UTF_8));
         UUID opponent = UUID.nameUUIDFromBytes("future-agency-clean-lane-opponent".getBytes(StandardCharsets.UTF_8));
@@ -183,7 +183,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void suppressionReducesMoveAndAttackSpeedTogether(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-suppression".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -207,7 +207,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void survivorsStayCapped(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-carry".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -269,7 +269,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void finalDefenseDoesNotCreateSurvivorCopies(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-final-defense".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -301,7 +301,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void survivorDeathReplacementAndOriginalSaleRespectLink(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-death".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -354,7 +354,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void originalUpgradeSynchronizesSurvivorGradePositionAndHealthRatio(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-upgrade".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -394,7 +394,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void survivorLinksAreIsolatedByOwnerAndLane(GameTestHelper context) {
         UUID firstOwner = UUID.nameUUIDFromBytes("future-agency-owner-a".getBytes(StandardCharsets.UTF_8));
         UUID secondOwner = UUID.nameUUIDFromBytes("future-agency-owner-b".getBytes(StandardCharsets.UTF_8));
@@ -436,7 +436,7 @@ public final class FutureAgencyGameTest {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void worldSaveKeepsCarryThroughFinalDefenseReset(GameTestHelper context) {
         UUID owner = UUID.nameUUIDFromBytes("future-agency-world-save".getBytes(StandardCharsets.UTF_8));
         FutureAgencyStates.clear(owner);
@@ -549,6 +549,8 @@ public final class FutureAgencyGameTest {
     }
 
     private static PlayerLane testLane(GameTestHelper context, UUID owner, int laneId) {
+        context.assertTrue(context.getBounds().contains(Vec3.atCenterOf(context.absolutePos(new BlockPos(14, 6, 14)))),
+                "The declared structure must contain the entire future-agency arena.");
         BlockPos min = context.absolutePos(new BlockPos(0, 1, 0));
         BlockPos max = context.absolutePos(new BlockPos(14, 6, 14));
         LaneRegionLayout layout = new LaneRegionLayout(

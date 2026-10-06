@@ -8139,8 +8139,10 @@
       "cost": 260.0,
       "copies": 5.0
     },
-    "demon_lord_passive_boundless": {
-      "cost": 120.0
+    "demon_lord_passive_dread": {
+      "cost": 120.0,
+      "damageBonus": 0.1,
+      "defenseBonus": 0.1
     },
     "demon_lord_passive_blade_wave": {
       "cost": 200.0,
