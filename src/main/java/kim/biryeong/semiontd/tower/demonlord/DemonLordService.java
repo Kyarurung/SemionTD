@@ -600,8 +600,7 @@ public final class DemonLordService {
             return;
         }
         if (!lane.clearedThisRound()) {
-            // 경계 없는 마왕은 라인 밖으로 나가 아군 라인을 도울 수 있습니다.
-            if (!state.boundless() && !DemonLordLaneGeometry.containsHorizontally(layout.laneArea(), player.position())) {
+            if (!DemonLordLaneGeometry.containsHorizontally(layout.laneArea(), player.position())) {
                 teleport(player, DemonLordLaneGeometry.laneCentre(layout));
             }
             return;
@@ -614,7 +613,7 @@ public final class DemonLordService {
                     (area.minX + area.maxX) / 2.0,
                     area.maxY,
                     (area.minZ + area.maxZ) / 2.0));
-        } else if (!state.boundless() && !layout.isInsideFinalDefenseTowerArea(player.position())) {
+        } else if (!layout.isInsideFinalDefenseTowerArea(player.position())) {
             teleport(player, layout.clampToFinalDefenseTowerArea(player.position()));
         }
     }

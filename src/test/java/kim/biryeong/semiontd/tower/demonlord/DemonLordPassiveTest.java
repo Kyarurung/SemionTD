@@ -45,15 +45,18 @@ final class DemonLordPassiveTest {
         assertEquals(DemonLordSkillShop.Result.PASSIVE_ALREADY_SLOTTED, DemonLordSkillShop.buyPassive(
                 state, economy, DemonLordPassiveSlot.NINE, DemonLordPassive.BLOOD_CLEAVE));
         assertEquals(DemonLordSkillShop.Result.SLOT_OCCUPIED, DemonLordSkillShop.buyPassive(
-                state, economy, DemonLordPassiveSlot.EIGHT, DemonLordPassive.BOUNDLESS));
+                state, economy, DemonLordPassiveSlot.EIGHT, DemonLordPassive.DREAD));
+        double damageBefore = state.damageMultiplier();
+        double reductionBefore = state.damageReduction();
         assertEquals(DemonLordSkillShop.Result.SUCCESS, DemonLordSkillShop.buyPassive(
-                state, economy, DemonLordPassiveSlot.NINE, DemonLordPassive.BOUNDLESS));
-        assertTrue(state.boundless());
+                state, economy, DemonLordPassiveSlot.NINE, DemonLordPassive.DREAD));
+        assertTrue(state.damageMultiplier() > damageBefore, "Dread raises damage.");
+        assertTrue(state.damageReduction() > reductionBefore, "Dread raises damage reduction.");
 
         assertEquals(DemonLordSkillShop.Result.SUCCESS,
                 DemonLordSkillShop.removePassive(state, economy, DemonLordPassiveSlot.EIGHT));
         assertFalse(state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE));
-        assertEquals(1000 - DemonLordPassive.BOUNDLESS.cost(), economy.diamond(), "Removing refunds everything paid.");
+        assertEquals(1000 - DemonLordPassive.DREAD.cost(), economy.diamond(), "Removing refunds everything paid.");
     }
 
     @Test
