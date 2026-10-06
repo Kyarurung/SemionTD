@@ -30,27 +30,16 @@ class IncomeTowerBalanceTest {
     }
 
     @Test
-    void waveScaleFollowsLaneMonstersWithoutBossSpikesOrDips() {
-        WaveConfig waves = WaveConfig.defaultConfig();
-        assertEquals(IncomeTowerBalance.WaveScale.NONE, IncomeTowerBalance.waveScale(waves, 1));
-        double previousHealth = 1.0;
-        double previousAttack = 1.0;
-        for (int round = 2; round <= 30; round++) {
-            IncomeTowerBalance.WaveScale scale = IncomeTowerBalance.waveScale(waves, round);
-            assertTrue(scale.health() >= previousHealth, "Health scale must never drop at round " + round);
-            assertTrue(scale.attackDamage() >= previousAttack, "Attack scale must never drop at round " + round);
-            previousHealth = scale.health();
-            previousAttack = scale.attackDamage();
-        }
-        IncomeTowerBalance.WaveScale round10 = IncomeTowerBalance.waveScale(waves, 10);
-        IncomeTowerBalance.WaveScale round15 = IncomeTowerBalance.waveScale(waves, 15);
-        IncomeTowerBalance.WaveScale round19 = IncomeTowerBalance.waveScale(waves, 19);
-        assertTrue(round10.health() > 1.5, "Lane monsters are clearly tougher by round 10.");
-        assertTrue(round19.health() > round10.health(), "Scaling keeps rising into the late rounds.");
-        assertTrue(round15.health() < 20.0, "A single boss round must not blow up the income unit scale.");
+    void unitsFollowTheSummonRoundCurveTimesLevel() {
+        assertEquals(0.85, IncomeTowerBalance.healthMultiplier(1, 1), 1.0E-9);
+        assertEquals(0.85 * 2.4 * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonHealthMultiplier(25),
+                IncomeTowerBalance.healthMultiplier(5, 25), 1.0E-9);
+        assertEquals(0.85 * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonAttackDamageMultiplier(20),
+                IncomeTowerBalance.attackDamageMultiplier(1, 20), 1.0E-9);
+        assertTrue(IncomeTowerBalance.healthMultiplier(5, 30) < 8.0,
+                "A max-level unit stays within a few times a regular summon even in late rounds.");
     }
 
-    /** 비싼 유닛일수록 타워 수를 더 차지하고, 번들 설정과 코드 기본값이 같습니다. */
     @Test
     void expensiveIncomeTowersTakeMoreTowerSlots() {
         kim.biryeong.semiontd.config.TowerBalanceConfig bundled = kim.biryeong.semiontd.config.TowerBalanceConfig.defaultConfig();

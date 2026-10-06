@@ -195,24 +195,23 @@ public final class IncomeTowerService {
     /**
      * 이 타워가 이번 라운드에 보낼 유닛 한 마리.
      *
-     * <p>라운드 보정은 소환 몹 공식 대신 기본 레인 몹이 라운드마다 세지는 비율({@link IncomeTowerBalance#waveScale})을
-     * 쓰고, 그 위에 레벨 보정을 곱합니다.
+     * <p>라운드 보정은 일반 소환 몹과 같은 라운드 곡선을 쓰고, 그 위에 레벨 보정을 곱합니다.
      */
     public static Optional<Monster> createDispatch(
             SemionGame game,
             SemionPlayer owner,
             IncomeTower tower,
             TeamId targetTeam,
-            int targetLaneId,
-            IncomeTowerBalance.WaveScale scale
+            int targetLaneId
     ) {
         SummonMonsterType unit = unit(game, tower.summonId()).orElse(null);
         if (unit == null) {
             return Optional.empty();
         }
         Monster monster = unit.createMonster(new SummonContext(game, owner), targetTeam, targetLaneId, 1);
-        double level = IncomeTowerBalance.statMultiplier(tower.level());
-        monster.applyAugmentBodyModifiers(level * scale.health(), level * scale.attackDamage());
+        int round = game.currentRound();
+        monster.applyAugmentBodyModifiers(IncomeTowerBalance.healthMultiplier(tower.level(), round),
+                IncomeTowerBalance.attackDamageMultiplier(tower.level(), round));
         return Optional.of(monster);
     }
 
