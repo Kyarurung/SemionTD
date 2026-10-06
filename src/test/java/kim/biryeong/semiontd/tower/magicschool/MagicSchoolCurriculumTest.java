@@ -52,9 +52,9 @@ class MagicSchoolCurriculumTest {
             assertEquals(PurchaseResult.ALREADY_PURCHASED, purchase(owner, lessons[i], economy));
             assertEquals(before, economy.diamond());
         }
-        assertEquals(1.36, lessonMultiplier(owner, Upgrade.SPELL_POWER), 1e-8);
-        assertEquals(1.36, lessonMultiplier(owner, Upgrade.DARK_ARTS_DEFENSE), 1e-8);
-        assertEquals(2.5, lessonMultiplier(owner, Upgrade.MAGIC_HISTORY));
+        assertEquals(1.24, lessonMultiplier(owner, Upgrade.SPELL_POWER), 1e-8);
+        assertEquals(1.18, lessonMultiplier(owner, Upgrade.DARK_ARTS_DEFENSE), 1e-8);
+        assertEquals(2.25, lessonMultiplier(owner, Upgrade.MAGIC_HISTORY));
     }
 
     @Test
@@ -96,9 +96,9 @@ class MagicSchoolCurriculumTest {
 
     @Test
     void tierUnlocksUseDiamondsOnceWithoutLockingTheDefaultSpell() {
-        var economy = economy(1545);
+        var economy = economy(1695);
         assertTrue(isSpellTierUnlocked(owner, MagicSchoolSpell.EXPELLIARMUS.tier()));
-        long[] costs = {175, 320, 450, 600};
+        long[] costs = {175, 320, 500, 700};
         for (int tier = 2; tier <= 5; tier++) {
             assertFalse(isSpellTierUnlocked(owner, tier));
             assertEquals(costs[tier - 2], spellTierCost(tier));
@@ -142,17 +142,17 @@ class MagicSchoolCurriculumTest {
         for (Upgrade upgrade : new Upgrade[]{Upgrade.SPELL_POWER, Upgrade.DARK_ARTS_DEFENSE, Upgrade.CUSTOM_WANDS}) {
             purchase(owner, upgrade, economy);
         }
-        assertEquals(31.8, freshman.modifyAttackDamage(null, null, 30), 1e-8);
-        assertEquals(212, freshman.effectBaseMaxHealth(), 1e-8);
+        assertEquals(31.2, freshman.modifyAttackDamage(null, null, 30), 1e-8);
+        assertEquals(206, freshman.effectBaseMaxHealth(), 1e-8);
         for (TowerType type : MagicSchoolTowers.houseWizards()) {
             var wizard = wizard(type);
             wizard.gainProficiency(100, null);
             double wandDamage = type == MagicSchoolTowers.SLYTHERIN ? 1.1 : type == MagicSchoolTowers.RAVENCLAW ? 1.05 : 1;
             double wandHealth = type == MagicSchoolTowers.HUFFLEPUFF ? 1.1 : type == MagicSchoolTowers.RAVENCLAW ? 1.05 : 1;
-            double proficiency = type == MagicSchoolTowers.RAVENCLAW ? 1.1725 : 1.15;
-            assertEquals(60 * proficiency * 1.06 * wandDamage * (type == MagicSchoolTowers.SLYTHERIN ? 1.1 : 1),
+            double proficiency = type == MagicSchoolTowers.RAVENCLAW ? 1.092 : 1.08;
+            assertEquals(50 * proficiency * 1.04 * wandDamage * (type == MagicSchoolTowers.SLYTHERIN ? 1.1 : 1),
                     wizard.modifyAttackDamage(null, null, wizard.type().damage()), 1e-8);
-            assertEquals(400 * proficiency * 1.06 * wandHealth * (type == MagicSchoolTowers.HUFFLEPUFF ? 1.1 : 1),
+            assertEquals(340 * proficiency * 1.03 * wandHealth * (type == MagicSchoolTowers.HUFFLEPUFF ? 1.1 : 1),
                     wizard.currentMaxHealth(), 1e-8);
             assertEquals(type == MagicSchoolTowers.GRYFFINDOR ? 16 : 18, wizard.adjustAttackInterval(wizard.type().attackIntervalTicks()));
         }
@@ -164,13 +164,13 @@ class MagicSchoolCurriculumTest {
         var ravenclaw = wizard(MagicSchoolTowers.RAVENCLAW);
         purchase(owner, Upgrade.MAGIC_HISTORY, economy);
         ravenclaw.onWaveStarted(null, 1);
-        assertEquals(11 * 1.15 * 1.30, ravenclaw.proficiency(), 1e-8);
+        assertEquals(11 * 1.15 * 1.25, ravenclaw.proficiency(), 1e-8);
         ravenclaw.gainProficiency(8, null);
-        assertEquals(19 * 1.15 * 1.30, ravenclaw.proficiency(), 1e-8);
+        assertEquals(19 * 1.15 * 1.25, ravenclaw.proficiency(), 1e-8);
         for (int i = 1; i < 5; i++) purchase(owner, Upgrade.MAGIC_HISTORY, economy);
-        assertEquals(2 * 1.15 * 2.5, ravenclaw.gainProficiency(2, null), 1e-8);
+        assertEquals(2 * 1.15 * 2.25, ravenclaw.gainProficiency(2, null), 1e-8);
         ravenclaw.gainProficiency(10000, null);
-        assertEquals(250, ravenclaw.proficiency());
+        assertEquals(300, ravenclaw.proficiency());
     }
 
     @Test
@@ -194,12 +194,12 @@ class MagicSchoolCurriculumTest {
 
     @Test
     void newLessonsChargeOnceAndBombsRequireTransfigurationWithoutSpending() {
-        var economy = economy(1400);
+        var economy = economy(1500);
         assertEquals(PurchaseResult.PREREQUISITE_REQUIRED, purchase(owner, Upgrade.EXPLOSIVE_BARRELS, economy));
-        assertEquals(1400, economy.diamond());
+        assertEquals(1500, economy.diamond());
         Upgrade[] upgrades = {Upgrade.SPELL_TRANSFER, Upgrade.POTIONS, Upgrade.QUIDDITCH,
                 Upgrade.TRANSFIGURATION, Upgrade.EXPLOSIVE_BARRELS};
-        long[] prices = {300, 300, 200, 200, 400};
+        long[] prices = {300, 300, 200, 200, 500};
         for (int i = 0; i < upgrades.length; i++) {
             assertEquals(prices[i], upgrades[i].cost(0));
             long before = economy.diamond();
@@ -215,14 +215,14 @@ class MagicSchoolCurriculumTest {
         purchase(owner, Upgrade.QUIDDITCH, economy(200));
         assertEquals(0, claimQuidditchReward(owner, 0));
         for (int round = 1; round <= 9; round++) {
-            assertEquals(10 + 8 * Math.min(5, round - 1), claimQuidditchReward(owner, round));
+            assertEquals(5 + 5 * Math.min(5, round - 1), claimQuidditchReward(owner, round));
             assertEquals(0, claimQuidditchReward(owner, round));
             assertEquals(0, claimQuidditchReward(owner, round - 1));
             assertEquals(0, claimQuidditchReward(UUID.randomUUID(), round));
         }
         clear(owner);
         purchase(owner, Upgrade.QUIDDITCH, economy(200));
-        assertEquals(10, claimQuidditchReward(owner, 1));
+        assertEquals(5, claimQuidditchReward(owner, 1));
     }
 
     @Test
@@ -277,25 +277,25 @@ class MagicSchoolCurriculumTest {
         purchase(owner, Upgrade.DUELING_PRACTICE, economy(150));
         var freshman = wizard(MagicSchoolTowers.FRESHMAN);
         freshman.onWaveStarted(null, 1);
-        double lost = 203.3 * .1;
-        assertEquals(11 + lost * .25, freshman.proficiency(), 1e-8);
+        double lost = 203.3 * .15;
+        assertEquals(11 + lost * .30, freshman.proficiency(), 1e-8);
         assertEquals(freshman.currentMaxHealth() - lost, freshman.health(), 1e-8);
         double before = freshman.health();
         freshman.onWaveStarted(null, 1);
         assertEquals(before, freshman.health(), 1e-8);
-        assertEquals(11 + lost * .25, freshman.proficiency(), 1e-8);
+        assertEquals(11 + lost * .30, freshman.proficiency(), 1e-8);
         purchase(owner, Upgrade.MAGIC_HISTORY, economy(120));
         var ravenclaw = wizard(MagicSchoolTowers.RAVENCLAW);
-        double normalGain = 11 * 1.15 * 1.30;
-        double ravenclawLoss = 400 * (1 + normalGain * .0015) * .1;
+        double normalGain = 11 * 1.15 * 1.25;
+        double ravenclawLoss = 340 * (1 + normalGain * .0008) * .15;
         ravenclaw.onWaveStarted(null, 1);
-        assertEquals(normalGain + ravenclawLoss * .25 * 1.15 * 1.30, ravenclaw.proficiency(), 1e-8);
+        assertEquals(normalGain + ravenclawLoss * .30 * 1.15 * 1.25, ravenclaw.proficiency(), 1e-8);
         assertEquals(ravenclaw.currentMaxHealth() - ravenclawLoss, ravenclaw.health(), 1e-8);
         var capped = wizard(MagicSchoolTowers.FRESHMAN);
         capped.gainProficiency(10000, null);
         capped.onWaveStarted(null, 1);
         assertEquals(100, capped.proficiency());
-        assertEquals(207, capped.health(), 1e-8);
+        assertEquals(195.5, capped.health(), 1e-8);
         var copy = wizard(MagicSchoolTowers.FRESHMAN);
         copy.markTemporaryCopy(freshman.logicalId());
         copy.onWaveStarted(null, 1);
@@ -311,8 +311,8 @@ class MagicSchoolCurriculumTest {
         merged.validateForRuntime();
         ProductionTowerCatalogs.reloadBuiltIns(merged);
         assertEquals(333, Upgrade.DUELING_PRACTICE.cost(0));
-        assertEquals(.1, value("duelingPracticeHealthRatio", 0));
-        assertEquals(.25, value("duelingPracticeProficiencyRatio", 0));
+        assertEquals(.15, value("duelingPracticeHealthRatio", 0));
+        assertEquals(.30, value("duelingPracticeProficiencyRatio", 0));
         for (var invalid : Map.of("duelingPracticeCost", 1.5, "duelingPracticeHealthRatio", 1.01,
                 "duelingPracticeProficiencyRatio", -0.01).entrySet()) {
             var bad = new TowerBalanceConfig(Map.of(), Map.of(), Map.of(MagicSchoolTowers.CONFIG_ID,
@@ -325,6 +325,7 @@ class MagicSchoolCurriculumTest {
     void spellPracticeAddsTierGainAndConsecutiveBonusWithCursesCountingAsFive() {
         var funds = economy(20000);
         purchase(owner, Upgrade.SPELL_PRACTICE, funds);
+        purchase(owner, Upgrade.ADVANCED_SPELLS, funds);
         for (int tier = 2; tier <= 5; tier++) unlockSpellTier(owner, tier, funds);
         for (var spell : MagicSchoolSpell.values()) {
             if (spell == MagicSchoolSpell.MUGGLE_WAND) continue;
@@ -350,6 +351,7 @@ class MagicSchoolCurriculumTest {
         student.selectSpell(MagicSchoolSpell.STUPEFY);
         student.onWaveStarted(null, 1);
         purchase(owner, Upgrade.SPELL_PRACTICE, funds);
+        purchase(owner, Upgrade.ADVANCED_SPELLS, funds);
         student.onWaveStarted(null, 1);
         assertEquals(11, student.proficiency(), "Buying mid-wave cannot award proficiency immediately.");
         var promoted = wizard(MagicSchoolTowers.GRYFFINDOR);
@@ -370,16 +372,16 @@ class MagicSchoolCurriculumTest {
 
     @Test
     void spellPracticeUsesHistoryAndRavenclawBonusesAndExcludesDeadStudentsAndCopies() {
-        purchase(owner, Upgrade.SPELL_PRACTICE, economy(100));
+        purchase(owner, Upgrade.SPELL_PRACTICE, economy(125));
         purchase(owner, Upgrade.MAGIC_HISTORY, economy(120));
         var raven = wizard(MagicSchoolTowers.RAVENCLAW);
         raven.onWaveStarted(null, 1);
-        assertEquals((11 + 2) * 1.15 * 1.30, raven.proficiency(), 1e-8);
+        assertEquals((11 + 2) * 1.15 * 1.25, raven.proficiency(), 1e-8);
         raven.onWaveStarted(null, 2);
-        assertEquals((11 + 2 + 12 + 2 + 2) * 1.15 * 1.30, raven.proficiency(), 1e-8);
+        assertEquals((11 + 2 + 12 + 2 + 2) * 1.15 * 1.25, raven.proficiency(), 1e-8);
         raven.gainProficiency(10000, null);
         raven.onWaveStarted(null, 3);
-        assertEquals(250, raven.proficiency());
+        assertEquals(300, raven.proficiency());
         var student = wizard(MagicSchoolTowers.FRESHMAN);
         student.markTemporaryCopy(raven.logicalId());
         student.onWaveStarted(null, 1);
@@ -398,7 +400,7 @@ class MagicSchoolCurriculumTest {
                 .withMissingDefaults(defaults);
         changed.validateForRuntime();
         ProductionTowerCatalogs.reloadBuiltIns(changed);
-        var funds = economy(100);
+        var funds = economy(125);
         assertEquals(PurchaseResult.PURCHASED, purchase(owner, Upgrade.SPELL_PRACTICE, funds));
         assertEquals(0, funds.diamond());
         assertEquals(PurchaseResult.ALREADY_PURCHASED, purchase(owner, Upgrade.SPELL_PRACTICE, funds));

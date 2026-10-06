@@ -44,23 +44,23 @@ class MagicSchoolSpellTest {
             var description = spell.effectDescription();
             assertTrue(description.contains("마법사는 루모스 디버프가 부여된 대상을 우선 공격합니다."));
             assertTrue(description.contains("단, 루모스·루모스 맥시마를 장착한 마법사는 루모스가 없는 적을 우선 공격합니다."));
-            assertTrue(description.contains("받는 마법 피해 +15%"));
+            assertTrue(description.contains("받는 마법 피해 +12%"));
         }
     }
 
     @Test void bombardaUsesUpdatedDamageAndRadiusInDescriptions() {
         assertEquals(.9, MagicSchoolSpell.BOMBARDA.damageMultiplier());
-        assertEquals(.75, MagicSchoolSpell.BOMBARDA.value("secondaryMultiplier"));
-        assertEquals(2.5, MagicSchoolSpell.BOMBARDA.value("radius"));
+        assertEquals(.70, MagicSchoolSpell.BOMBARDA.value("secondaryMultiplier"));
+        assertEquals(2.4, MagicSchoolSpell.BOMBARDA.value("radius"));
         assertEquals("기본 공격이 공격력 90%의 마법 피해를 입힙니다.", MagicSchoolSpell.BOMBARDA.effectLines().getFirst());
-        assertTrue(MagicSchoolSpell.BOMBARDA.effectDescription().contains("주 대상 주변 2.5칸의 다른 적에게 공격력 75%"));
+        assertTrue(MagicSchoolSpell.BOMBARDA.effectDescription().contains("주 대상 주변 2.4칸의 다른 적에게 공격력 70%"));
         assertEquals(.8, MagicSchoolSpell.EXPULSO.damageMultiplier());
-        assertEquals(1.5, MagicSchoolSpell.EXPULSO.value("radius"));
+        assertEquals(1.2, MagicSchoolSpell.EXPULSO.value("radius"));
     }
 
     @Test void spellPercentagesUseExactDecimalScalingAndRetainConfiguredFractions() {
-        assertEquals(1.5, MagicSchoolSpell.EPISKEY.value("healingMultiplier"));
-        assertTrue(MagicSchoolSpell.EPISKEY.effectDescription().contains("공격력 150%만큼 회복"));
+        assertEquals(.75, MagicSchoolSpell.EPISKEY.value("healingMultiplier"));
+        assertTrue(MagicSchoolSpell.EPISKEY.effectDescription().contains("공격력 75%만큼 회복"));
         assertEquals("기본 공격이 공격력 110%의 마법 피해를 입힙니다.", MagicSchoolSpell.RENNERVATE.effectLines().getFirst());
         var changed = new TowerBalanceConfig(Map.of(), Map.of(), Map.of(MagicSchoolSpell.RENNERVATE.configId(),
                 Map.of("damageMultiplier", 1.125, "damageBonus", .333, "buffTicks", 25.0)))
@@ -91,8 +91,8 @@ class MagicSchoolSpellTest {
         for (var type : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
             var caster = (MagicSchoolWizardTower) kim.biryeong.semiontd.tower.ProductionTowerCatalog.find(type.id()).orElseThrow()
                     .create(owner, TeamId.RED, 1, pos);
-            int cap = MagicSchoolTowers.isFreshman(type) ? 3
-                    : MagicSchoolTowers.isArchWizard(type) || type == MagicSchoolTowers.RAVENCLAW ? 5 : 4;
+            int cap = MagicSchoolTowers.belongsToHouse(type, MagicSchoolTowers.RAVENCLAW) ? 5
+                    : MagicSchoolTowers.isFreshman(type) ? 2 : MagicSchoolTowers.isArchWizard(type) ? 4 : 3;
             assertEquals(cap, caster.maxSpellTier());
             caster.syncAugments(MagicSchoolAugmentsTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES), null);
             for (var spell : MagicSchoolSpell.values()) {
@@ -105,6 +105,50 @@ class MagicSchoolSpellTest {
         wizard.setData(kim.biryeong.semiontd.tower.TowerDataKey.of(
                 Identifier.fromNamespaceAndPath("semion-td", "magic_school_selected_spell"), String.class), "imperio");
         assertEquals(MagicSchoolSpell.EXPELLIARMUS, wizard.selectedSpell(), "Old unsupported selections must not bypass the tier restriction.");
+    }
+
+    @Test void advancedClassRaisesCasterLimitOnceWithoutUnlockingSpellsOrAffectingAnotherOwner() {
+        var funds = new PlayerEconomy(EconomyConfig.defaultConfig());
+        funds.overrideStartingValues(350, 0, 0, 0);
+        var pos = new GridPosition(0, 64, 0);
+        var student = new FreshmanTower(MagicSchoolTowers.FRESHMAN, owner, TeamId.RED, 1, pos, pos);
+        assertEquals(2, student.maxSpellTier());
+        assertEquals(MagicSchoolCurriculum.PurchaseResult.PURCHASED,
+                MagicSchoolCurriculum.purchase(owner, MagicSchoolCurriculum.Upgrade.ADVANCED_SPELLS, funds));
+        assertEquals(0, funds.diamond());
+        assertEquals(3, student.maxSpellTier());
+        assertFalse(student.selectSpell(MagicSchoolSpell.LUMOS));
+        assertEquals(MagicSchoolCurriculum.PurchaseResult.ALREADY_PURCHASED,
+                MagicSchoolCurriculum.purchase(owner, MagicSchoolCurriculum.Upgrade.ADVANCED_SPELLS, funds));
+        for (var type : MagicSchoolTowers.houseWizards()) {
+            var house = new HouseWizardTower(type, owner, TeamId.RED, 1, pos, pos);
+            assertEquals(type == MagicSchoolTowers.RAVENCLAW ? 5 : 4, house.maxSpellTier());
+            var arch = new HouseWizardTower(MagicSchoolTowers.archWizardFor(type), owner, TeamId.RED, 1, pos, pos);
+            assertEquals(5, arch.maxSpellTier());
+        }
+        var other = new FreshmanTower(MagicSchoolTowers.FRESHMAN, UUID.randomUUID(), TeamId.RED, 2, pos, pos);
+        assertEquals(2, other.maxSpellTier());
+        MagicSchoolCurriculum.clear(owner);
+        assertEquals(2, student.maxSpellTier());
+    }
+
+    @Test void lowProficiencyCursePenaltyIncludesFiveHundredAndMultipliesOtherSpeedEffects() {
+        var pos = new GridPosition(0, 64, 0);
+        for (var spell : java.util.List.of(MagicSchoolSpell.AVADA_KEDAVRA, MagicSchoolSpell.CRUCIO, MagicSchoolSpell.IMPERIO)) {
+            var wizard = new HouseWizardTower(MagicSchoolTowers.WISE_ARCHWIZARD, owner, TeamId.RED, 1, pos, pos);
+            wizard.syncAugments(MagicSchoolAugmentsTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES), null);
+            assertTrue(wizard.selectSpell(spell));
+            assertEquals(120, wizard.resolveFinalAttackInterval(12));
+            wizard.gainProficiency(500 / 1.15, null);
+            assertEquals(500, wizard.proficiency(), 1e-8);
+            assertEquals(120, wizard.resolveFinalAttackInterval(12));
+            assertEquals(300, wizard.resolveFinalAttackInterval(30));
+            wizard.gainProficiency(1, null);
+            assertEquals(12, wizard.resolveFinalAttackInterval(12));
+            assertEquals(spell == MagicSchoolSpell.AVADA_KEDAVRA ? -.6 : 0, wizard.spellAttackSpeedBonus());
+            assertTrue(spell.effectDescription().contains("500 이하"));
+            assertTrue(spell.effectDescription().contains("90% 감소"));
+        }
     }
 
     @Test void protectionAggroIsAWaveSnapshotThatDoesNotStackAndResetsForTheNextRound() {
@@ -142,12 +186,14 @@ class MagicSchoolSpellTest {
         var defaults = TowerBalanceConfig.defaultConfig();
         var changed = new TowerBalanceConfig(Map.of(), Map.of(), Map.of(MagicSchoolSpell.EXPELLIARMUS.configId(),
                 Map.of("damageMultiplier", .9, "disarmTicks", 60.0),
-                MagicSchoolSpell.PROTEGO.configId(), Map.of("waveAggroBonus", 75.0))).withMissingDefaults(defaults);
+                MagicSchoolSpell.PROTEGO.configId(), Map.of("waveAggroBonus", 75.0),
+                MagicSchoolTowers.CONFIG_ID, Map.of("curseLowProficiencyAttackSpeedMultiplier", .8))).withMissingDefaults(defaults);
         ProductionTowerCatalogs.reloadBuiltIns(changed);
         assertEquals(.9, MagicSchoolSpell.EXPELLIARMUS.damageMultiplier());
         assertTrue(MagicSchoolSpell.EXPELLIARMUS.effectDescription().contains("90%"));
         assertTrue(MagicSchoolSpell.EXPELLIARMUS.effectDescription().contains("3초"));
         assertTrue(MagicSchoolSpell.PROTEGO.effectDescription().contains("75"));
+        assertTrue(MagicSchoolSpell.CRUCIO.effectDescription().contains("추가로 20% 감소"));
         var economy = new PlayerEconomy(EconomyConfig.defaultConfig());
         economy.addDiamond(200);
         MagicSchoolCurriculum.unlockSpellTier(owner, 2, economy);

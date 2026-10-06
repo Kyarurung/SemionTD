@@ -55,18 +55,18 @@ class MagicSchoolAugmentsTest {
             double oldCap = caster.maxProficiency();
             caster.syncAugments(snapshot(MagicSchoolAugments.GRADUATE_SCHOOL), null);
             double house = MagicSchoolTowers.belongsToHouse(type, MagicSchoolTowers.RAVENCLAW) ? 1.15 : 1;
-            assertEquals(10 * 1.3 * 1.3 * house, caster.gainProficiency(10, null), 1e-8);
-            assertEquals(oldCap + (MagicSchoolTowers.isArchWizard(type) ? 100 : 0), caster.maxProficiency());
+            assertEquals(10 * 1.25 * 1.3 * house, caster.gainProficiency(10, null), 1e-8);
+            assertEquals(oldCap + (MagicSchoolTowers.isArchWizard(type) ? 250 : 0), caster.maxProficiency());
             caster.gainProficiency(10000, null);
             assertEquals(caster.maxProficiency(), caster.proficiency());
-            if (MagicSchoolTowers.isArchWizard(type)) assertEquals(500, caster.proficiency());
+            if (MagicSchoolTowers.isArchWizard(type)) assertEquals(1250, caster.proficiency());
         }
     }
 
     @Test void graduateBackfillsParametersAndHonorsCustomValuesWithoutEnablingTheGlobalPool() {
         var config = new AugmentConfig(false, false, null,
                 Map.of(MagicSchoolAugments.GRADUATE_SCHOOL, Map.of("proficiencyGainBonus", .4)), Set.of());
-        assertEquals(100, config.parameter(MagicSchoolAugments.GRADUATE_SCHOOL, "proficiencyCapBonus", 0));
+        assertEquals(250, config.parameter(MagicSchoolAugments.GRADUATE_SCHOOL, "proficiencyCapBonus", 0));
         assertEquals(config, AugmentConfig.fromJson(config.toJson()));
         assertFalse(config.enabled());
         assertFalse(config.publicPoolEnabled());
@@ -77,6 +77,22 @@ class MagicSchoolAugmentsTest {
             assertThrows(IllegalArgumentException.class, () -> new AugmentConfig(false, false, null,
                     Map.of(MagicSchoolAugments.GRADUATE_SCHOOL, Map.of("proficiencyCapBonus", bad)), Set.of()));
         }
+    }
+
+    @Test void unforgivableSelectionPaysOneHundredDiamondsOnceAndHonorsConfiguredReward() {
+        var economy = new PlayerEconomy(EconomyConfig.defaultConfig());
+        economy.overrideStartingValues(0, 0, 0, 0);
+        var player = new kim.biryeong.semiontd.game.SemionPlayer(owner, "Wizard", TeamId.RED, 1, economy);
+        var parameters = AugmentConfig.defaults().parametersFor(MagicSchoolAugments.UNFORGIVABLE_CURSES);
+        AugmentEconomyService.onSelected(player, MagicSchoolAugments.UNFORGIVABLE_CURSES, 5, parameters);
+        assertEquals(100, economy.diamond());
+        AugmentEconomyService.onSelected(player, MagicSchoolAugments.UNFORGIVABLE_CURSES, 5, parameters);
+        assertEquals(100, economy.diamond());
+        var custom = new kim.biryeong.semiontd.game.SemionPlayer(UUID.randomUUID(), "Custom", TeamId.BLUE, 2,
+                new PlayerEconomy(EconomyConfig.defaultConfig()));
+        long before = custom.economy().diamond();
+        AugmentEconomyService.onSelected(custom, MagicSchoolAugments.UNFORGIVABLE_CURSES, 5, Map.of("diamondReward", 123.0));
+        assertEquals(before + 123, custom.economy().diamond());
     }
 
     static AugmentSnapshot snapshot(String... ids) {

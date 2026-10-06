@@ -791,9 +791,12 @@
     "semiontd:job_magic_school_g1": {},
     "semiontd:job_magic_school_g2": {
       "proficiencyGainBonus": 0.3,
-      "proficiencyCapBonus": 100.0
+      "proficiencyCapBonus": 250.0,
+      "balanceVersion": 1.0
     },
-    "semiontd:job_magic_school_p": {}
+    "semiontd:job_magic_school_p": {
+      "diamondReward": 100.0
+    }
   },
   "disabledIds": []
 }

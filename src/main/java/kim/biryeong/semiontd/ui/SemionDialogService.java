@@ -1663,7 +1663,9 @@ public final class SemionDialogService {
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS, "<green>레네르바테 공격력 +", "</green>");
         double schoolProtection = kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombat.protection(entity);
         if (schoolProtection > 0) effects.append("<blue>마법학교 보호: 받는 피해 -")
-                .append(percent(schoolProtection)).append(" (라운드 종료까지)</blue>\n");
+                .append(java.math.BigDecimal.valueOf(schoolProtection * 100.0)
+                        .setScale(5, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString())
+                .append("% (곱연산 · 라운드 종료까지)</blue>\n");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_DAMAGE_BONUS, "<green>⚔ 피해 증가 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_ATTACK_SPEED_BONUS, "<green>⚡ 공속 증가 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_RANGE_BONUS, "<green>🎯 사거리 증가 +", "</green>");

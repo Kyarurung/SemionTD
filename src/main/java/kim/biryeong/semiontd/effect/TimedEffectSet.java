@@ -161,6 +161,24 @@ public final class TimedEffectSet {
         return remainingTicks;
     }
 
+    public double multiplicativeMagnitude(TimedEffectType type, int maxSources) {
+        if (type == null || maxSources <= 0) return 0.0;
+        var contributions = new java.util.ArrayList<Double>();
+        ActiveTimedEffect active = effects.get(type);
+        if (active != null) contributions.add(active.magnitude);
+        var timed = sourcedEffects.get(type);
+        if (timed != null) timed.values().forEach(effect -> contributions.add(effect.magnitude));
+        var persistent = persistentEffects.get(type);
+        if (persistent != null) contributions.addAll(persistent.values());
+        contributions.removeIf(value -> !Double.isFinite(value));
+        contributions.sort(java.util.Comparator.reverseOrder());
+        double remaining = 1.0;
+        for (int i = 0; i < Math.min(maxSources, contributions.size()); i++) {
+            remaining *= 1.0 - Math.clamp(contributions.get(i), 0.0, 1.0);
+        }
+        return 1.0 - remaining;
+    }
+
     public boolean hasSource(TimedEffectType type, Identifier sourceId) {
         if (type == null || sourceId == null) {
             return false;

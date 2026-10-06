@@ -110,23 +110,23 @@ final class SemionConfigLoaderTest {
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
         Map.of("spellPowerCost", 40, "spellPowerCostIncrease", 60, "darkArtsDefenseCost", 40,
                 "darkArtsDefenseCostIncrease", 60, "spellTier2Cost", 175, "spellTier3Cost", 320,
-                "spellTier4Cost", 450, "spellTier5Cost", 600, "spellTier6Cost", 10000,
+                "spellTier4Cost", 500, "spellTier5Cost", 700, "spellTier6Cost", 10000,
                 "combatBalanceVersion", 1).forEach((key, expected) ->
                 assertEquals(expected.doubleValue(), balance.ability("magic_school_global", key, -1), key));
         assertEquals(22, balance.towers().get("magic_school_freshman_t1").attackIntervalTicks());
         for (String house : List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin")) {
             var t2 = balance.towers().get("magic_school_" + house + "_t2");
             var t3 = balance.towers().get("magic_school_" + house + "_t3");
-            assertEquals(house.equals("hufflepuff") ? 440 : 400, t2.maxHealth());
-            assertEquals(house.equals("slytherin") ? 66 : 60, t2.damage());
-            assertEquals(house.equals("hufflepuff") ? 660 : 600, t3.maxHealth());
-            assertEquals(house.equals("slytherin") ? 99 : 90, t3.damage());
+            assertEquals(house.equals("hufflepuff") ? 374 : 340, t2.maxHealth());
+            assertEquals(house.equals("slytherin") ? 55 : 50, t2.damage());
+            assertEquals(house.equals("hufflepuff") ? 550 : 500, t3.maxHealth());
+            assertEquals(house.equals("slytherin") ? 88 : 80, t3.damage());
             assertEquals(house.equals("gryffindor") ? 17 : 18, t2.attackIntervalTicks());
             assertEquals(house.equals("gryffindor") ? 11 : 12, t3.attackIntervalTicks());
         }
         assertEquals(.9, balance.ability("magic_school_spell_bombarda", "damageMultiplier", -1));
-        assertEquals(.75, balance.ability("magic_school_spell_bombarda", "secondaryMultiplier", -1));
-        assertEquals(2.5, balance.ability("magic_school_spell_bombarda", "radius", -1));
+        assertEquals(.70, balance.ability("magic_school_spell_bombarda", "secondaryMultiplier", -1));
+        assertEquals(2.4, balance.ability("magic_school_spell_bombarda", "radius", -1));
         var migrated = Files.readString(path);
         SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test"));
         assertEquals(migrated, Files.readString(path));
@@ -165,8 +165,8 @@ final class SemionConfigLoaderTest {
         assertEquals(70, balance.towers().get("magic_school_hufflepuff_t2").damage());
         assertEquals(850, balance.towers().get("magic_school_slytherin_t3").maxHealth());
         assertEquals(160, balance.towers().get("magic_school_slytherin_t3").damage());
-        assertEquals(400, balance.towers().get("magic_school_gryffindor_t2").maxHealth());
-        assertEquals(90, balance.towers().get("magic_school_ravenclaw_t3").damage());
+        assertEquals(340, balance.towers().get("magic_school_gryffindor_t2").maxHealth());
+        assertEquals(80, balance.towers().get("magic_school_ravenclaw_t3").damage());
         assertEquals(1.2, balance.ability("magic_school_spell_bombarda", "damageMultiplier", -1));
         assertEquals(.6, balance.ability("magic_school_spell_bombarda", "secondaryMultiplier", -1));
         assertEquals(4, balance.ability("magic_school_spell_bombarda", "radius", -1));
@@ -182,10 +182,10 @@ final class SemionConfigLoaderTest {
                 """);
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
         for (String prefix : List.of("spellPower", "darkArtsDefense")) {
-            assertEquals(.06, balance.ability("magic_school_global", prefix + "PerLevel", -1));
+            assertEquals(prefix.equals("spellPower") ? .04 : .03, balance.ability("magic_school_global", prefix + "PerLevel", -1));
             assertEquals(6, balance.ability("magic_school_global", prefix + "MaxLevel", -1));
         }
-        assertEquals(.35, balance.ability("magic_school_spell_wingardium_leviosa", "liftDamageMultiplier", -1));
+        assertEquals(.25, balance.ability("magic_school_spell_wingardium_leviosa", "liftDamageMultiplier", -1));
         Files.writeString(path, """
                 {"abilities":{"magic_school_global":{"curriculumBalanceVersion":1,
                 "spellPowerPerLevel":0.1,"darkArtsDefensePerLevel":0.12,
@@ -208,9 +208,9 @@ final class SemionConfigLoaderTest {
                 "magicHistoryPerLevel":0.25,"magicHistoryMaxLevel":4,"sortingHatCost":150,
                 "deathEaterCost":100,"duelingPracticeCost":250}}}
                 """);
-        var expected = Map.of("spellPowerPerLevel", .06, "darkArtsDefensePerLevel", .06,
-                "magicHistoryPerLevel", .30, "magicHistoryMaxLevel", 5.0, "sortingHatCost", 80.0,
-                "deathEaterCost", 200.0, "duelingPracticeCost", 150.0);
+        var expected = Map.of("spellPowerPerLevel", .04, "darkArtsDefensePerLevel", .03,
+                "magicHistoryPerLevel", .25, "magicHistoryMaxLevel", 5.0, "sortingHatCost", 80.0,
+                "deathEaterCost", 250.0, "duelingPracticeCost", 150.0);
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
         expected.forEach((key, value) -> assertEquals(value, balance.ability("magic_school_global", key, -1), key));
         assertEquals(2, balance.ability("magic_school_global", "curriculumBalanceVersion", -1));
@@ -233,8 +233,8 @@ final class SemionConfigLoaderTest {
         assertEquals(7, custom.ability("magic_school_global", "magicHistoryMaxLevel", -1));
         assertEquals(350, custom.ability("magic_school_global", "deathEaterCost", -1));
         assertEquals(175, custom.ability("magic_school_global", "duelingPracticeCost", -1));
-        assertEquals(.06, custom.ability("magic_school_global", "darkArtsDefensePerLevel", -1));
-        assertEquals(.30, custom.ability("magic_school_global", "magicHistoryPerLevel", -1));
+        assertEquals(.03, custom.ability("magic_school_global", "darkArtsDefensePerLevel", -1));
+        assertEquals(.25, custom.ability("magic_school_global", "magicHistoryPerLevel", -1));
     }
 
     @Test
@@ -248,14 +248,14 @@ final class SemionConfigLoaderTest {
                  "upgradeCosts":{"magic_school_gryffindor_t2->magic_school_gryffindor_t3":777}}
                 """);
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
-        assertEquals(250, balance.ability("magic_school_gryffindor_t2", "maxProficiency", -1));
+        assertEquals(300, balance.ability("magic_school_gryffindor_t2", "maxProficiency", -1));
         assertEquals(240, balance.ability("magic_school_hufflepuff_t2", "maxProficiency", -1));
-        assertEquals(250, balance.ability("magic_school_ravenclaw_t2", "maxProficiency", -1));
-        assertEquals(250, balance.ability("magic_school_slytherin_t2", "maxProficiency", -1));
+        assertEquals(300, balance.ability("magic_school_ravenclaw_t2", "maxProficiency", -1));
+        assertEquals(300, balance.ability("magic_school_slytherin_t2", "maxProficiency", -1));
         assertEquals(2, balance.ability("magic_school_global", "proficiencyVersion", -1));
         assertEquals(777, balance.upgradeCost("magic_school_gryffindor_t2", "magic_school_gryffindor_t3", -1));
         for (String house : List.of("gryffindor", "hufflepuff", "ravenclaw", "slytherin")) {
-            assertEquals(400, balance.ability("magic_school_" + house + "_t3", "maxProficiency", -1));
+            assertEquals(1000, balance.ability("magic_school_" + house + "_t3", "maxProficiency", -1));
             assertEquals(2, balance.ability("magic_school_" + house + "_t3", "towerSlotCost", -1));
         }
         assertEquals(450, balance.upgradeCost("magic_school_hufflepuff_t2", "magic_school_hufflepuff_t3", -1));
@@ -282,13 +282,13 @@ final class SemionConfigLoaderTest {
                   "magic_school_spell_episkey":{"healingMultiplier":2}}}
                 """);
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
-        assertEquals(250, balance.ability("magic_school_gryffindor_t2", "maxProficiency", -1));
-        assertEquals(400, balance.ability("magic_school_gryffindor_t3", "maxProficiency", -1));
+        assertEquals(300, balance.ability("magic_school_gryffindor_t2", "maxProficiency", -1));
+        assertEquals(1000, balance.ability("magic_school_gryffindor_t3", "maxProficiency", -1));
         assertEquals(200, balance.ability("magic_school_hufflepuff_t2", "maxProficiency", -1));
         assertEquals(500, balance.ability("magic_school_hufflepuff_t3", "maxProficiency", -1));
         assertEquals(.0015, balance.ability("magic_school_global", "proficiencyDamagePerPoint", -1));
         assertEquals(.0015, balance.ability("magic_school_global", "proficiencyHealthPerPoint", -1));
-        assertEquals(1.5, balance.ability("magic_school_spell_episkey", "healingMultiplier", -1));
+        assertEquals(.75, balance.ability("magic_school_spell_episkey", "healingMultiplier", -1));
         String migrated = Files.readString(path);
         assertEquals(balance, SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance());
         assertEquals(migrated, Files.readString(path));
@@ -416,8 +416,8 @@ final class SemionConfigLoaderTest {
         var balance = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test")).towerBalance();
         assertEquals(22, balance.towers().get("magic_school_freshman_t1").attackIntervalTicks());
         assertEquals(17, balance.towers().get("magic_school_gryffindor_t2").attackIntervalTicks());
-        assertEquals(440, balance.towers().get("magic_school_hufflepuff_t2").maxHealth());
-        assertEquals(66, balance.towers().get("magic_school_slytherin_t2").damage());
+        assertEquals(374, balance.towers().get("magic_school_hufflepuff_t2").maxHealth());
+        assertEquals(55, balance.towers().get("magic_school_slytherin_t2").damage());
         assertEquals(20, balance.abilityInt("magic_school_global", "waveProficiencyBase", -1));
         assertEquals(1, balance.abilityInt("magic_school_global", "baseStatsVersion", -1));
         String migrated = Files.readString(path);

@@ -20,7 +20,7 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
     @GameTest(maxTicks = 100, structure = "semion-td-gametest:combat_arena")
-    public void transferUsesActualDamageEightTargetsAndPerStudentCooldown(GameTestHelper context) {
+    public void transferUsesActualDamageFiveTargetsAndSeventyTickCooldown(GameTestHelper context) {
         var f = new Fixture(context);
         try {
             var first = f.wizard(0);
@@ -45,16 +45,16 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             foreign.configureFrom(foreignRuntime, otherLane.laneLayout());
             var source = first.runtimeEntity(f.lane).orElseThrow();
             var result = first.damageResolvedTargetResult(source, primary, 100, DamageType.MAGIC);
-            requireClose(115, result.dealtDamage(), "The trigger must use actual damage after Lumos.");
+            requireClose(112, result.dealtDamage(), "The trigger must use actual damage after Lumos.");
             for (int i = 0; i < 9; i++) {
-                requireClose(i < 8 ? 986.775 : 1000, others.get(i).getHealth(), "Transfer must hit exactly eight eligible enemies.");
+                requireClose(i < 5 ? 987.456 : 1000, others.get(i).getHealth(), "Transfer must hit exactly five eligible enemies.");
             }
             requireClose(10000, unlit.getHealth(), "Unlit targets are excluded.");
             requireClose(10000, foreign.getHealth(), "Another lane is excluded even at the same position.");
             first.damageResolvedTargetResult(source, primary, 100, DamageType.MAGIC);
-            requireClose(986.775, others.getFirst().getHealth(), "Another simultaneous hit must not transfer again.");
+            requireClose(987.456, others.getFirst().getHealth(), "Another simultaneous hit must not transfer again.");
             second.damageResolvedTargetResult(second.runtimeEntity(f.lane).orElseThrow(), primary, 100, DamageType.MAGIC);
-            requireClose(973.55, others.getFirst().getHealth(), "Each student has an independent cooldown.");
+            requireClose(974.912, others.getFirst().getHealth(), "Each student has an independent cooldown.");
             var promoted = (MagicSchoolWizardTower) kim.biryeong.semiontd.tower.ProductionTowerCatalog.find(MagicSchoolTowers.GRYFFINDOR.id())
                     .orElseThrow().create(f.owner, f.lane.teamId(), f.lane.laneId(), f.pos(1));
             promoted.copyFrom(second, 200);
@@ -63,17 +63,17 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             promotedSource.setNoAi(true);
             promotedSource.setNoGravity(true);
             promoted.damageResolvedTargetResult(promotedSource, primary, 100, DamageType.MAGIC);
-            requireClose(973.55, others.getFirst().getHealth(), "Promotion must preserve the transfer cooldown.");
-            context.runAtTickTime(59, () -> {
+            requireClose(974.912, others.getFirst().getHealth(), "Promotion must preserve the transfer cooldown.");
+            context.runAtTickTime(69, () -> {
                 try {
                     first.damageResolvedTargetResult(source, primary, 100, DamageType.MAGIC);
-                    requireClose(973.55, others.getFirst().getHealth(), "Transfer must remain blocked before three seconds.");
+                    requireClose(974.912, others.getFirst().getHealth(), "Transfer must remain blocked before seventy ticks.");
                 } catch (Throwable error) { f.close(); throw error; }
             });
-            context.runAtTickTime(61, () -> {
+            context.runAtTickTime(71, () -> {
                 try {
                     first.damageResolvedTargetResult(source, primary, 100, DamageType.MAGIC);
-                    requireClose(960.325, others.getFirst().getHealth(), "Transfer must recover after three seconds.");
+                    requireClose(962.368, others.getFirst().getHealth(), "Transfer must recover after seventy ticks.");
                     context.succeed();
                 } finally { f.close(); }
             });
@@ -93,9 +93,9 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             f.unlock(3);
             check(wizard.selectSpell(MagicSchoolSpell.EXPULSO), "Expulso must equip.");
             hit(wizard, primary);
-            double dealt = wizard.runtimeEntity(f.lane).orElseThrow().attackDamageAmount(litSplash) * .5 * 1.15;
+            double dealt = wizard.runtimeEntity(f.lane).orElseThrow().attackDamageAmount(litSplash) * .5 * 1.12;
             requireClose(10000 - dealt, litSplash.getHealth(), "The first lit splash victim triggers the transfer.");
-            requireClose(10000 - dealt * .1 * 1.15, litFar.getHealth(), "Secondary damage must use the same transfer hook.");
+            requireClose(10000 - dealt * .1 * 1.12, litFar.getHealth(), "Secondary damage must use the same transfer hook.");
             wizard.resetForRound(f.lane);
             var arch = (MagicSchoolWizardTower) add(f.lane, MagicSchoolTowers.BRAVE_ARCHWIZARD, f.pos(0));
             arch.runtimeEntity(f.lane).orElseThrow().setNoAi(true);
@@ -121,11 +121,12 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             wizard.selectSpell(MagicSchoolSpell.PROTEGO);
             f.lane.markWaveStarted(1);
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
+            double before = source.getHealth();
             source.hurt(source.damageSources().generic(), 250);
-            check(source.getHealth() > 50, "Reduction must be applied before testing lethality.");
+            requireClose(before - 200, source.getHealth(), "Twenty-percent protection must reduce the hit before testing lethality.");
             source.setInvulnerableTime(0);
             source.hurt(source.damageSources().generic(), 1000);
-            requireClose(wizard.currentMaxHealth() * .15, source.getHealth(), "A fatal hit must leave exactly fifteen percent health.");
+            requireClose(wizard.currentMaxHealth() * .08, source.getHealth(), "A fatal hit must leave exactly eight percent health.");
             requireClose(source.getHealth(), wizard.health(), "Runtime and entity health must agree.");
             wizard.onWaveStarted(f.lane, 1);
             var promoted = (MagicSchoolWizardTower) kim.biryeong.semiontd.tower.ProductionTowerCatalog.find(MagicSchoolTowers.GRYFFINDOR.id())
@@ -137,12 +138,12 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             check(after.getHealth() <= 0, "Promotion and repeated wave-start calls must not restore a used potion.");
             var independent = other.runtimeEntity(f.lane).orElseThrow();
             independent.hurtIgnoringReductions(independent.damageSources().generic(), 10000);
-            requireClose(other.currentMaxHealth() * .15, independent.getHealth(), "Each student receives its own potion charge.");
+            requireClose(other.currentMaxHealth() * .08, independent.getHealth(), "Each student receives its own potion charge.");
             f.lane.resetForRound();
             f.lane.markWaveStarted(2);
             var restored = promoted.runtimeEntity(f.lane).orElseThrow();
             restored.hurtIgnoringReductions(restored.damageSources().generic(), 10000);
-            requireClose(promoted.currentMaxHealth() * .15, restored.getHealth(), "The next round restores one potion charge.");
+            requireClose(promoted.currentMaxHealth() * .08, restored.getHealth(), "The next round restores one potion charge.");
         }
         context.succeed();
     }
@@ -161,7 +162,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
                 var enemy = f.monster(2, 1);
                 setMonsterHealth(enemy, 0);
                 f.lane.tick(context.getLevel().getServer(), null, f.game.players());
-                total += 10 + 8 * Math.min(5, round - 1);
+                total += 5 + 5 * Math.min(5, round - 1);
                 requireClose(initial + total, f.game.players().get(f.owner).economy().diamond(), "The lane clear must pay immediately.");
                 f.lane.tick(context.getLevel().getServer(), null, f.game.players());
                 requireClose(initial + total, f.game.players().get(f.owner).economy().diamond(), "Clear polling cannot pay twice.");
@@ -218,7 +219,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void bombBarrelsAreEnemiesExplodeFromDestroyerAttackAndDoNotRecreateBarrels(GameTestHelper context) {
+    public void bombBarrelsAreEnemiesExplodeFromDestroyerAttackAndDoNotRecreateBarrels(GameTestHelper context) throws Exception {
         try (var f = new Fixture(context)) {
             var wizard = f.wizard(0);
             var destroyer = f.wizard(1);
@@ -233,19 +234,25 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             var bomb = bombs.getFirst();
             requireClose(1, bomb.getHealth(), "Bomb barrels stay at one health even after round twenty-five.");
             check(source.isValidAttackTarget(bomb) && bomb.hasBarrelVisual(), "A barrel must be rendered and targetable by students.");
+            var visualField = MagicSchoolBombBarrelEntity.class.getDeclaredField("barrelVisual");
+            visualField.setAccessible(true);
+            var visual = (eu.pb4.polymer.virtualentity.api.ElementHolder) visualField.get(bomb);
+            check(visual.getElements().stream().anyMatch(element -> element instanceof eu.pb4.polymer.virtualentity.api.elements.BlockDisplayElement block
+                    && block.getBlockState().is(net.minecraft.world.level.block.Blocks.TNT)),
+                    "An explosive barrel must send the TNT block model to clients.");
             check(!f.lane.activeMonsters().contains(bomb.runtimeMonster()), "Props must not block wave completion or award kill income.");
             var near = f.monster(4, 10000);
             var edge = f.monster(5, 10000);
             var far = f.monster(6, 10000);
-            near.setPos(bomb.position().add(2.4, 0, 0));
-            edge.setPos(bomb.position().add(2.5, 0, 0));
-            far.setPos(bomb.position().add(2.6, 0, 0));
+            near.setPos(bomb.position().add(1.9, 0, 0));
+            edge.setPos(bomb.position().add(2, 0, 0));
+            far.setPos(bomb.position().add(2.01, 0, 0));
             var destroyerSource = destroyer.runtimeEntity(f.lane).orElseThrow();
             destroyerSource.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_BONUS, .5, 100);
-            double expected = destroyer.resolveBasicAttackOutgoingDamage(destroyerSource, null, destroyerSource.attackDamageAmount(null)) * .6;
+            double expected = destroyer.resolveBasicAttackOutgoingDamage(destroyerSource, null, destroyerSource.attackDamageAmount(null)) * .3;
             hit(destroyer, bomb);
             requireClose(10000 - expected, near.getHealth(), "Explosion damage must use the destroyer's current attack including bonuses.");
-            requireClose(10000 - expected, edge.getHealth(), "The 2.5-block boundary is included.");
+            requireClose(10000 - expected, edge.getHealth(), "The 2-block boundary is included.");
             requireClose(10000, far.getHealth(), "Explosion must not damage outside its radius.");
             check(bomb.isRemoved() && !bomb.hasBarrelVisual(), "Destroyed barrel visuals must be cleaned up.");
             check(context.getLevel().getEntitiesOfClass(MagicSchoolBombBarrelEntity.class, source.getBoundingBox().inflate(20)).isEmpty(),
@@ -339,7 +346,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             check(original.isRemoved() && !f.lane.towers().contains(barrel), "Conversion removes the friendly decoy.");
             var bomb = context.getLevel().getEntitiesOfClass(MagicSchoolBombBarrelEntity.class, original.getBoundingBox().inflate(1)).getFirst();
             check(position.distanceToSqr(bomb.position()) < 1e-8 && bomb.getHealth() == 1, "Existing barrels convert in place with one health.");
-            check(f.game.players().get(f.owner).economy().diamond() == before - 600, "The two purchases must charge exactly six hundred diamonds.");
+            check(f.game.players().get(f.owner).economy().diamond() == before - 700, "The two purchases must charge exactly seven hundred diamonds.");
 
             f.lane.tick(context.getLevel().getServer(), null, f.game.players());
             check(f.lane.clearedThisRound() && bomb.isRemoved(), "A clear removes leftover bombs without requiring their destruction.");
@@ -360,7 +367,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             receiver.schoolSpells().lumos();
             victim.applyIgnite(f.owner, wizard, kim.biryeong.semiontd.trait.TraitLoadout.none(), 100, 0, 1, 20, 1);
             victim.aiStep();
-            requireClose(99.885, receiver.getHealth(), "Overkill transfer must use the one point of actual health damage, including ignite.");
+            requireClose(99.888, receiver.getHealth(), "Overkill transfer must use the one point of actual health damage, including ignite.");
             check(f.lane.towers().stream().filter(MagicSchoolBarrelTower.class::isInstance).count() == 1,
                     "An attributed periodic kill must also spawn a barrel.");
         }
@@ -387,19 +394,19 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             MagicSchoolSpellCombat.applySelfProtection(wizard, source);
             f.lane.markWaveStarted(1);
             ally.onWaveStarted(otherLane, 1);
-            requireClose(16.0825, wizard.proficiency(), "Eleven wave proficiency and 25% of 20.33 health must be awarded.");
-            requireClose(20.33, source.getMaxHealth() - source.getHealth(), "Protego cannot halve the health cost.");
+            requireClose(20.1485, wizard.proficiency(), "Eleven wave proficiency and 30% of 30.495 health must be awarded.");
+            requireClose(30.495, source.getMaxHealth() - source.getHealth(), "Protego cannot halve the health cost.");
             requireClose(source.getHealth(), wizard.health(), "Health cost and proficiency growth must keep runtime health synchronized.");
             requireClose(100, capped.proficiency(), "Proficiency cannot exceed its cap.");
-            requireClose(207, capped.runtimeEntity(f.lane).orElseThrow().getHealth(), "Capped students still pay ten percent health.");
+            requireClose(195.5, capped.runtimeEntity(f.lane).orElseThrow().getHealth(), "Capped students still pay fifteen percent health.");
             requireClose(200, copy.health(), "Temporary copies do not pay or gain proficiency.");
             requireClose(0, dead.proficiency(), "Dead students cannot practice.");
             requireClose(ally.currentMaxHealth(), ally.health(), "A teammate's students must not pay for this player's curriculum.");
             wizard.onWaveStarted(f.lane, 1);
-            requireClose(16.0825, wizard.proficiency(), "The same wave cannot award dueling twice.");
+            requireClose(20.1485, wizard.proficiency(), "The same wave cannot award dueling twice.");
 
             source.hurtIgnoringReductions(source.damageSources().generic(), 10000);
-            requireClose(wizard.currentMaxHealth() * .15, source.getHealth(), "Dueling must leave the emergency potion available.");
+            requireClose(wizard.currentMaxHealth() * .08, source.getHealth(), "Dueling must leave the emergency potion available.");
             var promoted = (MagicSchoolWizardTower) kim.biryeong.semiontd.tower.ProductionTowerCatalog.find(MagicSchoolTowers.GRYFFINDOR.id())
                     .orElseThrow().create(f.owner, f.lane.teamId(), f.lane.laneId(), f.pos(0));
             promoted.copyFrom(wizard, 200);
@@ -427,8 +434,8 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             requireClose(11, wizard.proficiency(), "Enabling after battle start must not apply immediately.");
             f.lane.resetForRound();
             f.lane.markWaveStarted(2);
-            requireClose(23 + 20.69 * .25, wizard.proficiency(), "The next wave applies the newly enabled practice once.");
-            requireClose(20.69, wizard.currentMaxHealth() - wizard.health(), "The cost uses the next wave's updated maximum health.");
+            requireClose(23 + 31.035 * .30, wizard.proficiency(), "The next wave applies the newly enabled practice once.");
+            requireClose(31.035, wizard.currentMaxHealth() - wizard.health(), "The cost uses the next wave's updated maximum health.");
         }
         context.succeed();
     }
@@ -471,6 +478,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
         void buy(Upgrade upgrade) { check(MagicSchoolCurriculum.purchase(owner, upgrade, game.players().get(owner).economy())
                 == MagicSchoolCurriculum.PurchaseResult.PURCHASED, "Fixture purchase failed: " + upgrade); }
         void unlock(int tier) {
+            MagicSchoolCurriculum.purchase(owner, Upgrade.ADVANCED_SPELLS, game.players().get(owner).economy());
             if (tier == 6) lane.assignAugmentSnapshot(MagicSchoolAugmentCombatTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES));
             for (int next = 2; next <= Math.min(5, tier); next++) {
                 MagicSchoolCurriculum.unlockSpellTier(owner, next, game.players().get(owner).economy());

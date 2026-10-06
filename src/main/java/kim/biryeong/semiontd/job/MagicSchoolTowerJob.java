@@ -13,9 +13,11 @@ public final class MagicSchoolTowerJob extends SemionJob {
 
     public MagicSchoolTowerJob() {
         super(ID, Component.literal("마법학교 빌더"), List.of(
-                SemionText.mini("<green><bold>시작</bold></green> <gray>호그와트와 신입생을 배치하세요.</gray>"),
-                SemionText.mini("<aqua><bold>운영</bold></aqua> <gray>마법사의 주문을 지정하세요. 신입생은 엑스펠리아르무스로 시작합니다.</gray>"),
-                SemionText.mini("<yellow><bold>주의</bold></yellow> <gray>호그와트는 플레이어마다 하나만 설치할 수 있으며, 혼자 남으면 방어에 실패합니다.</gray>")
+                SemionText.mini("<aqua><bold>운영</bold></aqua> <gray>호그와트에서 커리큘럼을 업그레이드하여 새로운 주문과 능력을 해금하고, 마법사를 강화하세요.</gray>"),
+                SemionText.mini("<gray>마법사가 사용할 주문을 직접 지정하여 몹을 방어하세요. 티어가 높아질수록 사용할 수 있는 주문이 많아집니다.</gray>"),
+                SemionText.mini("<gray>마법사는 전투에 참여하거나 커리큘럼의 효과로 주문 숙련도를 얻을 수 있으며, 숙련도가 쌓일 수록 강해집니다. 최대 숙련도에서 다음 티어로 강화할 수 있습니다.</gray>"),
+                SemionText.mini("<yellow><bold>주의</bold></yellow> <gray>커리큘럼은 라운드당 한 번만 업그레이드 할 수 있습니다.</gray>"),
+                SemionText.mini("<gray>'기숙사 배정 모자'를 해금하지 않으면 T2 마법사로 강화할 수 없습니다.</gray>")
         ));
     }
 
