@@ -383,13 +383,29 @@ public final class DemonLordService {
         if (player == null) {
             return;
         }
-        boolean hadState = DemonLordStates.get(player.getUUID()) != null;
+        disconnectPlayer(player);
+        clearPlayerState(player.getUUID());
+    }
+
+    public static void disconnectPlayer(ServerPlayer player) {
+        if (player == null) {
+            return;
+        }
+        UUID owner = player.getUUID();
+        DemonLordState state = DemonLordStates.get(owner);
         clearCombatKit(player);
-        if (hadState) {
+        if (state != null) {
+            restoreHotbar(player);
+            state.setCombatKitGranted(false);
+            state.markLoadoutDirty();
             restoreFlight(player);
             clearTickScale(player);
+            releaseAggro(player);
         }
-        clearPlayerState(player.getUUID());
+        clearBossBar(owner);
+        DemonLordExecuteMarks.forget(owner);
+        LAST_TICK_RATIO.remove(owner);
+        removeCarriers(owner);
     }
 
     /**
@@ -857,6 +873,10 @@ public final class DemonLordService {
      */
     /** 마왕이 아니게 되면 배속 보정(공격 속도 수정자, 비행 속도)을 되돌립니다. */
     private static void clearTickScale(ServerPlayer player) {
+        AttributeInstance movementSpeed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (movementSpeed != null) {
+            movementSpeed.removeModifier(MOVE_SPEED_MODIFIER_ID);
+        }
         AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
         if (attackSpeed != null && attackSpeed.getModifier(TICK_ATTACK_SPEED_MODIFIER_ID) != null) {
             attackSpeed.removeModifier(TICK_ATTACK_SPEED_MODIFIER_ID);
@@ -870,7 +890,7 @@ public final class DemonLordService {
     private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
         float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
         Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
-        if (previous != null && Math.abs(previous - ratio) > 1.0E-3F) {
+        if (previous == null || Math.abs(previous - ratio) > 1.0E-3F) {
             syncSkillCooldowns(player, state, now);
         }
         AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);

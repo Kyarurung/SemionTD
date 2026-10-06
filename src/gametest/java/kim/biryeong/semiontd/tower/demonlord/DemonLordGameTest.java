@@ -49,6 +49,87 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
     @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void combatTickScaleAppliesOnceAndResetsBetweenRounds(GameTestHelper context) {
+        var server = context.getLevel().getServer();
+        float originalRate = server.tickRateManager().tickrate();
+        try (var fixture = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                Vec3.atCenterOf(context.absolutePos(new BlockPos(5, 2, 5))), GameType.ADVENTURE,
+                UUID.randomUUID(), "demon-speed-test")) {
+            var player = fixture.player();
+            var lane = testLane(context, player.getUUID());
+            var players = Map.of(player.getUUID(), demonLordPlayer(player));
+            var state = DemonLordStates.getOrCreate(player.getUUID());
+            try {
+                state.enterCombat();
+                state.consumePendingSpawn();
+                server.tickRateManager().setTickRate(20.0F);
+                DemonLordService.tick(lane, players);
+                double movement = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+                double attack = player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED);
+                float flight = player.getAbilities().getFlyingSpeed();
+                for (float rate : new float[] {40.0F, 40.0F, 100.0F, 20.0F}) {
+                    server.tickRateManager().setTickRate(rate);
+                    DemonLordService.tick(lane, players);
+                    requireClose(movement * rate / 20.0,
+                            player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                            "Combat movement must follow the current tick rate without stacking.");
+                    requireClose(attack * rate / 20.0,
+                            player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED),
+                            "Combat attack speed must follow the current tick rate without stacking.");
+                    requireClose(flight * rate / 20.0, player.getAbilities().getFlyingSpeed(),
+                            "Combat flight must follow the current tick rate without stacking.");
+                }
+                server.tickRateManager().setTickRate(40.0F);
+                DemonLordService.tick(lane, players);
+                DemonLordService.endRound(player.getUUID());
+                DemonLordService.tick(lane, players);
+                requireClose(movement, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                        "Preparation must remove movement acceleration even while the server is accelerated.");
+                requireClose(attack, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED),
+                        "Preparation must remove attack acceleration.");
+                requireClose(flight, player.getAbilities().getFlyingSpeed(), "Preparation must remove flight acceleration.");
+                DemonLordService.beginWave(player.getUUID());
+                DemonLordService.tick(lane, players);
+                requireClose(movement * 2.0, player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                        "The next wave must restore acceleration exactly once.");
+                context.succeed();
+            } finally {
+                DemonLordService.cleanupPlayer(player);
+            }
+        } finally {
+            server.tickRateManager().setTickRate(originalRate);
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void disconnectRemovesCombatMovementAcceleration(GameTestHelper context) {
+        var server = context.getLevel().getServer();
+        float originalRate = server.tickRateManager().tickrate();
+        try (var fixture = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                Vec3.atCenterOf(context.absolutePos(new BlockPos(5, 2, 5))), GameType.ADVENTURE,
+                UUID.randomUUID(), "demon-exit-test")) {
+            var player = fixture.player();
+            var movement = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            double originalMovement = movement.getValue();
+            var state = DemonLordStates.getOrCreate(player.getUUID());
+            try {
+                state.enterCombat();
+                state.consumePendingSpawn();
+                server.tickRateManager().setTickRate(40.0F);
+                DemonLordService.tick(testLane(context, player.getUUID()), Map.of(player.getUUID(), demonLordPlayer(player)));
+                requireClose(originalMovement * 2.0, movement.getValue(), "The cleanup regression must start accelerated.");
+                kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
+                requireClose(originalMovement, movement.getValue(), "Disconnect must remove the demon lord movement modifier.");
+                context.succeed();
+            } finally {
+                DemonLordService.cleanupPlayer(player);
+            }
+        } finally {
+            server.tickRateManager().setTickRate(originalRate);
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
     public void skillEffectsSnapToTheGroundSurfaceUnderTheirOrigin(GameTestHelper context) {
         var level = context.getLevel();
         var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
@@ -612,6 +693,156 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
         } finally {
             DemonLordStates.clear(player.getUUID());
             player.discard();
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void reconnectRestoresCombatAccelerationAndRemainingCooldown(GameTestHelper context) {
+        var server = context.getLevel().getServer();
+        float originalRate = server.tickRateManager().tickrate();
+        UUID owner = UUID.randomUUID();
+        var position = Vec3.atCenterOf(context.absolutePos(new BlockPos(5, 2, 5)));
+        var lane = testLane(context, owner);
+        DemonLordState state = DemonLordStates.getOrCreate(owner);
+        try {
+            server.tickRateManager().setTickRate(40.0F);
+            state.enterCombat();
+            state.consumePendingSpawn();
+            state.startCooldown(DemonLordSkill.DEMON_BARRIER, context.getLevel().getGameTime(), 200);
+            try (var first = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                    position, GameType.ADVENTURE, owner, "demon-rejoin")) {
+                DemonLordService.tick(lane, Map.of(owner, demonLordPlayer(first.player())));
+                kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(first.player());
+                require(DemonLordStates.get(owner) == state && state.inCombat(),
+                        "A temporary disconnect must preserve the active combat state until the match ends.");
+            }
+            try (var second = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                    position, GameType.ADVENTURE, owner, "demon-rejoin")) {
+                var player = second.player();
+                List<net.minecraft.network.protocol.Packet<?>> packets = new ArrayList<>();
+                var originalConnection = player.connection;
+                player.connection = new net.minecraft.server.network.ServerGamePacketListenerImpl(server,
+                        new Connection(PacketFlow.SERVERBOUND), player,
+                        CommonListenerCookie.createInitial(player.getGameProfile(), false)) {
+                    @Override public void send(net.minecraft.network.protocol.Packet<?> packet) { packets.add(packet); }
+                };
+                try {
+                    DemonLordService.tick(lane, Map.of(owner, demonLordPlayer(player)));
+                    requireClose(player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).getBaseValue() * 2,
+                            player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                            "Rejoining during combat must reapply the current movement acceleration.");
+                    var group = player.getCooldowns().getCooldownGroup(new ItemStack(DemonLordSkill.DEMON_BARRIER.item()));
+                    require(packets.stream().anyMatch(packet -> packet instanceof net.minecraft.network.protocol.game.ClientboundCooldownPacket cooldown
+                                    && cooldown.cooldownGroup().equals(group) && cooldown.duration() == 100),
+                            "Rejoining at 40 TPS must resend the remaining 200 server ticks as 100 client ticks.");
+                    packets.clear();
+                    server.tickRateManager().setTickRate(20.0F);
+                    DemonLordService.tick(lane, Map.of(owner, demonLordPlayer(player)));
+                    require(packets.stream().anyMatch(packet -> packet instanceof net.minecraft.network.protocol.game.ClientboundCooldownPacket cooldown
+                                    && cooldown.cooldownGroup().equals(group) && cooldown.duration() == 200),
+                            "Returning to 20 TPS must restore the remaining cooldown display without changing readiness.");
+                    require(!state.isSkillReady(DemonLordSkill.DEMON_BARRIER, context.getLevel().getGameTime() + 199)
+                                    && state.isSkillReady(DemonLordSkill.DEMON_BARRIER, context.getLevel().getGameTime() + 200),
+                            "Client display conversion must not accelerate the server cooldown a second time.");
+                    DemonLordService.cleanupPlayer(player);
+                    require(DemonLordStates.get(owner) == null, "Final cleanup must still remove match state.");
+                    context.succeed();
+                } finally {
+                    player.connection = originalConnection;
+                    DemonLordService.cleanupPlayer(player);
+                }
+            }
+        } finally {
+            DemonLordService.clearPlayerState(owner);
+            server.tickRateManager().setTickRate(originalRate);
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void demonLordAggroHasSeparateAcquisitionAndRetentionRanges(GameTestHelper context) {
+        prepareFloor(context);
+        var origin = Vec3.atCenterOf(context.absolutePos(new BlockPos(2, 2, 3)));
+        try (var first = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                origin.add(7, 0, 0), GameType.ADVENTURE, UUID.randomUUID(), "demon-near");
+             var second = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                origin.add(8, 0, 0), GameType.ADVENTURE, UUID.randomUUID(), "demon-far")) {
+            var lane = testLane(context, first.player().getUUID());
+            var target = spawnTarget(context, lane, new BlockPos(2, 2, 3), 100, 0);
+            try {
+                for (var player : List.of(first.player(), second.player())) {
+                    var state = DemonLordStates.getOrCreate(player.getUUID());
+                    state.setLaneId(1);
+                    state.enterCombat();
+                }
+                var acquire = new AcquireLaneDefenseTargetGoal(target.entity());
+                require(acquire.canUse(), "A nearby eligible demon lord must be acquired.");
+                acquire.start();
+                require(target.entity().getTarget() == first.player(), "The nearer eligible owner must win.");
+                target.entity().setOnGround(true);
+                first.player().setPos(origin.add(16, 0, 0));
+                require(target.entity().canTargetDefense(first.player()), "An existing ground target is retained at 16 blocks.");
+                first.player().setPos(origin.add(16.01, 0, 0));
+                new MonsterAttackTargetGoal(target.entity(), 1.0).tick();
+                require(target.entity().getTarget() == null, "A ground target beyond 16 blocks must be released.");
+                second.player().setPos(origin.add(8.01, 0, 0));
+                require(!acquire.canUse(), "Neither a just-outside nor distant target can be newly acquired.");
+                second.player().setPos(origin.add(8, 0, 0));
+                require(acquire.canUse(), "The eight-block acquisition boundary is inclusive.");
+                DemonLordStates.get(second.player().getUUID()).setLaneId(2);
+                require(!acquire.canUse(), "A nearby demon lord in another lane cannot attract this monster.");
+                DemonLordStates.get(second.player().getUUID()).setLaneId(1);
+                DemonLordStates.get(second.player().getUUID()).standDown();
+                require(!acquire.canUse(), "A resting demon lord cannot attract this monster.");
+                target.entity().setTarget(first.player());
+                target.entity().setOnGround(false);
+                require(target.entity().canTargetDefense(first.player()), "An airborne monster retains its existing target beyond the ground leash.");
+                first.player().setHealth(0.0F);
+                require(!new MonsterAttackTargetGoal(target.entity(), 1.0).canUse(), "The attack goal must stop for a dead player.");
+                context.succeed();
+            } finally {
+                target.entity().discard();
+                DemonLordStates.clear(first.player().getUUID());
+                DemonLordStates.clear(second.player().getUUID());
+            }
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void nearbyAggroMovesTowardThePlayerButCannotPassThroughAWall(GameTestHelper context) {
+        prepareFloor(context);
+        var origin = Vec3.atCenterOf(context.absolutePos(new BlockPos(3, 2, 3)));
+        try (var fixture = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
+                origin.add(7, 0, 0), GameType.ADVENTURE, UUID.randomUUID(), "demon-path-test")) {
+            var player = fixture.player();
+            var lane = testLane(context, player.getUUID());
+            var target = spawnTarget(context, lane, new BlockPos(3, 2, 3), 1000, 0);
+            try {
+                var state = DemonLordStates.getOrCreate(player.getUUID());
+                state.setLaneId(1);
+                state.enterCombat();
+                double before = target.entity().distanceToSqr(player);
+                for (int tick = 0; tick < 30; tick++) target.entity().tick();
+                require(target.entity().getTarget() == player, "Normal entity AI must acquire the nearby player.");
+                require(target.entity().distanceToSqr(player) < before - 1,
+                        "Acquisition must result in actual movement toward the player.");
+                target.entity().setPos(origin);
+                target.entity().setDeltaMovement(Vec3.ZERO);
+                target.entity().getNavigation().stop();
+                for (int y = 2; y <= 6; y++) {
+                    for (int z = 0; z <= 16; z++) {
+                        context.getLevel().setBlockAndUpdate(context.absolutePos(new BlockPos(6, y, z)), Blocks.STONE.defaultBlockState());
+                    }
+                }
+                for (int tick = 0; tick < 80; tick++) target.entity().tick();
+                require(target.entity().getX() < context.absolutePos(new BlockPos(6, 2, 3)).getX(),
+                        "An impassable wall must block pursuit even when aggro remains active.");
+                player.discard();
+                require(!new MonsterAttackTargetGoal(target.entity(), 1.0).canUse(), "Pursuit must stop when the player is removed.");
+                context.succeed();
+            } finally {
+                target.entity().discard();
+                DemonLordStates.clear(player.getUUID());
+            }
         }
     }
 
