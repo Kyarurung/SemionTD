@@ -143,9 +143,9 @@ class WarlockDescriptionTest {
                             .replaceAll("<[^>]+>", "");
                     String progress = stage == stages ? "(MAX)" : "(" + ((stage + 1) * every) + ")";
                     assertTrue(details.contains("생명력 흡수: " + expectedText + " " + progress), details);
-                    assertTrue(details.contains("현재 피해 " + (int) damage + " 기준의 단계 반영 회복률"), details);
-                    assertTrue(details.contains("40 이하 100% · 400에서 10% · 4,000 이상 1%"), details);
-                    assertTrue(details.contains("범위는 감쇠 전 공격 피해 기준"), details);
+                    assertFalse(details.contains("표시값은 현재 피해"), details);
+                    assertFalse(details.contains("생명력 흡수 효율:"), details);
+                    assertFalse(details.contains("실제 회복률은"), details);
                 }
             }
         }

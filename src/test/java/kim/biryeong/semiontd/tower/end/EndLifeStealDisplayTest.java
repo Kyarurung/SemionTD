@@ -20,7 +20,8 @@ class EndLifeStealDisplayTest extends EndTestFixture {
     void sixStepsAtTwoHundredFiftyDamageDisplaySevenPointTwoPercentMatchesActualHealing() {
         List<String> lines = details(180, 250);
         assertTrue(lines.stream().anyMatch(line -> line.contains("생명력 흡수: 7.2% (210)")));
-        assertTrue(lines.stream().anyMatch(line -> line.contains("현재 피해 250 기준의 단계 반영 회복률")));
+        assertFalse(lines.stream().anyMatch(line -> line.contains("표시값은 현재 피해")
+                || line.contains("생명력 흡수 효율:") || line.contains("실제 회복률은")));
         double ratio = new EndCombat(EndConfig.RUNTIME).lifeStealRatio(new EndTransferStacks(180, 0, 0));
         assertEquals(.06, ratio, .000001);
         assertEquals(.072, ratio / .1 * kim.biryeong.semiontd.tower.DamageLifeSteal.efficiency(250, 30), .000001);

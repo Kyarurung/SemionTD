@@ -34,9 +34,6 @@ final class WarlockStatsView {
                             defense.maximumLifeSteal()
                     )
             ));
-            lines.add("<gray>표시값은 현재 피해 " + formatNumber(defense.lifeStealDisplayDamage())
-                    + " 기준의 단계 반영 회복률입니다. 실제 회복률은 대상의 방어와 남은 체력에 따라 달라질 수 있습니다.</gray>");
-            lines.add("<gray>생명력 흡수 효율: 기준 피해 40 이하 100% · 400에서 10% · 4,000 이상 1% (40 ÷ 기준 피해, 최소 1%). 주 대상은 실제 피해, 범위는 감쇠 전 공격 피해 기준</gray>");
             lines.add(formatDamageReduction(
                     defense.damageReduction(),
                     stackProgress(
