@@ -1553,12 +1553,12 @@ public record TowerBalanceConfig(
 
     /**
      * 빌더 빌더 설계도의 가격 계수와 한도. 가격 = priceScale × P^priceExponent, P = 초당 피해/dpsUnit × (사거리/rangePivot)^rangeExponent
-     * + 체력/healthUnit. 기본값은 기존 타워의 가격대별 중앙값에 맞췄습니다.
+     * + 체력/healthUnit. 기본값으로는 기존 타워의 가격대별 중앙값 위력을 그 가격의 약 3분의 2에 삽니다.
      */
     private static void putBlueprintAbilities(LinkedHashMap<String, Map<String, Double>> abilities) {
         putAbilities(abilities, kim.biryeong.semiontd.tower.blueprint.BlueprintTowers.CONFIG_ID, Map.ofEntries(
-                Map.entry("priceScale", 16.5),
-                Map.entry("priceExponent", 1.6),
+                Map.entry("priceScale", 12.0),
+                Map.entry("priceExponent", 1.5),
                 Map.entry("dpsUnit", 8.0),
                 Map.entry("healthUnit", 88.0),
                 Map.entry("rangePivot", 6.0),
