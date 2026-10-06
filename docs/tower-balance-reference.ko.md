@@ -12,6 +12,12 @@
 
 `/semiontd reload`는 타워 밸런스 설정과 카탈로그를 다시 읽습니다. 진행 중인 게임에서 새로 설치하거나 업그레이드하는 타워부터 확인하는 편이 안전합니다.
 
+## 마법학교 설정
+
+마법학교의 현재 수치와 주문·커리큘럼 규칙은 [마법학교 빌더](magic-school-builder.md)를 참고합니다. 학생별 `abilities.magic_school_*`의 `maxProficiency`, `proficiencyDamagePerPoint`, `proficiencyHealthPerPoint`가 숙련도 한도와 증가율을 결정합니다. 기본 한도는 T1 100·T2 300·T3 1000, 포인트당 증가율은 각각 0.0015·0.0008·0.0005입니다.
+
+`magic_school_global.nerfBalanceVersion=1`은 기존 이관 뒤 이전 기본값만 한 번 새 수치로 바꿉니다. 전역 커스텀 숙련도 증가율은 학생별 키로 보존하며, 이관 이후에는 학생별 키를 수정합니다. 고등 주문 수업은 `advancedSpellsCost=350`이며 주문 단계 해금과 별도로 시전자 자격만 한 단계 높입니다. 저주 제한은 `curseProficiencyThreshold=500`, `curseLowProficiencyAttackSpeedMultiplier=0.1`로 설정합니다. 마법 대학원은 `augment_balance.json`의 `proficiencyCapBonus=250`과 `balanceVersion=1`, 저주 증강의 즉시 보상은 `diamondReward=100`을 사용합니다. 운영 서버 설정은 모드가 읽을 때 이관되며 소스 수정 작업에서 직접 덮어쓰지 않습니다.
+
 ## `towers`: 타워 공통값
 
 형태:

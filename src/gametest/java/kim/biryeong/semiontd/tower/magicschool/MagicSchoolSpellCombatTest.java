@@ -107,12 +107,12 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             var primary = f.monster(3, 10000);
             var near = f.monster(4, 10000);
             var far = f.monster(5, 10000);
-            near.setPos(primary.position().add(1.4, 0, 0));
-            far.setPos(primary.position().add(1.6, 0, 0));
+            near.setPos(primary.position().add(1.2, 0, 0));
+            far.setPos(primary.position().add(1.21, 0, 0));
             hit(wizard, primary);
             requireClose(9976, primary.getHealth(), "The primary hit must not receive splash twice.");
             requireClose(9985, near.getHealth(), "Expulso splash must use 50% attack, not the reduced primary hit.");
-            requireClose(10000, far.getHealth(), "Expulso must retain its 1.5-block boundary.");
+            requireClose(10000, far.getHealth(), "Expulso must retain its 1.2-block boundary.");
             wizard.selectSpell(MagicSchoolSpell.SECTUMSEMPRA);
             setMonsterHealth(primary, 9000); setMonsterHealth(near, 9000); setMonsterHealth(far, 9000);
             hit(wizard, primary);
@@ -130,7 +130,7 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void bombardaDealsNinetyPercentAndSeventyFivePercentSplashWithinTwoAndAHalfBlocks(GameTestHelper context) {
+    public void bombardaDealsNinetyPercentAndSeventyPercentSplashWithinTwoPointFourBlocks(GameTestHelper context) {
         try (var f = new Fixture(context)) {
             var wizard = f.wizard(MagicSchoolSpell.BOMBARDA, 0);
             var primary = f.monster(3, 10000);
@@ -138,14 +138,14 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             var edge = f.monster(5, 10000);
             var outside = f.monster(6, 10000);
             near.setPos(primary.position().add(1.6, 0, 0));
-            edge.setPos(primary.position().add(2.5, 0, 0));
-            outside.setPos(primary.position().add(2.6, 0, 0));
+            edge.setPos(Math.nextDown(primary.getX() + 2.4), primary.getY(), primary.getZ());
+            outside.setPos(primary.position().add(2.41, 0, 0));
             hit(wizard, primary);
             requireClose(9973, primary.getHealth(), "Bombarda deals 90% attack to the primary without duplicate splash.");
-            requireClose(9977.5, near.getHealth(), "The larger splash reaches beyond the former radius with 75% attack.");
-            requireClose(9977.5, edge.getHealth(), "The 2.5-block boundary is included.");
-            requireClose(10000, outside.getHealth(), "Enemies beyond 2.5 blocks are excluded.");
-            requireClose(72, wizard.roundMagicDamageDealt(), "All three hits must count as magic damage.");
+            requireClose(9979, near.getHealth(), "The larger splash reaches beyond the former radius with 70% attack.");
+            requireClose(9979, edge.getHealth(), "The nearest representable point inside the 2.4-block boundary is included.");
+            requireClose(10000, outside.getHealth(), "Enemies beyond 2.4 blocks are excluded.");
+            requireClose(69, wizard.roundMagicDamageDealt(), "All three hits must count as magic damage.");
             requireClose(0, wizard.roundPhysicalDamageDealt(), "Bombarda must not deal physical damage.");
         }
         context.succeed();
@@ -156,16 +156,21 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
         try (var f = new Fixture(context)) {
             var caster = f.wizard(MagicSchoolSpell.LUMOS, 0);
             var entity = caster.runtimeEntity(f.lane).orElseThrow();
-            check(entity.attackIntervalTicks() == 12, "Lumos must add 100% attack speed.");
+            check(entity.attackIntervalTicks() == 24, "Lumos must retain the ordinary attack interval.");
             var lit = f.monster(3, 10000);
             var unlit = f.monster(4, 20000);
+            unlit.setPos(lit.position().add(2.1, 0, 0));
+            var edge = f.monster(5, 10000);
+            edge.setPos(lit.position().add(2, 0, 0));
             hit(caster, lit);
-            requireClose(9985, lit.getHealth(), "The first Lumos hit applies vulnerability after its 50% damage.");
+            check(edge.isCurrentlyGlowing() && !unlit.isCurrentlyGlowing(), "Lumos spreads to two blocks but not beyond.");
+            requireClose(10000, edge.getHealth(), "Spreading Lumos must not deal splash damage.");
+            requireClose(9976, lit.getHealth(), "The first Lumos hit applies vulnerability after its 80% damage.");
             check(lit.isCurrentlyGlowing(), "Lumos must glow visibly.");
             caster.damageResolvedTargetResult(entity, lit, 100, DamageType.MAGIC);
-            requireClose(9870, lit.getHealth(), "Lumos must amplify incoming magic damage by 15%.");
+            requireClose(9864, lit.getHealth(), "Lumos must amplify incoming magic damage by 12%.");
             caster.damageResolvedTargetResult(entity, lit, 100, DamageType.PHYSICAL);
-            requireClose(9770, lit.getHealth(), "Lumos must not amplify physical damage.");
+            requireClose(9764, lit.getHealth(), "Lumos must not amplify physical damage.");
             for (TowerType house : MagicSchoolTowers.houseWizards()) {
                 var wizard = (MagicSchoolWizardTower) add(f.lane, house, f.pos(0));
                 var source = wizard.runtimeEntity(f.lane).orElseThrow();
@@ -177,10 +182,11 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
                 f.lane.removeTower(wizard);
             }
             caster.selectSpell(MagicSchoolSpell.LUMOS_MAXIMA);
+            unlit.setPos(lit.position().add(4, 0, 0));
             var outside = f.monster(7, 10000);
-            outside.setPos(lit.position().add(3.1, 0, 0));
+            outside.setPos(lit.position().add(4.01, 0, 0));
             hit(caster, lit);
-            check(unlit.isCurrentlyGlowing() && !outside.isCurrentlyGlowing(), "Lumos Maxima spreads within three blocks.");
+            check(unlit.isCurrentlyGlowing() && !outside.isCurrentlyGlowing(), "Lumos Maxima spreads within four blocks.");
             f.lane.resetForRound();
             check(!lit.isCurrentlyGlowing() && !unlit.isCurrentlyGlowing(), "Lumos must be removed on round reset.");
         }
@@ -227,15 +233,15 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
                 var wizard = i == 0 ? protectedWizard : f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, i);
                 wizard.onWaveStarted(f.lane, 1);
             }
-            requireClose(.8, MagicSchoolSpellCombat.protection(source), "Self 65% and three 5% auras must add to 80%, capped at three sources.");
+            requireClose(.65, MagicSchoolSpellCombat.protection(source), "Self 50% and three 5% auras must add to 65%, capped at three sources.");
             var recipient = ally.runtimeEntity(f.lane).orElseThrow();
             requireClose(.15, MagicSchoolSpellCombat.protection(recipient), "An ally receives only the capped 15% aura.");
             double before = source.getHealth();
             source.hurt(source.damageSources().generic(), 100);
-            requireClose(before - 20, source.getHealth(), "Actual incoming damage must use the additive protection.");
+            requireClose(before - 35, source.getHealth(), "Actual incoming damage must use the additive protection.");
             protectedWizard.selectSpell(MagicSchoolSpell.PROTEGO);
             protectedWizard.selectSpell(MagicSchoolSpell.STUPEFY);
-            requireClose(.8, MagicSchoolSpellCombat.protection(source), "Protection must last through spell changes until round end.");
+            requireClose(.65, MagicSchoolSpellCombat.protection(source), "Protection must last through spell changes until round end.");
             f.lane.resetForRound();
             requireClose(0, MagicSchoolSpellCombat.protection(protectedWizard.runtimeEntity(f.lane).orElseThrow()), "Round reset removes all protection.");
         }
@@ -250,14 +256,14 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             double before = primary.getHealth();
             for (int extra : new int[]{1, 2, 2, 3}) {
                 hit(wizard, primary);
-                requireClose(before - 30 - extra * 9, primary.getHealth(), "Missing Patronum targets must redirect 30% hits to the primary.");
+                requireClose(before - 30 - extra * 7.5, primary.getHealth(), "Missing Patronum targets must redirect 25% hits to the primary.");
                 before = primary.getHealth();
             }
             wizard.resetForRound(f.lane);
             var secondary = f.monster(4, 10000);
             hit(wizard, primary);
             requireClose(before - 30, primary.getHealth(), "With an extra enemy, the first additional hit must leave the primary.");
-            requireClose(9991, secondary.getHealth(), "The new round resets Patronum to one 30% additional hit.");
+            requireClose(9992.5, secondary.getHealth(), "The new round resets Patronum to one 25% additional hit.");
         }
         context.succeed();
     }
@@ -315,7 +321,11 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
         try (var f = new Fixture(context)) {
             var avada = f.wizard(MagicSchoolSpell.AVADA_KEDAVRA, 0);
             var entity = avada.runtimeEntity(f.lane).orElseThrow();
-            check(entity.attackIntervalTicks() == 60, "Minus 60% attack speed means a 2.5-times interval.");
+            check(entity.attackIntervalTicks() == 600, "Avada's 60% penalty and low-proficiency 90% penalty multiply.");
+            avada.gainProficiency(500, f.lane);
+            check(entity.attackIntervalTicks() == 600, "The penalty still applies at exactly five hundred proficiency.");
+            avada.gainProficiency(1, f.lane);
+            check(entity.attackIntervalTicks() == 60, "Above five hundred, only Avada's original penalty remains.");
             var victim = MagicSchoolTowerIntegrationTest.monster(context, f.lane, f.pos(3), 900, 300, 1000);
             hit(avada, victim);
             requireClose(500, victim.getHealth(), "Avada uses 200% maximum health before 300 magic resistance reduces it to one quarter.");
@@ -369,20 +379,20 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             ally.syncHealth(10); recipient.setHealth(10);
             var target = f.monster(4, 10000);
             hit(first, target);
-            requireClose(55, recipient.getHealth(), "Episkey must heal a nearby allied owner's wizard by 150% attack.");
+            requireClose(32.5, recipient.getHealth(), "Episkey must heal a nearby allied owner's wizard by 75% attack.");
             requireClose(9973, target.getHealth(), "Healing must accompany a 90% magic attack.");
             hit(second, target);
-            requireClose(55, recipient.getHealth(), "A second caster cannot bypass the recipient cooldown.");
-            context.runAtTickTime(79, () -> {
+            requireClose(32.5, recipient.getHealth(), "A second caster cannot bypass the recipient cooldown.");
+            context.runAtTickTime(59, () -> {
                 try {
                     hit(second, target);
-                    requireClose(55, recipient.getHealth(), "Episkey remains blocked before four seconds.");
+                    requireClose(32.5, recipient.getHealth(), "Episkey remains blocked before three seconds.");
                 } catch (Throwable failure) { f.close(); throw failure; }
             });
-            context.runAtTickTime(81, () -> {
+            context.runAtTickTime(61, () -> {
                 try {
                     hit(second, target);
-                    requireClose(100, recipient.getHealth(), "Another caster may heal after the shared four-second cooldown.");
+                    requireClose(55, recipient.getHealth(), "Another caster may heal after the shared three-second cooldown.");
                     context.succeed();
                 } finally { f.close(); }
             });
@@ -405,8 +415,8 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             requireClose(0, recipient.activeEffectMagnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION), "Rennervate must cleanse elder-guardian-style slows.");
             requireClose(0, recipient.activeEffectMagnitude(TimedEffectType.TOWER_FLAT_DAMAGE_REDUCTION), "It must cleanse other tower debuffs too.");
             requireClose(.2, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RANGE_BONUS), "Cleansing must preserve buffs.");
-            requireClose(.2, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS), "Two casters must refresh, not stack.");
-            requireClose(36, recipient.attackDamageAmount(null), "Rennervate adds exactly 20% attack.");
+            requireClose(.12, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS), "Two casters must refresh, not stack.");
+            requireClose(33.6, recipient.attackDamageAmount(null), "Rennervate adds exactly 12% attack.");
             context.runAtTickTime(61, () -> {
                 try {
                     requireClose(0, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS), "The buff expires after three seconds.");
@@ -419,7 +429,7 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
                 try {
                     first.tick(f.lane);
                     requireClose(0, recipient.activeEffectMagnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION), "The five-second pulse must cleanse again.");
-                    requireClose(.2, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS), "The recast must restore the buff.");
+                    requireClose(.12, recipient.activeEffectMagnitude(TimedEffectType.TOWER_RENNERVATE_DAMAGE_BONUS), "The recast must restore the buff.");
                     context.succeed();
                 } finally { f.close(); }
             });
@@ -427,14 +437,14 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void protegoAloneHalvesDamageAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
+    public void protegoReducesDamageByFortyPercentAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
         try (var f = new Fixture(context)) {
             var wizard = f.wizard(MagicSchoolSpell.PROTEGO, 0);
             wizard.onWaveStarted(f.lane, 1);
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
             double health = source.getHealth();
             source.hurt(source.damageSources().generic(), 100);
-            requireClose(health - 50, source.getHealth(), "Protego alone must halve received damage.");
+            requireClose(health - 60, source.getHealth(), "Protego alone must reduce received damage by forty percent.");
             var target = f.monster(3, 10000);
             double attack = source.attackDamageAmount(target);
             hit(wizard, target);
@@ -477,11 +487,11 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             check(wizard.primaryDamageType() == DamageType.MAGIC, "Leviosa must remain magic damage.");
             check(!target.isStunned(), "The ordinary attack must not cause the periodic stun.");
             MagicSchoolSpellCombat.leviosa(source);
-            requireClose(9964, target.getHealth(), "The pulse adds 35% of thirty attack as magic damage.");
-            requireClose(9989.5, edge.getHealth(), "The target at six blocks must receive pulse damage too.");
+            requireClose(9967, target.getHealth(), "The pulse adds 25% of thirty attack as magic damage.");
+            requireClose(9992.5, edge.getHealth(), "The target at six blocks must receive pulse damage too.");
             requireClose(10000, outside.getHealth(), "Out-of-range monsters must not take pulse damage.");
             requireClose(10000, foreign.getHealth(), "Other-lane monsters must not take pulse damage.");
-            requireClose(46.5, wizard.roundMagicDamageDealt(), "Both pulse hits and the basic attack must count as magic damage.");
+            requireClose(40.5, wizard.roundMagicDamageDealt(), "Both pulse hits and the basic attack must count as magic damage.");
             for (var enemy : List.of(target, edge)) {
                 check(enemy.activeTimedEffectTicks(TimedEffectType.MONSTER_STUN) == 24, "Every in-range enemy must be stunned for 1.2 seconds.");
                 requireClose(.8, enemy.getDeltaMovement().y, "The stun must launch the enemy upward.");
@@ -583,9 +593,9 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             var target = MagicSchoolTowerIntegrationTest.monster(context, f.lane, f.pos(2), 900, 100, 1000);
             var doomed = f.monster(3, 5);
             MagicSchoolSpellCombat.leviosa(source);
-            requireClose(1000 - 30 * 1.5 * .35 / 2, target.getHealth(), "Pulse damage must use attack buffs once and magic resistance, not armor.");
+            requireClose(1000 - 30 * 1.5 * .25 / 2, target.getHealth(), "Pulse damage must use attack buffs once and magic resistance, not armor.");
             check(!doomed.isAlive() || doomed.isRemoved(), "A lethal lift pulse must kill its target.");
-            requireClose(30 * 1.5 * .35 / 2 + 5, wizard.roundMagicDamageDealt(), "Pulse kills must retain damage attribution.");
+            requireClose(30 * 1.5 * .25 / 2 + 5, wizard.roundMagicDamageDealt(), "Pulse kills must retain damage attribution.");
             requireClose(0, wizard.roundPhysicalDamageDealt(), "The lift must never become physical damage.");
         }
         context.succeed();
@@ -732,6 +742,7 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             for (UUID player : List.of(owner, friend)) {
                 var economy = new PlayerEconomy(EconomyConfig.defaultConfig());
                 economy.addMineral(100000);
+                MagicSchoolCurriculum.purchase(player, MagicSchoolCurriculum.Upgrade.ADVANCED_SPELLS, economy);
                 for (int tier = 2; tier <= 5; tier++) MagicSchoolCurriculum.unlockSpellTier(player, tier, economy);
                 game.playerLane(player).orElseThrow().assignAugmentSnapshot(MagicSchoolAugmentCombatTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES));
             }

@@ -36,6 +36,8 @@ public final class MagicSchoolAugmentCombatTest implements kim.biryeong.semiontd
             var school = (HogwartsTower) MagicSchoolTowerIntegrationTest.add(lane, MagicSchoolTowers.HOGWARTS, plot);
             var wizard = (MagicSchoolWizardTower) MagicSchoolTowerIntegrationTest.add(lane, MagicSchoolTowers.BRAVE_ARCHWIZARD,
                     new GridPosition(plot.x() + 1, plot.y(), plot.z()));
+            game.players().get(owner).economy().addDiamond(350);
+            MagicSchoolCurriculum.purchase(owner, MagicSchoolCurriculum.Upgrade.ADVANCED_SPELLS, game.players().get(owner).economy());
             var curriculum = new CurriculumGui(player, game, school);
             var spells = new SpellGui(player, game, wizard);
             var economy = game.players().get(owner).economy();
@@ -56,7 +58,7 @@ public final class MagicSchoolAugmentCombatTest implements kim.biryeong.semiontd
             curriculum.click(53, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, net.minecraft.world.inventory.ContainerInput.PICKUP);
             requireClose(0, wizard.proficiency(), "The removed mastery slot must not grant proficiency.");
             wizard.gainProficiency(10000, lane);
-            requireClose(500, wizard.proficiency(), "Ordinary mastery gains must still honor the graduate cap.");
+            requireClose(1250, wizard.proficiency(), "Ordinary mastery gains must still honor the graduate cap.");
         } finally { game.close(); }
         context.succeed();
     }
@@ -182,7 +184,7 @@ public final class MagicSchoolAugmentCombatTest implements kim.biryeong.semiontd
             f.start();
             double proficiency = wizard.proficiency();
             f.tick();
-            check(wizard.reinforcementLane() == recipient && wizard.maxProficiency() == 500, "Borrowed wizards retain owner augments.");
+            check(wizard.reinforcementLane() == recipient && wizard.maxProficiency() == 1250, "Borrowed wizards retain owner augments.");
             requireClose(proficiency, wizard.proficiency(), "Movement must not grant another wave-start award.");
             var source = wizard.runtimeEntity(owner).orElseThrow();
             primary.setPos(source.position().add(.5, 0, 0));
@@ -221,7 +223,7 @@ public final class MagicSchoolAugmentCombatTest implements kim.biryeong.semiontd
             check(existing.selectSpell(MagicSchoolSpell.MUGGLE_WAND), "Existing wizard receives silver immediately.");
             check(existing.runtimeEntity(lane).orElseThrow().attackIntervalTicks() == 20, "Equipped Muggle has its fixed interval.");
             existing.gainProficiency(10000, lane);
-            requireClose(500, existing.proficiency(), "Graduate maximum applies to existing archwizards.");
+            requireClose(1250, existing.proficiency(), "Graduate maximum applies to existing archwizards.");
             var raven = f.wizard(lane, MagicSchoolTowers.RAVENCLAW, 1);
             check(existing.selectSpell(MagicSchoolSpell.CRUCIO), "Prism bypasses curriculum tier purchases.");
             check(!raven.selectSpell(MagicSchoolSpell.CRUCIO) && raven.selectSpell(MagicSchoolSpell.IMPERIO), "Ravenclaw T2 can equip a different curse, not a duplicate.");

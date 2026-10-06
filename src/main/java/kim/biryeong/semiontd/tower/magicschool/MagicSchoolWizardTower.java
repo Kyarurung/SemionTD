@@ -65,8 +65,9 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
     }
 
     public final int maxSpellTier() {
-        if (MagicSchoolTowers.isArchWizard(type()) || MagicSchoolTowers.belongsToHouse(type(), MagicSchoolTowers.RAVENCLAW)) return 5;
-        return MagicSchoolTowers.isHouseWizard(type()) ? 4 : 3;
+        if (MagicSchoolTowers.belongsToHouse(type(), MagicSchoolTowers.RAVENCLAW)) return 5;
+        int base = MagicSchoolTowers.isArchWizard(type()) ? 4 : MagicSchoolTowers.isHouseWizard(type()) ? 3 : 2;
+        return base + (MagicSchoolCurriculum.purchased(ownerPlayer(), Upgrade.ADVANCED_SPELLS) ? 1 : 0);
     }
 
     public enum SpellChangeResult {
@@ -126,9 +127,9 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
 
     public final double maxProficiency() {
         double base = TowerBalanceRuntime.ability(type().id(), "maxProficiency",
-                MagicSchoolTowers.isFreshman(type()) ? 100 : MagicSchoolTowers.isHouseWizard(type()) ? 250 : 400);
+                MagicSchoolTowers.isFreshman(type()) ? 100 : MagicSchoolTowers.isHouseWizard(type()) ? 300 : 1000);
         return base + (MagicSchoolTowers.isArchWizard(type()) && augmentSnapshot().has(MagicSchoolAugments.GRADUATE_SCHOOL)
-                ? augmentSnapshot().parameter(MagicSchoolAugments.GRADUATE_SCHOOL, "proficiencyCapBonus", 100) : 0);
+                ? augmentSnapshot().parameter(MagicSchoolAugments.GRADUATE_SCHOOL, "proficiencyCapBonus", 250) : 0);
     }
 
     public final double proficiency() {
@@ -221,13 +222,13 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
 
     private void applyDuelingPractice(PlayerLane lane) {
         if (!MagicSchoolCurriculum.enabled(ownerPlayer(), Upgrade.DUELING_PRACTICE)) return;
-        double lost = Math.min(health(), currentMaxHealth() * MagicSchoolCurriculum.value("duelingPracticeHealthRatio", .10));
+        double lost = Math.min(health(), currentMaxHealth() * MagicSchoolCurriculum.value("duelingPracticeHealthRatio", .15));
         if (lost <= 0) return;
 
         syncHealth(health() - lost);
         runtimeEntity(lane).ifPresent(entity -> entity.setHealth((float) health()));
         boolean died = health() <= 0;
-        gainProficiency(lost * MagicSchoolCurriculum.value("duelingPracticeProficiencyRatio", .25), lane);
+        gainProficiency(lost * MagicSchoolCurriculum.value("duelingPracticeProficiencyRatio", .30), lane);
         if (died) {
             syncHealth(0);
             runtimeEntity(lane).ifPresent(entity -> entity.setHealth(0));
@@ -278,10 +279,14 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
         return spellChangeCost(spell.changeCost());
     }
 
+    private double proficiencyGrowth(String key) {
+        return TowerBalanceRuntime.ability(type().id(), key, MagicSchoolTowers.proficiencyPerPoint(type()));
+    }
+
     @Override
     public double modifyAttackDamage(SemionTowerEntity source, SemionMonsterEntity target, double damageAmount) {
         return super.modifyAttackDamage(source, target, damageAmount)
-                * (1 + proficiency() * TowerBalanceRuntime.ability(MagicSchoolTowers.CONFIG_ID, "proficiencyDamagePerPoint", 0.0015))
+                * (1 + proficiency() * proficiencyGrowth("proficiencyDamagePerPoint"))
                 * MagicSchoolCurriculum.lessonMultiplier(ownerPlayer(), Upgrade.SPELL_POWER)
                 * (1 + wandBonus("wandDamageBonus"));
     }
@@ -289,7 +294,7 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
     @Override
     public double effectBaseMaxHealth() {
         return super.effectBaseMaxHealth()
-                * (1 + proficiency() * TowerBalanceRuntime.ability(MagicSchoolTowers.CONFIG_ID, "proficiencyHealthPerPoint", 0.0015))
+                * (1 + proficiency() * proficiencyGrowth("proficiencyHealthPerPoint"))
                 * MagicSchoolCurriculum.lessonMultiplier(ownerPlayer(), Upgrade.DARK_ARTS_DEFENSE)
                 * (1 + wandBonus("wandHealthBonus"));
     }
@@ -351,7 +356,7 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
 
         runtimeEntity(attachedLane()).filter(source -> source.level().getGameTime() >= nextTransferTick).ifPresent(source -> {
 
-            nextTransferTick = source.level().getGameTime() + MagicSchoolCurriculum.integer("spellTransferCooldownTicks", 60);
+            nextTransferTick = source.level().getGameTime() + MagicSchoolCurriculum.integer("spellTransferCooldownTicks", 70);
             MagicSchoolSpellCombat.transfer(this, source, target, dealtDamage);
         });
     }
@@ -363,7 +368,7 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
                 || !MagicSchoolCurriculum.purchased(ownerPlayer(), Upgrade.POTIONS)) return false;
         potionUsed = true;
         recordDamageTaken(entity.getHealth());
-        double restored = currentMaxHealth() * MagicSchoolCurriculum.value("potionsHealRatio", .15);
+        double restored = currentMaxHealth() * MagicSchoolCurriculum.value("potionsHealRatio", .08);
         entity.setHealth((float) restored);
         syncHealth(entity.getHealth());
         recordHealingDone(restored);
@@ -405,13 +410,17 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
 
     @Override
     public double spellAttackSpeedBonus() {
-        return selectedSpell() == MagicSchoolSpell.LUMOS ? selectedSpell().value("attackSpeedBonus")
-                : selectedSpell() == MagicSchoolSpell.AVADA_KEDAVRA ? -selectedSpell().value("attackSpeedPenalty") : 0;
+        return selectedSpell() == MagicSchoolSpell.AVADA_KEDAVRA ? -selectedSpell().value("attackSpeedPenalty") : 0;
     }
 
     @Override
     public int resolveFinalAttackInterval(int intervalTicks) {
-        return selectedSpell() == MagicSchoolSpell.MUGGLE_WAND ? selectedSpell().ticks("fixedIntervalTicks") : intervalTicks;
+        if (selectedSpell() == MagicSchoolSpell.MUGGLE_WAND) return selectedSpell().ticks("fixedIntervalTicks");
+        if (selectedSpell().curse() && proficiency() <= MagicSchoolCurriculum.value("curseProficiencyThreshold", 500)) {
+            return Math.max(1, (int) Math.ceil(intervalTicks
+                    / MagicSchoolCurriculum.value("curseLowProficiencyAttackSpeedMultiplier", .1)));
+        }
+        return intervalTicks;
     }
 
     protected Comparator<SemionMonsterEntity> houseTargetOrder(SemionTowerEntity source) {
@@ -439,8 +448,8 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
     public List<String> runtimeDetailLines() {
         var lines = new ArrayList<>(List.of("주문: " + selectedSpell().displayName(), selectedSpell().effectDescription(),
                 "주문 숙련도: " + number(proficiency()) + " / " + number(maxProficiency()),
-                "숙련도 강화: 공격력 +" + number(proficiency() * TowerBalanceRuntime.ability(MagicSchoolTowers.CONFIG_ID, "proficiencyDamagePerPoint", 0.0015) * 100)
-                        + "%, 체력 +" + number(proficiency() * TowerBalanceRuntime.ability(MagicSchoolTowers.CONFIG_ID, "proficiencyHealthPerPoint", 0.0015) * 100) + "%"));
+                "숙련도 강화: 공격력 +" + number(proficiency() * proficiencyGrowth("proficiencyDamagePerPoint") * 100)
+                        + "%, 체력 +" + number(proficiency() * proficiencyGrowth("proficiencyHealthPerPoint") * 100) + "%"));
         if (hasFreeSpellChanges()) lines.add("주문 변경 비용: 무료");
         lines.add("사용 가능한 주문: " + maxSpellTier() + "단계까지 (저주는 5단계 취급)");
         if (spellAggroBonus > 0) lines.add("전투 시작 보호 주문: 어그로 +" + spellAggroBonus + " (라운드 종료까지)");

@@ -108,7 +108,6 @@ public final class MagicSchoolSpellCombat {
             }
             case STUPEFY -> target.schoolSpells().stupefy();
             case EXPULSO, BOMBARDA -> secondary(wizard, source, target, spell, Integer.MAX_VALUE, false);
-            case LUMOS -> target.schoolSpells().lumos();
             case EPISKEY -> heal(source);
             case SECTUMSEMPRA -> {
                 wound(source, target);
@@ -122,7 +121,7 @@ public final class MagicSchoolSpellCombat {
                     if (result.killed()) wizard.onKill(source, target, result.dealtDamage());
                 }
             }
-            case LUMOS_MAXIMA -> {
+            case LUMOS, LUMOS_MAXIMA -> {
                 target.schoolSpells().lumos();
                 SemionTdApi.areaEffects().applyToMonsters(around(source, target, spell, Integer.MAX_VALUE), other -> {
                     other.schoolSpells().lumos();
@@ -173,7 +172,7 @@ public final class MagicSchoolSpellCombat {
         var request = MonsterAreaEffectRequest.aroundTarget(id("spell_transfer"), source, target, radius, AreaVfxSpec.none())
                 .withFilter(other -> other.runtimeMonster().targetTeam() == source.teamId()
                         && other.activeTimedEffectMagnitude(TimedEffectType.MONSTER_LUMOS) > 0)
-                .nearestTargets(MagicSchoolCurriculum.integer("spellTransferMaxTargets", 8));
+                .nearestTargets(MagicSchoolCurriculum.integer("spellTransferMaxTargets", 5));
         TowerAreaDamage.applyResolved(wizard, source, request,
                 other -> dealt * MagicSchoolCurriculum.value("spellTransferDamageRatio", .10), true,
                 (other, damage, killed) -> {}, DamageType.MAGIC);

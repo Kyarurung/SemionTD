@@ -942,7 +942,7 @@ public record TowerBalanceConfig(
                 "waveProficiencyBase", 10.0, "proficiencyDamagePerPoint", 0.0015,
                 "proficiencyHealthPerPoint", 0.0015, "sortingHatCost", 80.0, "baseStatsVersion", 1.0,
                 "proficiencyVersion", 2.0, "hogwartsVersion", 1.0, "curriculumBalanceVersion", 2.0,
-                "combatBalanceVersion", 1.0));
+                "combatBalanceVersion", 1.0, "nerfBalanceVersion", 1.0));
         var curriculumAbilities = new LinkedHashMap<>(abilities.get(MagicSchoolTowers.CONFIG_ID));
         curriculumAbilities.putAll(MagicSchoolCurriculum.defaultAbilities());
         for (MagicSchoolSpell spell : MagicSchoolSpell.values()) {
@@ -951,7 +951,9 @@ public record TowerBalanceConfig(
         putAbilities(abilities, MagicSchoolTowers.CONFIG_ID, curriculumAbilities);
         for (TowerType wizard : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
             putAbilities(abilities, wizard.id(), Map.of(
-                    "maxProficiency", MagicSchoolTowers.isFreshman(wizard) ? 100.0 : MagicSchoolTowers.isHouseWizard(wizard) ? 250.0 : 400.0,
+                    "proficiencyDamagePerPoint", MagicSchoolTowers.proficiencyPerPoint(wizard),
+                    "proficiencyHealthPerPoint", MagicSchoolTowers.proficiencyPerPoint(wizard),
+                    "maxProficiency", MagicSchoolTowers.isFreshman(wizard) ? 100.0 : MagicSchoolTowers.isHouseWizard(wizard) ? 300.0 : 1000.0,
                     "proficiencyGainBonus", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.RAVENCLAW) ? 0.15 : 0.0,
                     "wandAttackIntervalReduction", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.GRYFFINDOR) ? 1.0 : 0.0,
                     "wandHealthBonus", MagicSchoolTowers.belongsToHouse(wizard, MagicSchoolTowers.HUFFLEPUFF) ? 0.10
@@ -2059,6 +2061,10 @@ public record TowerBalanceConfig(
         validateRange(MagicSchoolTowers.CONFIG_ID, "hogwartsVersion", 1, 1);
         validateRange(MagicSchoolTowers.CONFIG_ID, "curriculumBalanceVersion", 2, 2);
         validateRange(MagicSchoolTowers.CONFIG_ID, "combatBalanceVersion", 1, 1);
+        validateRange(MagicSchoolTowers.CONFIG_ID, "nerfBalanceVersion", 1, 1);
+        validateIntegral(MagicSchoolTowers.CONFIG_ID, true, "curseProficiencyThreshold");
+        validatePositive(MagicSchoolTowers.CONFIG_ID, "curseLowProficiencyAttackSpeedMultiplier");
+        validateRatios(MagicSchoolTowers.CONFIG_ID, "curseLowProficiencyAttackSpeedMultiplier");
         for (MagicSchoolSpell spell : MagicSchoolSpell.values()) {
             for (String key : spell.defaultAbilities().keySet()) {
                 validatePositive(spell.configId(), key);
@@ -2088,7 +2094,7 @@ public record TowerBalanceConfig(
         validateRatios(MagicSchoolTowers.CONFIG_ID, "proficiencyDamagePerPoint", "proficiencyHealthPerPoint");
         for (TowerType wizard : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
             validatePositive(wizard.id(), "maxProficiency");
-            validateRatios(wizard.id(), "proficiencyGainBonus", "wandHealthBonus", "wandDamageBonus");
+            validateRatios(wizard.id(), "proficiencyDamagePerPoint", "proficiencyHealthPerPoint", "proficiencyGainBonus", "wandHealthBonus", "wandDamageBonus");
             validateIntegral(wizard.id(), true, "wandAttackIntervalReduction", "mentorProficiency", TowerCapacity.CONFIG_KEY);
         }
     }

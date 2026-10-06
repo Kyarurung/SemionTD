@@ -30,15 +30,16 @@ public final class MagicSchoolCurriculum {
         MAGIC_HISTORY("magicHistory", "마법의 역사 수업", 2, 5, 120, 120, false),
         SORTING_HAT("sortingHat", "기숙사 배정 모자", 9, 1, 80, 0, false),
         CUSTOM_WANDS("customWands", "맞춤형 지팡이 지급", 10, 1, 250, 0, false),
-        DEATH_EATER("deathEater", "죽음을 먹는 자 퇴치", 21, 1, 200, 0, false),
+        ADVANCED_SPELLS("advancedSpells", "고등 주문 수업", 11, 1, 350, 0, false),
+        DEATH_EATER("deathEater", "죽음을 먹는 자 퇴치", 21, 1, 250, 0, false),
         MENTOR("mentor", "멘토-멘티", 20, 1, 200, 0, false),
         DUELING_PRACTICE("duelingPractice", "결투 실습", 19, 1, 150, 0, false),
-        SPELL_PRACTICE("spellPractice", "주문 연마 수업", 18, 1, 100, 0, false),
+        SPELL_PRACTICE("spellPractice", "주문 연마 수업", 18, 1, 125, 0, false),
         SPELL_TRANSFER("spellTransfer", "주문 전이 수업", 28, 1, 300, 0, false),
         POTIONS("potions", "마법약 제조 수업", 29, 1, 300, 0, false),
         QUIDDITCH("quidditch", "퀴디치의 역사", 27, 1, 200, 0, false),
         TRANSFIGURATION("transfiguration", "변신술 수업", 36, 1, 200, 0, false),
-        EXPLOSIVE_BARRELS("explosiveBarrels", "폭탄통 개조", 37, 1, 400, 0, false);
+        EXPLOSIVE_BARRELS("explosiveBarrels", "폭탄통 개조", 37, 1, 500, 0, false);
 
         private final String key;
         private final String displayName;
@@ -94,21 +95,21 @@ public final class MagicSchoolCurriculum {
                 values.put(upgrade.key + "MaxLevel", (double) upgrade.defaultMaxLevel);
             }
         }
-        values.put("spellPowerPerLevel", 0.06);
-        values.put("darkArtsDefensePerLevel", 0.06);
-        values.put("magicHistoryPerLevel", 0.30);
+        values.put("spellPowerPerLevel", 0.04);
+        values.put("darkArtsDefensePerLevel", 0.03);
+        values.put("magicHistoryPerLevel", 0.25);
         values.put("mentorRadius", 1.0);
         values.put("deathEaterProficiencyPerRound", 2.0);
-        values.put("duelingPracticeHealthRatio", .10);
-        values.put("duelingPracticeProficiencyRatio", .25);
+        values.put("duelingPracticeHealthRatio", .15);
+        values.put("duelingPracticeProficiencyRatio", .30);
         values.put("spellPracticePerTier", 2.0);
         values.put("spellPracticeRepeatBonus", 2.0);
         values.put("spellTransferDamageRatio", 0.10);
-        values.put("spellTransferMaxTargets", 8.0);
-        values.put("spellTransferCooldownTicks", 60.0);
-        values.put("potionsHealRatio", 0.15);
-        values.put("quidditchBaseReward", 10.0);
-        values.put("quidditchRewardIncrease", 8.0);
+        values.put("spellTransferMaxTargets", 5.0);
+        values.put("spellTransferCooldownTicks", 70.0);
+        values.put("potionsHealRatio", 0.08);
+        values.put("quidditchBaseReward", 5.0);
+        values.put("quidditchRewardIncrease", 5.0);
         values.put("quidditchMaxIncreases", 5.0);
         values.put("transfigurationCooldownTicks", 60.0);
         values.put("barrelAggro", 100.0);
@@ -116,10 +117,12 @@ public final class MagicSchoolCurriculum {
         values.put("barrelHealthRound1", 5.0);
         values.put("barrelHealthRound2", 15.0);
         values.put("barrelHealthRound3", 25.0);
-        values.put("explosiveBarrelRadius", 2.5);
-        values.put("explosiveBarrelDamageRatio", 0.60);
+        values.put("explosiveBarrelRadius", 2.0);
+        values.put("explosiveBarrelDamageRatio", 0.30);
         for (int tier = 2; tier <= 6; tier++) values.put("spellTier" + tier + "Cost", (double) defaultSpellTierCost(tier));
         for (int tier = 1; tier <= 6; tier++) values.put("spellChangeTier" + tier + "Cost", (double) MagicSchoolSpell.defaultChangeCost(tier));
+        values.put("curseProficiencyThreshold", 500.0);
+        values.put("curseLowProficiencyAttackSpeedMultiplier", .1);
         return values;
     }
 
@@ -133,7 +136,7 @@ public final class MagicSchoolCurriculum {
     }
 
     public static double lessonMultiplier(UUID owner, Upgrade upgrade) {
-        double fallback = upgrade == Upgrade.MAGIC_HISTORY ? 0.30 : 0.06;
+        double fallback = upgrade == Upgrade.MAGIC_HISTORY ? 0.25 : upgrade == Upgrade.SPELL_POWER ? 0.04 : 0.03;
         return 1 + level(owner, upgrade) * TowerBalanceRuntime.ability(MagicSchoolTowers.CONFIG_ID, upgrade.key + "PerLevel", fallback);
     }
 
@@ -241,8 +244,8 @@ public final class MagicSchoolCurriculum {
         return switch (tier) {
             case 2 -> 175;
             case 3 -> 320;
-            case 4 -> 450;
-            case 5 -> 600;
+            case 4 -> 500;
+            case 5 -> 700;
             case 6 -> 10000;
             default -> throw new IllegalArgumentException("Purchasable spell tiers are 2 through 6: " + tier);
         };
@@ -278,7 +281,7 @@ public final class MagicSchoolCurriculum {
 
     public static long nextQuidditchReward(UUID owner) {
         State state = STATES.get(owner);
-        return integer("quidditchBaseReward", 10) + (long) integer("quidditchRewardIncrease", 8)
+        return integer("quidditchBaseReward", 5) + (long) integer("quidditchRewardIncrease", 5)
                 * Math.min(integer("quidditchMaxIncreases", 5), state == null ? 0 : state.quidditchIncreases);
     }
 

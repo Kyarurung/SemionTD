@@ -62,12 +62,12 @@ class MagicSchoolTowerCatalogTest {
             if (MagicSchoolTowers.isHogwarts(type)) {
                 assertEquals((double) tier, entry.type().maxHealth());
                 assertFalse(MagicSchoolTowers.isWizard(type));
-                assertEquals(Blocks.LECTERN.defaultBlockState(), BlockDisplayVisual.blockState(type.visual()));
+                assertEquals(Blocks.ENCHANTING_TABLE.defaultBlockState(), BlockDisplayVisual.blockState(type.visual()));
             }
             assertEquals(BuilderPalette.MAGIC_SCHOOL, TowerVfxService.paletteFor(entry.type()));
             assertEquals(1, JobRegistry.all().stream().filter(candidate -> candidate.includesTowerInCatalog(type)).count());
         }
-        assertEquals(Blocks.LECTERN.defaultBlockState(), BlockDisplayVisual.blockState(MagicSchoolTowers.HOGWARTS.visual()));
+        assertEquals(Blocks.ENCHANTING_TABLE.defaultBlockState(), BlockDisplayVisual.blockState(MagicSchoolTowers.HOGWARTS.visual()));
         assertEquals(2, ProductionTowerCatalog.all().stream()
                 .filter(entry -> entry.starter() && job.includesTowerInCatalog(entry.type())).count());
         assertTrue(ProductionTowerCatalog.upgrades(MagicSchoolTowers.HOGWARTS).isEmpty());
@@ -83,8 +83,8 @@ class MagicSchoolTowerCatalogTest {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
         for (var house : MagicSchoolTowers.houseWizards()) {
             var target = ProductionTowerCatalog.upgrade(MagicSchoolTowers.FRESHMAN, house.id()).orElseThrow().targetType();
-            assertEquals(house == MagicSchoolTowers.HUFFLEPUFF ? 440 : 400, target.maxHealth());
-            assertEquals(house == MagicSchoolTowers.SLYTHERIN ? 66 : 60, target.damage());
+            assertEquals(house == MagicSchoolTowers.HUFFLEPUFF ? 374 : 340, target.maxHealth());
+            assertEquals(house == MagicSchoolTowers.SLYTHERIN ? 55 : 50, target.damage());
             assertEquals(house == MagicSchoolTowers.GRYFFINDOR ? 17 : 18, target.attackIntervalTicks());
             var wizard = (MagicSchoolWizardTower) ProductionTowerCatalog.find(house.id()).orElseThrow()
                     .create(UUID.randomUUID(), TeamId.RED, 1, new GridPosition(1, 64, 1));
@@ -105,10 +105,10 @@ class MagicSchoolTowerCatalogTest {
             var target = options.getFirst().targetType();
             assertEquals(arch.id(), target.id());
             assertEquals(450, options.getFirst().mineralCost());
-            assertEquals(house == MagicSchoolTowers.HUFFLEPUFF ? 660 : 600, target.maxHealth());
-            assertEquals(house == MagicSchoolTowers.SLYTHERIN ? 99 : 90, target.damage());
+            assertEquals(house == MagicSchoolTowers.HUFFLEPUFF ? 550 : 500, target.maxHealth());
+            assertEquals(house == MagicSchoolTowers.SLYTHERIN ? 88 : 80, target.damage());
             assertEquals(house == MagicSchoolTowers.GRYFFINDOR ? 11 : 12, target.attackIntervalTicks());
-            assertEquals(8, target.range());
+            assertEquals(10, target.range());
             assertTrue(ProductionTowerCatalog.upgrade(MagicSchoolTowers.FRESHMAN, arch.id()).isEmpty());
             assertTrue(ProductionTowerCatalog.upgrades(target).isEmpty());
             for (var other : MagicSchoolTowers.houseWizards()) {
