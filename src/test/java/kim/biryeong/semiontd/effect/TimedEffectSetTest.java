@@ -78,4 +78,29 @@ final class TimedEffectSetTest {
         assertFalse(TimedEffectType.MONSTER_MOVE_SPEED_BONUS.isMonsterDebuff());
         assertFalse(TimedEffectType.MONSTER_STUN_IMMUNITY.isMonsterDebuff());
     }
+
+    @Test
+    void multiplicativeReadLimitsSourcesWithoutChangingLegacySumsOrExpiry() {
+        var effects = new TimedEffectSet();
+        var aura = TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA;
+        for (int i = 0; i < 4; i++) {
+            var source = Identifier.fromNamespaceAndPath("semion-td", "caster_" + i);
+            effects.setPersistent(aura, source, .05);
+            effects.setPersistent(aura, source, .05);
+        }
+        assertEquals(.20, effects.magnitude(aura), 1e-12);
+        assertEquals(.142625, effects.multiplicativeMagnitude(aura, 3), 1e-12);
+        assertEquals(0, effects.multiplicativeMagnitude(aura, 0));
+        effects.apply(TimedEffectType.TOWER_DAMAGE_REDUCTION, SOURCE, .30, 2);
+        effects.apply(TimedEffectType.TOWER_DAMAGE_REDUCTION, Identifier.withDefaultNamespace("other"), .20, 4);
+        assertEquals(.50, effects.magnitude(TimedEffectType.TOWER_DAMAGE_REDUCTION), 1e-12);
+        effects.tick();
+        effects.tick();
+        assertEquals(.20, effects.magnitude(TimedEffectType.TOWER_DAMAGE_REDUCTION), 1e-12);
+        assertEquals(.142625, effects.multiplicativeMagnitude(aura, 3), 1e-12);
+        effects.setPersistent(aura, SOURCE, 1.5);
+        assertEquals(1, effects.multiplicativeMagnitude(aura, 3));
+        effects.remove(aura);
+        assertEquals(0, effects.multiplicativeMagnitude(aura, 3));
+    }
 }

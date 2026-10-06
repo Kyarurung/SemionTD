@@ -815,6 +815,10 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         return timedEffects.magnitude(type);
     }
 
+    public double activeMultiplicativeEffectMagnitude(TimedEffectType type, int maxSources) {
+        return timedEffects.multiplicativeMagnitude(type, maxSources);
+    }
+
     public void removeTimedEffect(TimedEffectType type) {
         if (timedEffects.remove(type)) syncMaxHealthEffect(type, false);
     }

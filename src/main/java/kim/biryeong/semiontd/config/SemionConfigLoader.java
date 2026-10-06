@@ -225,6 +225,7 @@ public final class SemionConfigLoader {
             if (!json.isJsonObject()) {
                 throw new IllegalArgumentException("Augment config must be an object");
             }
+            MagicSchoolBalanceMigration.migrateAugments(json.getAsJsonObject());
             AugmentConfig value = AugmentConfig.fromJson(json.getAsJsonObject());
             // Close the source before replacing it atomically on Windows.
             write(path, value.toJson(), logger);
@@ -537,6 +538,8 @@ public final class SemionConfigLoader {
             migratedJson = migrateMagicSchoolCurriculumBalance(migratedJson);
             migratedJson = migrateMagicSchoolCombatBalance(migratedJson, defaults);
             migratedJson = migrateMagicSchoolImperio(migratedJson);
+            migratedJson = MagicSchoolBalanceMigration.migrate(migratedJson, defaults);
+            migratedJson = MagicSchoolBalanceMigration.migrateProtection(migratedJson);
             ConfigJsonProperties migratedProperties = migratedJson.equals(json)
                     ? properties
                     : ConfigJsonProperties.parse(migratedJson);

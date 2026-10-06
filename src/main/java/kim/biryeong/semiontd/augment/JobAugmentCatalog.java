@@ -396,9 +396,9 @@ final class JobAugmentCatalog {
                     "다른 아군이 최종 방어선으로 이동할 때 내가 라인에서 전투 중이면 그 아군의 타워 1기가 내 라인을 지원합니다. 내가 이동할 때는 아직 라인에서 전투 중인 아군마다 내 마법사 1기를 보냅니다. 최대 체력, 현재 체력이 높은 순으로 선택하며 마법학교·마왕 빌더는 지원 상대에서 제외합니다. 지원한 라인의 수비가 끝나면 최종 방어선으로 이동합니다.", Map.of()),
             card("J32-G2", "magic_school", "g2", "마법 대학원", GOLD,
                     "주문 숙련도 획득량이 {proficiencyGainBonus:percent} 증가합니다. 다른 획득 보정과 곱연산하며 T3 마법사의 최대 주문 숙련도가 {proficiencyCapBonus} 증가합니다.",
-                    Map.of("proficiencyGainBonus", .3, "proficiencyCapBonus", 100.0)),
+                    Map.of("proficiencyGainBonus", .3, "proficiencyCapBonus", 250.0, "balanceVersion", 1.0)),
             card("J32-P", "magic_school", "p", "용서받지 못할 저주", PRISMATIC,
-                    "아바다케다브라, 크루시오, 임페리오를 해금합니다. 5단계 주문을 사용할 수 있는 마법사에게 장착할 수 있으며 각 저주는 내 마법사 1기만 사용할 수 있습니다.", Map.of())
+                    "즉시 {diamondReward} 다이아를 얻고 아바다케다브라, 크루시오, 임페리오를 해금합니다. 5단계 주문을 사용할 수 있는 마법사에게 장착할 수 있으며 각 저주는 내 마법사 1기만 사용할 수 있습니다. 숙련도 500 이하에서는 공격 속도가 추가로 90% 감소합니다 (곱연산).", Map.of("diamondReward", 100.0))
     );
 
     private JobAugmentCatalog() {}

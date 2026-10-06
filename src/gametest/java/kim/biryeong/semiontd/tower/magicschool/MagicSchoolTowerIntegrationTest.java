@@ -75,6 +75,53 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void protectionSurvivesReconnectPlacementAndDialogShowsCombinedPercentage(GameTestHelper context) throws Exception {
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        UUID owner = player.getUUID();
+        var game = game(context, owner, UUID.randomUUID());
+        var connection = player.connection;
+        var sent = new ArrayList<Packet<?>>();
+        try {
+            player.connection = new ServerGamePacketListenerImpl(player.level().getServer(), new Connection(PacketFlow.SERVERBOUND),
+                    player, CommonListenerCookie.createInitial(player.getGameProfile(), false)) {
+                @Override public void send(Packet<?> packet) { sent.add(packet); }
+            };
+            var lane = game.playerLane(owner).orElseThrow();
+            var economy = game.players().get(owner).economy();
+            for (int tier = 2; tier <= 4; tier++) MagicSchoolCurriculum.unlockSpellTier(owner, tier, economy);
+            var plot = GridPosition.from(BlockPos.containing(lane.laneLayout().positionAt(.3)));
+            MagicSchoolWizardTower protectedWizard = null;
+            for (int i = 0; i < 4; i++) {
+                var wizard = (MagicSchoolWizardTower) add(lane, MagicSchoolTowers.BRAVE_ARCHWIZARD,
+                        new GridPosition(plot.x() + i, plot.y(), plot.z()));
+                require(wizard.selectSpell(MagicSchoolSpell.PROTEGO_MAXIMA), "The unlocked protection must be selectable.");
+                wizard.runtimeEntity(lane).orElseThrow().setNoAi(true);
+                wizard.onWaveStarted(lane, 1);
+                if (i == 0) protectedWizard = wizard;
+            }
+            var entity = protectedWizard.runtimeEntity(lane).orElseThrow();
+            var manager = new SemionGameManager();
+            var activeGame = SemionGameManager.class.getDeclaredField("activeGame");
+            activeGame.setAccessible(true);
+            activeGame.set(manager, game);
+            manager.handlePlayerDisconnect(player);
+            kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
+            require(game.restorePlayerPlacement(player.level().getServer(), player), "The join path must restore the existing participant.");
+            requireClose(.3998375, MagicSchoolSpellCombat.protection(entity), "Reconnect placement preserves the existing protection sources.");
+            manager.dialogService().showTowerDetails(player, game, protectedWizard);
+            String packet = sent.stream().filter(ClientboundShowDialogPacket.class::isInstance).findFirst().orElseThrow().toString();
+            require(packet.contains("39.98375%") && packet.contains("곱연산"), "The delivered dialog must show the actual combined protection.");
+            double before = entity.getHealth();
+            entity.hurt(entity.damageSources().generic(), 100);
+            requireClose(60.01625, before - entity.getHealth(), "The restored participant retains the same actual damage factor.");
+        } finally {
+            player.connection = connection;
+            game.close();
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void placementChargesCostsAndLimitsHogwartsPerPlayerUntilSold(GameTestHelper context) {
         UUID owner = UUID.randomUUID();
         UUID teammate = UUID.randomUUID();
@@ -158,7 +205,7 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             require(gui.getTitle().getString().equals("커리큘럼"), "The chest title must be exactly 커리큘럼.");
             require(player.containerMenu.getType() == MenuType.GENERIC_9x6, "Curriculum must be a six-row chest.");
             for (int slot = 0; slot < 54; slot++) {
-                if (!Set.of(0, 1, 2, 9, 10, 18, 19, 20, 21, 27, 28, 29, 36, 37, 45, 46, 47, 48, 49, 52, 53).contains(slot)) require(player.containerMenu.getSlot(slot).getItem().isEmpty(), "Unused curriculum slots must be empty.");
+                if (!Set.of(0, 1, 2, 9, 10, 11, 18, 19, 20, 21, 27, 28, 29, 36, 37, 45, 46, 47, 48, 49, 52, 53).contains(slot)) require(player.containerMenu.getSlot(slot).getItem().isEmpty(), "Unused curriculum slots must be empty.");
             }
             ItemStack hat = gui.getGuiElement(9).getItemStack();
             require(hat.is(Items.LEATHER_HELMET) && hat.getHoverName().getString().equals("기숙사 배정 모자"),
@@ -674,10 +721,10 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
                 require(economy.diamond() == before - 200, "Each student's graduation must cost 200 diamonds.");
                 require(game.towerCapacityUsed(owner) == 2, "Graduation must retain two capacity slots.");
                 requireClose(0, graduate.proficiency(), "Graduation must reset freshman proficiency.");
-                requireClose(250, graduate.maxProficiency(), "T2 must allow up to 250 proficiency.");
+                requireClose(300, graduate.maxProficiency(), "T2 must allow up to 300 proficiency.");
                 var entity = graduate.runtimeEntity(lane).orElseThrow();
-                requireClose(type == MagicSchoolTowers.HUFFLEPUFF ? 440 : 400, entity.getMaxHealth(), "House health must exclude reset proficiency.");
-                requireClose(type == MagicSchoolTowers.SLYTHERIN ? 66 : 60, entity.attackDamageAmount(null), "House damage must exclude reset proficiency.");
+                requireClose(type == MagicSchoolTowers.HUFFLEPUFF ? 374 : 340, entity.getMaxHealth(), "House health must exclude reset proficiency.");
+                requireClose(type == MagicSchoolTowers.SLYTHERIN ? 55 : 50, entity.attackDamageAmount(null), "House damage must exclude reset proficiency.");
                 require(entity.attackIntervalTicks() == (type == MagicSchoolTowers.GRYFFINDOR ? 17 : 18), "Only Gryffindor gets a one-tick reduction.");
                 require(FakePlayerTowerVisuals.visualEntity(graduate).isPresent(), "Each house must retain a player model.");
                 require(graduate.selectedSpell() == MagicSchoolSpell.EXPELLIARMUS, "Graduation must retain the chosen spell.");
@@ -748,7 +795,7 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             var far = monster(context, lane, position(context, 10, 1, 3), 0, 0, 400);
             var tank = monster(context, lane, position(context, 6, 1, 4), 0, 0, 10000);
             var injured = monster(context, lane, position(context, 7, 1, 4), 0, 0, 600);
-            var outside = monster(context, lane, position(context, 12, 1, 3), 0, 0, 50000);
+            var outside = monster(context, lane, position(context, 14, 1, 3), 0, 0, 50000);
             targets.addAll(List.of(near, far, tank, injured, outside));
             var wizardTypes = new ArrayList<>(MagicSchoolTowers.houseWizards());
             wizardTypes.addAll(MagicSchoolTowers.archWizards());
@@ -807,9 +854,9 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             economy.addDiamond(20000);
             var gui = new CurriculumGui(player, game, school);
             var expectedItems = List.of(Items.BLAZE_ROD, Items.NETHERITE_CHESTPLATE, Items.BOOK,
-                    Items.LEATHER_HELMET, Items.BREEZE_ROD, Items.SKELETON_SKULL, Items.DRIED_GHAST, Items.IRON_SWORD, Items.ENCHANTED_BOOK,
+                    Items.LEATHER_HELMET, Items.BREEZE_ROD, Items.ENCHANTED_BOOK, Items.SKELETON_SKULL, Items.DRIED_GHAST, Items.IRON_SWORD, Items.ENCHANTED_BOOK,
                     Items.ENDER_PEARL, Items.POTION, Items.FEATHER, Items.BARREL, Items.TNT);
-            int[] expectedSlots = {0, 1, 2, 9, 10, 21, 20, 19, 18, 28, 29, 27, 36, 37};
+            int[] expectedSlots = {0, 1, 2, 9, 10, 11, 21, 20, 19, 18, 28, 29, 27, 36, 37};
             for (int i = 0; i < Upgrade.values().length; i++) {
                 Upgrade upgrade = Upgrade.values()[i];
                 ItemStack item = gui.getGuiElement(expectedSlots[i]).getItemStack();
@@ -823,8 +870,8 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             clickWithRoundReset(gui, owner, 0);
             clickWithRoundReset(gui, owner, 1);
             require(economy.diamond() == before, "Both first lessons must be free.");
-            requireClose(31.8, entity.attackDamageAmount(null), "The live attack stat must refresh.");
-            requireClose(212, entity.getMaxHealth(), "The live maximum health must refresh.");
+            requireClose(31.2, entity.attackDamageAmount(null), "The live attack stat must refresh.");
+            requireClose(206, entity.getMaxHealth(), "The live maximum health must refresh.");
             require(entity.position().distanceToSqr(moved) < .000001, "A curriculum purchase must not teleport a fighting student.");
             requireClose(200, ally.currentMaxHealth(), "Curriculum must not buff a teammate.");
             clickWithRoundReset(gui, owner, 0);
@@ -832,7 +879,7 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             clickWithRoundReset(gui, owner, 2);
             require(economy.diamond() == before - 100 - 100 - 120, "Subsequent lesson prices must use completed counts.");
             student.gainProficiency(8, lane);
-            requireClose(10.4, student.proficiency(), "History must increase ordinary proficiency gains.");
+            requireClose(10, student.proficiency(), "History must increase ordinary proficiency gains.");
             require(entity.position().distanceToSqr(moved) < .000001, "Proficiency gain must preserve combat position.");
             clickWithRoundReset(gui, owner, 10);
             long afterWand = economy.diamond();
@@ -840,13 +887,13 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             require(economy.diamond() == afterWand, "Custom wands may only be purchased once.");
             var future = (MagicSchoolWizardTower) add(lane, MagicSchoolTowers.HUFFLEPUFF,
                     new GridPosition(plot.x() - 1, plot.y(), plot.z()));
-            requireClose(400 * 1.1 * 1.12 * 1.1, future.runtimeEntity(lane).orElseThrow().getMaxHealth(),
+            requireClose(340 * 1.1 * 1.06 * 1.1, future.runtimeEntity(lane).orElseThrow().getMaxHealth(),
                     "Newly placed house wizards must inherit lessons and custom wands.");
             MagicSchoolTestSetup.resetCurriculumRoundLimit(owner);
             long beforeRejectedTier = economy.diamond();
             String prerequisiteLore = gui.getGuiElement(47).getItemStack().get(net.minecraft.core.component.DataComponents.LORE)
                     .lines().stream().map(net.minecraft.network.chat.Component::getString).collect(java.util.stream.Collectors.joining(" "));
-            require(prerequisiteLore.contains("선행 필요: 3단계 주문 해금") && prerequisiteLore.contains("450 다이아"),
+            require(prerequisiteLore.contains("선행 필요: 3단계 주문 해금") && prerequisiteLore.contains("500 다이아"),
                     "A missing prerequisite must be shown alongside the spell tier's price.");
             gui.click(47, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
             require(!MagicSchoolCurriculum.isSpellTierUnlocked(owner, 4) && economy.diamond() == beforeRejectedTier
@@ -898,16 +945,16 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
                     .create(UUID.randomUUID(), TeamId.RED, 1, position(context, 8, 1, 3));
             lane.addTower(foreign);
             lane.markWaveStarted(1);
-            requireClose((11 + 8) * 1.30, student.proficiency(), "Multiple mentors must award one history-adjusted bonus.");
-            requireClose(11 * 1.30, diagonal.proficiency(), "Diagonal distance, equal tiers, and Hogwarts must not qualify.");
-            requireClose(11 * 1.30, isolated.proficiency(), "Dead and foreign mentors must not qualify.");
-            requireClose(11 * 1.30, mentor.proficiency(), "T2 students need a higher tier, not another T2.");
+            requireClose((11 + 8) * 1.25, student.proficiency(), "Multiple mentors must award one history-adjusted bonus.");
+            requireClose(11 * 1.25, diagonal.proficiency(), "Diagonal distance, equal tiers, and Hogwarts must not qualify.");
+            requireClose(11 * 1.25, isolated.proficiency(), "Dead and foreign mentors must not qualify.");
+            requireClose(11 * 1.25, mentor.proficiency(), "T2 students need a higher tier, not another T2.");
             lane.markWaveStarted(1);
-            requireClose(19 * 1.30, student.proficiency(), "A repeated wave hook must not pay mentor XP twice.");
+            requireClose(19 * 1.25, student.proficiency(), "A repeated wave hook must not pay mentor XP twice.");
             lane.killTower(mentor);
             lane.killTower(secondMentor);
             lane.markWaveStarted(2);
-            requireClose((19 + 12) * 1.30, student.proficiency(), "Mentor eligibility must be evaluated again each wave.");
+            requireClose((19 + 12) * 1.25, student.proficiency(), "Mentor eligibility must be evaluated again each wave.");
         } catch (AssertionError failure) {
             context.fail(net.minecraft.network.chat.Component.literal(failure.getMessage()));
             return;
@@ -938,29 +985,29 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             long before = economy.diamond();
             MagicSchoolTestSetup.resetCurriculumRoundLimit(owner);
             MagicSchoolCurriculum.toggleDeathEater(game, owner, school);
-            require(economy.diamond() == before - 200 && MagicSchoolCurriculum.deathEaterEnabled(owner), "Unlock must cost 200 and enable the challenge.");
+            require(economy.diamond() == before - 250 && MagicSchoolCurriculum.deathEaterEnabled(owner), "Unlock must cost 250 and enable the challenge.");
             require(lane.queuedSummonCount() == 0, "Buying the challenge must not spawn it during preparation.");
             lane.markWaveStarted(7);
             lane.markWaveStarted(7);
             require(lane.queuedSummonCount() == 1, "Exactly one Death Eater must be queued per enabled wave.");
             lane.tick(context.getLevel().getServer());
             Monster monster = lane.activeMonsters().stream().filter(m -> MagicSchoolDeathEaters.ID.equals(m.id())).findFirst().orElseThrow();
-            var enderman = kim.biryeong.semiontd.summon.SummonRegistry.find("enderman").orElseThrow();
+            var magmaCube = kim.biryeong.semiontd.summon.SummonRegistry.find("magma_cube").orElseThrow();
             Monster lateRound = MagicSchoolDeathEaters.create(lane, 20);
-            requireClose(enderman.maxHealth() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonHealthMultiplier(20),
+            requireClose(magmaCube.maxHealth() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonHealthMultiplier(20),
                     lateRound.maxHealth(), "Late-round health scaling must follow the same income formula.");
-            requireClose(enderman.attackDamage() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonAttackDamageMultiplier(20),
+            requireClose(magmaCube.attackDamage() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonAttackDamageMultiplier(20),
                     lateRound.attackDamage(), "Late-round damage scaling must follow the same income formula.");
-            requireClose(enderman.maxHealth() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonHealthMultiplier(7), monster.maxHealth(), "Health must use the income unit's round scaling.");
-            requireClose(enderman.attackDamage() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonAttackDamageMultiplier(7), monster.attackDamage(), "Damage must use the income unit's round scaling.");
-            requireClose(enderman.armor(), monster.armor(), "Death Eater armor must follow Enderman.");
-            requireClose(enderman.resistance(), monster.resistance(), "Death Eater magic resistance must follow Enderman.");
-            require(monster.damageType() == DamageType.MAGIC && monster.attackKind() == enderman.attackKind(),
-                    "Death Eater must use Enderman's melee magic attack.");
+            requireClose(magmaCube.maxHealth() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonHealthMultiplier(7), monster.maxHealth(), "Health must use the income unit's round scaling.");
+            requireClose(magmaCube.attackDamage() * kim.biryeong.semiontd.summon.SummonBalancePolicy.summonAttackDamageMultiplier(7), monster.attackDamage(), "Damage must use the income unit's round scaling.");
+            requireClose(magmaCube.armor(), monster.armor(), "Death Eater armor must follow Magma Cube.");
+            requireClose(magmaCube.resistance(), monster.resistance(), "Death Eater magic resistance must follow Magma Cube.");
+            require(monster.damageType() == DamageType.MAGIC && monster.attackKind() == magmaCube.attackKind(),
+                    "Death Eater must use Magma Cube's melee magic attack.");
             var target = (SemionMonsterEntity) context.getLevel().getEntity(monster.minecraftEntityId());
             require(monster.entityTypeId().equals("minecraft:vex") && target.getCustomName().getString().equals("죽음을 먹는 자"), "Spawned challenge must have its Vex visual and Korean name.");
             MagicSchoolCurriculum.toggleDeathEater(game, owner, school);
-            require(economy.diamond() == before - 200, "Switching off must be free.");
+            require(economy.diamond() == before - 250, "Switching off must be free.");
             require(lane.activeMonsters().contains(monster), "Turning off during combat must not remove the current challenge.");
             lane.killTower(defeated);
             double deadXp = defeated.proficiency();
@@ -980,13 +1027,13 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             ally.damageTargetResult(ally.runtimeEntity(allyLane).orElseThrow(), target, 100000, DamageType.MAGIC);
             require(monster.health() <= 0, "The shared damage pipeline must kill the challenge.");
             lane.tick(context.getLevel().getServer());
-            requireClose(studentXp + 14 * 1.30, student.proficiency(), "A teammate kill must reward the challenge owner's living student.");
-            requireClose(ravenXp + 14 * 1.30 * 1.15, ravenclaw.proficiency(), "History and Ravenclaw must multiply the kill award once.");
+            requireClose(studentXp + 14 * 1.25, student.proficiency(), "A teammate kill must reward the challenge owner's living student.");
+            requireClose(ravenXp + 14 * 1.25 * 1.15, ravenclaw.proficiency(), "History and Ravenclaw must multiply the kill award once.");
             requireClose(deadXp, defeated.proficiency(), "Defeated wizards must not receive kill proficiency.");
             requireClose(allyXp, ally.proficiency(), "The assisting teammate must not receive the owner's proficiency.");
             MagicSchoolDeathEaters.onMonsterDeath(lane, monster);
             lane.tick(context.getLevel().getServer());
-            requireClose(studentXp + 18.2, student.proficiency(), "The same death must never reward twice.");
+            requireClose(studentXp + 17.5, student.proficiency(), "The same death must never reward twice.");
             require(game.players().get(teammate).economy().diamond() == allyDiamonds, "The challenge must not invent an extra diamond reward.");
             lane.markWaveStarted(8);
             require(lane.queuedSummonCount() == 0, "An off wave must not summon a Death Eater.");
@@ -1026,12 +1073,12 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             purchaseWithRoundReset(game, owner, school, Upgrade.SORTING_HAT);
             student.gainProficiency(100, lane);
             var entity = student.runtimeEntity(lane).orElseThrow();
-            requireClose(29.256, SemionDialogService.currentTowerPrimaryDamage(student, entity),
+            requireClose(28.704, SemionDialogService.currentTowerPrimaryDamage(student, entity),
                     "The live magic damage display must include proficiency and the power lesson.");
             var manager = new SemionGameManager();
             manager.dialogService().showTowerDetails(player, game, student);
             String packet = sent.stream().filter(ClientboundShowDialogPacket.class::isInstance).findFirst().orElseThrow().toString();
-            require(packet.contains("🔥") && packet.contains("29.26") && packet.contains("숙련도 강화") && packet.contains("+15%"),
+            require(packet.contains("🔥") && packet.contains("28.7") && packet.contains("숙련도 강화") && packet.contains("+15%"),
                     "The delivered details dialog must display magic damage and its growth percentage.");
             require(packet.toLowerCase(java.util.Locale.ROOT).contains("ffb86c"),
                     "The delivered spell description must highlight its attack coefficient in light orange.");
@@ -1045,20 +1092,20 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
                 String text = ((net.minecraft.network.chat.Component) tooltip.invoke(null, option, true, false, student)).getString();
                 require(text.contains(house == MagicSchoolTowers.GRYFFINDOR ? "17틱" : "18틱"),
                         "Graduation tooltip must display the actual base interval for " + house.id());
-                require(text.contains(house == MagicSchoolTowers.HUFFLEPUFF ? "440" : "400"),
+                require(text.contains(house == MagicSchoolTowers.HUFFLEPUFF ? "374" : "340"),
                         "Graduation tooltip must display the actual base health for " + house.id());
-                require(text.contains("🔥 피해: " + (house == MagicSchoolTowers.SLYTHERIN ? "66" : "60")),
+                require(text.contains("🔥 피해: " + (house == MagicSchoolTowers.SLYTHERIN ? "55" : "50")),
                         "Graduation tooltip must display house base magic damage for " + house.id());
             }
             entity.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_BONUS, .5, 100);
-            requireClose(43.884, SemionDialogService.currentTowerPrimaryDamage(student, entity),
+            requireClose(43.056, SemionDialogService.currentTowerPrimaryDamage(student, entity),
                     "Timed damage buffs must be included exactly once in the display.");
             var target = monster(context, lane, new GridPosition(plot.x() + 3, plot.y(), plot.z()), 900, 0, 1000);
             student.markWaveStarted(1);
             entity.recordCurrentAttackTarget(target);
             new TowerAttackMonsterGoal(entity).tick();
-            requireClose(1000 - 43.884, target.getHealth(), "The displayed damage must match an actual magic attack through high armor.");
-            requireClose(43.884, student.roundMagicDamageDealt(), "The attack must remain classified as magic.");
+            requireClose(1000 - 43.056, target.getHealth(), "The displayed damage must match an actual magic attack through high armor.");
+            requireClose(43.056, student.roundMagicDamageDealt(), "The attack must remain classified as magic.");
             requireClose(0, student.roundPhysicalDamageDealt(), "The display correction must not introduce physical damage.");
 
             purchaseWithRoundReset(game, owner, school, Upgrade.CUSTOM_WANDS);
@@ -1066,8 +1113,8 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             require(ProductionTowerService.upgradeTower(game, owner, position, MagicSchoolTowers.SLYTHERIN.id()) == TowerUpgradeResult.SUCCESS,
                     "Slytherin graduation must succeed.");
             var graduate = (MagicSchoolWizardTower) lane.towerAt(position);
-            requireClose(66, graduate.type().damage(), "Slytherin damage must now be a catalog base stat.");
-            requireClose(66 * 1.06 * 1.1 * .8,
+            requireClose(55, graduate.type().damage(), "Slytherin damage must now be a catalog base stat.");
+            requireClose(55 * 1.04 * 1.1 * .8,
                     SemionDialogService.currentTowerPrimaryDamage(graduate, graduate.runtimeEntity(lane).orElseThrow()),
                     "After graduation, proficiency must reset while lesson and wand bonuses remain.");
         } catch (AssertionError failure) {
@@ -1102,29 +1149,29 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
                 wizard.recordPlacementEconomy(300, 1);
                 wizard.onWaveStarted(lane, 1);
                 double gainMultiplier = type == MagicSchoolTowers.RAVENCLAW ? 1.15 : 1;
-                wizard.gainProficiency((249 - wizard.proficiency()) / gainMultiplier, lane);
+                wizard.gainProficiency((299 - wizard.proficiency()) / gainMultiplier, lane);
                 require(wizard.selectSpell(MagicSchoolSpell.STUPEFY), "An unlocked spell must be selectable before graduation.");
                 var target = MagicSchoolTowers.archWizardFor(type);
                 var option = ProductionTowerCatalog.upgrade(type, target.id()).orElseThrow();
                 require(wizard.showsUnavailableUpgrade(lane, option), "T3 must be visible before mastery.");
                 String text = ((net.minecraft.network.chat.Component) tooltip.invoke(null, option, true, false, wizard)).getString();
                 require(text.contains(type == MagicSchoolTowers.GRYFFINDOR ? "11틱" : "12틱")
-                        && text.contains(type == MagicSchoolTowers.HUFFLEPUFF ? "660" : "600")
-                        && text.contains("🔥 피해: " + (type == MagicSchoolTowers.SLYTHERIN ? "99" : "90"))
-                        && text.contains("249 / 250") && text.contains("초기화"), "T3 preview must show house base stats, requirement and reset.");
+                        && text.contains(type == MagicSchoolTowers.HUFFLEPUFF ? "550" : "500")
+                        && text.contains("🔥 피해: " + (type == MagicSchoolTowers.SLYTHERIN ? "88" : "80"))
+                        && text.contains("299 / 300") && text.contains("초기화"), "T3 preview must show house base stats, requirement and reset.");
                 long before = economy.diamond();
                 require(ProductionTowerService.upgradeTower(game, owner, position, target.id()) == TowerUpgradeResult.UPGRADE_REQUIREMENTS_NOT_MET,
-                        "249 proficiency must not allow T3 graduation.");
+                        "299 proficiency must not allow T3 graduation.");
                 require(economy.diamond() == before && lane.towerAt(position) == wizard, "Failed mastery check must not spend or replace.");
                 wizard.gainProficiency(1 / gainMultiplier, lane);
                 economy.overrideStartingValues(449, 50, 0, 0);
                 require(ProductionTowerService.upgradeTower(game, owner, position, target.id()) == TowerUpgradeResult.NOT_ENOUGH_MINERAL,
                         "449 diamonds must not buy T3.");
-                requireClose(250, wizard.proficiency(), "Failed payment must not reset proficiency.");
+                requireClose(300, wizard.proficiency(), "Failed payment must not reset proficiency.");
                 require(economy.diamond() == 449, "Failed payment must not charge.");
                 economy.addDiamond(1);
                 require(ProductionTowerService.upgradeTower(game, owner, position, target.id()) == TowerUpgradeResult.SUCCESS,
-                        "250 proficiency and 450 diamonds must allow T3.");
+                        "300 proficiency and 450 diamonds must allow T3.");
                 var arch = (MagicSchoolWizardTower) lane.towerAt(position);
                 var entity = arch.runtimeEntity(lane).orElseThrow();
                 require(economy.diamond() == 0 && economy.emerald() == 50, "Graduation must cost exactly 450 diamonds.");
@@ -1132,12 +1179,12 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
                         && arch.position().equals(position) && game.towerCapacityUsed(owner) == 2,
                         "Graduation must preserve position, paid costs and two capacity slots.");
                 requireClose(0, arch.proficiency(), "Graduation must reset proficiency.");
-                requireClose(400, arch.maxProficiency(), "T3 cap must be 400.");
+                requireClose(1000, arch.maxProficiency(), "T3 cap must be 1000.");
                 require(arch.selectedSpell() == MagicSchoolSpell.STUPEFY && arch.primaryDamageType() == DamageType.MAGIC,
                         "Selected spell and magic damage must survive graduation.");
                 require(FakePlayerTowerVisuals.visualEntity(arch).isPresent(), "T3 must use a player model.");
-                double health = type == MagicSchoolTowers.HUFFLEPUFF ? 726 : type == MagicSchoolTowers.RAVENCLAW ? 630 : 600;
-                double damage = type == MagicSchoolTowers.SLYTHERIN ? 108.9 : type == MagicSchoolTowers.RAVENCLAW ? 94.5 : 90;
+                double health = type == MagicSchoolTowers.HUFFLEPUFF ? 605 : type == MagicSchoolTowers.RAVENCLAW ? 525 : 500;
+                double damage = type == MagicSchoolTowers.SLYTHERIN ? 96.8 : type == MagicSchoolTowers.RAVENCLAW ? 84 : 80;
                 requireClose(health, entity.getMaxHealth(), "House and wand health bonuses must apply once without old proficiency.");
                 requireClose(damage, entity.attackDamageAmount(null), "House and wand damage bonuses must apply once.");
                 require(entity.attackIntervalTicks() == (type == MagicSchoolTowers.GRYFFINDOR ? 10 : 12), "T3 must retain the wand speed bonus.");
@@ -1280,9 +1327,51 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             var liveGui = new CurriculumGui(player, game, replacement);
             liveGui.click(1, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
             require(MagicSchoolCurriculum.level(owner, Upgrade.DARK_ARTS_DEFENSE) == 1, "A later round permits another free lesson.");
-            require(economy.diamond() == 625 && economy.emerald() == 50, "Only successful paid upgrades charge currency.");
+            require(economy.diamond() == 575 && economy.emerald() == 50, "Only successful paid upgrades charge currency.");
             MagicSchoolCurriculum.clear(owner);
             require(MagicSchoolCurriculum.canUpgradeThisRound(owner, 4), "Match cleanup clears the limit.");
+        } finally { game.close(); }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void advancedSpellLessonChargesOnceAndSharesRoundLimit(GameTestHelper context) {
+        var player = context.makeMockServerPlayerInLevel();
+        UUID owner = player.getUUID();
+        UUID teammate = UUID.randomUUID();
+        SemionGame game = game(context, owner, teammate);
+        try {
+            var lane = game.playerLane(owner).orElseThrow();
+            var plot = GridPosition.from(BlockPos.containing(lane.laneLayout().positionAt(.3)));
+            var school = (HogwartsTower) add(lane, MagicSchoolTowers.HOGWARTS, plot);
+            var student = (MagicSchoolWizardTower) add(lane, MagicSchoolTowers.FRESHMAN,
+                    new GridPosition(plot.x() + 1, plot.y(), plot.z()));
+            var economy = game.players().get(owner).economy();
+            economy.overrideStartingValues(349, 0, 0, 0);
+            var gui = new CurriculumGui(player, game, school);
+            var item = gui.getGuiElement(11).getItemStack();
+            require(item.is(Items.ENCHANTED_BOOK) && item.getHoverName().getString().equals("고등 주문 수업"),
+                    "The advanced lesson must occupy row two, column three.");
+            require(item.get(DataComponents.LORE).lines().stream().anyMatch(line -> line.getString().contains("350 다이아")),
+                    "The lesson must show its 350-diamond price.");
+            require(student.maxSpellTier() == 2, "Freshmen start with a tier-two limit.");
+            gui.click(11, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+            require(economy.diamond() == 349 && student.maxSpellTier() == 2
+                    && MagicSchoolCurriculum.canUpgradeThisRound(owner, game.currentRound()),
+                    "Insufficient funds preserve currency, spell eligibility and the round allowance.");
+            economy.addDiamond(1);
+            gui.click(11, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+            require(economy.diamond() == 0 && student.maxSpellTier() == 3,
+                    "Exact funds buy the lesson and immediately raise an existing student's limit.");
+            require(!MagicSchoolCurriculum.isSpellTierUnlocked(owner, 3), "Caster eligibility must not unlock spells for free.");
+            require(!MagicSchoolCurriculum.purchased(teammate, Upgrade.ADVANCED_SPELLS), "The upgrade belongs only to its buyer.");
+            gui.click(0, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+            require(MagicSchoolCurriculum.level(owner, Upgrade.SPELL_POWER) == 0,
+                    "The advanced lesson consumes the same round allowance as free lessons.");
+            economy.addDiamond(350);
+            gui.click(11, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+            require(economy.diamond() == 350 && student.maxSpellTier() == 3,
+                    "A repeated click cannot charge again or increase the spell limit twice.");
         } finally { game.close(); }
         context.succeed();
     }
@@ -1300,23 +1389,30 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             for (int tier = 2; tier <= 5; tier++) MagicSchoolCurriculum.unlockSpellTier(owner, tier, economy);
             lane.assignAugmentSnapshot(MagicSchoolAugmentCombatTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES));
             economy.addEmerald(10000);
-            for (var type : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
-                var wizard = (MagicSchoolWizardTower) add(lane, type, plot);
-                var gui = new SpellGui(player, game, wizard);
-                gui.click(19, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-                require(wizard.selectedSpell() == MagicSchoolSpell.EXPULSO, "All casters may select tier 3 spells.");
-                gui.click(28, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-                require(wizard.selectedSpell() == (MagicSchoolTowers.isFreshman(type) ? MagicSchoolSpell.EXPULSO : MagicSchoolSpell.SECTUMSEMPRA),
-                        "Tier 4 must require a house wizard or better.");
-                var previous = wizard.selectedSpell();
-                boolean fifth = MagicSchoolTowers.isArchWizard(type) || type == MagicSchoolTowers.RAVENCLAW;
-                gui.click(37, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-                require(wizard.selectedSpell() == (fifth ? MagicSchoolSpell.EXPECTO_PATRONUM : previous), "Tier 5 must require T3 or Ravenclaw T2.");
-                gui.click(46, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-                require(wizard.selectedSpell() == (fifth ? MagicSchoolSpell.AVADA_KEDAVRA : previous), "The curse row must use tier 5 eligibility.");
-                gui.click(2, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-                require(wizard.selectedSpell() != MagicSchoolSpell.MUGGLE_WAND, "Tier eligibility must not unlock the reserved augment spell.");
-                lane.removeTower(wizard);
+            for (boolean advanced : List.of(false, true)) {
+                if (advanced) {
+                    require(MagicSchoolCurriculum.purchase(owner, Upgrade.ADVANCED_SPELLS, economy)
+                            == MagicSchoolCurriculum.PurchaseResult.PURCHASED, "Advanced class must purchase once.");
+                }
+                for (var type : MagicSchoolTowers.all().stream().filter(MagicSchoolTowers::isWizard).toList()) {
+                    var wizard = (MagicSchoolWizardTower) add(lane, type, plot);
+                    var gui = new SpellGui(player, game, wizard);
+                    int limit = MagicSchoolTowers.belongsToHouse(type, MagicSchoolTowers.RAVENCLAW) ? 5
+                            : (MagicSchoolTowers.isFreshman(type) ? 2 : MagicSchoolTowers.isArchWizard(type) ? 4 : 3)
+                                    + (advanced ? 1 : 0);
+                    int[] slots = {19, 28, 37, 46};
+                    var spells = List.of(MagicSchoolSpell.EXPULSO, MagicSchoolSpell.SECTUMSEMPRA,
+                            MagicSchoolSpell.EXPECTO_PATRONUM, MagicSchoolSpell.AVADA_KEDAVRA);
+                    for (int i = 0; i < slots.length; i++) {
+                        var before = wizard.selectedSpell();
+                        gui.click(slots[i], eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+                        require(wizard.selectedSpell() == (spells.get(i).requiredSpellTier() <= limit ? spells.get(i) : before),
+                                "The real spell menu must enforce caster tier and advanced-class eligibility: " + type.id());
+                    }
+                    gui.click(2, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
+                    require(wizard.selectedSpell() != MagicSchoolSpell.MUGGLE_WAND, "Tier eligibility must not unlock the reserved augment spell.");
+                    lane.removeTower(wizard);
+                }
             }
         } finally {
             game.close();
@@ -1375,6 +1471,7 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             var plot = GridPosition.from(BlockPos.containing(lane.laneLayout().positionAt(.3)));
             var economy = game.players().get(owner).economy();
             economy.addDiamond(20000);
+            MagicSchoolCurriculum.purchase(owner, Upgrade.ADVANCED_SPELLS, economy);
             for (int tier = 2; tier <= 5; tier++) MagicSchoolCurriculum.unlockSpellTier(owner, tier, economy);
             lane.assignAugmentSnapshot(MagicSchoolAugmentCombatTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES));
             economy.overrideStartingValues(123, 1000, 0, 0);
@@ -1431,6 +1528,7 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             economy.addDiamond(20000);
             require(wizard.changeSpell(game, owner, MagicSchoolSpell.STUPEFY)
                     == MagicSchoolWizardTower.SpellChangeResult.UNAVAILABLE, "Locked tiers cannot be bought through spell selection.");
+            MagicSchoolCurriculum.purchase(owner, Upgrade.ADVANCED_SPELLS, economy);
             for (int tier = 2; tier <= 5; tier++) MagicSchoolCurriculum.unlockSpellTier(owner, tier, economy);
             lane.assignAugmentSnapshot(MagicSchoolAugmentCombatTest.snapshot(MagicSchoolAugments.UNFORGIVABLE_CURSES));
             economy.overrideStartingValues(0, 79, 0, 0);
@@ -1528,14 +1626,14 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             var item = gui.getGuiElement(18).getItemStack();
             require(item.is(Items.ENCHANTED_BOOK) && item.getHoverName().getString().equals("주문 연마 수업"),
                     "Spell practice must occupy row three, column one.");
-            require(item.get(DataComponents.LORE).lines().stream().anyMatch(line -> line.getString().contains("100 다이아")),
-                    "The lesson must show its hundred-diamond price.");
+            require(item.get(DataComponents.LORE).lines().stream().anyMatch(line -> line.getString().contains("125 다이아")),
+                    "The lesson must show its 125-diamond price.");
             var economy = game.players().get(owner).economy();
             long before = economy.diamond();
             gui.click(18, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
             gui.click(18, eu.pb4.sgui.api.ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
-            require(economy.diamond() == before - 100 && !MagicSchoolCurriculum.canUpgradeThisRound(owner, game.currentRound()),
-                    "One purchase costs one hundred diamonds and uses this round's upgrade allowance.");
+            require(economy.diamond() == before - 125 && !MagicSchoolCurriculum.canUpgradeThisRound(owner, game.currentRound()),
+                    "One purchase costs 125 diamonds and uses this round's upgrade allowance.");
             requireClose(0, student.proficiency(), "The lesson must not grant proficiency on purchase.");
             lane.markWaveStarted(1);
             otherLane.markWaveStarted(1);

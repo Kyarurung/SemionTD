@@ -18,28 +18,28 @@ public enum MagicSchoolSpell {
     STUPEFY("stupefy", 2, "스튜페파이", 1,
             "대상별 명중을 합산하여 매 {hitsToStun}회마다 {stunTicks:s}초 기절시킵니다.", Map.of("hitsToStun", 3.0, "stunTicks", 10.0)),
     PROTEGO("protego", 2, "프로테고", .5,
-            "받는 피해가 라운드 종료까지 {damageReduction:p}% 감소합니다.\n전투 시작 시 어그로가 라운드 종료까지 {waveAggroBonus} 증가합니다.", Map.of("damageReduction", .5, "waveAggroBonus", 60.0)),
+            "받는 피해가 라운드 종료까지 {damageReduction:p}% 감소합니다.\n전투 시작 시 어그로가 라운드 종료까지 {waveAggroBonus} 증가합니다.", Map.of("damageReduction", .2, "waveAggroBonus", 60.0)),
     WINGARDIUM_LEVIOSA("wingardium_leviosa", 2, "윙가르디움 레비오우사", .85,
             "전투 시작 {intervalTicks:s}초 후부터 {intervalTicks:s}초마다 주변 {radius}칸 내 적에게 공격력 {liftDamageMultiplier:p}%의 마법 피해를 입히고 공중에 띄워 {stunTicks:s}초간 기절시킵니다.",
-            Map.of("intervalTicks", 100.0, "radius", 6.0, "stunTicks", 24.0, "liftPower", .8, "liftDamageMultiplier", .35)),
+            Map.of("intervalTicks", 100.0, "radius", 6.0, "stunTicks", 24.0, "liftPower", .8, "liftDamageMultiplier", .25)),
     EXPULSO("expulso", 3, "엑스펄소", .8,
-            "주 대상 주변 {radius}칸의 다른 적에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.", Map.of("radius", 1.5, "secondaryMultiplier", .5)),
-    LUMOS("lumos", 3, "루모스", .5,
-            "공격 속도 +{attackSpeedBonus:p}%.\n대상에게 루모스를 부여합니다.", Map.of("attackSpeedBonus", 1.0, "magicVulnerability", .15)),
+            "주 대상 주변 {radius}칸의 다른 적에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.", Map.of("radius", 1.2, "secondaryMultiplier", .5)),
+    LUMOS("lumos", 3, "루모스", .8,
+            "대상과 주변 {radius}칸에 루모스를 부여합니다.", Map.of("radius", 2.0, "magicVulnerability", .12)),
     EPISKEY("episkey", 3, "에피스키", .9,
-            "공격 시 주변 {radius}칸의 체력 비율이 가장 낮은 아군 마법사를 공격력 {healingMultiplier:p}%만큼 회복합니다.\n각 마법사는 {recipientCooldownTicks:s}초에 한 번만 이 회복을 받습니다.", Map.of("radius", 8.0, "healingMultiplier", 1.5, "recipientCooldownTicks", 80.0)),
+            "공격 시 주변 {radius}칸의 체력 비율이 가장 낮은 아군 마법사를 공격력 {healingMultiplier:p}%만큼 회복합니다.\n각 마법사는 {recipientCooldownTicks:s}초에 한 번만 이 회복을 받습니다.", Map.of("radius", 8.0, "healingMultiplier", .75, "recipientCooldownTicks", 60.0)),
     SECTUMSEMPRA("sectumsempra", 4, "섹툼셈프라", 1,
             "주변 {radius}칸의 추가 대상 1기에 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.\n피해를 받은 적의 회복량을 {healingReductionTicks:s}초간 {healingReduction:p}% 감소시킵니다.", Map.of("radius", 3.0, "secondaryMultiplier", .5, "healingReduction", .65, "healingReductionTicks", 100.0)),
     BOMBARDA("bombarda", 4, "봄바르다", .9,
-            "주 대상 주변 {radius}칸의 다른 적에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.", Map.of("radius", 2.5, "secondaryMultiplier", .75)),
+            "주 대상 주변 {radius}칸의 다른 적에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.", Map.of("radius", 2.4, "secondaryMultiplier", .70)),
     PROTEGO_MAXIMA("protego_maxima", 4, "프로테고 맥시마", .8,
-            "자신의 받는 피해 {damageReduction:p}% 감소.\n전투 시작 시 자신과 주변 {radius}칸 아군의 받는 피해 {auraReduction:p}% 감소 (최대 {maxAuraStacks}회, 합연산).\n전투 시작 시 자신의 어그로가 {waveAggroBonus} 증가합니다.\n보호 효과와 어그로 증가는 라운드 종료까지 유지됩니다.", Map.of("damageReduction", .65, "radius", 6.0, "auraReduction", .05, "maxAuraStacks", 3.0, "waveAggroBonus", 60.0)),
+            "자신의 받는 피해 {damageReduction:p}% 감소.\n전투 시작 시 자신과 주변 {radius}칸 아군의 받는 피해 {auraReduction:p}% 감소 (최대 {maxAuraStacks}회, 자기 보호 및 다른 피해 감소와 곱연산).\n전투 시작 시 자신의 어그로가 {waveAggroBonus} 증가합니다.\n보호 효과와 어그로 증가는 라운드 종료까지 유지됩니다.", Map.of("damageReduction", .30, "radius", 6.0, "auraReduction", .05, "maxAuraStacks", 3.0, "waveAggroBonus", 60.0)),
     EXPECTO_PATRONUM("expecto_patronum", 5, "엑스펙토 패트로눔", 1,
-            "주변 {radius}칸의 추가 대상에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.\n추가 대상은 1기로 시작하며 매 {attacksPerExtraTarget}번째 공격마다 1기 증가합니다.\n부족한 추가 공격은 주 대상에게 적용합니다. 라운드마다 초기화됩니다.", Map.of("radius", 3.0, "secondaryMultiplier", .3, "attacksPerExtraTarget", 2.0)),
+            "주변 {radius}칸의 추가 대상에게 공격력 {secondaryMultiplier:p}%의 마법 피해를 입힙니다.\n추가 대상은 1기로 시작하며 매 {attacksPerExtraTarget}번째 공격마다 1기 증가합니다.\n부족한 추가 공격은 주 대상에게 적용합니다. 라운드마다 초기화됩니다.", Map.of("radius", 3.0, "secondaryMultiplier", .25, "attacksPerExtraTarget", 2.0)),
     LUMOS_MAXIMA("lumos_maxima", 5, "루모스 맥시마", 1,
-            "대상과 주변 {radius}칸에 루모스를 부여합니다.", Map.of("radius", 3.0)),
+            "대상과 주변 {radius}칸에 루모스를 부여합니다.", Map.of("radius", 4.0)),
     RENNERVATE("rennervate", 5, "레네르바테", 1.1,
-            "전투 시작 및 {intervalTicks:s}초마다 주변 {radius}칸 아군의 디버프를 해제합니다.\n{buffTicks:s}초간 공격력 +{damageBonus:p}% (중첩 불가).", Map.of("radius", 8.0, "intervalTicks", 100.0, "buffTicks", 60.0, "damageBonus", .2)),
+            "전투 시작 및 {intervalTicks:s}초마다 주변 {radius}칸 아군의 디버프를 해제합니다.\n{buffTicks:s}초간 공격력 +{damageBonus:p}% (중첩 불가).", Map.of("radius", 8.0, "intervalTicks", 100.0, "buffTicks", 60.0, "damageBonus", .12)),
     AVADA_KEDAVRA("avada_kedavra", 6, "아바다케다브라", 1,
             "공격 속도 -{attackSpeedPenalty:p}%.", Map.of("attackSpeedPenalty", .6, "maxHealthMultiplier", 2.0)),
     CRUCIO("crucio", 6, "크루시오", .15,
@@ -106,7 +106,13 @@ public enum MagicSchoolSpell {
             lines.add("마법사는 루모스 디버프가 부여된 대상을 우선 공격합니다.");
             lines.add("단, 루모스·루모스 맥시마를 장착한 마법사는 루모스가 없는 적을 우선 공격합니다.");
         }
-        if (curse()) lines.add("플레이어마다 이 저주를 한 마법사에게만 장착할 수 있습니다.");
+        if (curse()) {
+            lines.add("주문 숙련도 " + MagicSchoolCurriculum.integer("curseProficiencyThreshold", 500)
+                    + " 이하에서는 공격 속도가 추가로 " + BigDecimal.ONE.subtract(BigDecimal.valueOf(
+                    MagicSchoolCurriculum.value("curseLowProficiencyAttackSpeedMultiplier", .1)))
+                    .movePointRight(2).stripTrailingZeros().toPlainString() + "% 감소합니다 (곱연산).");
+            lines.add("플레이어마다 이 저주를 한 마법사에게만 장착할 수 있습니다.");
+        }
         return List.copyOf(lines);
     }
 

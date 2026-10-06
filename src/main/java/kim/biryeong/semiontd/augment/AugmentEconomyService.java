@@ -102,7 +102,12 @@ public final class AugmentEconomyService {
         String id = shortId(cardId);
         if (!state.selectionReceipts.add(round + ":" + id)) { return; }
         state.parameters.put(id, parameters == null ? Map.of() : Map.copyOf(parameters));
-        if (id.equals("emergency_loan")) {
+        if (id.equals(kim.biryeong.semiontd.tower.magicschool.MagicSchoolAugments.UNFORGIVABLE_CURSES)) {
+            long amount = valueLong(state, id, "diamondReward", 100);
+            grantDiamond(player, amount);
+            player.augmentTelemetry().recordEconomy(new EconomyEvent(round, player.augmentTelemetry().currentTick(),
+                    "semiontd:" + id, "SELECTION_GRANT", null, null, null, null, amount, null, null, null, 1));
+        } else if (id.equals("emergency_loan")) {
             long advance = Math.min(valueLong(state, id, "advanceCap", 300),
                     floorProduct(player.economy().income(), value(state, id, "advanceMultiplier", 3)));
             state.debt = ceilProduct(advance, value(state, id, "debtMultiplier", 4.0 / 3.0));

@@ -34,9 +34,10 @@ public final class MagicSchoolSpellCombat {
     }
 
     public static double protection(SemionTowerEntity target) {
-        double aura = target.activeEffectMagnitude(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA);
-        double cap = MagicSchoolSpell.PROTEGO_MAXIMA.value("auraReduction") * MagicSchoolSpell.PROTEGO_MAXIMA.ticks("maxAuraStacks");
-        return Math.min(1, target.activeEffectMagnitude(TimedEffectType.TOWER_PROTEGO) + Math.min(cap, aura));
+        double aura = target.activeMultiplicativeEffectMagnitude(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA,
+                MagicSchoolSpell.PROTEGO_MAXIMA.ticks("maxAuraStacks"));
+        double self = target.activeMultiplicativeEffectMagnitude(TimedEffectType.TOWER_PROTEGO, 1);
+        return 1.0 - (1.0 - self) * (1.0 - aura);
     }
 
     public static void applySelfProtection(MagicSchoolWizardTower wizard, SemionTowerEntity source) {
@@ -49,7 +50,7 @@ public final class MagicSchoolSpellCombat {
     public static void onWaveStarted(MagicSchoolWizardTower wizard, SemionTowerEntity source) {
         applySelfProtection(wizard, source);
         if (wizard.selectedSpell() == MagicSchoolSpell.PROTEGO_MAXIMA) {
-            Identifier contribution = id("protego_" + source.getUUID());
+            Identifier contribution = id("protego_" + wizard.logicalId());
             var spell = MagicSchoolSpell.PROTEGO_MAXIMA;
             SemionTdApi.areaEffects().applyToTowers(allies(source, spell), target -> {
                 target.entity().orElseThrow().setPersistentEffect(TimedEffectType.TOWER_PROTEGO_MAXIMA_AURA,
@@ -108,7 +109,6 @@ public final class MagicSchoolSpellCombat {
             }
             case STUPEFY -> target.schoolSpells().stupefy();
             case EXPULSO, BOMBARDA -> secondary(wizard, source, target, spell, Integer.MAX_VALUE, false);
-            case LUMOS -> target.schoolSpells().lumos();
             case EPISKEY -> heal(source);
             case SECTUMSEMPRA -> {
                 wound(source, target);
@@ -122,7 +122,7 @@ public final class MagicSchoolSpellCombat {
                     if (result.killed()) wizard.onKill(source, target, result.dealtDamage());
                 }
             }
-            case LUMOS_MAXIMA -> {
+            case LUMOS, LUMOS_MAXIMA -> {
                 target.schoolSpells().lumos();
                 SemionTdApi.areaEffects().applyToMonsters(around(source, target, spell, Integer.MAX_VALUE), other -> {
                     other.schoolSpells().lumos();
@@ -173,7 +173,7 @@ public final class MagicSchoolSpellCombat {
         var request = MonsterAreaEffectRequest.aroundTarget(id("spell_transfer"), source, target, radius, AreaVfxSpec.none())
                 .withFilter(other -> other.runtimeMonster().targetTeam() == source.teamId()
                         && other.activeTimedEffectMagnitude(TimedEffectType.MONSTER_LUMOS) > 0)
-                .nearestTargets(MagicSchoolCurriculum.integer("spellTransferMaxTargets", 8));
+                .nearestTargets(MagicSchoolCurriculum.integer("spellTransferMaxTargets", 5));
         TowerAreaDamage.applyResolved(wizard, source, request,
                 other -> dealt * MagicSchoolCurriculum.value("spellTransferDamageRatio", .10), true,
                 (other, damage, killed) -> {}, DamageType.MAGIC);

@@ -33,13 +33,13 @@ public final class MagicSchoolDeathEaters {
     }
 
     static Monster create(PlayerLane lane, int round) {
-        var enderman = SummonRegistry.find("enderman").orElseGet(() ->
-                new BasicIncomeSummon(SummonConfig.defaultConfig().summons().get("enderman")));
+        var magmaCube = SummonRegistry.find("magma_cube").orElseGet(() ->
+                new BasicIncomeSummon(SummonConfig.defaultConfig().summons().get("magma_cube")));
         var monster = new Monster(ID, lane.teamId(), lane.laneId(), Optional.empty(), Optional.empty(),
-                enderman.maxHealth() * SummonBalancePolicy.summonHealthMultiplier(round), enderman.armor(),
-                enderman.attackDamage() * SummonBalancePolicy.summonAttackDamageMultiplier(round), enderman.attackKind(),
-                "minecraft:vex", null, DamageType.MAGIC, enderman.resistance(),
-                MonsterDimensions.of(0.4, 0.8), enderman.tier(), enderman.roles(), 0);
+                magmaCube.maxHealth() * SummonBalancePolicy.summonHealthMultiplier(round), magmaCube.armor(),
+                magmaCube.attackDamage() * SummonBalancePolicy.summonAttackDamageMultiplier(round), magmaCube.attackKind(),
+                "minecraft:vex", null, DamageType.MAGIC, magmaCube.resistance(),
+                MonsterDimensions.of(0.4, 0.8), magmaCube.tier(), magmaCube.roles(), 0);
         monster.setDisplayName("죽음을 먹는 자");
         monster.setData(ENCOUNTER, new Encounter(lane.ownerPlayer(), round, false));
         return monster;

@@ -40,7 +40,7 @@ public final class MagicSchoolBombBarrelEntity extends SemionMonsterEntity {
     }
 
     void attachBarrelVisual() {
-        var block = new BlockDisplayElement(Blocks.BARREL.defaultBlockState());
+        var block = new BlockDisplayElement(Blocks.TNT.defaultBlockState());
         block.setTranslation(new Vector3f(-.5f, 0, -.5f));
         barrelVisual = new ElementHolder();
         barrelVisual.addElement(block);
@@ -68,9 +68,9 @@ public final class MagicSchoolBombBarrelEntity extends SemionMonsterEntity {
         if (!(damageSource.getEntity() instanceof SemionTowerEntity source) || source.runtimeTower() == null) return;
         var tower = source.runtimeTower();
         double damage = tower.resolveBasicAttackOutgoingDamage(source, null, source.attackDamageAmount(null))
-                * MagicSchoolCurriculum.value("explosiveBarrelDamageRatio", .60);
+                * MagicSchoolCurriculum.value("explosiveBarrelDamageRatio", .30);
         var request = MonsterAreaEffectRequest.aroundTarget(MagicSchoolSpellCombat.id("explosive_barrel"), source, this,
-                MagicSchoolCurriculum.value("explosiveBarrelRadius", 2.5), AreaVfxSpec.onChange(AreaVfxStyles.CORPSE_EXPLOSION))
+                MagicSchoolCurriculum.value("explosiveBarrelRadius", 2), AreaVfxSpec.onChange(AreaVfxStyles.CORPSE_EXPLOSION))
                 .withFilter(target -> target.runtimeMonster().targetTeam() == source.teamId());
         TowerAreaDamage.applyResolved(tower, source, request, target -> damage, true,
                 (target, dealt, killed) -> {}, DamageType.MAGIC);
