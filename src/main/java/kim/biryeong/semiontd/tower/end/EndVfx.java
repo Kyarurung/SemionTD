@@ -37,14 +37,28 @@ final class EndVfx {
                 8, radius, .6, radius, .08);
     }
 
-    static void assaultBreath(ServerLevel level, Vec3 source, Vec3 ground, double width) {
-        for (int step = 0; step <= 6; step++) {
-            Vec3 point = source.lerp(ground, step / 6.0);
-            level.sendParticles(net.minecraft.core.particles.PowerParticleOption.create(ParticleTypes.DRAGON_BREATH, 1.0F), point.x, point.y, point.z,
-                    2, .25, .25, .25, .02);
+    static void assaultWave(ServerLevel level, Vec3 center, Vec3 direction, double width) {
+        Vec3 side = new Vec3(-direction.z, 0, direction.x);
+        int steps = Math.max(1, (int) Math.ceil(width * 2));
+        for (int step = 0; step <= steps; step++) {
+            Vec3 point = center.add(side.scale(width * (step / (double) steps - .5)));
+            level.sendParticles(net.minecraft.core.particles.PowerParticleOption.create(ParticleTypes.DRAGON_BREATH, 1.0F),
+                    point.x, point.y, point.z, 2, .15, .4, .15, .02);
         }
-        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, ground.x, ground.y, ground.z,
-                5, width / 3, .2, width / 3, .02);
+    }
+
+    static void assaultBreath(ServerLevel level, Vec3 source, Vec3 ground, Vec3 direction, double width) {
+        Vec3 side = new Vec3(-direction.z, 0, direction.x);
+        for (int ray = -1; ray <= 1; ray++) {
+            Vec3 end = ground.add(side.scale(width * .5 * ray));
+            int steps = Math.max(6, (int) Math.ceil(source.distanceTo(end) / 2));
+            for (int step = 0; step <= steps; step++) {
+                Vec3 point = source.lerp(end, step / (double) steps);
+                level.sendParticles(net.minecraft.core.particles.PowerParticleOption.create(ParticleTypes.DRAGON_BREATH, 1.0F),
+                        point.x, point.y, point.z, 1, .15, .15, .15, .01);
+            }
+        }
+        assaultWave(level, ground.add(0, .2, 0), direction, width);
     }
 
     private static Vec3 particlePosition(Tower tower, double height) {

@@ -55,6 +55,7 @@
       "kim.biryeong.semiontd.tower.nether.NetherAugmentsGameTest",
       "kim.biryeong.semiontd.tower.end.EndTowerAugmentCombatTest",
     "kim.biryeong.semiontd.tower.end.EndDragonAssaultTest",
+      "kim.biryeong.semiontd.tower.end.EndDragonLaneAssaultTest",
       "kim.biryeong.semiontd.tower.warlock.WarlockTowerAugmentCombatTest",
       "kim.biryeong.semiontd.tower.illager.IllagerAugmentsGameTest",
       "kim.biryeong.semiontd.augment.AugmentControllerGameTest",

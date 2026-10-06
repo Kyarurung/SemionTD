@@ -168,6 +168,7 @@ public final class EndTower extends EntityBackedTower {
             assault.tickBurns(this);
         }
         if (isDestroyed(lane)) {
+            assault.cancel();
             return;
         }
         if (waveActive && isCoreTower() && state().hatched()) {

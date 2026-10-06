@@ -408,7 +408,7 @@ tick 값은 Minecraft 기준 `20 tick = 1초`로 계산합니다.
 
 ## `augment_balance.json`
 
-엔드 빌더 `semiontd:job_end_towers_p`는 라운드당 1회 돌진·브레스 효과입니다. 기본값은 `chargeTicks=60`, `rushDamageRatio=1.0`, `stunTicks=200`, `knockbackDistance=20`, `flightHeight=10`, `width=6`, `burnDurationTicks=200`, `burnIntervalTicks=20`, `burnDamageRatio=0.25`입니다. 이전 복제 효과의 `statRatio`는 기존 설정 로딩 때 무시하며, 생략된 새 키는 기본값을 사용합니다. 운영 설정 파일을 자동으로 덮어쓰지 않습니다.
+엔드 빌더 `semiontd:job_end_towers_p`는 라운드당 1회 돌진·브레스 효과입니다. 기본값은 `chargeTicks=60`, `rushDamageRatio=1.0`, `stunTicks=200`, `knockbackDistance=20`, `flightHeight=10`, `burnDurationTicks=200`, `burnIntervalTicks=20`, `burnDamageRatio=0.25`입니다. 돌진·브레스는 실제 통로와 소환 영역 전체 폭을 사용하므로 기존 `width` 키는 호환을 위해 읽지만 폭을 제한하지 않습니다. 돌진과 브레스의 각 이동 판정은 60틱이며 전방 이탈·후방 재등장 오프셋은 각각 5블록입니다. `flightHeight`는 출현 마커의 높이가 아닌 실제 바닥 높이를 기준으로 합니다. 이전 복제 효과의 `statRatio`는 기존 설정 로딩 때 무시하며, 생략된 새 키는 기본값을 사용합니다. 운영 설정 파일을 자동으로 덮어쓰지 않습니다.
 
 `enabled`와 `publicPoolEnabled`의 기본값은 모두 `true`입니다. 일반 게임의 생존 참가자에게 5·15·25라운드 준비 단계에서 증강 세 장 중 하나를 고르게 합니다. 샌드박스·튜토리얼·일반 게임이 아닌 모드에는 적용하지 않습니다. `enabled=false`는 증강 시스템 전체를, `publicPoolEnabled=false`는 정규 라운드 카드 제시를 끕니다. 기존 운영 설정의 명시적 값은 보존됩니다. 설정 변경은 실행 중 경기의 스냅샷을 바꾸지 않고 설정 재로드 후 새 경기에 반영됩니다.
 

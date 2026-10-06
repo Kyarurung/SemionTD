@@ -16,21 +16,24 @@ import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
-import kim.biryeong.semiontd.tower.area.LineTargets;
 import kim.biryeong.semiontd.tower.area.TowerAreaDamage;
 import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 
 final class EndDragonAssault {
-    enum Phase { READY, REARWARD, CHARGING, RUSHING, ASCENDING, BREATHING, RETURNING, SPENT }
+    enum Phase { READY, CHARGING, RUSHING, EXITING, VANISHED, BREATHING, RETURNING, SPENT }
 
     private Phase phase = Phase.READY;
     private SemionTowerEntity source;
     private boolean previousNoAi;
-    private Vec3 rear;
-    private Vec3 front;
+    private boolean previousInvisible;
+    private EndDragonAssaultGeometry geometry;
+    private int sweepTicks;
+    private static final int SWEEP_TICKS = 60;
     private double groundY;
     private int chargeTicks;
     private final Set<UUID> rushHits = new HashSet<>();
@@ -50,6 +53,7 @@ final class EndDragonAssault {
     void cancel() {
         if (controlsFlight() && source != null) {
             source.setNoAi(previousNoAi);
+            source.setInvisible(previousInvisible);
             source.setDeltaMovement(Vec3.ZERO);
         }
         if (phase != Phase.READY) {phase = Phase.SPENT;}
@@ -75,74 +79,104 @@ final class EndDragonAssault {
         if (phase == Phase.READY) {
             source = current;
             previousNoAi = source.isNoAi();
-            var layout = lane.laneLayout();
-            groundY = layout.spawn().y;
-            Vec3 back = layout.personalWaypoints().isEmpty() ? layout.bossPosition() : layout.personalWaypoints().getLast();
-            rear = new Vec3(back.x, groundY + 1, back.z);
-            front = new Vec3(layout.spawn().x, groundY + 1, layout.spawn().z);
+            previousInvisible = source.isInvisible();
+            groundY = floorY(lane);
+            geometry = EndDragonAssaultGeometry.from(lane.laneLayout(), groundY);
             chargeTicks = 0;
-            phase = Phase.REARWARD;
+            phase = Phase.CHARGING;
+            source.setNoAi(true);
+            source.getNavigation().stop();
+            source.setDeltaMovement(Vec3.ZERO);
+            face(geometry.front().add(0, source.getEyeHeight(), 0));
+            return;
         }
         if (current != source) {cancel();return;}
         source.setNoAi(true);
         source.getNavigation().stop();
         source.setDeltaMovement(Vec3.ZERO);
         switch (phase) {
-            case REARWARD -> {
-                if (move(rear, .6)) {phase = Phase.CHARGING;}
-            }
             case CHARGING -> {
-                source.faceDragonPosition(front.add(0, source.getEyeHeight(), 0));
+                face(geometry.front().add(0, source.getEyeHeight(), 0));
                 EndVfx.assaultCharge(lane.arenaWorld(), source.position(),
                         chargeTicks / parameter(tower, "chargeTicks", 60), chargeTicks);
-                if (++chargeTicks >= parameter(tower, "chargeTicks", 60)) {phase = Phase.RUSHING;}
+                if (++chargeTicks >= parameter(tower, "chargeTicks", 60)) {
+                    source.setPos(geometry.rear());
+                    face(geometry.front().add(0, source.getEyeHeight(), 0));
+                    sweepTicks = 0;
+                    phase = Phase.RUSHING;
+                }
             }
             case RUSHING -> {
-                Vec3 from = source.position();
-                boolean arrived = move(front, 1.5);
-                rush(tower, lane, from, source.position());
-                if (arrived) {phase = Phase.ASCENDING;}
+                double from = geometry.length() * sweepTicks / SWEEP_TICKS;
+                double to = geometry.length() * ++sweepTicks / SWEEP_TICKS;
+                source.setPos(geometry.point(to));
+                face(source.position().add(geometry.direction()).add(0, source.getEyeHeight(), 0));
+                rush(tower, lane, from, to);
+                EndVfx.assaultWave(lane.arenaWorld(), geometry.point(to), geometry.direction(), geometry.width());
+                if (sweepTicks == SWEEP_TICKS) {phase = Phase.EXITING;}
             }
-            case ASCENDING -> {
-                if (move(high(tower, rear), .6)) {phase = Phase.BREATHING;}
+            case EXITING -> {
+                if (move(geometry.point(geometry.length() + 5), geometry.length() / SWEEP_TICKS)) {
+                    source.setInvisible(true);
+                    phase = Phase.VANISHED;
+                }
+            }
+            case VANISHED -> {
+                source.setPos(geometry.airborneRear(groundY, parameter(tower, "flightHeight", 10)));
+                source.setInvisible(previousInvisible);
+                face(geometry.rear().add(0, -1, 0));
+                sweepTicks = 0;
+                phase = Phase.BREATHING;
             }
             case BREATHING -> {
-                Vec3 from = source.position();
-                boolean arrived = move(high(tower, front), .45);
-                breathe(tower, lane.arenaWorld(), from, source.position());
-                if (arrived) {phase = Phase.RETURNING;}
+                double from = geometry.length() * sweepTicks / SWEEP_TICKS;
+                double to = geometry.length() * ++sweepTicks / SWEEP_TICKS;
+                Vec3 ground = geometry.point(to).add(0, -1, 0);
+                face(ground);
+                breathe(tower, lane.arenaWorld(), from, to);
+                if (sweepTicks == SWEEP_TICKS) {phase = Phase.RETURNING;}
             }
             case RETURNING -> {
-                if (move(rear, .6)) {cancel();}
+                source.setPos(geometry.rear());
+                cancel();
             }
             default -> {}
         }
     }
 
-    private Vec3 high(EndTower tower, Vec3 point) {
-        return new Vec3(point.x, groundY + parameter(tower, "flightHeight", 10), point.z);
+    private static double floorY(PlayerLane lane) {
+        BlockPos start = BlockPos.containing(lane.laneLayout().spawn());
+        for (int depth = 0; depth <= 8; depth++) {
+            BlockPos pos = start.below(depth);
+            var shape = lane.arenaWorld().getBlockState(pos).getCollisionShape(lane.arenaWorld(), pos);
+            if (!shape.isEmpty()) {return pos.getY() + shape.max(Direction.Axis.Y);}
+        }
+        return lane.laneLayout().spawn().y;
+    }
+
+    private void face(Vec3 target) {
+        source.faceDragonPosition(new Vec3(2 * source.getX() - target.x, target.y, 2 * source.getZ() - target.z));
     }
 
     private boolean move(Vec3 destination, double speed) {
         Vec3 offset = destination.subtract(source.position());
         double distance = offset.length();
-        if (distance > 1.0e-6) {source.faceDragonPosition(destination.add(0, source.getEyeHeight(), 0));}
+        if (distance > 1.0e-6) {face(destination.add(0, source.getEyeHeight(), 0));}
         source.setPos(distance <= speed ? destination : source.position().add(offset.scale(speed / distance)));
         return distance <= speed;
     }
 
-    private MonsterAreaEffectRequest sweep(EndTower tower, Vec3 from, Vec3 to, Set<UUID> excluded, String effect) {
-        Vec3 groundFrom = new Vec3(from.x, groundY + 1, from.z);
-        Vec3 groundTo = new Vec3(to.x, groundY + 1, to.z);
-        double halfWidth = parameter(tower, "width", 6) / 2;
-        return new MonsterAreaEffectRequest(AreaEffectIds.tower(tower, effect), source,
-                groundFrom.lerp(groundTo, .5), groundFrom.distanceTo(groundTo) / 2 + Math.hypot(halfWidth, 3),
+    private MonsterAreaEffectRequest sweep(EndTower tower, double from, double to, Set<UUID> excluded, String effect) {
+        Vec3 center = geometry.point((from + to) / 2);
+        double radius = Math.sqrt(Math.pow((to - from) / 2, 2) + Math.pow(geometry.width() / 2, 2) + 16);
+        return new MonsterAreaEffectRequest(AreaEffectIds.tower(tower, effect), source, center, radius,
                 excluded, target -> source.isValidAttackTarget(target) && !target.isDominated()
+                        && target.runtimeMonster().targetLaneId() == tower.laneId()
                         && Math.abs(target.getY() - groundY) <= 3
-                        && LineTargets.distanceToSegment(target.position(), groundFrom, groundTo) <= halfWidth, null);
+                        && geometry.swept(target.position(), from, to), null);
     }
 
-    private void rush(EndTower tower, PlayerLane lane, Vec3 from, Vec3 to) {
+    private void rush(EndTower tower, PlayerLane lane, double from, double to) {
         TowerAreaDamage.applyResolved(tower, source, sweep(tower, from, to, rushHits, "dragon_assault_rush"),
                 target -> currentDamage(tower, target, parameter(tower, "rushDamageRatio", 1.0)), true,
                 (target, damage, killed) -> {
@@ -185,9 +219,9 @@ final class EndDragonAssault {
         }
     }
 
-    private void breathe(EndTower tower, ServerLevel level, Vec3 from, Vec3 to) {
-        EndVfx.assaultBreath(level, source.position(), new Vec3(to.x, groundY + 1, to.z),
-                parameter(tower, "width", 6));
+    private void breathe(EndTower tower, ServerLevel level, double from, double to) {
+        EndVfx.assaultBreath(level, source.position(), geometry.point(to).add(0, -1, 0),
+                geometry.direction(), geometry.width());
         SemionTdApi.areaEffects().applyToMonsters(sweep(tower, from, to, breathHits, "dragon_assault_breath"), target -> {
             breathHits.add(target.getUUID());
             target.applyTimedEffect(TimedEffectType.MONSTER_IGNITED, AreaEffectIds.tower(tower, "dragon_assault_burn"),
@@ -202,14 +236,16 @@ final class EndDragonAssault {
         if (source == null || !AugmentCombat.allowsTriggers()) {return;}
         for (Iterator<Burn> iterator = burns.iterator(); iterator.hasNext();) {
             Burn burn = iterator.next();
-            if (!burn.target.isAlive() || burn.target.isRemoved()) {clearBurnMark(burn.target);iterator.remove();continue;}
+            if (!burn.target.isAlive() || burn.target.isRemoved() || burn.target.isDominated()
+                    || burn.target.runtimeMonster().targetTeam() != tower.teamId()
+                    || burn.target.runtimeMonster().targetLaneId() != tower.laneId()) {clearBurnMark(burn.target);iterator.remove();continue;}
             burn.remainingTicks--;
             if (--burn.untilDamage <= 0) {
                 double damage = currentDamage(tower, burn.target, parameter(tower, "burnDamageRatio", .25));
                 var result = tower.damageResolvedTargetResult(source, burn.target, damage, DamageType.MAGIC);
                 if (result.killed()) {tower.onKill(source, burn.target, damage);}
                 if (source.level() instanceof ServerLevel level) {
-                    level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, burn.target.getX(), burn.target.getY() + 1,
+                    level.sendParticles(net.minecraft.core.particles.PowerParticleOption.create(ParticleTypes.DRAGON_BREATH, 1.0F), burn.target.getX(), burn.target.getY() + 1,
                             burn.target.getZ(), 5, .3, .4, .3, .01);
                 }
                 burn.untilDamage = (int) parameter(tower, "burnIntervalTicks", 20);
@@ -236,10 +272,10 @@ final class EndDragonAssault {
     String detail() {
         return "차원의 수호자: 라운드당 1회 / " + switch (phase) {
             case READY -> "드래곤 진화 대기";
-            case REARWARD -> "후방 이동";
             case CHARGING -> "돌진 준비";
             case RUSHING -> "돌진";
-            case ASCENDING -> "후방 상승";
+            case EXITING -> "전방 이탈";
+            case VANISHED -> "후방 재등장";
             case BREATHING -> "브레스";
             case RETURNING -> "복귀";
             case SPENT -> "사용 완료";

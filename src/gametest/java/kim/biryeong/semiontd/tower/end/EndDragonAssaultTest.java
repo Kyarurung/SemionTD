@@ -15,8 +15,22 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.phys.Vec3;
 
-public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
-    @GameTest
+public final class EndDragonAssaultTest extends TowerCoreAugmentFixture implements kim.biryeong.semiontd.gametest.RuntimeArenaFixture {
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
+    public void hatchChargesInPlaceBeforeTeleportingToTheRear(GameTestHelper context) {
+        try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
+            EndTower core = dragon(fixture);
+            Vec3 hatch = fixture.entity(core).position();
+            tick(core, fixture, 1);
+            require(core.assaultPhase() == EndDragonAssault.Phase.CHARGING,
+                    "Dragon evolution must immediately enter charging at the hatch location.");
+            requireClose(0, fixture.entity(core).position().distanceTo(hatch),
+                    "The dragon must charge where it hatched, before teleporting rearward.");
+            context.succeed();
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void chargeWaitsSixtyTicksAndRushDamagesOnceWithIncomeOnlyStun(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
             EndTower core = dragon(fixture);
@@ -29,7 +43,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
             SemionMonsterEntity immune = target(fixture, middle.add(.2, 0, 0), true, 1);
             immune.applyTimedEffect(TimedEffectType.MONSTER_DAMAGE_REDUCTION, 1, 1000);
             SemionMonsterEntity otherLane = target(fixture, middle, true, 2);
-            SemionMonsterEntity outside = target(fixture, middle.add(5, 0, -5), true, 1);
+            SemionMonsterEntity outside = target(fixture, rear(fixture).add(2, 0, 0), true, 1);
             source.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_BONUS, .5, 1000);
             double expected = core.resolveBasicAttackOutgoingDamage(source, income, source.attackDamageAmount(income));
             tick(core, fixture, 59);
@@ -38,7 +52,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
             tick(core, fixture, 1);
             require(core.assaultPhase() == EndDragonAssault.Phase.RUSHING, "The sixtieth charge tick arms the rush.");
             requireClose(0, source.getXRot(), "Charging faces horizontally along the lane.");
-            advance(core, fixture, EndDragonAssault.Phase.ASCENDING);
+            advance(core, fixture, EndDragonAssault.Phase.EXITING);
             requireClose(expected, 10000 - income.runtimeMonster().health(), "One swept rush applies current physical damage at 100% once.");
             requireClose(expected, 10000 - wave.runtimeMonster().health(), "Wave enemies also receive the physical rush hit.");
             requireClose(200, income.activeTimedEffectTicks(TimedEffectType.MONSTER_STUN), "Actually damaged income monsters receive exactly ten seconds of stun.");
@@ -57,19 +71,19 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void breathAtLanePlusTenBurnsTenTimesUsingCurrentDamageAndThenStops(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
             EndTower core = dragon(fixture);
             SemionTowerEntity source = fixture.entity(core);
             advance(core, fixture, EndDragonAssault.Phase.BREATHING);
-            requireClose(fixture.lane.laneLayout().spawn().y + 10, source.getY(), "The breath begins exactly ten blocks above lane Y.");
-            requireClose(rear(fixture).x, source.getX(), "The breath begins at the rear, not at the end of the rush.");
-            SemionMonsterEntity victim = target(fixture, rear(fixture), false, 1);
+            requireClose(Math.floor(fixture.lane.laneLayout().spawn().y) + 10, source.getY(), "The breath begins exactly ten blocks above the actual lane floor.");
+            requireClose(0, source.position().distanceTo(geometry(fixture).airborneRear(Math.floor(fixture.lane.laneLayout().spawn().y), 10)), "Breath begins five blocks behind the rear and ten above the floor.");
+            SemionMonsterEntity victim = target(fixture, rear(fixture).add(geometry(fixture).direction().scale(.1)), false, 1);
             tick(core, fixture, 1);
             requireClose(10000, victim.runtimeMonster().health(), "Breath contact starts a burn without an extra immediate hit.");
-            requireClose(0, source.getXRot(), "The high breath pass keeps the flying dragon level.");
-            victim.setPos(victim.position().add(30, 0, 0));
+            require(source.getXRot() > 0, "The fixed elevated dragon must aim diagonally down at the lane.");
+            victim.setPos(front(fixture).add(20, 0, 0));
             tick(core, fixture, 19);
             requireClose(10000, victim.runtimeMonster().health(), "The first burn waits twenty ticks after contact.");
             double first = core.resolveBasicAttackOutgoingDamage(source, victim, source.attackDamageAmount(victim) * .25);
@@ -88,7 +102,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void oneUseSurvivesRepeatedWaveNotificationAndRefreshThenResetsNextRound(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
             EndTower core = dragon(fixture);
@@ -110,12 +124,12 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void deathStopsFlightButAppliedBurnFinishesAndRoundResetClearsPendingBurn(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
             EndTower core = dragon(fixture);
             advance(core, fixture, EndDragonAssault.Phase.BREATHING);
-            SemionMonsterEntity victim = target(fixture, rear(fixture), true, 1);
+            SemionMonsterEntity victim = target(fixture, rear(fixture).add(geometry(fixture).direction().scale(.1)), true, 1);
             SemionTowerEntity source = fixture.entity(core);
             double pulse = core.resolveBasicAttackOutgoingDamage(source, victim, source.attackDamageAmount(victim) * .25);
             tick(core, fixture, 1);
@@ -126,7 +140,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
             core.resetForRound(fixture.lane);
             core.onWaveStarted(fixture.lane, 6);
             advance(core, fixture, EndDragonAssault.Phase.BREATHING);
-            victim.setPos(rear(fixture));
+            victim.setPos(rear(fixture).add(geometry(fixture).direction().scale(.1)));
             double before = victim.runtimeMonster().health();
             tick(core, fixture, 1);
             core.resetForRound(fixture.lane);
@@ -136,7 +150,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void phantomAndMissingAugmentCannotStartAndSuppressedTriggersDoNotConsumeUse(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context, EndAugments.ASSAULT)) {
             EndTower phantom = fixture.end(EndTowers.BASE_END_TOWER);
@@ -160,7 +174,7 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest
+    @GameTest(structure = "semion-td-gametest:dragon_lane")
     public void knockbackTraversesTwentyBlocksOfBentPathAndStopsBeforeWalls(GameTestHelper context) {
         try (Fixture fixture = new Fixture(context)) {
             Vec3 origin = fixture.lane.laneLayout().spawn();
@@ -199,13 +213,13 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         }
     }
 
-    @GameTest(maxTicks = 230)
+    @GameTest(structure = "semion-td-gametest:dragon_lane", maxTicks = 230)
     public void rushStunExpiresAtExactlyTwoHundredServerTicks(GameTestHelper context) {
         Fixture fixture = new Fixture(context, EndAugments.ASSAULT);
         EndTower core = dragon(fixture);
         advance(core, fixture, EndDragonAssault.Phase.CHARGING);
         SemionMonsterEntity victim = target(fixture, rear(fixture).lerp(front(fixture), .5), true, 1);
-        advance(core, fixture, EndDragonAssault.Phase.ASCENDING);
+        advance(core, fixture, EndDragonAssault.Phase.EXITING);
         requireClose(200, victim.activeTimedEffectTicks(TimedEffectType.MONSTER_STUN), "The rush installs two hundred stun ticks.");
         context.startSequence()
                 .thenIdle(199)
@@ -227,6 +241,14 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
     }
 
     private static EndTower dragon(Fixture fixture) {
+        var bounds = fixture.lane.laneLayout().laneArea();
+        int floorBlockY = (int) Math.floor(fixture.lane.laneLayout().spawn().y) - 1;
+        for (int x = bounds.min().getX(); x <= bounds.max().getX(); x++) {
+            for (int z = bounds.min().getZ(); z <= bounds.max().getZ(); z++) {
+                fixture.lane.arenaWorld().setBlockAndUpdate(new net.minecraft.core.BlockPos(x, floorBlockY, z),
+                        net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            }
+        }
         TowerType base = EndTowers.BASE_END_TOWER;
         TowerType giant = new TowerType(base.id(), base.displayName(), base.category(), base.mineralCost(),
                 1_000_000, base.range(), base.damage(), base.attackIntervalTicks(), base.aggroPriority(),
@@ -245,14 +267,13 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture {
         for (int i = 0; i < ticks; i++) {core.tick(fixture.lane);}
     }
 
-    private static Vec3 rear(Fixture fixture) {
-        Vec3 point = fixture.lane.laneLayout().personalWaypoints().getLast();
-        return new Vec3(point.x, fixture.lane.laneLayout().spawn().y + 1, point.z);
+    private static EndDragonAssaultGeometry geometry(Fixture fixture) {
+        return EndDragonAssaultGeometry.from(fixture.lane.laneLayout(), Math.floor(fixture.lane.laneLayout().spawn().y));
     }
 
-    private static Vec3 front(Fixture fixture) {
-        return fixture.lane.laneLayout().spawn().add(0, 1, 0);
-    }
+    private static Vec3 rear(Fixture fixture) {return geometry(fixture).rear();}
+
+    private static Vec3 front(Fixture fixture) {return geometry(fixture).front();}
 
     private static SemionMonsterEntity target(Fixture fixture, Vec3 position, boolean income, int laneId) {
         SemionMonsterEntity target = fixture.target(position, 10000);
