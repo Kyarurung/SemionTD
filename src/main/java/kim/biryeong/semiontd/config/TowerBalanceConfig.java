@@ -3527,8 +3527,8 @@ public record TowerBalanceConfig(
     private static void putInsectUpgrades(Map<String, Long> upgrades) {
         putUpgrade(upgrades, InsectTowers.SILVERFISH, InsectTowers.ENDERMITE.id(), 75);
         putUpgrade(upgrades, InsectTowers.ENDERMITE, InsectTowers.ENHANCED_ENDERMITE.id(), 140);
-        putUpgrade(upgrades, InsectTowers.CAVE_SPIDER, InsectTowers.SPIDER.id(), 90);
-        putUpgrade(upgrades, InsectTowers.SPIDER, InsectTowers.ENHANCED_SPIDER.id(), 160);
+        putUpgrade(upgrades, InsectTowers.CAVE_SPIDER, InsectTowers.SPIDER.id(), 115);
+        putUpgrade(upgrades, InsectTowers.SPIDER, InsectTowers.ENHANCED_SPIDER.id(), 185);
         putUpgrade(upgrades, InsectTowers.BEE, InsectTowers.ENHANCED_BEE.id(), 90);
         putUpgrade(upgrades, InsectTowers.ENHANCED_BEE, InsectTowers.QUEEN_BEE.id(), 170);
     }
@@ -4869,12 +4869,12 @@ public record TowerBalanceConfig(
         values.put(TRANSFER_HEAL.key(), 30.0);
         values.put(TRANSFER_HEAL_RATIO.key(), 0.05);
         values.put(ROUND_HEALTH_RATIO.key(), 0.50);
-        values.put(PERMANENT_HEALTH_RATIO.key(), 0.04);
+        values.put(PERMANENT_HEALTH_RATIO.key(), 0.06);
         values.put(HEALTH_THRESHOLD.key(), 3000.0);
         values.put(HEALTH_SCALE.key(), 500.0);
         values.put(ROUND_DAMAGE_RATIO.key(), 0.66);
-        values.put(PERMANENT_DAMAGE_RATIO.key(), 0.04);
-        values.put(DAMAGE_THRESHOLD.key(), 150.0);
+        values.put(PERMANENT_DAMAGE_RATIO.key(), 0.06);
+        values.put(DAMAGE_THRESHOLD.key(), 175.0);
         values.put(DAMAGE_SCALE.key(), 50.0);
         values.put(LIFE_STEAL_STACKS.key(), 30.0);
         values.put(LIFE_STEAL_STEP.key(), 0.01);
@@ -5044,8 +5044,8 @@ public record TowerBalanceConfig(
     private static Map<String, Double> baseWarlockAbilities() {
         LinkedHashMap<String, Double> values = new LinkedHashMap<>();
         values.put("sacrificeRadius", 6.0);
-        values.put("permanentHealth", 0.025);
-        values.put("permanentDamage", 0.05);
+        values.put("permanentHealth", 0.02);
+        values.put("permanentDamage", 0.02);
         return values;
     }
 
@@ -5053,11 +5053,11 @@ public record TowerBalanceConfig(
         LinkedHashMap<String, Double> values = new LinkedHashMap<>();
         values.put("threshold", 0.65);
         values.put("roundStat", 0.50);
-        values.put("permanentHealth", 0.025);
+        values.put("permanentHealth", 0.04);
         values.put("healthThreshold", 2000.0);
         values.put("healthScale", 500.0);
-        values.put("permanentDamage", 0.05);
-        values.put("damageThreshold", 140.0);
+        values.put("permanentDamage", 0.07);
+        values.put("damageThreshold", 160.0);
         values.put("damageScale", 40.0);
         values.put("lifeEvery", 10.0);
         values.put("lifeStep", 0.005);
@@ -5083,10 +5083,10 @@ public record TowerBalanceConfig(
         LinkedHashMap<String, Double> values = new LinkedHashMap<>();
         values.put("threshold", 0.65);
         values.put("roundStat", 0.60);
-        values.put("permanentHealth", 0.05);
+        values.put("permanentHealth", 0.07);
         values.put("healthThreshold", 3500.0);
         values.put("healthScale", 500.0);
-        values.put("permanentDamage", 0.025);
+        values.put("permanentDamage", 0.04);
         values.put("damageThreshold", 200.0);
         values.put("damageScale", 20.0);
         values.put("lifeStep", 0.01);

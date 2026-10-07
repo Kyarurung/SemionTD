@@ -4,12 +4,24 @@
   "version": "1.0.0",
   "name": "semion-td-gametest",
   "environment": "*",
+  "mixins": [
+    {"config": "semiontd-card-dialog-poc.mixins.json", "environment": "server"}
+  ],
   "entrypoints": {
     "main": [
       "kim.biryeong.semiontd.gametest.RuntimeEnvironmentFixture",
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.tower.demonlord.DemonLordSwapInputTest",
+      "kim.biryeong.semiontd.augment.AugmentOfferPresentationTest",
+      "kim.biryeong.semiontd.ui.UiAugmentOfferViewTest",
+      "kim.biryeong.semiontd.tower.pet.PetCatRangeTest",
+      "kim.biryeong.semiontd.tower.demonlord.DemonLordTickScaleSyncTest",
+      "kim.biryeong.semiontd.tower.income.IncomeOgrePopulationTest",
+      "kim.biryeong.semiontd.tower.income.IncomeDispatchDamageTest",
+      "kim.biryeong.semiontd.summon.ElderGuardianAttackSpeedTest",
+      "kim.biryeong.semiontd.tower.magicschool.MagicSchoolHealthDisplayTest",
       "kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowerIntegrationTest",
       "kim.biryeong.semiontd.tower.magicschool.MagicSchoolSpellCombatTest",
       "kim.biryeong.semiontd.tower.magicschool.MagicSchoolCurriculumCombatTest",
@@ -54,8 +66,9 @@
       "kim.biryeong.semiontd.tower.undead.UndeadAugmentsGameTest",
       "kim.biryeong.semiontd.tower.nether.NetherAugmentsGameTest",
       "kim.biryeong.semiontd.tower.end.EndTowerAugmentCombatTest",
-    "kim.biryeong.semiontd.tower.end.EndDragonAssaultTest",
+      "kim.biryeong.semiontd.tower.end.EndDragonAssaultTest",
       "kim.biryeong.semiontd.tower.end.EndDragonLaneAssaultTest",
+      "kim.biryeong.semiontd.tower.end.EndDragonVisibilityPacketTest",
       "kim.biryeong.semiontd.tower.warlock.WarlockTowerAugmentCombatTest",
       "kim.biryeong.semiontd.tower.illager.IllagerAugmentsGameTest",
       "kim.biryeong.semiontd.augment.AugmentControllerGameTest",
@@ -114,6 +127,7 @@
       "kim.biryeong.semiontd.tower.undead.UndeadTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.atlantis.AtlantisTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.end.EndTowerRuntimeTest",
+      "kim.biryeong.semiontd.tower.end.EndDragonBreathVfxTest",
       "kim.biryeong.semiontd.tower.developer.DeveloperTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.adversary.AdversaryTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.TowerBuilderTargetPolicyTest",
@@ -134,6 +148,12 @@
       "kim.biryeong.semiontd.gametest.RuntimePacketContextTest",
       "kim.biryeong.semiontd.ui.UiDialogFontTest",
       "kim.biryeong.semiontd.command.CommandJobAvailabilityTest"
+    ],
+    "server": [
+      "kim.biryeong.semiontd.augment.AugmentCaptureServer"
+    ],
+    "fabric-client-gametest": [
+      "kim.biryeong.semiontd.ui.AugmentClientCaptureTest"
     ]
   }
 }

@@ -11,6 +11,70 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import kim.biryeong.semiontd.tower.TowerCoreAugmentFixture;
 
 public final class WarlockTowerAugmentCombatTest extends TowerCoreAugmentFixture {
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void explosiveSacrificeDoesNotBoostAnyPermanentGrowthButKeepsExplosion(GameTestHelper context) {
+        var types = new kim.biryeong.semiontd.tower.TowerType[]{WarlockTowers.BASE_WARLOCK_TOWER,
+                WarlockTowers.RANGED_WARLOCK_TOWER, WarlockTowers.MELEE_WARLOCK_TOWER};
+        double[] healthRatios = {.02, .04, .07};
+        double[] damageRatios = {.02, .07, .04};
+        double[] roundRatios = {0, .50, .60};
+        for (int path = 0; path < types.length; path++) {
+            for (int variant = 0; variant < 3; variant++) {
+                try (Fixture fixture = new Fixture(context, variant == 0 ? new String[]{} : new String[]{WarlockAugments.EXPLOSIVE})) {
+                    if (variant == 2) {
+                        var config = kim.biryeong.semiontd.augment.AugmentConfig.fromJson(
+                                com.google.gson.JsonParser.parseString("""
+                                        {"parameters":{"job_warlock_towers_g1":{"growthBonus":9}}}
+                                        """).getAsJsonObject());
+                        fixture.lane.assignAugmentSnapshot(new kim.biryeong.semiontd.augment.AugmentSnapshot(config,
+                                java.util.List.of(new kim.biryeong.semiontd.augment.PlayerAugmentState.Selection(5,
+                                        kim.biryeong.semiontd.augment.AugmentRarity.GOLD, WarlockAugments.EXPLOSIVE,
+                                        kim.biryeong.semiontd.augment.PlayerAugmentState.Outcome.SELECTED, null,
+                                        kim.biryeong.semiontd.augment.AugmentChoice.none()))));
+                    }
+                    WarlockTower core = new WarlockTower(types[path], fixture.owner, TeamId.RED, 1, fixture.position(0));
+                    fixture.add(core);
+                    WarlockSacrificeTower donor = new WarlockSacrificeTower(WarlockTowers.T1_SLAVE,
+                            fixture.owner, TeamId.RED, 1, fixture.position(2));
+                    fixture.add(donor);
+                    double donatedHealth = donor.currentMaxHealth();
+                    double donatedDamage = donor.sacrificeAttackDamage();
+                    var center = fixture.entity(donor).position();
+                    var victims = new java.util.ArrayList<SemionMonsterEntity>();
+                    for (int index = 0; index < 13; index++) {
+                        victims.add(fixture.target(center.add(0, 0, .1 + index * .1), 1000));
+                    }
+                    var outside = fixture.target(center.add(0, 0, 3.01), 1000);
+                    SemionTowerEntity source = fixture.entity(core);
+                    source.setHealth(2);
+                    core.syncHealth(2);
+                    source.applyTransferredDamage(path == 0 ? 2 : 1);
+                    require(donor.health() == 0, "The real damage hook must commit one sacrifice for path " + path
+                            + " and augment variant " + variant + ".");
+                    require(source.isAlive() && core.health() > 0, "Absorption must heal the triggering damage.");
+                    requireClose(donatedHealth * (healthRatios[path] + roundRatios[path]), core.rawHealthBonus(),
+                            "Explosive sacrifice never changes permanent or round health growth.");
+                    requireClose(donatedDamage * (damageRatios[path] + roundRatios[path]), core.rawDamageBonus(),
+                            "Explosive sacrifice never changes permanent or round damage growth.");
+                    requireClose(variant == 0 ? 0 : 12 * donatedHealth, core.roundMagicDamageDealt(),
+                            "Explosion preserves donor-health damage and the twelve-target cap.");
+                    requireClose(0, core.roundPhysicalDamageDealt(), "Explosion introduces no physical damage.");
+                    for (int index = 0; index < 13; index++) {
+                        requireClose(variant > 0 && index < 12 ? 1000 - donatedHealth : 1000,
+                                victims.get(index).runtimeMonster().health(), "Only the nearest twelve targets receive one explosion.");
+                    }
+                    requireClose(1000, outside.runtimeMonster().health(), "The three-block explosion radius is preserved.");
+                    core.resetForRound(fixture.lane);
+                    requireClose(donatedHealth * healthRatios[path], core.rawHealthBonus(),
+                            "Only unchanged base permanent health remains next round.");
+                    requireClose(donatedDamage * damageRatios[path], core.rawDamageBonus(),
+                            "Only unchanged base permanent damage remains next round.");
+                }
+            }
+        }
+        context.succeed();
+    }
+
     @GameTest
     public void awakeningVfxChargesOnceThenBurstsAndStopsOnResetOrDeath(GameTestHelper context) {
         for (var type : new kim.biryeong.semiontd.tower.TowerType[] {

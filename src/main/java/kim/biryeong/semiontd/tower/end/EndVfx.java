@@ -48,14 +48,19 @@ final class EndVfx {
     }
 
     static void assaultBreath(ServerLevel level, Vec3 source, Vec3 ground, Vec3 direction, double width) {
+        Vec3 mouth = EndDragonBreathGeometry.mouth(source, direction);
         Vec3 side = new Vec3(-direction.z, 0, direction.x);
-        for (int ray = -1; ray <= 1; ray++) {
-            Vec3 end = ground.add(side.scale(width * .5 * ray));
-            int steps = Math.max(6, (int) Math.ceil(source.distanceTo(end) / 2));
-            for (int step = 0; step <= steps; step++) {
-                Vec3 point = source.lerp(end, step / (double) steps);
+        for (int ray : new int[]{0, -2, -1, 1, 2}) {
+            Vec3 end = ground.add(side.scale(width * .25 * ray));
+            for (int step = 0; step <= 6; step++) {
+                double progress = step / 6.0;
+                Vec3 point = EndDragonBreathGeometry.point(mouth, end, direction, progress)
+                        .add(side.scale(.125 * ray * (1 - progress)));
+                double depth = .1 + .65 * progress;
                 level.sendParticles(net.minecraft.core.particles.PowerParticleOption.create(ParticleTypes.DRAGON_BREATH, 1.0F),
-                        point.x, point.y, point.z, 1, .15, .15, .15, .01);
+                        point.x, point.y, point.z, 1,
+                        Math.abs(direction.x) * depth + Math.abs(side.x) * .1, .1,
+                        Math.abs(direction.z) * depth + Math.abs(side.z) * .1, .01);
             }
         }
         assaultWave(level, ground.add(0, .2, 0), direction, width);

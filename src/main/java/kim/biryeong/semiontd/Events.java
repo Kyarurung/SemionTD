@@ -88,9 +88,6 @@ public final class Events {
         Stimuli.global().listen(PlayerConsumeHungerEvent.EVENT, ((serverPlayer, i, v, v1) -> EventResult.DENY));
         // F 키. 마왕이 여섯 번째 스킬로 쓰므로 오프핸드 교체보다 먼저 가로챕니다.
         Stimuli.global().listen(PlayerSwapWithOffhandEvent.EVENT, player -> {
-            if (DemonLordService.handleKeyBinding(gameManager, player, DemonLordBinding.OFFHAND)) {
-                return EventResult.DENY;
-            }
             return CosmeticItemSupport.isLockedOffhandCosmetic(player.getOffhandItem())
                     ? EventResult.DENY
                     : EventResult.PASS;
@@ -116,7 +113,8 @@ public final class Events {
             }
             ServerboundPlayerActionPacket.Action kind = action.getAction();
             if (kind != ServerboundPlayerActionPacket.Action.DROP_ITEM
-                    && kind != ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS) {
+                    && kind != ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS
+                    && kind != ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
                 return EventResult.PASS;
             }
             if (!DemonLordStates.isInCombat(player.getUUID())) {
@@ -127,8 +125,16 @@ public final class Events {
                 return EventResult.PASS;
             }
             server.execute(() -> {
-                DemonLordService.ignoreDropSwing(player);
-                DemonLordService.handleKeyBinding(gameManager, player, DemonLordBinding.DROP);
+                if (kind == ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
+                    if (server.getPlayerList().getPlayer(player.getUUID()) != player
+                            || !player.connection.hasClientLoaded() || player.isSpectator()) {
+                        return;
+                    }
+                    DemonLordService.handleKeyBinding(gameManager, player, DemonLordBinding.OFFHAND);
+                } else {
+                    DemonLordService.ignoreDropSwing(player);
+                    DemonLordService.handleKeyBinding(gameManager, player, DemonLordBinding.DROP);
+                }
                 // 패킷을 막아도 클라이언트는 이미 제 화면에서 아이템을 빼 버립니다. 서버는 그대로라
                 // 아무 변화가 없으니 자동 동기화도 일어나지 않고, 클라는 빈 손이라 믿은 채로 남아
                 // 마검을 다시 못 씁니다. 그래서 되돌려 보냅니다.

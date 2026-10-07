@@ -466,7 +466,6 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
     @Override
     protected void configureEntityAfterSpawn(SemionTowerEntity entity, PlayerLane lane) {
         entity.refreshMaxHealthEffects();
-        entity.setInvisible(true);
         entity.setCustomNameVisible(false);
         FakePlayerTowerVisuals.attach(entity, this);
     }

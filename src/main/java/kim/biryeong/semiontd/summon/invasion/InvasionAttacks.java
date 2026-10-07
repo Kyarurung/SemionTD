@@ -6,6 +6,7 @@ import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.Tower;
+import kim.biryeong.semiontd.tower.income.IncomeTowerService;
 import kim.biryeong.semiontd.tower.ancientcity.AncientCityTower;
 import kim.biryeong.semiontd.tower.area.AreaEffectLaneIndex;
 import kim.biryeong.semiontd.tower.plant.PlantTowers;
@@ -102,8 +103,14 @@ final class InvasionAttacks {
             public void hit(SemionMonsterEntity attacker, LivingEntity target) {
                 Vec3 center = target != null ? target.position() : attacker.position().add(attacker.getLookAngle().scale(2.0));
                 double damage = attacker.attackDamageAmount();
-                for (LivingEntity victim : defensesNear(attacker, center, radius)) {
-                    MonsterAttackStyle.strike(attacker, victim, damage);
+                if (IncomeTowerService.isDispatch(attacker.runtimeMonster())) {
+                    if (attacker.canDamageDefense(target)) {
+                        MonsterAttackStyle.strike(attacker, target, damage);
+                    }
+                } else {
+                    for (LivingEntity victim : defensesNear(attacker, center, radius)) {
+                        MonsterAttackStyle.strike(attacker, victim, damage);
+                    }
                 }
                 if (vfx != null) {
                     vfx.play(attacker, center);
@@ -186,8 +193,16 @@ final class InvasionAttacks {
                 }
                 Vec3 end = muzzle.add(direction.normalize().scale(length));
                 double damage = attacker.attackDamageAmount();
-                for (LivingEntity victim : defensesOnLine(attacker, muzzle, end, width)) {
-                    MonsterAttackStyle.strike(attacker, victim, damage);
+                if (IncomeTowerService.isDispatch(attacker.runtimeMonster())) {
+                    if (attacker.canDamageDefense(target)
+                            && (target.getBoundingBox().inflate(width).contains(muzzle)
+                            || target.getBoundingBox().inflate(width).clip(muzzle, end).isPresent())) {
+                        MonsterAttackStyle.strike(attacker, target, damage);
+                    }
+                } else {
+                    for (LivingEntity victim : defensesOnLine(attacker, muzzle, end, width)) {
+                        MonsterAttackStyle.strike(attacker, victim, damage);
+                    }
                 }
                 Vec3 origin = attacker.position();
                 InvasionVfx.playAt(level(attacker), InvasionVfx.dwarfShot(

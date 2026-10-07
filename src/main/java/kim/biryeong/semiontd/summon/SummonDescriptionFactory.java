@@ -26,8 +26,8 @@ public final class SummonDescriptionFactory {
                             + " 내 가까운 타워 최대 " + integer(definition, "maxTargets", 3)
                             + "기의 공격속도를 " + seconds(definition, "durationTicks", 100)
                             + "간 " + percent(value(definition, "attackSpeedMagnitude", 0.30))
-                            + ", 사거리를 " + percent(value(definition, "rangeMagnitude", 0.20))
-                            + " 감소시킵니다. (" + seconds(definition, "cooldownTicks", 80) + " 쿨타임)");
+                            + " 곱연산 감소시키고, 사거리를 " + percent(value(definition, "rangeMagnitude", 0.20))
+                            + " 곱연산 감소시킵니다. (" + seconds(definition, "cooldownTicks", 80) + " 쿨타임)");
             case "turtle" ->
                     addAllyBuffLine(lines, definition, "받는 피해", "magnitude", "감소");
             case "allay" ->
@@ -56,8 +56,7 @@ public final class SummonDescriptionFactory {
                             + " 감소시킵니다. (" + seconds(definition, "cooldownTicks", 60) + " 쿨타임)");
             case "guardian", "blaze", "ghast", "wither_skeleton", "warden" ->
                     addSupportLines(lines, definition);
-            default -> {
-            }
+            default -> definition.description().forEach(line -> addLine(lines, line));
         }
     }
 

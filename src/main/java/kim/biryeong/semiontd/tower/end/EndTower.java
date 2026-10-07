@@ -59,6 +59,18 @@ public final class EndTower extends EntityBackedTower {
     }
 
     @Override
+    public GridPosition managementPosition() {
+        return isCoreTower() && assault.phase() != EndDragonAssault.Phase.READY && !isTemporaryCopy()
+                ? originalPosition() : super.managementPosition();
+    }
+
+    @Override
+    public boolean reservesPlacementPosition(GridPosition position) {
+        return super.reservesPlacementPosition(position)
+                || !isTemporaryCopy() && position != null && position().equals(position);
+    }
+
+    @Override
     public EntityVisual visual() {
         if (!isCoreTower()) {
             return super.visual();

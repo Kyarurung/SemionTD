@@ -36,6 +36,8 @@ final class EndDragonAssault {
     private static final int SWEEP_TICKS = 60;
     private double groundY;
     private int chargeTicks;
+    private int breathDelayTicks;
+    private int returnTicks;
     private final Set<UUID> rushHits = new HashSet<>();
     private final Set<UUID> breathHits = new HashSet<>();
     private final List<Burn> burns = new ArrayList<>();
@@ -84,14 +86,14 @@ final class EndDragonAssault {
             geometry = EndDragonAssaultGeometry.from(lane.laneLayout(), groundY);
             chargeTicks = 0;
             phase = Phase.CHARGING;
-            source.setNoAi(true);
+            source.setNoAi(false);
             source.getNavigation().stop();
             source.setDeltaMovement(Vec3.ZERO);
             face(geometry.front().add(0, source.getEyeHeight(), 0));
             return;
         }
         if (current != source) {cancel();return;}
-        source.setNoAi(true);
+        source.setNoAi(false);
         source.getNavigation().stop();
         source.setDeltaMovement(Vec3.ZERO);
         switch (phase) {
@@ -107,38 +109,52 @@ final class EndDragonAssault {
                 }
             }
             case RUSHING -> {
-                double from = geometry.length() * sweepTicks / SWEEP_TICKS;
                 double to = geometry.length() * ++sweepTicks / SWEEP_TICKS;
                 source.setPos(geometry.point(to));
                 face(source.position().add(geometry.direction()).add(0, source.getEyeHeight(), 0));
-                rush(tower, lane, from, to);
+                rush(tower, lane, to);
                 EndVfx.assaultWave(lane.arenaWorld(), geometry.point(to), geometry.direction(), geometry.width());
-                if (sweepTicks == SWEEP_TICKS) {phase = Phase.EXITING;}
+                if (sweepTicks == SWEEP_TICKS) {breathDelayTicks = 0;phase = Phase.EXITING;}
             }
             case EXITING -> {
-                if (move(geometry.point(geometry.length() + 5), geometry.length() / SWEEP_TICKS)) {
+                breathDelayTicks++;
+                if (move(geometry.point(geometry.length() + 5), Math.max(geometry.length(), 6.0) / SWEEP_TICKS)) {
                     source.setInvisible(true);
                     phase = Phase.VANISHED;
                 }
             }
             case VANISHED -> {
+                if (++breathDelayTicks < SWEEP_TICKS) {break;}
                 source.setPos(geometry.airborneRear(groundY, parameter(tower, "flightHeight", 10)));
-                source.setInvisible(previousInvisible);
                 face(geometry.rear().add(0, -1, 0));
+                source.setInvisible(previousInvisible);
                 sweepTicks = 0;
                 phase = Phase.BREATHING;
             }
             case BREATHING -> {
-                double from = geometry.length() * sweepTicks / SWEEP_TICKS;
                 double to = geometry.length() * ++sweepTicks / SWEEP_TICKS;
+                Vec3 airborne = geometry.airborneRear(groundY, parameter(tower, "flightHeight", 10))
+                        .add(geometry.direction().scale((geometry.length() + 5) * sweepTicks / SWEEP_TICKS));
+                source.setPos(airborne);
                 Vec3 ground = geometry.point(to).add(0, -1, 0);
-                face(ground);
-                breathe(tower, lane.arenaWorld(), from, to);
-                if (sweepTicks == SWEEP_TICKS) {phase = Phase.RETURNING;}
+                face(ground.add(geometry.direction().scale(.01)));
+                breathe(tower, lane, to);
+                if (sweepTicks == SWEEP_TICKS) {
+                    source.setInvisible(true);
+                    returnTicks = 0;
+                    phase = Phase.RETURNING;
+                }
             }
             case RETURNING -> {
-                source.setPos(geometry.rear());
-                cancel();
+                if (++returnTicks < 4 || (returnTicks - 4) % 20 != 0) break;
+                EndDragonReturnPosition.find(tower, lane, source).ifPresent(position -> {
+                    tower.syncPosition(position);
+                    source.setPos(position.x() + .5, position.y() + tower.entityAnchorYOffset(), position.z() + .5);
+                    source.getMoveControl().setWantedPosition(source.getX(), source.getY(), source.getZ(), 0);
+                    source.recordCurrentAttackTarget(null);
+                    face(source.position().add(geometry.direction()).add(0, source.getEyeHeight(), 0));
+                    cancel();
+                });
             }
             default -> {}
         }
@@ -155,7 +171,7 @@ final class EndDragonAssault {
     }
 
     private void face(Vec3 target) {
-        source.faceDragonPosition(new Vec3(2 * source.getX() - target.x, target.y, 2 * source.getZ() - target.z));
+        source.faceDragonPosition(target);
     }
 
     private boolean move(Vec3 destination, double speed) {
@@ -166,22 +182,32 @@ final class EndDragonAssault {
         return distance <= speed;
     }
 
-    private MonsterAreaEffectRequest sweep(EndTower tower, double from, double to, Set<UUID> excluded, String effect) {
-        Vec3 center = geometry.point((from + to) / 2);
-        double radius = Math.sqrt(Math.pow((to - from) / 2, 2) + Math.pow(geometry.width() / 2, 2) + 16);
+    private MonsterAreaEffectRequest sweep(EndTower tower, PlayerLane lane, double to, Set<UUID> excluded, String effect) {
+        double minY = groundY - 1;
+        double maxY = groundY + 4;
+        for (var monster : lane.activeMonsters()) {
+            if (lane.arenaWorld().getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity target
+                    && geometry.swept(target.position(), 0, to)) {
+                minY = Math.min(minY, target.getY());
+                maxY = Math.max(maxY, target.getY());
+            }
+        }
+        Vec3 middle = geometry.point(to / 2);
+        Vec3 center = new Vec3(middle.x, (minY + maxY) / 2, middle.z);
+        double radius = Math.sqrt(to * to / 4 + geometry.width() * geometry.width() / 4
+                + (maxY - minY) * (maxY - minY) / 4) + .001;
         return new MonsterAreaEffectRequest(AreaEffectIds.tower(tower, effect), source, center, radius,
                 excluded, target -> source.isValidAttackTarget(target) && !target.isDominated()
                         && target.runtimeMonster().targetLaneId() == tower.laneId()
-                        && Math.abs(target.getY() - groundY) <= 3
-                        && geometry.swept(target.position(), from, to), null);
+                        && geometry.swept(target.position(), 0, to), null);
     }
 
-    private void rush(EndTower tower, PlayerLane lane, double from, double to) {
-        TowerAreaDamage.applyResolved(tower, source, sweep(tower, from, to, rushHits, "dragon_assault_rush"),
+    private void rush(EndTower tower, PlayerLane lane, double to) {
+        TowerAreaDamage.applyResolved(tower, source, sweep(tower, lane, to, rushHits, "dragon_assault_rush"),
                 target -> currentDamage(tower, target, parameter(tower, "rushDamageRatio", 1.0)), true,
                 (target, damage, killed) -> {
                     rushHits.add(target.getUUID());
-                    if (damage > 0 && !killed && target.runtimeMonster().senderTeam().isPresent()) {
+                    if (damage > 0 && !killed && target.runtimeMonster().origin() != kim.biryeong.semiontd.entity.monster.MonsterOrigin.NATURAL_WAVE) {
                         target.applyTimedEffect(TimedEffectType.MONSTER_STUN, 1, (int) parameter(tower, "stunTicks", 200));
                         knockBack(lane, target, parameter(tower, "knockbackDistance", 20));
                     }
@@ -219,10 +245,10 @@ final class EndDragonAssault {
         }
     }
 
-    private void breathe(EndTower tower, ServerLevel level, double from, double to) {
-        EndVfx.assaultBreath(level, source.position(), geometry.point(to).add(0, -1, 0),
+    private void breathe(EndTower tower, PlayerLane lane, double to) {
+        EndVfx.assaultBreath(lane.arenaWorld(), source.position(), geometry.point(to).add(0, -1, 0),
                 geometry.direction(), geometry.width());
-        SemionTdApi.areaEffects().applyToMonsters(sweep(tower, from, to, breathHits, "dragon_assault_breath"), target -> {
+        SemionTdApi.areaEffects().applyToMonsters(sweep(tower, lane, to, breathHits, "dragon_assault_breath"), target -> {
             breathHits.add(target.getUUID());
             target.applyTimedEffect(TimedEffectType.MONSTER_IGNITED, AreaEffectIds.tower(tower, "dragon_assault_burn"),
                     1, (int) parameter(tower, "burnDurationTicks", 200));

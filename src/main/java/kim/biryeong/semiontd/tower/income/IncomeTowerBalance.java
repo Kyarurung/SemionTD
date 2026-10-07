@@ -62,7 +62,7 @@ public final class IncomeTowerBalance {
             java.util.Map.entry("creaking", 2),
             java.util.Map.entry("siege_golem", 2),
             java.util.Map.entry("legion_commander", 3),
-            java.util.Map.entry("ogre_champion", 3)
+            java.util.Map.entry("ogre_champion", 4)
     );
 
     /** 현재 레벨에서 다음 레벨로 올리는 비용. 1→2는 설치비, 이후 레벨마다 설치비의 절반씩 비싸집니다. */

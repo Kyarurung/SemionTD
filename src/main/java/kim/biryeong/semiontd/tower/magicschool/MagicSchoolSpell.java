@@ -18,7 +18,7 @@ public enum MagicSchoolSpell {
     STUPEFY("stupefy", 2, "스튜페파이", 1,
             "대상별 명중을 합산하여 매 {hitsToStun}회마다 {stunTicks:s}초 기절시킵니다.", Map.of("hitsToStun", 3.0, "stunTicks", 10.0)),
     PROTEGO("protego", 2, "프로테고", .5,
-            "받는 피해가 라운드 종료까지 {damageReduction:p}% 감소합니다.\n전투 시작 시 어그로가 라운드 종료까지 {waveAggroBonus} 증가합니다.", Map.of("damageReduction", .2, "waveAggroBonus", 60.0)),
+            "받는 피해가 라운드 종료까지 {damageReduction:p}% 감소합니다.\n전투 시작 시 어그로가 라운드 종료까지 {waveAggroBonus} 증가합니다.", Map.of("damageReduction", .3, "waveAggroBonus", 60.0)),
     WINGARDIUM_LEVIOSA("wingardium_leviosa", 2, "윙가르디움 레비오우사", .85,
             "전투 시작 {intervalTicks:s}초 후부터 {intervalTicks:s}초마다 주변 {radius}칸 내 적에게 공격력 {liftDamageMultiplier:p}%의 마법 피해를 입히고 공중에 띄워 {stunTicks:s}초간 기절시킵니다.",
             Map.of("intervalTicks", 100.0, "radius", 6.0, "stunTicks", 24.0, "liftPower", .8, "liftDamageMultiplier", .25)),

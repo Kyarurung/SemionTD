@@ -123,7 +123,7 @@ public final class MagicSchoolCurriculumCombatTest implements kim.biryeong.semio
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
             double before = source.getHealth();
             source.hurt(source.damageSources().generic(), 250);
-            requireClose(before - 200, source.getHealth(), "Twenty-percent protection must reduce the hit before testing lethality.");
+            requireClose(before - 175, source.getHealth(), "Thirty-percent protection must reduce the hit before testing lethality.");
             source.setInvulnerableTime(0);
             source.hurt(source.damageSources().generic(), 1000);
             requireClose(wizard.currentMaxHealth() * .08, source.getHealth(), "A fatal hit must leave exactly eight percent health.");

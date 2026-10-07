@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import kim.biryeong.semiontd.entity.monster.Monster;
+import kim.biryeong.semiontd.entity.monster.MonsterDataKey;
 import kim.biryeong.semiontd.entity.visual.EntityVisual;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
@@ -20,6 +21,7 @@ import kim.biryeong.semiontd.tower.TowerPlacementPositions;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordIncome;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
 
 /**
  * 인컴 타워 설치·레벨업·판매·대상 지정, 그리고 준비 시간 종료 시 유닛 파견용 몬스터 생성.
@@ -28,6 +30,22 @@ import net.minecraft.core.BlockPos;
  * 설치와 관리는 준비 단계에서만 됩니다. 비용은 에메랄드이고, 타워 수는 일반 타워와 같이 셉니다.
  */
 public final class IncomeTowerService {
+    private static final MonsterDataKey<Boolean> DISPATCH = MonsterDataKey.of(
+            Identifier.fromNamespaceAndPath("semion-td", "income_tower_dispatch"), Boolean.class);
+
+    public static boolean isDispatch(Monster monster) {
+        return monster != null && monster.getData(DISPATCH).orElse(false);
+    }
+
+    public static List<String> description(SummonMonsterType unit) {
+        return switch (unit.id()) {
+            case "dark_priest" -> List.of("멀리서 한 대상에게 마법 피해를 주고, 공격과 따로 주변 아군을 광역 치유합니다.");
+            case "dwarf_gunner" -> List.of("탄환으로 한 대상에게 물리 피해를 줍니다.");
+            case "ogre_champion" -> List.of("몽둥이로 한 대상을 내려찍는 거대한 탱커입니다.");
+            default -> unit.description();
+        };
+    }
+
     private IncomeTowerService() {
     }
 
@@ -209,6 +227,7 @@ public final class IncomeTowerService {
             return Optional.empty();
         }
         Monster monster = unit.createMonster(new SummonContext(game, owner), targetTeam, targetLaneId, 1);
+        monster.setData(DISPATCH, true);
         int round = game.currentRound();
         monster.applyAugmentBodyModifiers(IncomeTowerBalance.healthMultiplier(tower.level(), round),
                 IncomeTowerBalance.attackDamageMultiplier(tower.level(), round));

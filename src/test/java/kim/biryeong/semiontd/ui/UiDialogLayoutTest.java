@@ -49,6 +49,16 @@ final class UiDialogLayoutTest {
     }
 
     @Test
+    void halfPixelSpacingKeepsItsFractionUntilTheCompleteLineIsMeasured() {
+        Component half = SemionUiFont.halfPixel();
+        assertEquals(0.5, TextUncenterer.preciseWidth(half));
+        assertEquals(1, TextUncenterer.width(half));
+        Component pair = Component.empty().append(half).append(half);
+        assertEquals(1.0, TextUncenterer.preciseWidth(pair));
+        assertEquals(1, TextUncenterer.width(pair));
+    }
+
+    @Test
     void standaloneRulesFitTheVanillaTextArea() {
         for (int width : List.of(200, 256, 360, 420, 460, 480)) {
             PlainMessage body = HeaderMessage.divider(width);

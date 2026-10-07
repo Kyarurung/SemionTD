@@ -130,7 +130,9 @@ class BalanceChangeServiceTest {
             var fields = service.fields().stream().filter(field ->
                     field.id().startsWith("augment:/parameters/") || field.domain().equals("trait"))
                     .filter(field -> !field.id().equals(migrationVersion)).toList();
-            assertEquals(448, fields.stream().filter(field -> field.domain().equals("augment")).count());
+            assertEquals(447, fields.stream().filter(field -> field.domain().equals("augment")).count());
+            assertTrue(fields.stream().noneMatch(field -> field.id().equals(
+                    "augment:/parameters/semiontd:job_warlock_towers_g1/growthBonus")));
             assertEquals(32, fields.stream().filter(field -> field.domain().equals("trait")).count());
             var changes = fields.stream().map(field -> {
                 assertTrue(field.editable(), field.id());

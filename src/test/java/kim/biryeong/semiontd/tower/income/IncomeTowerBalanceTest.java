@@ -51,7 +51,8 @@ class IncomeTowerBalanceTest {
             assertEquals(code.abilities().get(towerId), bundled.abilities().get(towerId), id + " drifted between code and bundle");
         }
         assertEquals(1.0, bundled.ability(IncomeTowerBalance.towerId("goblin_scout"), "towerSlotCost", -1));
-        assertEquals(3.0, bundled.ability(IncomeTowerBalance.towerId("ogre_champion"), "towerSlotCost", -1));
+        assertEquals(4.0, bundled.ability(IncomeTowerBalance.towerId("ogre_champion"), "towerSlotCost", -1));
+        assertEquals(3.0, bundled.ability(IncomeTowerBalance.towerId("legion_commander"), "towerSlotCost", -1));
     }
 
     @Test
@@ -68,6 +69,24 @@ class IncomeTowerBalanceTest {
                 assertEquals("semion-td:invasion/" + id, definition.blockbenchModelId());
             }
             assertTrue(definition.emeraldCost() > 0 && definition.incomeGain() > 0, "Unit " + id + " must cost and pay.");
+        }
+    }
+
+    @Test
+    void ogreDefaultBackfillsButSavedOperatorCostsRemainAuthoritative(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        var logger = org.slf4j.LoggerFactory.getLogger("ogre-population-test");
+        var fresh = kim.biryeong.semiontd.config.SemionConfigLoader.load(directory, logger).towerBalance();
+        assertEquals(4, fresh.ability("income_ogre_champion", "towerSlotCost", -1));
+        var path = directory.resolve("tower_balance.json");
+        for (double saved : new double[]{2, 3, 6}) {
+            var json = com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(path)).getAsJsonObject();
+            json.getAsJsonObject("abilities").getAsJsonObject("income_ogre_champion").addProperty("towerSlotCost", saved);
+            java.nio.file.Files.writeString(path, json.toString());
+            for (int reload = 0; reload < 2; reload++) {
+                var loaded = kim.biryeong.semiontd.config.SemionConfigLoader.load(directory, logger).towerBalance();
+                assertEquals(saved, loaded.ability("income_ogre_champion", "towerSlotCost", -1));
+                assertEquals(3, loaded.ability("income_legion_commander", "towerSlotCost", -1));
+            }
         }
     }
 }

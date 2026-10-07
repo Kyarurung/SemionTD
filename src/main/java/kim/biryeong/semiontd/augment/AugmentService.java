@@ -54,6 +54,9 @@ public final class AugmentService {
     private final Map<UUID, Integer> warnedSeconds = new HashMap<>();
     private final Map<GuiKey, GuiProgress> guiProgress = new HashMap<>();
     private final Map<UUID, TargetPreview> targetPreviews = new HashMap<>();
+    private final Map<UUID, OfferPresentation> offerPresentations = new HashMap<>();
+
+    private record OfferPresentation(long revision, long startedNanos) { }
 
     private record TargetPreview(ServerPlayer viewer, List<SemionTowerEntity> entities, long expiresAt) { }
 
@@ -235,11 +238,17 @@ public final class AugmentService {
     }
 
     public record Button(String label, String command, String description) { }
-    public record CardLine(String category, String text) { }
-    public record Screen(String title, String body, List<CardLine> cards, List<Button> buttons, int columns) {
+    public record CardLine(String category, String text, AugmentDefinition definition, String summary) { }
+    public record Screen(String title, String body, List<CardLine> cards, List<Button> buttons, int columns,
+                         List<Integer> rerollsRemaining, List<Boolean> canReroll) {
         public Screen {
             cards = List.copyOf(cards);
             buttons = List.copyOf(buttons);
+            rerollsRemaining = List.copyOf(rerollsRemaining);
+            canReroll = List.copyOf(canReroll);
+        }
+        public Screen(String title, String body, List<CardLine> cards, List<Button> buttons, int columns) {
+            this(title, body, cards, buttons, columns, List.of(), List.of());
         }
     }
 
@@ -404,7 +413,17 @@ public final class AugmentService {
                 .anyMatch(AugmentCombat::isNormalPermanentType);
     }
 
+    @FunctionalInterface
+    interface OfferGuiFactory {
+        kim.biryeong.semiontd.ui.augment.AugmentOfferGui create(ServerPlayer player, Screen screen, long startedNanos,
+                java.util.function.BooleanSupplier valid, java.util.function.ToIntFunction<String> execute, boolean canReroll);
+    }
+
     private void showOffer(SemionGame game, ServerPlayer online, SemionPlayer player) {
+        showOffer(game, online, player, null);
+    }
+
+    void showOffer(SemionGame game, ServerPlayer online, SemionPlayer player, OfferGuiFactory guiFactory) {
         var offer = player.augments().currentOffer().orElse(null);
         if (offer == null) {
             showHistory(game, online, player);
@@ -414,15 +433,39 @@ public final class AugmentService {
             error(online, "카드를 공개하고 있습니다. 잠시 뒤 다시 열어 주세요.");
             return;
         }
+        Screen screen = offerScreen(game, player, offer, true);
+        boolean canReroll = screen.canReroll().getFirst();
+        clearTargetPreview(online.getUUID());
+        OfferPresentation presentation = offerPresentations.compute(online.getUUID(), (id, existing) ->
+                existing != null && existing.revision() == offer.revision() ? existing
+                        : new OfferPresentation(offer.revision(), System.nanoTime()));
+        boolean opened = guiFactory == null ? kim.biryeong.semiontd.ui.augment.AugmentCardDialog.show(online, screen)
+                : guiFactory.create(online, screen, presentation.startedNanos(),
+                () -> game.augmentsEnabled() && alive(game, game.players().get(online.getUUID()))
+                        && game.phase() == RoundPhase.PREPARE_AND_SUMMON
+                        && game.currentTick() < offer.deadlineTickExclusive()
+                        && player.augments().currentOffer().map(current -> current.revision() == offer.revision()
+                        && current.offeredRound() == game.currentRound()).orElse(false),
+                command -> handle(game, online, command.substring(COMMAND.length()), false), canReroll).openOffer();
+        if (!opened) {
+            error(online, "증강 화면을 준비 중입니다. 잠시 후 /증강으로 다시 열어 주세요.");
+            return;
+        }
+        recordShown(game, player, offer);
+    }
+
+    Screen offerScreen(SemionGame game, SemionPlayer player, PlayerAugmentState.Offer offer, boolean canReroll) {
         List<CardLine> cards = new ArrayList<>();
         List<Button> buttons = new ArrayList<>();
+        List<Boolean> rerollAllowed = new ArrayList<>();
         for (int slot = 0; slot < offer.cardIds().size(); slot++) {
             AugmentDefinition card = AugmentCatalog.find(offer.cardIds().get(slot)).orElseThrow();
             cards.add(new CardLine(card.category().name(), card.rarity().markup("[" + (slot + 1) + "] " + card.displayName())
                     + jobLabel(card) + " [" + rarityLabel(card.rarity()) + " · " + categoryName(card.category()) + "]\n"
-                    + offerSummary(card, game.augmentConfig()) + designationNotice(player, card)));
+                    + offerSummary(card, game.augmentConfig()) + designationNotice(player, card), card,
+                    offerSummary(card, game.augmentConfig()) + designationNotice(player, card)));
             buttons.add(new Button((slot + 1) + "번 카드 선택",
-                    COMMAND + "draft " + offer.revision() + " " + slot + " " + requestId(),
+                    COMMAND + "draft " + offer.revision() + " " + slot + " " + card.id() + " " + requestId(),
                     SemionText.mini(preview(game, player, card, AugmentChoice.none())).getString() + "\n\n"
                             + (modes(card.id()).isEmpty()
                             ? selfTargeted(player, card.id()) ? "마왕 자신에게 자동 적용됩니다."
@@ -430,20 +473,30 @@ public final class AugmentService {
                             : "누르면 바로 획득합니다. 선택은 되돌릴 수 없습니다."
                             : "방식을 고르면 바로 획득합니다. 별도 확정 화면은 없습니다.")));
         }
-        buttons.add(button("리롤", "ui reroll"));
+        for (int slot = 0; slot < 3; slot++) {
+            boolean allowed = canReroll && player.augments().canReroll(offer.milestoneRound(), slot,
+                    candidate -> isEligible(game, player, candidate.id()));
+            rerollAllowed.add(allowed);
+            int remaining = player.augments().rerollsRemaining(slot);
+            buttons.add(new Button((slot + 1) + "번 리롤 · " + remaining + "/" + PlayerAugmentState.MAX_REROLLS,
+                    COMMAND + "reroll " + offer.revision() + " " + slot + " " + offer.cardIds().get(slot) + " " + requestId(),
+                    allowed ? "이 칸의 카드만 다시 뽑습니다. 이 칸의 리롤 1회 소비. 남은 횟수는 다음 증강 라운드로 이월됩니다."
+                            : remaining == 0 ? "이 칸의 남은 리롤이 없습니다."
+                            : "새 후보가 없어 리롤할 수 없습니다. 횟수는 유지됩니다."));
+        }
         buttons.add(button("선택 기록", "ui history"));
         buttons.add(button("도움말", "ui help"));
         buttons.add(button("건너뛰기", "ui skip"));
-        render(online, new Screen("R" + offer.milestoneRound() + " 증강 선택 · " + rarityLabel(offer.rarity()),
+        return new Screen("R" + offer.milestoneRound() + " 증강 선택 · " + rarityLabel(offer.rarity()),
                 isDemonLord(player) ? offerHeader(player.augments()).replace("지정형 증강은 도구로 타워를 선택할 수 있습니다.",
                         "지정형 증강은 마왕 자신에게 자동 적용됩니다.") : offerHeader(player.augments()),
-                cards, buttons, 3));
-        recordShown(game, player, offer);
+                cards, buttons.stream().map(this::scope).toList(), 3, player.augments().rerollsRemainingBySlot(), rerollAllowed);
     }
 
     static String offerHeader(PlayerAugmentState state) {
-        return selectionCountLabel(state) + " · 전체 리롤 " + state.rerollsRemaining() + "/" + PlayerAugmentState.MAX_REROLLS
-                + "회\n증강은 즉시 획득합니다."
+        return selectionCountLabel(state) + " · 칸별 리롤 " + java.util.stream.IntStream.range(0, 3)
+                .mapToObj(slot -> (slot + 1) + "번 " + state.rerollsRemaining(slot) + "/" + PlayerAugmentState.MAX_REROLLS)
+                .collect(java.util.stream.Collectors.joining(" · ")) + "\n남은 횟수는 다음 증강 라운드로 이월됩니다. 증강은 즉시 획득합니다."
                 + "\n지정형 증강은 도구로 타워를 선택할 수 있습니다.";
     }
 
@@ -846,24 +899,34 @@ public final class AugmentService {
             PlayerAugmentState.ActionResult result;
             switch (args[0]) {
                 case "draft" -> {
-                    requireArity(args, 4);
+                    requireArity(args, 4, 5);
                     int slot = Integer.parseInt(args[2]);
                     if (slot < 0 || slot >= offer.cardIds().size()) {
                         throw new IllegalArgumentException("카드 칸은 0~2만 가능합니다.");
                     }
                     long requestedRevision = Long.parseLong(args[1]);
+                    if (args.length == 5 && !offer.cardIds().get(slot).equals(args[3])) {
+                        throw new GuiRequestException("STALE_CARD", "이전 카드의 버튼입니다. 새 화면에서 선택해 주세요.");
+                    }
                     requestContext = new GuiContext(offer.milestoneRound(), requestedRevision, slot,
                             requestedRevision == offer.revision() ? offer.cardIds().get(slot) : null, AugmentChoice.none());
                     recordGui(game, player, requestContext, "CARD_INPUT", route, "REQUESTED", null);
                     AugmentChoice choice = offer.draft() != null && offer.draft().cardId().equals(offer.cardIds().get(slot))
                             ? offer.draft().choice() : AugmentChoice.none();
                     result = state.draft(offer.milestoneRound(), slot, Long.parseLong(args[1]), offer.draftRevision(),
-                            choice, checkedRequest(args[3]), game.currentTick(), eligible);
+                            choice, checkedRequest(args[args.length - 1]), game.currentTick(), eligible);
                 }
                 case "reroll" -> {
-                    requireArity(args, 3);
-                    result = state.reroll(offer.milestoneRound(), Long.parseLong(args[1]),
-                            checkedRequest(args[2]), game.currentTick(), eligible);
+                    requireArity(args, 5);
+                    int slot = Integer.parseInt(args[2]);
+                    long requestedRevision = Long.parseLong(args[1]);
+                    if (slot < 0 || slot >= offer.cardIds().size()) throw new IllegalArgumentException("카드 칸은 0~2만 가능합니다.");
+                    requestContext = new GuiContext(offer.milestoneRound(), requestedRevision, slot, args[3], AugmentChoice.none());
+                    if (!offer.cardIds().get(slot).equals(args[3])) {
+                        throw new GuiRequestException("STALE_CARD", "이전 카드의 버튼입니다. 새 화면에서 리롤해 주세요.");
+                    }
+                    result = state.reroll(offer.milestoneRound(), slot, requestedRevision,
+                            checkedRequest(args[4]), game.currentTick(), eligible);
                 }
                 case "target", "mode" -> {
                     requireArity(args, args[0].equals("target") ? new int[]{4, 5} : new int[]{4});
@@ -924,8 +987,9 @@ public final class AugmentService {
             }
             if (args[0].equals("reroll") && result.successful()) {
                 var current = state.currentOffer().orElseThrow();
-                resultingContext = new GuiContext(current.milestoneRound(), current.revision(), null,
-                        null, AugmentChoice.none());
+                int rerolledSlot = Integer.parseInt(args[2]);
+                resultingContext = new GuiContext(current.milestoneRound(), current.revision(), rerolledSlot,
+                        current.cardIds().get(rerolledSlot), AugmentChoice.none());
             }
             boolean selectionConfirmed = args[0].equals("confirm") && result.successful();
             if (result.successful() && List.of("draft", "target", "mode").contains(route)) {
@@ -1343,7 +1407,7 @@ public final class AugmentService {
             case "help" -> show(online, "증강 도움말",
                     "R5·R15·R25에 같은 등급의 세 장 중 하나를 고릅니다.\n경기마다 등급 순서는 모두 같고 카드 후보는 개인마다 다릅니다.\n"
                             + "카드를 누르면 바로 획득하며 되돌릴 수 없습니다. 지정형 증강은 받은 뒤 지정 도구로 타워를 고르세요.\n"
-                            + "경기 전체에서 리롤 " + PlayerAugmentState.MAX_REROLLS + "회로 선택지 세 장을 모두 바꿀 수 있습니다.\n닫아도 진행 중인 설정이 유지됩니다. " + PREPARE_TICKS / 20 + "초 안에 선택하지 않으면 유효 후보 중 하나를 무작위로 받습니다.\n"
+                            + "각 카드 칸마다 리롤 " + PlayerAugmentState.MAX_REROLLS + "회가 있으며 해당 칸만 바뀝니다. 남은 횟수는 다음 증강 라운드로 이월됩니다.\n닫아도 진행 중인 설정이 유지됩니다. " + PREPARE_TICKS / 20 + "초 안에 선택하지 않으면 유효 후보 중 하나를 무작위로 받습니다.\n"
                             + "선택 시간에는 전원의 에메랄드 자동 생산을 멈춥니다. 이후 일반 준비 25초 동안 다시 생산합니다.\n"
                             + "전용 타워 증강은 경기당 한 장만 고를 수 있습니다.\n후보가 부족하면 즉시 다이아·정기 인컴·생산 보너스로 빈 칸을 채웁니다.",
                     List.of(button("돌아가기", "ui current back")), 1);
@@ -1359,16 +1423,16 @@ public final class AugmentService {
             return;
         }
         List<Button> buttons = new ArrayList<>();
-        String body = "같은 등급의 선택지 세 장을 모두 다시 뽑습니다.\n경기 전체 리롤: " + state.rerollsRemaining()
-                + "/" + PlayerAugmentState.MAX_REROLLS + "회 남음";
-        if (state.canReroll(offer.milestoneRound(), candidate -> isEligible(game, player, candidate.id()))) {
-            buttons.add(button("세 장 모두 리롤 · 1회 소비", "reroll " + offer.revision() + " " + requestId()));
-        } else {
-            body += state.rerollsRemaining() == 0 ? "\n남은 리롤이 없습니다."
-                    : "\n새 후보가 없어 리롤할 수 없습니다. 횟수는 유지됩니다.";
+        String body = "카드 칸마다 독립된 리롤 5회가 있습니다. 해당 칸의 카드만 다시 뽑습니다.\n"
+                + "남은 횟수는 다음 증강 라운드로 이월되며 충전되지 않습니다.\n" + offerHeader(state);
+        for (int slot = 0; slot < 3; slot++) {
+            if (state.canReroll(offer.milestoneRound(), slot, candidate -> isEligible(game, player, candidate.id()))) {
+                buttons.add(button((slot + 1) + "번 카드 리롤 · " + state.rerollsRemaining(slot) + "/5",
+                        "reroll " + offer.revision() + " " + slot + " " + offer.cardIds().get(slot) + " " + requestId()));
+            }
         }
         buttons.add(button("카드로 돌아가기", "ui offer back"));
-        show(online, "선택지 전체 리롤", body, buttons, 2);
+        show(online, "카드별 리롤", body, buttons, 3);
     }
 
     static String historyMilestoneLabel(PlayerAugmentState state, int milestone) {
@@ -1594,7 +1658,7 @@ public final class AugmentService {
             case EXPIRED -> "선택 시간이 끝났습니다. /증강에서 자동 선택 결과를 확인하세요.";
             case ALREADY_RESOLVED -> "이미 처리된 선택입니다. /증강에서 선택 기록을 확인하세요.";
             case NO_REPLACEMENT -> "바꿀 수 있는 후보가 없습니다. 리롤 횟수는 유지됩니다.";
-            case REROLL_SPENT -> "이번 경기의 리롤 " + PlayerAugmentState.MAX_REROLLS + "회를 모두 사용했습니다.";
+            case REROLL_SPENT -> "이 카드 칸의 리롤 " + PlayerAugmentState.MAX_REROLLS + "회를 모두 사용했습니다.";
             case CONFIGURED_THIS_ROUND -> "이번 준비 단계의 설정 변경을 이미 확정했습니다.";
             default -> "선택 상태가 달라졌습니다. /증강에서 다시 선택해 주세요.";
         };

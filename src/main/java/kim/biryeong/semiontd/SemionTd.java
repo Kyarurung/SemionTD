@@ -160,6 +160,9 @@ public class SemionTd implements ModInitializer {
         ImageHandler.init();
         SemionUiFont.init();
         kim.biryeong.semiontd.ui.rp.GambleGlyphs.init();
+        kim.biryeong.semiontd.ui.rp.AugmentCardIcons.init();
+        kim.biryeong.semiontd.ui.augment.AugmentCardFrames.init();
+        kim.biryeong.semiontd.ui.augment.AugmentHudResources.initialize();
         LOGGER.info("Semion TD initialized.");
     }
 }

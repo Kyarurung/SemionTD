@@ -1,0 +1,9 @@
+BetterHud Fabric 26.3 2.2.0-SNAPSHOT-449 generated shader fixtures.
+Official Modrinth version: kPuLN1uu
+Source revision: 8f4b11dc4ffb30aeb4fb35632bb6ec1734546d76
+Source: https://github.com/toxicity188/BetterHud/tree/8f4b11dc4ffb30aeb4fb35632bb6ec1734546d76
+License: https://raw.githubusercontent.com/toxicity188/BetterHud/8f4b11dc4ffb30aeb4fb35632bb6ec1734546d76/LICENSE
+Extracted without modification from BetterHud build.zip after SemionTD augment HUD generation.
+Isolated capture evidence: ff07abad-509d-4022-bbfd-d32db35133b1
+Original entries: betterhud_26_3/assets/minecraft/shaders/core/text.vsh and text.fsh
+These fixtures exercise completed shader generation, including whitespace compaction and generated layout cases.

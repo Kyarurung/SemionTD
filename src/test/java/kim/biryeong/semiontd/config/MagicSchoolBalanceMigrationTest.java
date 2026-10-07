@@ -91,6 +91,23 @@ class MagicSchoolBalanceMigrationTest {
         assertEquals(3.3, loaded.ability("magic_school_spell_bombarda", "radius", -1));
     }
 
+    @Test void newProtegoDefaultDoesNotOverwriteSavedProtectionSettings() throws Exception {
+        Path path = directory.resolve("tower_balance.json");
+        var fresh = SemionConfigLoader.load(directory, LoggerFactory.getLogger("test")).towerBalance();
+        assertEquals(.3, fresh.ability("magic_school_spell_protego", "damageReduction", -1));
+        for (double configured : new double[]{.2, .37}) {
+            var saved = JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+            saved.getAsJsonObject("abilities").getAsJsonObject("magic_school_spell_protego")
+                    .addProperty("damageReduction", configured);
+            Files.writeString(path, saved.toString());
+            for (int reload = 0; reload < 2; reload++) {
+                var loaded = SemionConfigLoader.load(directory, LoggerFactory.getLogger("test")).towerBalance();
+                assertEquals(configured, loaded.ability("magic_school_spell_protego", "damageReduction", -1));
+                assertEquals(.3, loaded.ability("magic_school_spell_protego_maxima", "damageReduction", -1));
+            }
+        }
+    }
+
     @Test void protectionDefaultsMigrateOnceAndCustomValuesRemainAuthoritative() throws Exception {
         Path path = directory.resolve("tower_balance.json");
         Files.writeString(path, """

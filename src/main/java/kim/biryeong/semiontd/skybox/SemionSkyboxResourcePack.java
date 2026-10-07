@@ -22,12 +22,12 @@ public final class SemionSkyboxResourcePack {
                   "from": [16, 0, 0],
                   "to": [0, 16, 16],
                   "faces": {
-                    "north": {"uv": [12, 8, 16, 16], "texture": "#0"},
-                    "east": {"uv": [8, 8, 12, 16], "texture": "#0"},
-                    "south": {"uv": [4, 8, 8, 16], "texture": "#0"},
-                    "west": {"uv": [0, 8, 4, 16], "texture": "#0"},
-                    "up": {"uv": [4, 0, 8, 8], "texture": "#0"},
-                    "down": {"uv": [8, 8, 12, 0], "texture": "#0"}
+                    "north": {"uv": [12.001, 8.001, 15.999, 15.999], "texture": "#0"},
+                    "east": {"uv": [8.001, 8.001, 11.999, 15.999], "texture": "#0"},
+                    "south": {"uv": [4.001, 8.001, 7.999, 15.999], "texture": "#0"},
+                    "west": {"uv": [0.001, 8.001, 3.999, 15.999], "texture": "#0"},
+                    "up": {"uv": [4.001, 0.001, 7.999, 7.999], "texture": "#0"},
+                    "down": {"uv": [8.001, 7.999, 11.999, 0.001], "texture": "#0"}
                   }
                 }
               ]
@@ -84,16 +84,37 @@ public final class SemionSkyboxResourcePack {
 
     static String patchVertexShader(String source, Logger logger) {
         requireModernShader(source);
-        if (source.contains("semionSkyboxOriginalColor")) {
+        if (source.contains("semionSkyboxFarDepth")) {
             return source;
         }
-        requireFreeVarying(source);
         String main = "void main() {";
-        if (!source.contains(main)) {
-            throw new IllegalStateException("Cannot merge skybox vertex shader: main entry point missing");
+        String projection = "gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);";
+        if (!source.contains(main) || !source.contains(projection)) {
+            throw new IllegalStateException("Cannot merge skybox vertex shader: projection entry point missing");
         }
-        return source.replace(main, "layout(location = 8) out vec4 semionSkyboxOriginalColor;\n\n"
-                + main + "\n    semionSkyboxOriginalColor = Color;");
+        String patched = source;
+        if (!patched.contains("semionSkyboxOriginalColor")) {
+            requireFreeVarying(patched);
+            patched = patched.replace(main, "layout(location = 8) out vec4 semionSkyboxOriginalColor;\n\n"
+                    + main + "\n    semionSkyboxOriginalColor = Color;");
+        }
+        if (!patched.contains("uniform sampler2D Sampler0;")) {
+            patched = patched.replace(main, "uniform sampler2D Sampler0;\n\n" + main);
+        }
+        return patched.replace(projection, projection + "\n" + """
+                    ivec2 semionSkyboxTextureSize = textureSize(Sampler0, 0);
+                    ivec2 semionSkyboxTexel = clamp(ivec2(UV0 * vec2(semionSkyboxTextureSize)),
+                            ivec2(0), semionSkyboxTextureSize - ivec2(1));
+                    bool semionSkyboxFarDepth = abs(texelFetch(Sampler0, semionSkyboxTexel, 0).a
+                            - (252.0 / 255.0)) < (0.5 / 255.0);
+                    if (semionSkyboxFarDepth && ProjMat[3][3] == 0.0) {
+                        #ifdef RENDERPEARL_DEPTH_IS_ZERO_TO_ONE
+                        gl_Position.z = gl_Position.w * 1.0e-6;
+                        #else
+                        gl_Position.z = gl_Position.w * (-1.0 + 1.0e-6);
+                        #endif
+                    }
+                """);
     }
 
     static String patchFragmentShader(String source, Logger logger) {

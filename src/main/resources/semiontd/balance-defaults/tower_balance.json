@@ -2161,7 +2161,7 @@
       "aggroPriority": 45
     },
     "insect_cave_spider_t1": {
-      "mineralCost": 40,
+      "mineralCost": 50,
       "maxHealth": 150.0,
       "range": 2.4,
       "damage": 4.0,
@@ -4139,7 +4139,7 @@
     "t1_pet_cat": {
       "mineralCost": 50,
       "maxHealth": 95.0,
-      "range": 3.5,
+      "range": 5.5,
       "damage": 12.0,
       "attackIntervalTicks": 13,
       "aggroPriority": 5
@@ -4147,7 +4147,7 @@
     "t2_pet_cat": {
       "mineralCost": 120,
       "maxHealth": 150.0,
-      "range": 3.8,
+      "range": 5.8,
       "damage": 24.0,
       "attackIntervalTicks": 12,
       "aggroPriority": 5
@@ -4155,7 +4155,7 @@
     "t3_pet_cat": {
       "mineralCost": 260,
       "maxHealth": 230.0,
-      "range": 4.2,
+      "range": 6.2,
       "damage": 38.0,
       "attackIntervalTicks": 13,
       "aggroPriority": 0
@@ -4532,8 +4532,8 @@
     "engineer_slime_t2->engineer_slime_t3": 140,
     "insect_silverfish_t1->insect_endermite_t2": 75,
     "insect_endermite_t2->insect_endermite_t3": 140,
-    "insect_cave_spider_t1->insect_spider_t2": 90,
-    "insect_spider_t2->insect_spider_t3": 160,
+    "insect_cave_spider_t1->insect_spider_t2": 115,
+    "insect_spider_t2->insect_spider_t3": 185,
     "insect_bee_t1->insect_bee_t2": 90,
     "insect_bee_t2->insect_bee_t3": 170,
     "future_escapee->reconstruct_future_agency": 0,
@@ -5083,17 +5083,17 @@
     },
     "base_warlock_tower": {
       "sacrificeRadius": 6.0,
-      "permanentHealth": 0.025,
-      "permanentDamage": 0.05
+      "permanentHealth": 0.02,
+      "permanentDamage": 0.02
     },
     "ranged_warlock_tower": {
       "threshold": 0.65,
       "roundStat": 0.5,
-      "permanentHealth": 0.025,
+      "permanentHealth": 0.04,
       "healthThreshold": 2000.0,
       "healthScale": 500.0,
-      "permanentDamage": 0.05,
-      "damageThreshold": 140.0,
+      "permanentDamage": 0.07,
+      "damageThreshold": 160.0,
       "damageScale": 40.0,
       "lifeEvery": 10.0,
       "lifeStep": 0.005,
@@ -5116,10 +5116,10 @@
     "melee_warlock_tower": {
       "threshold": 0.65,
       "roundStat": 0.6,
-      "permanentHealth": 0.05,
+      "permanentHealth": 0.07,
       "healthThreshold": 3500.0,
       "healthScale": 500.0,
-      "permanentDamage": 0.025,
+      "permanentDamage": 0.04,
       "damageThreshold": 200.0,
       "damageScale": 20.0,
       "lifeStep": 0.01,
@@ -5906,12 +5906,12 @@
       "transferHeal": 30.0,
       "transferHealRatio": 0.05,
       "roundHealthRatio": 0.5,
-      "permanentHealthRatio": 0.04,
+      "permanentHealthRatio": 0.06,
       "healthThreshold": 3000.0,
       "healthScale": 500.0,
       "roundDamageRatio": 0.66,
-      "permanentDamageRatio": 0.04,
-      "damageThreshold": 150.0,
+      "permanentDamageRatio": 0.06,
+      "damageThreshold": 175.0,
       "damageScale": 50.0,
       "lifeStealStacks": 30.0,
       "lifeStealStep": 0.01,
@@ -8126,7 +8126,7 @@
       "towerSlotCost": 3.0
     },
     "income_ogre_champion": {
-      "towerSlotCost": 3.0
+      "towerSlotCost": 4.0
     },
     "demon_lord_passive_blood_cleave": {
       "cost": 180.0,
@@ -8864,7 +8864,7 @@
     },
     "magic_school_spell_protego": {
       "waveAggroBonus": 60.0,
-      "damageReduction": 0.2,
+      "damageReduction": 0.3,
       "damageMultiplier": 0.5
     },
     "magic_school_spell_wingardium_leviosa": {
