@@ -7950,8 +7950,8 @@
       "damageIntervalTicks": 20.0
     },
     "builder_blueprint": {
-      "priceScale": 16.5,
-      "priceExponent": 1.6,
+      "priceScale": 12.0,
+      "priceExponent": 1.5,
       "dpsUnit": 8.0,
       "healthUnit": 88.0,
       "rangePivot": 6.0,
