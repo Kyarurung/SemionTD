@@ -5,7 +5,8 @@
   "name": "semion-td-gametest",
   "environment": "*",
   "mixins": [
-    {"config": "semiontd-card-dialog-poc.mixins.json", "environment": "server"}
+    {"config": "semiontd-card-dialog-poc.mixins.json", "environment": "server"},
+    {"config": "semiontd-replay-capture.mixins.json", "environment": "server"}
   ],
   "entrypoints": {
     "main": [
@@ -17,6 +18,7 @@
       "kim.biryeong.semiontd.game.simulation.CombatSimulationSessionRuntimeTest",
       "kim.biryeong.semiontd.entity.simulation.EntitySimulationPhysicsTest",
       "kim.biryeong.semiontd.game.simulation.EntitySimulationAmbientTest",
+      "kim.biryeong.semiontd.game.replay.ReplayOpeningCaptureTest",
       "kim.biryeong.semiontd.game.CombatMultiplierRuntimeTest",
       "kim.biryeong.semiontd.game.EntityCombatMultiplierTest",
       "kim.biryeong.semiontd.game.BossCombatImmunityTest",
