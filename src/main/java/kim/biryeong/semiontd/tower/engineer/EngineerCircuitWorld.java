@@ -30,6 +30,9 @@ public final class EngineerCircuitWorld implements AutoCloseable {
     private final UUID bridgeId = UUID.randomUUID();
     private EngineerCircuitTopology.Capture capture;
     private EngineerCircuitSimulation.Snapshot snapshot;
+    private EngineerCircuitSimulation.Snapshot publishedSnapshot;
+    private Map<UUID, EngineerCircuitSimulation.NodeState> publishedStates = Map.of();
+    private final Map<UUID, PendingRestore> admissions = new HashMap<>();
     private Map<UUID, EngineerCircuitSimulation.NodeState> states = Map.of();
     private long topologyRevision;
     private long stateRevision;
@@ -46,6 +49,9 @@ public final class EngineerCircuitWorld implements AutoCloseable {
             throw new IllegalStateException("World already has an engineer circuit bridge");
         }
         refreshTopology();
+        publishedSnapshot = snapshot;
+        publishedStates = states;
+        admissions.clear();
         WORLDS.put(world, this);
     }
 
@@ -102,6 +108,7 @@ public final class EngineerCircuitWorld implements AutoCloseable {
             List<EngineerCircuitSimulation.Transition> nextPending = new ArrayList<>();
             long sequence = snapshot == null ? 0 : snapshot.nextSequence();
             List<ScheduledSource> nativeTicks = new ArrayList<>();
+            List<UUID> admittedSources = new ArrayList<>();
             for (EngineerCircuitTopology.Binding binding : next.bindings()) {
                 EngineerCircuitSimulation.Node node = binding.node();
                 EngineerCircuitSimulation.Node previous = previousNodes.get(node.id());
@@ -112,6 +119,9 @@ public final class EngineerCircuitWorld implements AutoCloseable {
                     snapshot.pending().stream().filter(transition -> transition.nodeId().equals(node.id()))
                             .forEach(nextPending::add);
                     continue;
+                }
+                if (node.kind() != EngineerCircuitSimulation.Kind.TERMINAL) {
+                    admittedSources.add(node.id());
                 }
                 int strength = power(binding.physicalState());
                 long pressedAt = binding.circuit() == null ? Long.MIN_VALUE : binding.circuit().lastPressedGameTime();
@@ -146,6 +156,10 @@ public final class EngineerCircuitWorld implements AutoCloseable {
             }
             capture = next;
             var seed = new EngineerCircuitSimulation.Snapshot(tick, sequence, nextStates, next.boundaries(), nextPending);
+            for (UUID id : admittedSources) {
+                admissions.put(id, new PendingRestore(tick, nextPending.stream()
+                        .filter(transition -> transition.nodeId().equals(id)).toList()));
+            }
             EngineerCircuitSimulation simulation = EngineerCircuitSimulation.restore(next.graph(), seed);
             simulation.advanceTo(tick, List.of(new EngineerCircuitSimulation.BoundaryUpdate(tick, next.boundaries())));
             install(simulation.snapshot());
@@ -205,6 +219,9 @@ public final class EngineerCircuitWorld implements AutoCloseable {
             }
             clearNativeTicks();
         });
+        publishedSnapshot = completedSnapshot;
+        publishedStates = Map.copyOf(completedStates);
+        admissions.keySet().removeAll(completedStates.keySet());
     }
 
     @Override
@@ -221,9 +238,15 @@ public final class EngineerCircuitWorld implements AutoCloseable {
         WORLDS.remove(world, this);
         CombatSimulationRuntime.nativeAccess(() -> {
             for (EngineerCircuitTopology.Binding binding : capture.sources().values()) {
-                resume(binding, completedSnapshot);
+                UUID id = binding.node().id();
+                if (publishedStates.containsKey(id)) {
+                    resume(binding, completedSnapshot);
+                } else if (admissions.containsKey(id)) {
+                    resume(binding, admissions.get(id));
+                }
             }
         });
+        admissions.clear();
         closed = true;
     }
 
@@ -300,21 +323,33 @@ public final class EngineerCircuitWorld implements AutoCloseable {
     private void resumeRemovedSources(EngineerCircuitTopology.Capture next) {
         for (EngineerCircuitTopology.Binding previous : capture.sources().values()) {
             var replacement = next.sources().get(previous.position());
-            if (replacement == null || !replacement.node().id().equals(previous.node().id())) {
-                publish(previous, states);
-                resume(previous, snapshot);
+            UUID id = previous.node().id();
+            if (replacement == null) {
+                if (publishedStates.containsKey(id)) {
+                    publish(previous, publishedStates);
+                    resume(previous, publishedSnapshot);
+                } else if (admissions.containsKey(id)) {
+                    resume(previous, admissions.get(id));
+                }
+                admissions.remove(id);
+            } else if (!replacement.node().id().equals(id)) {
+                admissions.remove(id);
             }
         }
     }
 
     private void resume(EngineerCircuitTopology.Binding binding, EngineerCircuitSimulation.Snapshot completedSnapshot) {
+        resume(binding, new PendingRestore(completedSnapshot.tick(), completedSnapshot.pending()));
+    }
+
+    private void resume(EngineerCircuitTopology.Binding binding, PendingRestore completed) {
         if (!world.hasChunkAt(binding.position())
                 || !world.getBlockState(binding.position()).is(binding.physicalState().getBlock())) {
             return;
         }
-        for (EngineerCircuitSimulation.Transition transition : completedSnapshot.pending()) {
+        for (EngineerCircuitSimulation.Transition transition : completed.pending()) {
             if (transition.nodeId().equals(binding.node().id())) {
-                long remaining = Math.max(1, transition.dueTick() - completedSnapshot.tick());
+                long remaining = Math.max(1, transition.dueTick() - completed.tick());
                 world.scheduleTick(binding.position(), binding.physicalState().getBlock(),
                         Math.toIntExact(Math.min(Integer.MAX_VALUE, remaining)),
                         TickPriority.valueOf(transition.priority().name()));
@@ -357,5 +392,8 @@ public final class EngineerCircuitWorld implements AutoCloseable {
 
     private record ScheduledSource(UUID nodeId, long dueTick, TickPriority priority, long subTickOrder,
                                    EngineerCircuitSimulation.TransitionKind kind) {
+    }
+
+    private record PendingRestore(long tick, List<EngineerCircuitSimulation.Transition> pending) {
     }
 }

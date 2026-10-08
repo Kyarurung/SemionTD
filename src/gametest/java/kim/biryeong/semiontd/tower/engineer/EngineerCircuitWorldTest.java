@@ -273,6 +273,7 @@ public final class EngineerCircuitWorldTest {
         }
 
         private void assertMutableBoundaryAndTopology() {
+            var completed = bridge.snapshot();
             Pair lastWire = pairs.get(17);
             for (EngineerCircuitTower wire : List.of(lastWire.bridge, lastWire.nativeCircuit)) {
                 world.setBlock(wire.circuitPosition().above(), Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
@@ -307,6 +308,46 @@ public final class EngineerCircuitWorldTest {
                     return true;
                 }
             }).join(), "World bridge access must reject the worker thread");
+            GridPosition oldPosition = lockedBridge.plate.originalPosition();
+            require(bridgeLane.removeTower(lockedBridge.plate), "Old plate can leave the topology during a partial step");
+            EngineerCircuitTower replacement = circuit(bridgeLane, EngineerTowers.plate(EngineerTowers.PlateKind.WOOD),
+                    oldPosition.x(), oldPosition.y() + 1, oldPosition.z());
+            bridge.refreshTopology();
+            require(!world.getBlockState(replacement.circuitPosition()).getValue(BlockStateProperties.POWERED),
+                    "Replacing a source must not publish the old identity's partial press");
+            assertNativePendingClockAndCompletedClose(completed);
+        }
+
+        private void assertNativePendingClockAndCompletedClose(EngineerCircuitSimulation.Snapshot completed) {
+            require(bridge.accept(EngineerCircuitWorld.calculate(bridge.request(bridge.snapshot().tick() + 80, List.of()))),
+                    "Clock fixture can advance logical circuit time independently of the native world");
+            long logicalTick = bridge.snapshot().tick();
+            long nativeTick = world.getGameTime();
+            EngineerCircuitTower queuedPlate = plate(bridgeLane, 29, 4);
+            BlockPos position = queuedPlate.circuitPosition();
+            world.setBlock(position, world.getBlockState(position).setValue(BlockStateProperties.POWERED, true),
+                    Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+            world.scheduleTick(position, Blocks.OAK_PRESSURE_PLATE, 10);
+            bridge.refreshTopology();
+            var state = bridge.snapshot().states().stream()
+                    .filter(value -> value.nodeId().equals(queuedPlate.logicalId())).findFirst().orElseThrow();
+            require(state.releaseAt() == logicalTick + 10,
+                    "New native pending release translates its remaining delay onto the logical clock");
+            require(bridge.accept(EngineerCircuitWorld.calculate(bridge.request(logicalTick + 9, List.of()))),
+                    "Worker reaches the tick before the captured release");
+            require(bridge.getBlockState(position, world.getBlockState(position)).getValue(BlockStateProperties.POWERED),
+                    "Captured plate stays pressed for all nine logical ticks");
+            require(bridge.accept(EngineerCircuitWorld.calculate(bridge.request(logicalTick + 10, List.of()))),
+                    "Worker reaches the captured release tick");
+            require(!bridge.getBlockState(position, world.getBlockState(position)).getValue(BlockStateProperties.POWERED),
+                    "Captured plate releases on the tenth logical tick");
+            bridge.close(completed);
+            require(world.getBlockState(position).getValue(BlockStateProperties.POWERED),
+                    "Closing from an older completed snapshot does not publish a newly admitted partial release");
+            var nativeTicks = (net.minecraft.world.ticks.LevelChunkTicks<Block>) world.getChunkAt(position).getBlockTicks();
+            require(nativeTicks.getAll().anyMatch(tick -> tick.pos().equals(position)
+                            && tick.triggerTick() == nativeTick + 10 && tick.priority() == net.minecraft.world.ticks.TickPriority.NORMAL),
+                    "Unpublished admission restores its original native release delay and priority");
         }
 
         @Override
