@@ -72,6 +72,9 @@ def validate_trace(trace):
 
 
 def first_difference(expected, actual, path, position_tolerance):
+    if type(expected) in (int, float) and type(actual) in (int, float):
+        equal = abs(expected - actual) <= position_tolerance if '.position[' in path else expected == actual
+        return None if equal else {'path': path, 'expected': expected, 'actual': actual}
     if type(expected) is not type(actual):
         return {'path': path, 'expected': expected, 'actual': actual}
     if isinstance(expected, dict):
@@ -88,9 +91,6 @@ def first_difference(expected, actual, path, position_tolerance):
             difference = first_difference(left, right, f'{path}[{index}]', position_tolerance)
             if difference:
                 return difference
-    elif type(expected) in (float, int) and '.position[' in path:
-        if abs(expected - actual) > position_tolerance:
-            return {'path': path, 'expected': expected, 'actual': actual}
     elif expected != actual:
         return {'path': path, 'expected': expected, 'actual': actual}
     return None

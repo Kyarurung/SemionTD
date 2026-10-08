@@ -100,6 +100,26 @@ class ReplayTraceComparatorTest(unittest.TestCase):
         self.after['samples'][1]['actors']['p02/placement/2']['health'] -= 1e-8
         self.assertFalse(comparator.compare(self.before, self.after)['equal'])
 
+    def test_equivalent_legal_numeric_representations_compare_by_value(self):
+        actor = self.after['samples'][1]['actors']['p02/placement/2']
+        actor['health'] = 30
+        actor['position'] = [38, 0, 2]
+        self.before['samples'][1]['damage'] = [{'amount': 5}]
+        self.after['samples'][1]['damage'] = [{'amount': 5.0}]
+        self.assertTrue(comparator.compare(self.before, self.after)['equal'])
+        actor['position'][0] = 38.00000001
+        self.assertTrue(comparator.compare(self.before, self.after)['equal'])
+        actor['health'] = 30.00000001
+        self.assertFalse(comparator.compare(self.before, self.after)['equal'])
+
+    def test_boolean_is_not_coerced_to_integer_and_large_integer_is_not_rounded(self):
+        self.before['samples'][1]['damage'] = [{'amount': 1}]
+        self.after['samples'][1]['damage'] = [{'amount': True}]
+        self.assertFalse(comparator.compare(self.before, self.after)['equal'])
+        self.before['samples'][1]['damage'] = [{'amount': 9007199254740993}]
+        self.after['samples'][1]['damage'] = [{'amount': 9007199254740992.0}]
+        self.assertFalse(comparator.compare(self.before, self.after)['equal'])
+
 
 class ReplayFixtureSanitizationTest(unittest.TestCase):
     def test_fixture_has_no_player_identifiers_encoded_cursors_or_assets(self):
