@@ -82,6 +82,14 @@ class BenchmarkSummaryTest(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(summary.BenchmarkError):
                 summary.summarize(runs)
 
+    def test_profiled_diagnostic_is_not_a_benchmark_comparison(self):
+        for scope in ('run', 'trial'):
+            runs = copy.deepcopy(self.runs)
+            target = runs[1] if scope == 'run' else runs[1]['trials'][4]
+            target['diagnostic_profiled'] = True
+            with self.subTest(scope=scope), self.assertRaises(summary.BenchmarkError):
+                summary.summarize(runs)
+
 
 if __name__ == '__main__':
     unittest.main()

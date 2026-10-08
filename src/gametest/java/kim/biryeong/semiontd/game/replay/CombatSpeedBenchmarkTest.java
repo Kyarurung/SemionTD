@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HexFormat;
@@ -21,6 +22,12 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongConsumer;
+import jdk.jfr.Category;
+import jdk.jfr.Configuration;
+import jdk.jfr.Event;
+import jdk.jfr.Label;
+import jdk.jfr.Name;
+import jdk.jfr.Recording;
 import kim.biryeong.semiontd.config.EconomyConfig;
 import kim.biryeong.semiontd.config.SummonConfig;
 import kim.biryeong.semiontd.config.TowerBalanceConfig;
@@ -63,6 +70,17 @@ import xyz.nucleoid.fantasy.util.VoidChunkGenerator;
 import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class CombatSpeedBenchmarkTest {
+    @Name("semiontd.BenchmarkWindow")
+    @Label("Controlled benchmark battle window")
+    @Category("SemionTD Diagnostics")
+    private static final class BenchmarkWindow extends Event {
+        public int repetition;
+        public boolean warmup;
+        public int engineerLanes;
+        public String driver;
+        public long logicalTicks;
+    }
+
     @GameTest(maxTicks = 100000)
     public void pacedEightfoldControlledEngineerBattles(GameTestHelper context) {
         if (!CombatBenchmarkHooks.enabled()) {
@@ -86,6 +104,7 @@ public final class CombatSpeedBenchmarkTest {
         private final int warmups = Integer.getInteger("semiontd.benchmark.warmups", 3);
         private final int measured = Integer.getInteger("semiontd.benchmark.measured", 5);
         private final boolean dry = Boolean.getBoolean("semiontd.benchmark.dry");
+        private final String diagnosticDirectory = System.getProperty("semiontd.benchmark.diagnosticJfrDirectory");
         private final JsonArray trials = new JsonArray();
         private final BenchmarkRecorder recorder = new BenchmarkRecorder();
         private final float previousRate;
@@ -109,6 +128,8 @@ public final class CombatSpeedBenchmarkTest {
         private long windowStart;
         private String baselineWorkHash;
         private Object session;
+        private Recording diagnosticRecording;
+        private BenchmarkWindow diagnosticWindow;
         private long settleUntil;
         private final List<ServerLevel> priorWorlds = new ArrayList<>();
 
@@ -170,6 +191,7 @@ public final class CombatSpeedBenchmarkTest {
                     }
                     battle.work.start();
                     beginWaits = CombatBenchmarkHooks.baseWaitCallCount(server);
+                    beginDiagnostic();
                     windowStart = System.nanoTime();
                     recorder.begin();
                     measuring = true;
@@ -235,6 +257,7 @@ public final class CombatSpeedBenchmarkTest {
             measuring = false;
             battle.work.stop();
             JsonObject metrics = recorder.end(logicalTicks, CombatBenchmarkHooks.baseWaitCallCount(server) - beginWaits);
+            endDiagnostic(metrics);
             metrics.addProperty("repetition", repetition);
             metrics.addProperty("warmup", repetition < warmups);
             metrics.addProperty("requested_eight_step_groups", groups);
@@ -272,6 +295,7 @@ public final class CombatSpeedBenchmarkTest {
                 output.addProperty("warmup_trials", warmups);
                 output.addProperty("measured_trials", measured);
                 output.addProperty("dry_run", dry);
+                output.addProperty("diagnostic_profiled", diagnosticDirectory != null);
                 output.addProperty("abba_order", System.getProperty("semiontd.benchmark.order"));
                 output.addProperty("physical_tps", mode.equals("native") ? 160 : 20);
                 output.addProperty("logical_target_tps", 160);
@@ -303,6 +327,40 @@ public final class CombatSpeedBenchmarkTest {
                 server.tickRateManager().setTickRate(previousRate);
                 context.succeed();
             }
+        }
+
+        private void beginDiagnostic() throws Exception {
+            if (diagnosticDirectory == null) { return; }
+            diagnosticRecording = new Recording(Configuration.getConfiguration("profile"));
+            diagnosticRecording.setName("Engineer diagnostic " + repetition);
+            diagnosticRecording.enable("jdk.ExecutionSample").withPeriod(Duration.ofMillis(10)).withStackTrace();
+            diagnosticRecording.enable("jdk.NativeMethodSample").withPeriod(Duration.ofMillis(20)).withStackTrace();
+            diagnosticRecording.enable("jdk.ObjectAllocationSample").withStackTrace();
+            diagnosticRecording.enable("jdk.ThreadPark").withThreshold(Duration.ZERO).withStackTrace();
+            diagnosticRecording.enable("semiontd.BenchmarkWindow");
+            diagnosticRecording.start();
+            diagnosticWindow = new BenchmarkWindow();
+            diagnosticWindow.repetition = repetition;
+            diagnosticWindow.warmup = repetition < warmups;
+            diagnosticWindow.engineerLanes = lanes;
+            diagnosticWindow.driver = mode;
+            diagnosticWindow.begin();
+        }
+
+        private void endDiagnostic(JsonObject metrics) throws Exception {
+            if (diagnosticRecording == null) { return; }
+            diagnosticWindow.logicalTicks = logicalTicks;
+            diagnosticWindow.end();
+            diagnosticWindow.commit();
+            diagnosticRecording.stop();
+            Path path = Path.of(diagnosticDirectory).resolve("battle-" + repetition + ".jfr");
+            Files.createDirectories(path.toAbsolutePath().getParent());
+            require(!Files.exists(path), "Each diagnostic battle requires a fresh recording path");
+            diagnosticRecording.dump(path);
+            diagnosticRecording.close();
+            diagnosticRecording = null;
+            metrics.addProperty("diagnostic_jfr", path.toAbsolutePath().toString());
+            metrics.addProperty("diagnostic_profiled", true);
         }
 
         private void configure() throws Exception {
@@ -347,6 +405,10 @@ public final class CombatSpeedBenchmarkTest {
                 action.run();
             } catch (Throwable failure) {
                 done = true;
+                if (diagnosticRecording != null) {
+                    try { diagnosticRecording.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+                    diagnosticRecording = null;
+                }
                 try { closeBattle(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
                 CombatBenchmarkHooks.remove(server);
                 server.tickRateManager().setTickRate(previousRate);

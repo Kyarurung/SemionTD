@@ -40,6 +40,8 @@ def quantile(values, fraction):
 def validate(run):
     if run.get('schema_version') != 1 or run.get('dry_run') is not False:
         raise BenchmarkError('Only complete measured benchmark schema 1 runs are accepted')
+    if run.get('diagnostic_profiled', False) or any(trial.get('diagnostic_profiled', False) for trial in run.get('trials', [])):
+        raise BenchmarkError('Profiled diagnostic runs cannot be used for the performance comparison')
     driver = run.get('driver')
     if driver not in ('native', 'simulation'):
         raise BenchmarkError('Unknown benchmark driver')

@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--dry-repetitions', type=int, choices=(1, 2), default=1)
     parser.add_argument('--order', choices=('A1', 'B1', 'B2', 'A2'), default='A1')
     parser.add_argument('--quiet-host-confirmed', action='store_true')
+    parser.add_argument('--diagnostic-jfr-dir', type=Path)
     args = parser.parse_args()
     if not args.dry_run and not args.quiet_host_confirmed:
         parser.error('Measured trials require the main session to confirm a quiescent host first')
@@ -52,6 +53,11 @@ def main():
         'semiontd.benchmark.order': args.order,
         'semiontd.benchmark.output': output.as_posix(),
     }
+    if args.diagnostic_jfr_dir:
+        diagnostic = args.diagnostic_jfr_dir.resolve()
+        if diagnostic.exists():
+            raise ValueError('A diagnostic must use a new JFR directory')
+        properties['semiontd.benchmark.diagnosticJfrDirectory'] = diagnostic.as_posix()
     environment = dict(os.environ)
     inherited = environment.get('JAVA_TOOL_OPTIONS', '')
     if 'semiontd.benchmark.' in inherited or 'fabric-api.gametest.filter' in inherited:
