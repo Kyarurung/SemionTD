@@ -156,7 +156,7 @@ public final class CombatSimulationSessionRuntimeTest {
 
                 @Override
                 public void hit(SemionMonsterEntity attacker, LivingEntity target) {
-                    hits.add(world.getGameTime() - startTime);
+                    hits.add(attacker.combatTickCount() - startAge);
                 }
             });
             survivor.startAttack(survivor);
@@ -186,6 +186,17 @@ public final class CombatSimulationSessionRuntimeTest {
             require(world.getGameTime() == startTime + 40, "Outside the scope the world exposes the latest completed clock");
             require(survivor.activeTimedEffectTicks(TimedEffectType.MONSTER_ATTACK_DAMAGE_BONUS) == 0,
                     "Forty logical ticks expire the original effect");
+            session.input(() -> survivor.startAttack(survivor));
+            survivor.tickCount = startAge + 200;
+            session.close();
+            require(session.isClosed() && !CombatSimulationRuntime.controls(world), "Idle handoff must unregister the owner");
+            require(survivor.tickCount == startAge + 40, "Handoff must adopt completed age even behind physical frame age");
+            require(world.getGameTime() == startTime + 40, "Handoff must also retain the completed world clock");
+            world.tickNonPassenger(survivor);
+            world.tickNonPassenger(survivor);
+            require(hits.equals(List.of(3L)), "Pending hit must remain pending through resumed ages forty-one and forty-two");
+            world.tickNonPassenger(survivor);
+            require(hits.equals(List.of(3L, 43L)), "Pending hit must resolve once at its original age forty-three deadline");
         }
 
         @Override

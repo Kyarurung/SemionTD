@@ -134,13 +134,19 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     @Override
     public int entityTick(Entity entity) {
+        if (publishing) {
+            CombatSimulationRuntime.EntityView completed = completedViews.get(entity);
+            if (completed != null) {
+                return completed.age();
+            }
+        }
         CombatSimulationRuntime.EntityView view = view(entity);
         return view == null ? entity.tickCount : view.age();
     }
 
     @Override
     public long gameTime(ServerLevel world) {
-        Long time = (CombatSimulationRuntime.active(this) ? clocks : completedClocks).get(world);
+        Long time = (!publishing && CombatSimulationRuntime.active(this) ? clocks : completedClocks).get(world);
         return time == null ? CombatSimulationRuntime.nativeGameTime(world) : time;
     }
 
@@ -397,7 +403,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                     ArenaCombatClock.adopt(entry.getKey(), entry.getValue());
                 }
                 for (var entry : completedViews.entrySet()) {
-                    entry.getKey().tickCount = Math.max(entry.getKey().tickCount, entry.getValue().age());
+                    entry.getKey().tickCount = entry.getValue().age();
                 }
                 circuits.forEach((world, circuit) -> circuit.close(completedCircuits.get(world)));
                 views.clear();
