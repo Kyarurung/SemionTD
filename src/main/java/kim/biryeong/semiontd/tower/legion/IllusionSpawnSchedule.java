@@ -26,6 +26,10 @@ final class IllusionSpawnSchedule<T> {
 
     void tick(Predicate<T> scope, int maximum, Predicate<T> spawn) {
         drain(scope, maximum, spawn);
+        if (pending.stream().allMatch(entry -> scope.test(entry.value))) {
+            pending.forEach(entry -> entry.dueTick--);
+            return;
+        }
         PriorityQueue<Pending<T>> advanced = new PriorityQueue<>(order);
         while (!pending.isEmpty()) {
             Pending<T> entry = pending.remove();
@@ -50,13 +54,16 @@ final class IllusionSpawnSchedule<T> {
     private void drain(Predicate<T> scope, int maximum, Predicate<T> spawn) {
         int spawned = 0;
         while (spawned < maximum) {
-            Pending<T> next = scope == null ? pending.peek() : pending.stream()
-                    .filter(entry -> entry.dueTick <= currentTick && scope.test(entry.value))
-                    .min(order).orElse(null);
+            Pending<T> next = pending.peek();
+            if (scope != null && next != null && !scope.test(next.value)) {
+                next = pending.stream()
+                        .filter(entry -> entry.dueTick <= currentTick && scope.test(entry.value))
+                        .min(order).orElse(null);
+            }
             if (next == null || next.dueTick > currentTick) {
                 return;
             }
-            if (scope == null) {
+            if (next == pending.peek()) {
                 pending.remove();
             } else {
                 pending.remove(next);

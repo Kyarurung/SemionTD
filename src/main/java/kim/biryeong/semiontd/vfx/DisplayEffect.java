@@ -360,7 +360,8 @@ public final class DisplayEffect {
                     // 키프레임은 서버 틱으로 짰지만 보간 시간은 클라이언트가 자기 틱(초당 20)으로 셉니다. 전투 배속으로
                     // 서버가 빨라지면 보간만 느려져 다음 키프레임에 밀리므로, 같은 실제 시간이 되도록 줄여 보냅니다.
                     element.setInterpolationDuration(kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(
-                            getAttachment() == null ? null : getAttachment().getWorld().getServer(), due.duration()));
+                            getAttachment() == null ? null : getAttachment().getWorld().getServer(),
+                            getAttachment() == null ? null : getAttachment().getWorld(), due.duration()));
                     element.startInterpolation();
                 }
             }

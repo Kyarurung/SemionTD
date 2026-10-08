@@ -99,6 +99,21 @@ final class IllusionSpawnScheduleTest {
     }
 
     @Test
+    void scopedSpawnCallbackCannotDrainNewOutsideScopeWork() {
+        IllusionSpawnSchedule<String> queue = new IllusionSpawnSchedule<>();
+        List<String> spawned = new ArrayList<>();
+        queue.enqueue("arena-parent", 0);
+        queue.tick(value -> value.startsWith("arena-"), 10, value -> {
+            queue.enqueue("sandbox-child", 0);
+            return spawned.add(value);
+        });
+        queue.tick(value -> value.startsWith("arena-"), 10, spawned::add);
+        assertEquals(List.of("arena-parent"), spawned);
+        queue.tick(10, spawned::add);
+        assertEquals(List.of("arena-parent", "sandbox-child"), spawned);
+    }
+
+    @Test
     void clearingRemovesPendingEntriesAndRestoresRelativeDelays() {
         IllusionSpawnSchedule<String> queue = new IllusionSpawnSchedule<>();
         List<String> spawned = new ArrayList<>();
