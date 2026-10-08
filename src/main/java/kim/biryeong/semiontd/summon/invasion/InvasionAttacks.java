@@ -240,7 +240,7 @@ final class InvasionAttacks {
                 InvasionVfx.playAt(level(attacker), InvasionVfx.trollJavelin(
                         InvasionVfx.relative(origin, hand), InvasionVfx.relative(origin, aim), flight), origin);
                 // 연출은 틱 2부터 날아가므로 그만큼 늦게 맞힙니다. 던진 뒤 트롤이 죽어도 창은 날아가 맞습니다.
-                Scheduler.INSTANCE.submit(server -> {
+                Scheduler.INSTANCE.submit(level(attacker), server -> {
                     if (alive(target)) {
                         MonsterAttackStyle.strike(attacker, target, damage);
                     }

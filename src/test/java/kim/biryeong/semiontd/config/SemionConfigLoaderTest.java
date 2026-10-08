@@ -680,6 +680,7 @@ final class SemionConfigLoaderTest {
         assertFalse(configs.combatSpeed().enabled());
         assertEquals(40.0F, configs.combatSpeed().combatTickRate());
         assertEquals(25.0, configs.combatSpeed().maxAverageTickTimeMillis());
+        assertEquals(CombatSpeedConfig.Mode.ARENA, configs.combatSpeed().mode());
     }
 
     @Test
@@ -698,6 +699,20 @@ final class SemionConfigLoaderTest {
         assertTrue(configs.combatSpeed().enabled());
         assertEquals(60.0F, configs.combatSpeed().combatTickRate());
         assertEquals(20.0, configs.combatSpeed().maxAverageTickTimeMillis());
+        assertEquals(CombatSpeedConfig.Mode.ARENA, configs.combatSpeed().mode());
+    }
+
+    @Test
+    void legacyServerTickAccelerationCanBeSelectedExplicitly() throws Exception {
+        Files.createDirectories(tempDir);
+        Files.writeString(tempDir.resolve("combat_speed.json"), """
+                {"enabled":true,"combatTickRate":40,"maxAverageTickTimeMillis":25,"mode":"SERVER"}
+                """);
+
+        LoadedConfigs configs = SemionConfigLoader.load(tempDir, LoggerFactory.getLogger("test"));
+
+        assertEquals(CombatSpeedConfig.Mode.SERVER, configs.combatSpeed().mode());
+        assertEquals(40.0F, configs.combatSpeed().serverTickRate(40.0F));
     }
 
     @Test

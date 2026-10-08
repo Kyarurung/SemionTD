@@ -178,6 +178,7 @@ public final class SemionGameManager {
     private boolean managesTickRate;
     private int combatSpeedEntryDelayTicks;
     private int combatSpeedCooldownWaves;
+    private final CombatStepAccumulator combatSteps = new CombatStepAccumulator();
 
     public enum StartCountdownResult {
         SCHEDULED,
@@ -1816,6 +1817,10 @@ public final class SemionGameManager {
     public void tick(MinecraftServer server) {
         balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
         tickCombatSpeed(server);
+        boolean arenaSpeed = combatSpeedConfig.mode() == CombatSpeedConfig.Mode.ARENA
+                && combatSpeedAccelerated && server.tickRateManager().runsNormally();
+        CombatSpeedRuntime.configure(server, arenaSpeed ? activeGame : null,
+                arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
         IllusionCloneSpawnQueue.tick();
         musicService.tick(server, activeGame, java.util.stream.Stream
                 .concat(sandboxGames.values().stream(), tutorialGames.values().stream())
@@ -1860,7 +1865,33 @@ public final class SemionGameManager {
             return;
         }
 
-        activeGame.tick(server);
+        SemionGame combatGame = activeGame;
+        int combatRound = combatGame.currentRound();
+        boolean combatWave = combatGame.phase() == RoundPhase.LANE_WAVE
+                && !combatGame.isSandboxMode() && !combatGame.isTutorialMode();
+        int steps = combatSteps.steps(arenaSpeed && combatWave
+                ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
+        CombatStepRunner.run(steps,
+                () -> activeGame == combatGame && combatWave
+                        && combatGame.phase() == RoundPhase.LANE_WAVE
+                        && combatGame.currentRound() == combatRound
+                        && server.tickRateManager().runsNormally(),
+                () -> {
+                    ArenaCombatTicker.tick(server, combatGame);
+                    IllusionCloneSpawnQueue.tick(combatGame.arena());
+                },
+                () -> {
+                    combatGame.tick(server);
+                    for (var world : server.getAllLevels()) {
+                        if (combatGame.arena().containsWorld(world)) {
+                            Scheduler.INSTANCE.runWorldTasks(world);
+                        }
+                    }
+                });
+        if (combatGame.phase() != RoundPhase.LANE_WAVE) {
+            combatSteps.reset();
+            CombatSpeedRuntime.clear();
+        }
         if (activeGame != null && activeGame.phase() == RoundPhase.ENDED) {
             beginDelayedMatchResult(server, activeGame);
             return;
@@ -1977,6 +2008,7 @@ public final class SemionGameManager {
     }
 
     public void shutdown() {
+        resetCombatSpeedState();
         IllusionCloneSpawnQueue.clear();
         jobStatisticsService.shutdown();
         closeAllPracticeGames();
@@ -2006,6 +2038,8 @@ public final class SemionGameManager {
             server.tickRateManager().setTickRate(NORMAL_TICK_RATE);
         }
         managesTickRate = false;
+        combatSteps.reset();
+        CombatSpeedRuntime.clear();
     }
 
     private void tickCombatSpeed(MinecraftServer server) {
@@ -2045,18 +2079,18 @@ public final class SemionGameManager {
             if (!isCombatSpeedEntrySafe(combatSpeedConfig, averageTickTimeMillis)) {
                 blockCombatSpeedForWave();
                 SemionTd.LOGGER.warn(
-                        "Combat tick rate remained at 20 TPS: average tick time {} ms exceeded the {} ms entry threshold.",
+                        "Combat acceleration remained disabled: average tick time {} ms exceeded the {} ms entry threshold.",
                         String.format("%.2f", averageTickTimeMillis),
                         String.format("%.2f", combatSpeedEntryThresholdMillis(combatSpeedConfig))
                 );
                 return;
             }
             combatSpeedAccelerated = true;
-            setCombatTickRate(server, targetTickRate);
+            setCombatTickRate(server, combatSpeedConfig.serverTickRate(targetTickRate));
             return;
         }
 
-        setCombatTickRate(server, targetTickRate);
+        setCombatTickRate(server, combatSpeedConfig.serverTickRate(targetTickRate));
         if (averageTickTimeMillis <= combatSpeedConfig.maxAverageTickTimeMillis()) {
             return;
         }
@@ -2064,7 +2098,7 @@ public final class SemionGameManager {
         blockCombatSpeedForWave();
         setCombatTickRate(server, NORMAL_TICK_RATE);
         SemionTd.LOGGER.warn(
-                "Combat tick rate restored to 20 TPS: average tick time {} ms exceeded {} ms.",
+                "Combat acceleration disabled: average tick time {} ms exceeded {} ms.",
                 String.format("%.2f", averageTickTimeMillis),
                 combatSpeedConfig.maxAverageTickTimeMillis()
         );
@@ -2085,6 +2119,8 @@ public final class SemionGameManager {
         combatSpeedAccelerated = false;
         combatSpeedEntryDelayTicks = 0;
         combatSpeedCooldownWaves = COMBAT_SPEED_COOLDOWN_WAVES;
+        combatSteps.reset();
+        CombatSpeedRuntime.clear();
     }
 
     boolean beginCombatSpeedWave() {
@@ -2092,6 +2128,7 @@ public final class SemionGameManager {
         combatSpeedCooldownWaves = Math.max(0, combatSpeedCooldownWaves - 1);
         combatSpeedAccelerated = false;
         combatSpeedEntryDelayTicks = 0;
+        combatSteps.reset();
         return combatSpeedOverloaded;
     }
 
@@ -2101,6 +2138,8 @@ public final class SemionGameManager {
         combatSpeedAccelerated = false;
         combatSpeedEntryDelayTicks = 0;
         combatSpeedCooldownWaves = 0;
+        combatSteps.reset();
+        CombatSpeedRuntime.clear();
     }
 
     static double combatSpeedEntryThresholdMillis(CombatSpeedConfig config) {

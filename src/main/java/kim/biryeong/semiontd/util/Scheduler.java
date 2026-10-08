@@ -1,9 +1,14 @@
 package kim.biryeong.semiontd.util;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -14,9 +19,12 @@ public final class Scheduler {
 
     private final ConcurrentLinkedQueue<Task> taskQueue = new ConcurrentLinkedQueue<>();
     private int currentTick = 0;
+    private final Map<ServerLevel, ArenaTaskQueue> arenaTasks = new IdentityHashMap<>();
 
     private Scheduler() {
         ServerTickEvents.END_SERVER_TICK.register(this::runTasks);
+        ServerWorldEvents.UNLOAD.register((server, world) -> arenaTasks.remove(world));
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> arenaTasks.clear());
     }
 
     /**
@@ -63,6 +71,21 @@ public final class Scheduler {
         this.taskQueue.add(new OneshotTask(task, this.currentTick + delay));
     }
 
+    public void submit(ServerLevel world, Consumer<MinecraftServer> task, int delay) {
+        arenaTasks.computeIfAbsent(world, ignored -> new ArenaTaskQueue())
+                .submit(world.getGameTime(), () -> task.accept(world.getServer()), delay);
+    }
+
+    public void runWorldTasks(ServerLevel world) {
+        ArenaTaskQueue queue = arenaTasks.get(world);
+        if (queue != null) {
+            queue.runTasks(world.getGameTime());
+            if (queue.isEmpty()) {
+                arenaTasks.remove(world);
+            }
+        }
+    }
+
     /**
      * schedule a repeating task that is executed infinitely every n ticks
      *
@@ -96,6 +119,9 @@ public final class Scheduler {
         this.currentTick = time;
 
         this.taskQueue.removeIf(task -> task.tryRun(server, time));
+        for (ServerLevel world : server.getAllLevels()) {
+            runWorldTasks(world);
+        }
     }
 
     private interface Task {
