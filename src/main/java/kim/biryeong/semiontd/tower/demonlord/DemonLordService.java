@@ -331,7 +331,7 @@ public final class DemonLordService {
         }
         syncBossBar(player, state);
         float tickRatio = state.inCombat()
-                ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
+                ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer(), player.level()) : 1.0F;
         syncMoveSpeed(player, state, tickRatio);
         syncTickScale(player, state, gameTime, tickRatio);
 
@@ -855,7 +855,7 @@ public final class DemonLordService {
     }
 
     static void syncSkillCooldowns(ServerPlayer player, DemonLordState state, long now) {
-        float ratio = kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer());
+        float ratio = kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer(), player.level());
         for (DemonLordSkill skill : SKILLS) {
             showCooldown(player, skill, state.remainingCooldownTicks(skill, now), ratio);
         }
@@ -868,7 +868,7 @@ public final class DemonLordService {
      */
     private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks) {
         showCooldown(player, skill, remainingServerTicks,
-                kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()));
+                kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer(), player.level()));
     }
 
     private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks, float ratio) {
