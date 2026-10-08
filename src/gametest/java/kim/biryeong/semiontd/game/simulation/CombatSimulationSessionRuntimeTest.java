@@ -20,6 +20,7 @@ import kim.biryeong.semiontd.game.RoundPhase;
 import kim.biryeong.semiontd.game.SemionGame;
 import kim.biryeong.semiontd.game.TeamId;
 import kim.biryeong.semiontd.gametest.SyntheticArenaFactory;
+import kim.biryeong.semiontd.tower.engineer.EngineerCircuitWorld;
 import kim.biryeong.semiontd.util.Scheduler;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
@@ -50,7 +51,16 @@ public final class CombatSimulationSessionRuntimeTest {
         run(context, 1);
     }
 
+    @GameTest(maxTicks = 240)
+    public void failedNativePrefixRetainsMatchOwnershipUntilExplicitDisposal(GameTestHelper context) {
+        run(context, 2, true);
+    }
+
     private static void run(GameTestHelper context, int stepsPerFrame) {
+        run(context, stepsPerFrame, false);
+    }
+
+    private static void run(GameTestHelper context, int stepsPerFrame, boolean fault) {
         var server = context.getLevel().getServer();
         RuntimeLevelHandle handle = Fantasy.get(server).openTemporaryLevel(
                 Identifier.fromNamespaceAndPath("semion-td-gametest", "combat_session_" + UUID.randomUUID()),
@@ -64,8 +74,12 @@ public final class CombatSimulationSessionRuntimeTest {
                 world.areEntitiesActuallyLoadedAndTicking(new ChunkPos(0, 0)),
                 "Session fixture chunk must be ticking")).thenExecute(() -> {
                     try {
-                        Fixture fixture = new Fixture(world, handle, stepsPerFrame);
-                        drive(context, fixture);
+                        Fixture fixture = new Fixture(world, handle, stepsPerFrame, fault);
+                        if (fault) {
+                            driveFault(context, fixture);
+                        } else {
+                            drive(context, fixture);
+                        }
                     } catch (Throwable failure) {
                         handle.unload();
                         context.fail(Component.literal("Session fixture failed: " + failure));
@@ -103,6 +117,28 @@ public final class CombatSimulationSessionRuntimeTest {
         }
     }
 
+    private static void driveFault(GameTestHelper context, Fixture fixture) {
+        try {
+            if (fixture.session.failure() != null) {
+                fixture.verifyFault();
+                fixture.close();
+                context.succeed();
+                return;
+            }
+            if (fixture.frames == 0) {
+                fixture.frames++;
+                fixture.session.beginFrame(2);
+            }
+            if (++fixture.physicalFrames >= 210) {
+                throw new AssertionError("The injected worker failure must reach the native session");
+            }
+            context.runAfterDelay(1, () -> driveFault(context, fixture));
+        } catch (Throwable failure) {
+            fixture.close();
+            context.fail(Component.literal("Native combat fault retention failed: " + failure));
+        }
+    }
+
     private static final class Fixture implements AutoCloseable {
         private final ServerLevel world;
         private final RuntimeLevelHandle handle;
@@ -115,6 +151,7 @@ public final class CombatSimulationSessionRuntimeTest {
         private final long startTime;
         private final int startAge;
         private final int stepsPerFrame;
+        private final RuntimeException physicsFailure;
         private final List<Long> steps = new ArrayList<>();
         private final List<Long> hits = new ArrayList<>();
         private final List<Long> tasks = new ArrayList<>();
@@ -124,10 +161,11 @@ public final class CombatSimulationSessionRuntimeTest {
         private boolean closed;
 
         @SuppressWarnings("unchecked")
-        private Fixture(ServerLevel world, RuntimeLevelHandle handle, int stepsPerFrame) throws ReflectiveOperationException {
+        private Fixture(ServerLevel world, RuntimeLevelHandle handle, int stepsPerFrame, boolean fault) throws ReflectiveOperationException {
             this.world = world;
             this.handle = handle;
             this.stepsPerFrame = stepsPerFrame;
+            physicsFailure = fault ? new IllegalStateException("injected native movement calculation failure") : null;
             for (int x = 0; x < 8; x++) {
                 for (int z = 0; z < 8; z++) {
                     world.setBlock(new BlockPos(x, 64, z), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
@@ -167,7 +205,14 @@ public final class CombatSimulationSessionRuntimeTest {
             });
             survivor.startAttack(survivor);
             Scheduler.INSTANCE.submit(world, ignored -> tasks.add(world.getGameTime() - startTime), 2);
-            session = new CombatSimulationSession(world.getServer(), game);
+            if (fault) {
+                survivor.setRemainingFireTicks(20);
+                RuntimeException expectedFailure = physicsFailure;
+                session = new CombatSimulationSession(world.getServer(), game, input -> { throw expectedFailure; });
+            } else {
+                session = new CombatSimulationSession(world.getServer(), game);
+            }
+            require(session.failure() == null, "A new session must not report a fault");
             session.input(() -> {
                 var unspawned = new SemionMonsterEntity(SemionEntityTypes.MONSTER, world);
                 require(session.view(unspawned) == null, "A constructor must not acquire a view before native registration");
@@ -225,6 +270,43 @@ public final class CombatSimulationSessionRuntimeTest {
             require(hits.equals(List.of(3L)), "Pending hit must remain pending through resumed ages forty-one and forty-two");
             world.tickNonPassenger(survivor);
             require(hits.equals(List.of(3L, 43L)), "Pending hit must resolve once at its original age forty-three deadline");
+        }
+
+        private void verifyFault() {
+            require(session.failure() != null && session.failure().getCause() == physicsFailure,
+                    "The first worker failure must remain observable on the owner thread");
+            require(!session.isClosed() && CombatSimulationRuntime.controls(world),
+                    "A failed match must retain ownership instead of becoming eligible for recreation");
+            require(EngineerCircuitWorld.current(world) != null, "A failed match must also retain its circuit ownership");
+            require(session.view(survivor).age() == startAge + 1,
+                    "The real native actor prefix must already have advanced before calculation fails");
+            require(session.logicalTickCount() == 0 && game.currentTick() == 0 && world.getGameTime() == startTime,
+                    "An uncommitted native prefix cannot advance completed game work or the public clock");
+            int fire = survivor.getRemainingFireTicks();
+            require(fire > 0 && fire < 20, "The real native base prefix must have advanced its fire counter once");
+            int[] mutations = {0};
+            session.input(() -> mutations[0]++);
+            require(CombatSimulationRuntime.input(world, () -> mutations[0]++),
+                    "Faulted ownership must consume external gameplay input without leaking it to native fallback");
+            require(mutations[0] == 0, "Gameplay input must not mutate a failed match");
+            for (int tick = 0; tick < 20; tick++) {
+                session.beginFrame(2);
+                session.endFrame();
+                world.tickNonPassenger(survivor);
+            }
+            require(!session.isClosed() && session.failure().getCause() == physicsFailure,
+                    "Additional physical frames must retain the same stopped owner and first failure");
+            require(session.logicalTickCount() == 0 && game.currentTick() == 0 && world.getGameTime() == startTime,
+                    "A failed match cannot retry the uncommitted prefix or continue its logical clock");
+            require(survivor.getRemainingFireTicks() == fire && session.entityTick(survivor) == startAge,
+                    "Physical entity frames must not resume native ambient or logical ages while ownership is held");
+            session.close();
+            session.close();
+            require(session.isClosed() && !CombatSimulationRuntime.controls(world)
+                            && EngineerCircuitWorld.current(world) == null,
+                    "Explicit disposal must release retained ownership and circuits once without repeating presentation");
+            world.tickNonPassenger(survivor);
+            require(survivor.getRemainingFireTicks() < fire, "Native base work may resume only after explicit disposal");
         }
 
         @Override

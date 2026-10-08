@@ -46,15 +46,24 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     private final Map<Entity, AnimationFrame> animations = new IdentityHashMap<>();
     private final Map<Entity, AnimationFrame> completedAnimations = new IdentityHashMap<>();
     private final Coordinator<Entity, Work, WorkResult> coordinator;
+    private final NativeBridge nativeBridge;
     private long revision;
     private long logicalTick;
     private boolean publishing;
     private boolean closed;
+    private boolean disposing;
+    private Throwable failure;
     private LongConsumer stepObserver = ignored -> {};
 
     public CombatSimulationSession(MinecraftServer server, SemionGame game) {
+        this(server, game, WorkerPhysics::advance);
+    }
+
+    CombatSimulationSession(MinecraftServer server, SemionGame game,
+            Function<WorkerPhysics.Input, WorkerPhysics.Result> physics) {
         this.server = Objects.requireNonNull(server, "server");
         this.game = Objects.requireNonNull(game, "game");
+        Objects.requireNonNull(physics, "physics");
         requireOwner();
         if (game.phase() != RoundPhase.LANE_WAVE || game.isSandboxMode() || game.isTutorialMode()) {
             throw new IllegalArgumentException("Combat sessions require an active normal wave.");
@@ -74,7 +83,8 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             throw new IllegalArgumentException("Combat sessions require loaded arena worlds.");
         }
         worlds = List.copyOf(arenaWorlds);
-        coordinator = new Coordinator<>(new NativeBridge(), CombatSimulationSession::calculate, server::execute);
+        nativeBridge = new NativeBridge();
+        coordinator = new Coordinator<>(nativeBridge, work -> calculate(work, physics), server::execute);
         try {
             for (ServerLevel world : worlds) {
                 List<PlayerLane> lanes = game.teams().values().stream()
@@ -87,6 +97,8 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             }
             CombatSimulationRuntime.run(this, this::captureCompletedState);
         } catch (RuntimeException | Error failure) {
+            nativeBridge.failed(failure);
+            disposing = true;
             coordinator.close();
             throw failure;
         }
@@ -117,6 +129,11 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         return closed;
     }
 
+    public Throwable failure() {
+        requireOwner();
+        return failure;
+    }
+
     public void setStepObserver(LongConsumer observer) {
         requireOwner();
         stepObserver = Objects.requireNonNull(observer, "observer");
@@ -125,6 +142,11 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     @Override
     public void close() {
         requireOwner();
+        if (coordinator.isClosed()) {
+            disposing = true;
+            nativeBridge.close();
+            return;
+        }
         coordinator.close();
     }
 
@@ -135,7 +157,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     @Override
     public int entityTick(Entity entity) {
-        if (publishing) {
+        if (publishing || failure != null) {
             CombatSimulationRuntime.EntityView completed = completedViews.get(entity);
             if (completed != null) {
                 return completed.age();
@@ -147,7 +169,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     @Override
     public long gameTime(ServerLevel world) {
-        Long time = (!publishing && CombatSimulationRuntime.active(this) ? clocks : completedClocks).get(world);
+        Long time = (!publishing && failure == null && CombatSimulationRuntime.active(this) ? clocks : completedClocks).get(world);
         return time == null ? CombatSimulationRuntime.nativeGameTime(world) : time;
     }
 
@@ -167,7 +189,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     @Override
     public void changed(Entity entity) {
         requireOwner();
-        if (publishing || !controls(entity)) {
+        if (publishing || failure != null || !controls(entity)) {
             return;
         }
         revision++;
@@ -191,7 +213,10 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     @Override
     public void input(Runnable input) {
         requireOwner();
-        coordinator.input(input);
+        Objects.requireNonNull(input, "input");
+        if (failure == null) {
+            coordinator.input(input);
+        }
     }
 
     @Override
@@ -260,9 +285,9 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         }
     }
 
-    private static WorkResult calculate(Work work) {
+    private static WorkResult calculate(Work work, Function<WorkerPhysics.Input, WorkerPhysics.Result> physicsCalculation) {
         return switch (work) {
-            case PhysicsWork physics -> new PhysicsResult(WorkerPhysics.advance(physics.input()));
+            case PhysicsWork physics -> new PhysicsResult(physicsCalculation.apply(physics.input()));
             case CircuitWork circuit -> new CircuitResult(EngineerCircuitWorld.calculate(circuit.input()));
         };
     }
@@ -419,12 +444,21 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         public void present() { publishCompleted(); }
 
         @Override
+        public void failed(Throwable cause) {
+            if (failure == null) {
+                failure = Objects.requireNonNull(cause, "cause");
+            }
+        }
+
+        @Override
         public void close() {
-            if (closed) {
+            if (closed || (failure != null && !disposing && valid())) {
                 return;
             }
             try {
-                publishCompleted();
+                if (failure == null) {
+                    publishCompleted();
+                }
             } finally {
                 publishing = true;
                 try {
@@ -452,6 +486,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     interface Bridge<A, I, O> {
         boolean valid();
         default boolean paused() { return false; }
+        default void failed(Throwable failure) {}
         long revision();
         long logicalTick();
         int round();
@@ -520,7 +555,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                 try {
                     bridge.present();
                 } catch (RuntimeException | Error failure) {
-                    closeNow();
+                    fault(failure);
                     throw failure;
                 }
             }
@@ -621,7 +656,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                     }
                 }
             } catch (RuntimeException | Error failure) {
-                closeNow();
+                fault(failure);
                 throw failure;
             } finally {
                 driving = false;
@@ -685,14 +720,24 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                 pendingToken = null;
                 drive();
             } catch (RuntimeException | Error failure) {
-                closeNow();
+                fault(failure);
                 throw failure;
             }
         }
 
         void fail(RuntimeException failure) {
-            closeNow();
+            fault(failure);
             throw failure;
+        }
+
+        private void fault(Throwable failure) {
+            if (!closed) {
+                try {
+                    bridge.failed(failure);
+                } finally {
+                    closeNow();
+                }
+            }
         }
 
         private void checkNotification() {

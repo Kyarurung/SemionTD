@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.game.simulation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -409,6 +410,47 @@ final class CombatSimulationSessionTest {
     private record Request(String actor, long tick) {
     }
 
+    @Test
+    void failureIsReportedBeforeAbortAndCloseAndCannotBeReplacedByALaterFault() throws Exception {
+        List<String> order = new ArrayList<>();
+        List<Throwable> failures = new ArrayList<>();
+        FakeBridge bridge = new FakeBridge() {
+            @Override
+            public void failed(Throwable failure) {
+                order.add("failed");
+                failures.add(failure);
+            }
+
+            @Override
+            public void abort(String actor) {
+                order.add("abort");
+                super.abort(actor);
+            }
+
+            @Override
+            public void close() {
+                order.add("close");
+                super.close();
+            }
+        };
+        Dispatcher dispatcher = new Dispatcher();
+        try (var coordinator = coordinator(bridge, dispatcher, ignored -> {})) {
+            coordinator.beginFrame(1);
+            dispatcher.next().run();
+            Runnable pending = dispatcher.next();
+            var first = new IllegalStateException("prepared actor failed");
+            assertSame(first, assertThrows(IllegalStateException.class, () -> coordinator.fail(first)));
+            pending.run();
+            assertEquals(List.of("failed", "abort", "close"), order);
+            assertEquals(1, failures.size());
+            assertSame(first, failures.getFirst());
+            assertThrows(IllegalArgumentException.class,
+                    () -> coordinator.fail(new IllegalArgumentException("later failure")));
+            assertEquals(1, failures.size());
+            assertEquals(0, coordinator.completedSteps());
+        }
+    }
+
     private record Result(String actor, long tick) {
     }
 
@@ -425,7 +467,7 @@ final class CombatSimulationSessionTest {
         }
     }
 
-    private static final class FakeBridge implements CombatSimulationSession.Bridge<String, Request, Result> {
+    private static class FakeBridge implements CombatSimulationSession.Bridge<String, Request, Result> {
         private final List<String> events = new ArrayList<>();
         private final List<String> members = new ArrayList<>(List.of("a", "b"));
         private final Set<String> removed = new HashSet<>();
