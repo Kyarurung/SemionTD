@@ -567,20 +567,245 @@ JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest
 
 ## 증강 선택 카드와 클라이언트 검증
 
-증강 카드 UI는 GUI 배율 3을 기준으로 배치하고 GUI 배율 2를 보조 회귀로 확인한다. 네이티브 Dialog에 세 장의 큰 이미지 카드를 표시하고, 각 카드 아래에 독립 리롤 버튼을 둔다. 실버·골드·프리즘 프레임과 공격·방어·기타 아이콘, 현재 설정으로 계산한 설명을 사용한다. 버튼의 왼쪽에는 리롤 아이콘, 오른쪽에는 남은 횟수를 표시하며 활성·비활성 외형을 구분한다. 카드와 버튼의 시각 영역에 맞는 클릭 범위를 실제 클라이언트에서 검증한다.
+증강 카드 UI는 GUI 배율 3을 기준으로 배치하고 실제 캡처도 GUI 3에서만 수행한다. 네이티브 Dialog에 세 장의 큰 이미지 카드를 표시하고, 세 카드 아래 중앙에 공용 리롤 버튼 하나를 둔다. 실버·골드·프리즘 프레임과 실제 효과별로 분류한 생성 아이콘, 현재 설정으로 계산한 설명을 사용한다. 버튼의 왼쪽에는 리롤 아이콘, 오른쪽에는 남은 횟수를 표시하며 활성·비활성 외형을 구분한다. 카드와 버튼의 시각 영역에 맞는 클릭 범위를 실제 클라이언트에서 검증한다.
 
-리롤은 카드 위치별로 각각 경기당 최대 5회다. 해당 위치 한 장만 교체하고 다른 두 카드와 잔량을 보존한다. 성공할 때만 해당 위치에서 1회를 차감하며 남은 횟수는 다음 증강 라운드로 이월한다. 잔량이 0이거나 유효한 새 후보가 없으면 해당 버튼을 비활성화한다. 서버는 세션·제안 리비전·카드 위치·카드 ID·요청 식별자를 확인하고 중복 또는 오래된 요청으로 추가 차감하지 않는다.
+리롤은 경기 전체에서 공용으로 최대 5회다. 한 번 누르면 기존 세 장과 겹치지 않는 유효한 세 장으로 함께 교체한다. 세 장 모두 구성할 수 있을 때만 1회를 차감하며, 일부 교체나 실패 시 차감은 없다. 다음 증강 라운드·창 닫기·재접속에도 잔량을 유지한다. 기존 위치별 사용량 배열은 가장 많이 쓴 위치를 기준으로 보수적으로 읽는다(기존 잔량 5·4·3이면 공용 3회). 새 경기에서만 5회로 초기화하며, 카드 위치별 구형 명령은 거절한다.
 
-리롤 상태는 해당 경기의 `SemionPlayer`가 소유한다. 기존 재접속 경로는 같은 플레이어 상태를 다시 열므로 잔량을 보존하며, 새 경기에서 새 상태가 만들어질 때만 각 위치를 5회로 초기화한다. 현재 프로젝트는 진행 중 경기의 디스크 저장·서버 재시작 복원을 지원하지 않는다. 따라서 마이그레이션할 기존 리롤 저장 형식도 없으며, 재접속 보존을 서버 재시작 복원으로 설명하지 않는다.
+리롤 상태는 해당 경기의 `SemionPlayer`가 소유한다. 서버는 세션·제안 리비전·요청 식별자를 확인해 중복·오래된 요청으로 추가 차감하지 않는다. 잔량 0 또는 유효한 새 세 장 부족 시 중앙 버튼을 비활성화한다. 현재 진행 중 경기의 디스크 저장·서버 재시작 복원은 지원하지 않으며 재접속 보존과 구분한다.
 
-선택용 독립 아이콘 아틀라스는 `src/main/resources/semiontd/ui/augment-icons.png`에서 읽는다. 사용자가 제공한 `semiontd_augment_atlas_original.png`의 원본 바이트이며 정사각형 3×3 배열에서 행은 실버·골드·프리즘, 열은 공격·방어·기타다. 참고 화면의 프레임과 아이콘을 복사하지 않고 별도 장식 프레임과 이 아틀라스를 사용한다. Polymer가 생성한 최종 리소스팩에 실제 카드·폰트 리소스가 포함되어야 한다. 기존 BetterHud 인벤토리 렌더러는 비교 검증용으로 남아 있으며 네이티브 Dialog의 클릭 입력에는 BetterHud가 필요하지 않다.
+선택용 독립 아이콘 아틀라스는 `src/main/resources/semiontd/ui/augment-icons.png`에서 읽는다. 사용자가 제공한 `semiontd_augment_atlas_original.png`의 원본 바이트이며 정사각형 3×3 배열에서 행은 실버·골드·프리즘, 열은 공격·방어·기타다. 기존 아틀라스는 비교용 렌더러에 보존하며, 현재 네이티브 Dialog는 생성 원본 13종을 축소한 금속 문양을 사용한다. 참고 이미지의 원본 아이콘을 추출하거나 복사하지 않는다. 아이콘은 등급색을 유지하며 위쪽은 밝고 아래쪽은 조금 어두운 세로 그라데이션을 사용한다. 카드는 108×171픽셀, 카드 간격은 10픽셀이다. 리롤은 실제 그림과 클릭 폭 모두 40픽셀, 보이는 높이 14픽셀을 사용하며, 카드 아래 좌우 34픽셀의 비활성 여백으로 중앙 정렬한다. 비트맵 글리프 뒤의 1픽셀 진행 여백은 별도 음수 오프셋으로 상쇄한다. 좌우 끝 픽셀도 실제 마우스 입력으로 검증한다. 9픽셀 텍스트 행 단위의 입력 영역에 맞춰 위아래 2픽셀 클릭 여백을 둔다. Polymer가 생성한 최종 리소스팩에 실제 카드·폰트 리소스가 포함되어야 한다. 기존 BetterHud 인벤토리 렌더러는 비교 검증용으로 남아 있으며 네이티브 Dialog의 클릭 입력에는 BetterHud가 필요하지 않다.
 
 BetterHud와 Polymer AutoHost를 함께 쓰는 새 격리 환경에서는 `config/polymer/auto-host.json`의 `setup_early`를 `false`로 설정한다. 초기 팩 생성이 BetterHud의 팩 훅 등록보다 먼저 실행되면 카드 리소스가 빠질 수 있다. 캡처 하네스는 이 설정과 최종 팩의 카드·셰이더 리소스를 확인한 뒤 클라이언트를 연결한다. 운영 환경의 설정 변경과 리소스팩 배포는 별도 적용 작업이다.
 
 실제 화면 검증용 `prepareCaptureLaunch`는 새 격리 서버·클라이언트 디렉터리와 JVM 실행 정보를 `build/capture-launch.json`에 생성한다. 테스트 서버는 `127.0.0.1`과 `capturePort`(기본 25643)를 사용한다. 캡처 전용 `semiontd.capture` 설정과 `SemionCapture` 계정으로 실제 증강 서비스, Dialog 패킷 및 마우스 입력 경로를 실행한다. 캡처 검증은 서버 GameTest와 별개이며, 운영 서버나 기존 월드를 사용하지 않는다.
 
-UI 검증 실행 순서는 Java 25 환경에서 `./gradlew prepareCaptureLaunch -PcaptureMode=dialog -PcaptureBetterHud=false --console=plain --no-daemon`, 이어서 `python scripts/run-client-capture.py`다. 재실행 때도 먼저 새 실행 정보를 생성해야 한다. 캡처 이미지와 서버·클라이언트 로그는 `build/capture-evidence/`의 해당 실행 결과가 가리키는 경로에서 확인한다. 서버 전용 모드는 시험 클라이언트에서 제외하며 실제 제외 목록은 `capture-scope.json`에 남긴다. GUI 배율 3을 먼저 확인하고 2를 보조 검사하며, 카드 배치·툴팁·선택·위치별 리롤·잔량 0의 비활성 상태와 서버 처리 결과를 함께 확인해야 한다. 현재 네이티브 Dialog는 세 장을 동시에 표시하며 기존 인벤토리 렌더러의 순차 등장 효과는 이식하지 않았다.
+UI 검증 실행 순서는 Java 25 환경에서 `./gradlew prepareCaptureLaunch -PcaptureMode=dialog -PcaptureBetterHud=false --console=plain --no-daemon`, 이어서 `python scripts/run-client-capture.py`다. 재실행 때도 먼저 새 실행 정보를 생성해야 한다. 캡처 이미지와 서버·클라이언트 로그는 `build/capture-evidence/`의 해당 실행 결과가 가리키는 경로에서 확인한다. 서버 전용 모드는 시험 클라이언트에서 제외하며 실제 제외 목록은 `capture-scope.json`에 남긴다. GUI 배율 3에서만 실제 화면을 캡처하며, 카드 배치·툴팁·선택·공용 리롤·잔량 0의 비활성 상태와 서버 처리 결과를 함께 확인해야 한다. 현재 네이티브 Dialog는 세 장을 동시에 표시하며 기존 인벤토리 렌더러의 순차 등장 효과는 이식하지 않았다.
 
 상자 없이 이미지 카드를 클릭하는 대안은 GameTest 소스의 `CardDialogPoc`에서 격리 검증한다. `./gradlew prepareCaptureLaunch -PcaptureMode=card-dialog -PcaptureBetterHud=false --console=plain --no-daemon` 뒤 같은 캡처 스크립트를 실행한다. 네이티브 Dialog 본문을 9픽셀 높이의 비트맵 글리프 행으로 나누고 카드별 custom click action을 연결한다. 서버는 캡처 전용 계정과 세션 토큰, 중복 선택, 새로고침 후 만료된 토큰을 검사한다. 시험 프레임은 원본 아이콘이 아니며 이 경로는 운영 증강 선택 화면을 대체하지 않는다.
 
 Dialog의 클릭 입력은 클라이언트 모드 없이 처리할 수 있지만 월드의 회색 배경과 흐림은 남는다. 현재 Dialog 데이터에는 해당 배경만 끄는 설정이 없으며, BetterHud의 HUD 출력 자체에 자유 커서 클릭 입력이 추가되는 것도 아니다. 다른 GUI까지 영향을 주는 전역 투명 처리나 사용자 클라이언트 설정 변경으로 대체하지 않는다. 남은 배경 제약에 대한 사용자 결정과 실제 화면 검증 없이 UI 완료나 배포 가능 상태로 판단하지 않는다.
+
+
+일반 카드 상단에는 라벨을 표시하지 않으며 직업 전용 카드에는 직업 이름 없이 `전용`만 표시한다. 등급 이름도 표시하지 않는다. 일반/전용은 `requiredJobId`로 구분하며 효과 분류와 별도로 유지한다. 등급별 게임 규칙과 테두리·아이콘 색은 유지한다. 테두리는 위쪽 하이라이트와 아래쪽 음영을 둔 금속 베벨 및 모서리 장식을 사용하며 설명문 영역과 카드 클릭 폭을 침범하지 않는다. 효과 아이콘 13종은 `art/augment-icons/originals/`의 생성 원본을 보존하며 `scripts/prepare-augment-icons.py`로 알파 128 이상 실루엣을 중앙 76%에 맞춘 256×256 RGBA 텍스처를 만든다(Python Pillow 필요). 실제 표시 크기는 49×49이며 미리 곱한 알파로 축소하고 원본 휘도를 보존해 등급색을 적용한다. 직업 전용 표시는 아이콘 분류와 별개의 텍스트다. 리롤 버튼은 아이콘과 공용 남은 횟수만 표시한다. 닫기는 제안·마감 시각·리롤 횟수를 소비하거나 초기화하지 않으며 `/증강`으로 같은 유효 제안을 다시 연다. 닫힌 상태에서도 기존 시간 만료·라운드 전환 규칙은 계속 적용한다.
+
+### 증강 아이콘 효과 분류
+
+현재 선택 가능한 공통·직업·예비 증강을 ID별로 명시 분류한다. 아이콘 하나는 대표 효과를 나타내며 복합 효과와 불이익은 설명·툴팁에서 유지한다. 피해를 발동하는 조건에 체력·자원이 쓰인다는 이유만으로 체력·자원 아이콘을 붙이지 않는다. 표시 분류만 바꾸며 증강 효과·선택 자격·저장 ID는 바꾸지 않는다. 기존 3역할 분류는 비교용 렌더러에 유지한다.
+
+| 범주 | 도형 | 분류 기준 | 카드 수 |
+|---|---|---|---:|
+| 공격 | 검 | 직접·추가·범위 피해와 피해 증폭 | 53 |
+| 보호 | 방패 | 피해 감소·차단; 체력 증가와 구분 | 6 |
+| 체력 | 심장 | 최대 체력·회복·체력 소모 완화 | 8 |
+| 재기 | 순환 십자 | 부활·치명타 구명·전투 상태 복원 | 7 |
+| 속도 | 시계 | 공격 속도·추가 행동·작동 주기·재사용 대기시간 | 8 |
+| 조준 | 조준점 | 공격·지원 범위 또는 표적 지향 변경 | 6 |
+| 제어 | 사슬 | 속박·기절·수면·둔화·끌어당김·축소 | 8 |
+| 성장 | 새싹 | 경험치·숙련·승급·전달·누적 성장 | 11 |
+| 자원 | 보석 | 다이아·인컴·생산·마나·물·전력·보상 | 22 |
+| 소환 | 두 탑 | 전투 타워 배치권·소환·복제·보유 수 증가 | 16 |
+| 연계 | 연결점 | 배치 관계·연결·공유·아군 지원 | 15 |
+| 강화 | 별 | 다중 능력치·기존 능력 강화·기능 해금 | 17 |
+| 확률 | 주사위 | 굴림·도박 재시도·실패 정산 규칙 | 4 |
+
+`AugmentIconCategory`가 표시 매핑의 기준이며 테스트가 현재 카탈로그와 ID 집합을 양방향 대조한다. 중복 등록은 초기화 시 실패하고 미분류 카드는 기타로 숨기지 않는다. 아래 설명은 효과를 식별하는 기준이며 수치는 현재 설정을 따른다. 원래 모드형 ID는 저장 호환용이며 현재 제시되는 돌격·엄호 등 분리 ID를 분류한다.
+
+| 증강 ID | 이름 | 아이콘 | 복합 효과·분류 근거 | 적용 코드 |
+|---|---|---|---|---|
+| `job_villager_towers_s` | 유산 상속 | 성장 | 라운드에 처음 쓰러진 생존 성장 타워의 영구 스택 {inheritRatio:percent}를 가장 가까운 같은 계열 타워에 임시 상속. 영구·임시 합계 상한은 기본 상한의 {capMultiplier}배. | [VillagerAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAugments.java) |
+| `job_villager_towers_g1` | 장수 만세 | 성장 | 현재 생존 성장 타워의 영구 스택 +{initialStacks}. 매 웨이브 영구 스택만큼 추가 공격을 준비하며 최대 {maxExtraAttacks}회. | [VillagerAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAugments.java) |
+| `job_villager_towers_g2` | 연쇄 폭발 | 공격 | 라클 캣의 시체 폭발 반경 +{radiusBonus}블록. 폭발로 처치한 적도 최대 {maxChainDepth}단계까지 연쇄 폭발. | [LaneClearCatTower](../src/main/java/kim/biryeong/semiontd/tower/villager/LaneClearCatTower.java) |
+| `job_villager_towers_p` | 마을의 거신 | 체력 | 지정 골렘의 최대 체력 증가가 중심; 체력 비례 범위 피해도 포함 | [VillagerAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAugments.java) |
+| `job_villager_adv_towers_s` | 멘토 & 멘티 | 성장 | 라운드 경험치 지급 시 경험치가 가장 적은 주민 1기가 가장 많은 주민의 정상 지급량의 {experienceRatio:percent}를 추가 경험치로 획득합니다. | [VillagerAdvStates](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAdvStates.java) |
+| `job_villager_adv_towers_g1` | 조기 졸업 | 성장 | 승급의 경험치 제한을 제거하는 대신 다이아 요구량이 {upgradeCostBonus:percent} 증가합니다. 라운드 경험치 중 티어에 따른 지급량이 {tierExperienceMultiplier}배가 됩니다. | [VillagerAdvAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAdvAugments.java) |
+| `job_villager_adv_towers_g2` | 역할 대항전 | 연계 | 서로 다른 주민 계열이 {requiredKinds}종 이상 살아 있으면 {intervalTicks:seconds}초마다 각 계열에서 경험치가 가장 높은 타워 1기가 한 번 추가 행동합니다. 같은 스타터의 승급 분기는 같은 계열입니다. | [VillagerAdvAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAdvAugments.java) |
+| `job_villager_adv_towers_p` | 수석 졸업 | 조준 | 레인 전체 사거리 + 추가 표적 피해; 경험치는 대상 선정 조건 | [VillagerAdvAugments](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAdvAugments.java) |
+| `job_undead_towers_s` | 헌혈의 집 | 체력 | 언데드 타워가 초과 흡혈한 체력의 {overflowRatio:percent}를 반경 {radius}블록 내 현재 체력이 가장 낮은 아군 타워 1기에 전달합니다. | [UndeadAugments](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadAugments.java) |
+| `job_undead_towers_g1` | 뼈가 실린 공격 | 공격 | 기존 성장 상한에 도달한 스켈레톤은 성장 범위 안 같은 레인의 적이 {deathsPerCharge}기 죽을 때마다 충전합니다. 유효한 기본 공격마다 충전 1회를 소비해 다른 적 최대 {targetCount}기에게 각각 공격력 {damageRatio:percent}의 추가 물리 공격을 가합니다. 충전은 누적되며 라운드 종료 시 사라집니다. | [UndeadAugments](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadAugments.java) |
+| `job_undead_towers_g2` | 두번째 기회 | 재기 | 실제 사망 뒤 부활 + 부활 후 공격력 증가 | [UndeadAugments](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadAugments.java) |
+| `job_undead_towers_p` | 사령왕 | 소환 | 지정 원본 강화 + 원본 능력을 일부 계승한 전투 복제본 생성 | [UndeadAugments](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadAugments.java) |
+| `job_animal_towers_s` | 종을 뛰어넘는 우정 | 연계 | 각 동물이 다른 종류의 동물 최대 1기를 같은 종류의 무리로 취급합니다. 가상 무리는 우두머리 승급 조건에 포함하지 않습니다. | [AnimalStackTower](../src/main/java/kim/biryeong/semiontd/tower/animal/AnimalStackTower.java) |
+| `job_animal_towers_g1` | 우두머리 | 강화 | 우두머리 동물의 최대 체력이 {maxHealthBonus:percent}, 공격력이 {damageBonus:percent} 증가합니다. 기본 공격 시 대상 반경 {radius}블록에 공격력의 {damageRatio:percent} 추가 물리 피해를 입힙니다. | [AnimalStackTower](../src/main/java/kim/biryeong/semiontd/tower/animal/AnimalStackTower.java) |
+| `job_animal_towers_g2` | "무리" 공격 | 공격 | 같은 종류의 동물이 기본 공격을 합계 {everyAttacks}번 적중하면 같은 종류의 다른 동물 최대 {maxAllies}기가 해당 적을 {damageRatio:percent} 피해로 공격합니다. 추가 공격은 증강을 충전하거나 발동하지 않습니다. | [AnimalStackTower](../src/main/java/kim/biryeong/semiontd/tower/animal/AnimalStackTower.java) |
+| `job_animal_towers_p` | 우두머리 연합 | 연계 | 서로 다른 우두머리 {requiredLeaderKinds}종이 살아 있으면 모든 동물이 우두머리의 강화 효과를 {auraMultiplier}배로 공유합니다. 공유 효과는 종, 최대 무리, 거리 제한을 무시합니다. | [AnimalStackTower](../src/main/java/kim/biryeong/semiontd/tower/animal/AnimalStackTower.java) |
+| `job_warlock_towers_s` | 유언 | 공격 | 제물을 흡수하면 제물이 있던 곳에서 가장 가까운 적 1기에게 제물 공격력의 {damageRatio:percent} 피해를 줍니다. 제물의 원래 공격 유형을 사용합니다. | [WarlockAugments](../src/main/java/kim/biryeong/semiontd/tower/warlock/WarlockAugments.java) |
+| `job_warlock_towers_g1` | 폭발형 제물 | 공격 | 흡수한 제물이 반경 {radius}블록으로 폭발해 최대 {maxTargets}기의 적에게 제물 최대 체력의 {healthRatio:percent} 마법 피해를 줍니다. | [WarlockAugments](../src/main/java/kim/biryeong/semiontd/tower/warlock/WarlockAugments.java) |
+| `job_warlock_towers_g2` | (진)각성 | 강화 | 각성을 즉시 해금합니다. 다른 아군이 살아있어도 체력 {healthThreshold:percent} 이하에서 각성하며, 각성 중 주는 피해가 {damageBonus:percent} 증가합니다. | [WarlockAwakeningController](../src/main/java/kim/biryeong/semiontd/tower/warlock/WarlockAwakeningController.java) |
+| `job_warlock_towers_p` | 악마의 동업 | 연계 | 핵심 보유 수 증가와 함께 흡수 성장·회복 공유; 추가 피해 재발동 없음 | [WarlockAugments](../src/main/java/kim/biryeong/semiontd/tower/warlock/WarlockAugments.java) |
+| `job_legion_towers_s` | 트릭 쇼 | 재기 | 사망 뒤 부활이 아닌 치명 피해 무효화·복제본 소모·회복 | [LegionAugments](../src/main/java/kim/biryeong/semiontd/tower/legion/LegionAugments.java) |
+| `job_legion_towers_g1` | 파워레인저 | 강화 | 복제본 합체로 체력·공격 합산 + 범위 피해; 새 복제본 증식과 구분 | [LegionAugments](../src/main/java/kim/biryeong/semiontd/tower/legion/LegionAugments.java) |
+| `job_legion_towers_g2` | 카리스마 | 공격 | 본체가 기본 공격을 {attacks}회 적중할 때마다 해당 본체의 모든 복제본의 다음 기본 공격이 {damageRatio:percent}의 피해를 줍니다. | [LegionAugments](../src/main/java/kim/biryeong/semiontd/tower/legion/LegionAugments.java) |
+| `job_legion_towers_p` | 복제 공장 | 소환 | 웨이브 시작에 실제 투자액이 가장 높은 본체의 복제본이 첫 공격마다 다음 세대 복제본을 생성합니다. 최초 복제본부터 최대 {maxGeneration}세대이며 마지막 세대는 증식하지 않습니다. 자식은 부모 최대 체력과 공격력의 {childRatio:percent}를 가지며 만료 시점이 같습니다. 플레이어당 라운드 추가 복제본은 예약을 포함해 최대 {maxAdditional}기입니다. 합체 후에도 재료별 증식 권리를 보존합니다. | [LegionAugments](../src/main/java/kim/biryeong/semiontd/tower/legion/LegionAugments.java) |
+| `job_resonance_towers_s` | 인터넷 친구 | 연계 | 웨이브 시작 시 공명 수가 가장 적은 무블룸 1기가 아직 연결하지 않은 다른 종 중 공명 수가 가장 높은 타워와 추가 연결합니다. 동률이면 가장 가까운 타워를 고르며 공명 수가 1 증가합니다. 후보가 없으면 추가하지 않습니다. | [ResonanceTowerLinkController](../src/main/java/kim/biryeong/semiontd/tower/resonance/ResonanceTowerLinkController.java) |
+| `job_resonance_towers_g1` | 원격 연결 | 연계 | 공격 사거리 아닌 공명 연결 범위 확장 + 연결 수 조건의 공격·체력 증가 | [ResonanceTower](../src/main/java/kim/biryeong/semiontd/tower/resonance/ResonanceTower.java) |
+| `job_resonance_towers_g2` | 화음 | 공격 | 현재 티어의 최대 공명 단계인 타워가 기본 공격을 {everyAttacks}번 적중할 때마다 대상 반경 {radius}블록의 적 최대 {maxTargets}기에게 공격력의 {damageRatio:percent} 추가 마법 피해를 입힙니다. | [ResonanceTower](../src/main/java/kim/biryeong/semiontd/tower/resonance/ResonanceTower.java) |
+| `job_resonance_towers_p` | 공명 순환 | 속도 | 웨이브 시작 후 {intervalTicks:seconds}초마다 공명 단계가 가장 높은 무블룸 최대 {maxTowers}기가 기존 사거리의 적을 즉시 공격합니다. 추가 공격은 증강을 충전하거나 발동하지 않습니다. | [ResonanceService](../src/main/java/kim/biryeong/semiontd/tower/resonance/ResonanceService.java) |
+| `job_illager_towers_s` | 흉조 | 공격 | 우민 타워마다 라운드 첫 기본 공격 적중 후 {markDurationTicks:seconds}초 표식. 내 우민에게 받는 피해 +{markDamageBonus:percent}. 기존 표식에 합산. | [IllagerTower](../src/main/java/kim/biryeong/semiontd/tower/illager/IllagerTower.java) |
+| `job_illager_towers_g1` | 매복 | 속도 | 웨이브 시작 시 즉시 습격이 발동합니다. 시작 후 {durationTicks:seconds}초간 내 우민 타워의 공격속도가 {attackSpeedBonus:percent} 증가합니다. | [IllagerRaidStates](../src/main/java/kim/biryeong/semiontd/tower/illager/IllagerRaidStates.java) |
+| `job_illager_towers_g2` | 다음은 너야 | 공격 | 내 원본 타워가 내 표식 또는 흉조가 새겨진 적을 처치하면 반경 {radius}블록 내 최대 {targetCount}기의 적에게 원래 지속시간 전체로 표식을 전이하고, 처치한 타워 공격력의 {damageRatio:percent}만큼 추가 마법 피해를 줍니다. 공통 증강 타워도 발동하며 같은 표식은 중첩하지 않고 지속시간을 갱신합니다. | [IllagerMarks](../src/main/java/kim/biryeong/semiontd/tower/illager/IllagerMarks.java) |
+| `job_illager_towers_p` | 대습격 | 공격 | 습격 중에도 기존 조건으로 추가 습격 게이지를 얻습니다. 추가 게이지 {gaugePerVolley}마다 공격 중인 내 우민 타워들이 현재 공격 중인 적에게 공격력의 {damageRatio:percent}로 추가 물리 공격을 가합니다. 추가 공격은 증강을 다시 충전하거나 발동하지 않습니다. | [IllagerRaidStates](../src/main/java/kim/biryeong/semiontd/tower/illager/IllagerRaidStates.java) |
+| `job_nether_s` | 방혈 | 공격 | 네더 타워가 자연 감소로 실제 잃은 체력이 최대 체력의 {healthRatio:percent}에 도달할 때마다 충전합니다. 유효한 기본 공격마다 충전 1회를 소비해 그만큼 추가 마법 피해를 줍니다. 충전은 누적되며 라운드 종료 시 사라집니다. | [NetherTower](../src/main/java/kim/biryeong/semiontd/tower/nether/NetherTower.java) |
+| `job_nether_g1` | 다혈질 | 체력 | 네더 타워의 체력 35% 이하 추가 효과가 체력 {healthThreshold:percent} 이하부터 발동합니다. 자연 체력 감소량이 {decayReduction:percent} 줄어듭니다. | [NetherTower](../src/main/java/kim/biryeong/semiontd/tower/nether/NetherTower.java) |
+| `job_nether_g2` | 2 페이즈 | 재기 | 좀비 전환 후 일시적 죽음 방지 + 범위 피해 | [NetherTower](../src/main/java/kim/biryeong/semiontd/tower/nether/NetherTower.java) |
+| `job_nether_p` | 불사의 토템 | 재기 | 네더 타워가 좀비 상태에서 실제로 죽으면 {reviveDelayTicks:seconds}초 뒤 같은 자리에서 최대 체력의 {reviveHealthRatio:percent}로 한 번 더 부활합니다. 부활 후 주는 피해가 {damageBonus:percent} 증가합니다. 타워마다 라운드당 1회이며 전투 종료 시 부활 대기를 취소합니다. | [NetherTower](../src/main/java/kim/biryeong/semiontd/tower/nether/NetherTower.java) |
+| `job_end_towers_s` | 공허 지뢰 | 공격 | 힘 전달을 완료한 타워 자리에 공허 지뢰를 만듭니다. 적이 접근하면 반경 {radius}블록의 최대 {maxTargets}기에게 전달 전 타워 최대 체력의 {healthRatio:percent} 마법 피해를 줍니다. | [EndAugments](../src/main/java/kim/biryeong/semiontd/tower/end/EndAugments.java) |
+| `job_end_towers_g1` | 폭풍 성장 | 성장 | 전달 시간 단축 + 전달 횟수에 따른 추가 피해 충전 | [EndAugments](../src/main/java/kim/biryeong/semiontd/tower/end/EndAugments.java) |
+| `job_end_towers_g2` | 삼중 브레스 | 공격 | 엔더 드래곤이 {intervalTicks:seconds}초마다 {burstIntervalTicks}틱 간격으로 브레스를 {shots}번 발사합니다. 각 브레스는 길이 {length}블록, 폭 {width}블록이며 최대 {maxTargets}기에게 공격력의 {damageRatio:percent} 마법 피해를 줍니다. 표적이 유효하지 않으면 기존 사거리에서 다시 고릅니다. | [EndAugments](../src/main/java/kim/biryeong/semiontd/tower/end/EndAugments.java) |
+| `job_end_towers_p` | 차원의 수호자 | 공격 | 라인 돌진·화상 피해가 중심이며 기절·넉백도 동반 | [EndDragonAssault](../src/main/java/kim/biryeong/semiontd/tower/end/EndDragonAssault.java) |
+| `job_ocean_s` | 물 돌려쓰기 | 자원 | 소프트캡에 도달한 바다 타워가 받을 물을 같은 공급원에 연결된 물이 가장 적은 타워에게 돌려줍니다. 물량 감쇠 전 배분량을 옮기며 공급원 중복 감쇠는 한 번 적용합니다. | [OceanWaterTower](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanWaterTower.java) |
+| `job_ocean_g1` | 만조 | 자원 | 물 타워의 공급량과 바다 타워의 물 소프트캡이 {supplyMultiplier}배가 됩니다. 공급 중단 한도는 유지합니다. 웨이브 시작 시 물을 사용하는 내 바다 타워의 물을 최소 {openingWater}로 맞춥니다. | [OceanTower](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanTower.java) |
+| `job_ocean_g2` | 거센 해류 | 공격 | 바다 공격 타워가 실제 물을 {waterPerCharge} 소모할 때마다 해류를 충전합니다. 다음 유효한 기본 공격마다 충전 1회를 소비해 대상 반경 {radius}블록의 적 최대 {targets}기에게 공격력 {damageRatio:percent}의 마법 피해를 줍니다. 충전은 누적되며 라운드 종료 시 사라집니다. | [OceanTower](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanTower.java) |
+| `job_ocean_p` | 밀물 | 자원 | 전투 시작 {periodTicks:seconds}초부터 {periodTicks:seconds}초마다 {durationTicks:seconds}초 동안 물을 사용하는 내 바다 타워의 물을 소프트캡 이상으로 유지합니다. 이미 소프트캡을 넘은 물은 줄이지 않습니다. | [OceanTower](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanTower.java) |
+| `job_ancient_city_s` | 감지 공유 | 공격 | 감지 표식 전파는 피해 증폭; 이동 제어 효과로 분류하지 않음 | [AncientCityTower](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityTower.java) |
+| `job_ancient_city_g1` | 영역 전개 | 조준 | 내 스컬크 위의 고대 도시 타워는 내 스컬크 위의 적을 사거리 밖에서도 공격합니다. 기존 적 레인 제한은 유지합니다. | [AncientCityTower](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityTower.java) |
+| `job_ancient_city_g2` | 연쇄 소닉 붐 | 공격 | 워든의 소닉 붐 대상이 {extraTargets}기 증가합니다. 보조 대상도 주 대상의 {secondaryRatio:percent} 피해와 감지 표식의 피해 증가 효과를 받습니다. | [AncientCityTower](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityTower.java) |
+| `job_ancient_city_p` | 깨어난 도시 | 공격 | 감지 표식이 있는 적 아래의 내 스컬크 최대 {centers}곳에서 충격파를 발사합니다. 각 충격파는 반경 {radius}블록의 적 최대 {targets}기에게 가장 강한 내 워든의 소닉 붐 주 대상 피해 {damageRatio:percent}를 줍니다. 재사용 대기시간은 {cooldownTicks:seconds}초입니다. | [AncientCityTower](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityTower.java) |
+| `job_hero_party_s` | 합동 공격 | 공격 | 용사의 기본 공격이 {everyAttacks}번 적중할 때마다 동료 1기가 즉시 기본 공격합니다. 배치 순서대로 순환하며 쓰러진 동료는 건너뜁니다. | [HeroTower](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroTower.java) |
+| `job_hero_party_g1` | 주인공 버프 | 강화 | 장착 무기의 1·3·5강 고유 효과를 즉시 해금합니다. 실제 5강부터 피해·회복·버프·디버프의 세기와 체력 비례 피해 상한이 {effectMultiplier}배가 됩니다. 범위·대상 수·지속시간·주기·체력 발동 조건·강화 가격은 유지합니다. | [HeroTower](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroTower.java) |
+| `job_hero_party_g2` | 합동 공격 | 공격 | 동료 {companions}명이 생존하면 용사의 매 {everyAttacks}번째 기본 공격 적중 시 대상 반경 {radius}블록의 적 최대 {maxTargets}기에게 용사와 동료 공격력 합계의 {damageRatio:percent} 마법 피해를 줍니다. | [HeroTower](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroTower.java) |
+| `job_hero_party_p` | 전설의 용사 | 강화 | 용사의 무기 공격력 +{weaponDamageBonus:percent}, 최대 체력 +{healthBonus:percent}. 매 {everyAttacks}번째 기본 공격 적중 시 길이 {length}블록·폭 {width}블록의 적 최대 {maxTargets}기에게 공격력의 {damageRatio:percent} 물리 피해를 줍니다. | [HeroTower](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroTower.java) |
+| `job_succubus_s` | 고약한 잠버릇 | 속도 | 잠든 아군 공격 타워가 {intervalTicks:seconds}초마다 공격력의 {damageRatio:percent}로 기본 공격합니다. | [SuccubusDreams](../src/main/java/kim/biryeong/semiontd/tower/succubus/SuccubusDreams.java) |
+| `job_succubus_g1` | 루시드 드림 | 강화 | 아군이 꿈 스택으로 잠들지 않으며, 꿈 스택의 공격력과 공격속도 증가량이 {dreamBonus:percent} 증가합니다. | [SuccubusDreams](../src/main/java/kim/biryeong/semiontd/tower/succubus/SuccubusDreams.java) |
+| `job_succubus_g2` | 악몽 전염 | 제어 | 잠든 적이 죽으면 반경 {radius}블록의 다른 적 최대 {maxTargets}기가 {durationTicks:seconds}초 동안 잠듭니다. 전염은 최대 {maxDepth}단계까지 이어집니다. | [SuccubusDreams](../src/main/java/kim/biryeong/semiontd/tower/succubus/SuccubusDreams.java) |
+| `job_succubus_p` | 몽유병 | 공격 | 잠든 적 최대 {maxTargets}기가 {intervalTicks:seconds}초마다 가장 가까운 다른 적에게 자신의 공격력 {damageRatio:percent}만큼 마법 피해를 줍니다. 기절 중에는 발동하지 않습니다. | [SuccubusDreams](../src/main/java/kim/biryeong/semiontd/tower/succubus/SuccubusDreams.java) |
+| `job_adversary_towers_s` | 다크 히어로 | 공격 | 여우 외의 내 타워가 내 대적자를 처치하면 처치 위치 반경 {radius}블록의 적에게 대적자 최대 체력의 {healthRatio:percent} 마법 피해를 줍니다. | [AdversaryAugments](../src/main/java/kim/biryeong/semiontd/tower/adversary/AdversaryAugments.java) |
+| `job_adversary_towers_g1` | 라이벌 매치 | 성장 | 여우가 자기 라이벌을 처치해 얻는 전직 점수 {scoreMultiplier}배. 최대 체력 {healRatio:percent} 추가 회복, {durationTicks:seconds}초간 공격력 +{damageBonus:percent}. | [AugmentService](../src/main/java/kim/biryeong/semiontd/augment/AugmentService.java) |
+| `job_adversary_towers_g2` | 적응 | 성장 | 여우가 내 라이벌을 처치하면 전투 동안 라이벌 최대 체력의 {healthRatio:percent}, 공격력의 {damageRatio:percent}를 흡수합니다. 흡수 상한은 여우의 전투 시작 최대 체력 {healthCapRatio:percent}, 공격력 {damageCapRatio:percent}이며 라운드 종료 시 제거됩니다. | [AdversaryFoxTower](../src/main/java/kim/biryeong/semiontd/tower/adversary/AdversaryFoxTower.java) |
+| `job_adversary_towers_p` | 최종장 | 강화 | 최종 전직 여우의 공격력 +{damageBonus:percent}, 최대 체력 +{healthBonus:percent}. 라이벌을 처치한 여우는 {durationTicks:seconds}초간 기본 공격의 보조 대상이 {extraTargets}기 늘고 추가 보조 대상에게 {secondaryRatio:percent} 피해를 줍니다. | [AdversaryFoxTower](../src/main/java/kim/biryeong/semiontd/tower/adversary/AdversaryFoxTower.java) |
+| `job_engineer_towers_s` | 관통 탄환 | 공격 | 디스펜서 공격이 표적 뒤의 적 최대 {extraTargets}기를 관통해 같은 피해를 줍니다. | [EngineerTrapTower](../src/main/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapTower.java) |
+| `job_engineer_towers_g1` | 무한 회로 | 공격 | 발사기의 신호 1회당 작동 시간이 {activeTicks:seconds}초가 됩니다. 매 사격이 {shotSpacingTicks}틱 간격의 3점사로 바뀌며 두 번째와 세 번째 탄환은 각각 {followupRatio:percent} 피해를 줍니다. 표적이 죽거나 사거리를 벗어나면 기존 사거리 안에서 다시 고릅니다. | [EngineerTrapTower](../src/main/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapTower.java) |
+| `job_engineer_towers_g2` | 폭발은 예술이다! | 공격 | TNT 폭발 {delayTicks:seconds}초 뒤 같은 위치에서 한 번 더 폭발. 두 번째 폭발 피해는 첫 폭발의 {repeatDamageRatio:percent}. | [EngineerTrapTower](../src/main/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapTower.java) |
+| `job_engineer_towers_p` | 전자동 공장 | 속도 | 발판에 연결된 타워가 {intervalTicks:seconds}초마다 자동으로 작동하며, 기술자 타워가 주는 피해가 {damageBonus:percent} 증가합니다. 자동 작동은 발판 사용 횟수와 영구 성장을 올리지 않고 TNT의 라운드당 사용 제한을 유지합니다. | [EngineerTrapTower](../src/main/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapTower.java) |
+| `job_queen_towers_s` | 땅울림 | 제어 | 자이언트가 적을 처형하면, 해당 적의 축소량 {transferRatio:percent}를 {radius}블록 내 적 하나에 전달합니다. | [QueenGiantRunner](../src/main/java/kim/biryeong/semiontd/tower/queen/QueenGiantRunner.java) |
+| `job_queen_towers_g1` | 근위대 | 속도 | 붉은 여왕 타워 {radius}블록 내 카드병정의 공격속도가 {attackSpeedBonus:percent} 증가합니다. | [QueenCardTower](../src/main/java/kim/biryeong/semiontd/tower/queen/QueenCardTower.java) |
+| `job_queen_towers_g2` | 궁정 광대 | 소환 | 무료 조커 전투 타워 배치 + 족보 편입·공격 속도 강화 | [QueenCardTower](../src/main/java/kim/biryeong/semiontd/tower/queen/QueenCardTower.java) |
+| `job_queen_towers_p` | 왕실 부메랑 | 공격 | 자이언트가 처음 경로 끝에 도달하면 되돌아옵니다. 왕복 각 구간에서 적마다 한 번 접촉하며, 귀환 때 처형 조건을 다시 확인합니다. | [QueenGiantRunner](../src/main/java/kim/biryeong/semiontd/tower/queen/QueenGiantRunner.java) |
+| `job_atlantis_towers_s` | 쓰나미 | 제어 | 거북이가 {intervalTicks:seconds}초마다 자신의 고압 구역 가장자리 적 한 기를 중심 쪽으로 최대 {distance}블록 끌어당깁니다. | [AtlantisTower](../src/main/java/kim/biryeong/semiontd/tower/atlantis/AtlantisTower.java) |
+| `job_atlantis_towers_g1` | 심해 압력 | 공격 | 돌고래의 기본 공격이 대상 반경 {radius}블록의 다른 적 최대 {targets}기에도 압력 {stacks}스택을 추가합니다. 수압 피해 상한이 공격력의 {damageCap}배가 됩니다. | [AtlantisTower](../src/main/java/kim/biryeong/semiontd/tower/atlantis/AtlantisTower.java) |
+| `job_atlantis_towers_g2` | 압도적인 존재 | 공격 | 거북이가 죽으면 자신의 고압 구역 안 적 최대 {targets}기의 압력을 가득 채우고 즉시 폭발시킵니다. | [AtlantisTower](../src/main/java/kim/biryeong/semiontd/tower/atlantis/AtlantisTower.java) |
+| `job_atlantis_towers_p` | 연쇄 폭발 | 공격 | 수압 폭발이 반경 {radius}블록의 다른 적 최대 {targets}기에 폭발 직전 압력의 {transferRatio:percent}를 전달합니다. 고압 구역에서 압력이 가득 찬 적은 즉시 폭발합니다. 한 연쇄에서 최대 {chainTargets}기만 폭발합니다. | [AtlantisTower](../src/main/java/kim/biryeong/semiontd/tower/atlantis/AtlantisTower.java) |
+| `job_plant_towers_s` | 파고드는 줄기 | 제어 | 내 토양에 처음 들어온 적을 {stunTicks:seconds}초간 기절시킵니다. 적마다 라운드 한 번만 적용합니다. | [PlantSoilEnvironment](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantSoilEnvironment.java) |
+| `job_plant_towers_g1` | 급속 개화 | 성장 | 내 잔디·회백토에 있는 식물 타워에 즉시 성장 {growthRounds}라운드를 추가합니다. 이후 새 식물은 같은 계열에서 가장 높은 성장 스택의 {inheritRatio:percent}를 내림해 계승하며 기존 성장 효과 상한을 유지합니다. | [PlantCombatTower](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantCombatTower.java) |
+| `job_plant_towers_g2` | 포자 증식 | 공격 | 버섯이 한 라운드에 최대 {explosions}번 폭발합니다. 폭발 {rearmTicks:seconds}초 뒤 다시 무장하며, 다시 적이 밟아야 점화됩니다. 후속 폭발은 첫 폭발 피해의 {repeatDamageRatio:percent}입니다. | [PlantMineTower](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantMineTower.java) |
+| `job_plant_towers_p` | 세계수 | 연계 | 토양 배치 조건 공유 + 주변 식물 공격·체력 강화 | [PlantAugments](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantAugments.java) |
+| `job_army_s` | 특별진급 | 성장 | 계급이 있는 군대 타워가 한 라운드에 웨이브 적을 {killsRequired}기 처치하면 즉시 한 계급 진급합니다. 타워마다 라운드당 1회 발동합니다. | [ArmyTower](../src/main/java/kim/biryeong/semiontd/tower/army/ArmyTower.java) |
+| `job_army_g1` | 말년짬 | 공격 | 최종 계급 군대 타워의 지휘 범위 안에서 같은 종류 후임이 합계 {attacksRequired}회 공격할 때마다 세 번째 표적에게 지원 사격합니다. 사격한 말년병의 계급 페널티 전 공격력 {damageRatio:percent}를 원래 공격 유형으로 가합니다. | [ArmyTower](../src/main/java/kim/biryeong/semiontd/tower/army/ArmyTower.java) |
+| `job_army_g2` | 군적금 | 소환 | 군대 타워 전역 시 다음 진급 가능한 전투병 스타터를 무료로 설치하는 배치권을 얻습니다. 무료 신병은 즉시 한 계급 진급합니다. 라운드당 1회 획득하며 최대 1장 보관합니다. 시설과 증강 타워는 제외합니다. | [ArmyStates](../src/main/java/kim/biryeong/semiontd/tower/army/ArmyStates.java) |
+| `job_army_p` | 예비군 1년차 | 소환 | 웨이브 시작 시 최근 전역한 군대 타워 2기가 예비군으로 재합류합니다. 전역 당시 최대 체력 {healthRatio:percent}, 계급 페널티 전 공격력 {damageRatio:percent}를 가지며 공격 능력만 계승합니다. 일반 슬롯을 쓰지 않고 라운드 종료까지 유지하며 계급 오라, 진급, 전역과 전역 보상이 없습니다. | [ArmyStates](../src/main/java/kim/biryeong/semiontd/tower/army/ArmyStates.java) |
+| `job_thunder_s` | 축전지 | 공격 | 전력이 부족하지 않고 사거리 안에 적이 없으면 람쥐가 {chargeTicks:seconds}초마다 추가 탄 1발을 준비합니다. 최대 {maxShots}발이며 다음 기본 공격에 각 {damageRatio:percent} 피해로 함께 발사합니다. | [ThunderTower](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderTower.java) |
+| `job_thunder_g1` | 도토리 발전소 | 자원 | 피뢰침의 발전량이 {generationBonus:percent} 증가하며 전투 중 파괴되어도 계속 발전합니다. 판매하면 발전이 중단됩니다. | [ThunderPower](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderPower.java) |
+| `job_thunder_g2` | 람쥐 썬더 | 공격 | 뇌신 람쥐썬더의 번개가 추가로 {extraTargets}기의 적에게 전이되며, 전이 피해가 {damageRatio:percent}가 됩니다. | [ThunderTower](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderTower.java) |
+| `job_thunder_p` | 생체 중계기 | 공격 | 람쥐의 번개가 다른 아군 람쥐 최대 {maxRelays}기를 경유합니다. 각 중계 타워의 기존 사거리 안에서 새로운 적 최대 {targetsPerRelay}기에게 {damageRatio:percent} 피해를 주며 같은 적을 중복 공격하지 않습니다. | [ThunderTower](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderTower.java) |
+| `job_demon_lord_towers_s` | 마무리 동작 | 공격 | 공격 스킬 적중 후 {windowTicks:seconds}초 안의 첫 기본 공격이 공격력 {damageRatio:percent}의 추가 물리 피해를 줍니다. | [DemonLordAugments](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordAugments.java) |
+| `job_demon_lord_towers_g1` | 2페이즈 | 체력 | 치명 피해나 실제 사망이 아닌 저체력 회복 + 쿨다운 초기화·피해 강화 | [DemonLordAugments](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordAugments.java) |
+| `job_demon_lord_towers_g2` | 왐보콤보 | 속도 | {windowTicks:seconds}초 안에 서로 다른 공격 스킬 {distinctSkills}종을 적중시키면 모든 공격 스킬의 남은 재사용 대기시간이 {cooldownReductionTicks:seconds}초 감소합니다. 이후 {durationTicks:seconds}초간 스킬 피해가 {damageBonus:percent} 증가합니다. 재사용 대기시간 {cooldownTicks:seconds}초. | [DemonLordAugments](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordAugments.java) |
+| `job_demon_lord_towers_p` | 두 개의 왕좌 | 공격 | 연출용 분신이 스킬 피해를 재현; 전투 타워 소환이 아님 | [DemonLordAugments](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordAugments.java) |
+| `job_gamble_s` | 도박 보험 | 확률 | 지원 주사위가 1이나 2면 반대편 눈 6이나 5의 전투 효과를 {oppositeEffectRatio:percent}로 추가 적용합니다. 반대편 눈의 다이아 보상은 지급하지 않습니다. | [GambleSupportTower](../src/main/java/kim/biryeong/semiontd/tower/gamble/GambleSupportTower.java) |
+| `job_gamble_g1` | 쌍 주사위 | 확률 | 주사위 타워가 주사위를 두 번 굴려 높은 쪽만 사용합니다. 슬롯머신에는 적용되지 않습니다. | [GambleSupportTower](../src/main/java/kim/biryeong/semiontd/tower/gamble/GambleSupportTower.java) |
+| `job_gamble_g2` | 바닥의 왕 | 확률 | 홀짝·두 주사위 도박 실패 시 점수 손실 {failureScoreMultiplier}배. {statReversalChance:percent} 확률로 능력치 감소가 같은 양의 증가로 바뀝니다. | [GamblerTower](../src/main/java/kim/biryeong/semiontd/tower/gamble/GamblerTower.java) |
+| `job_gamble_p` | 끝장을 보자 | 확률 | 홀짝·두 주사위 도박 1회 구매로 성공할 때까지 최대 {maxAttempts}회 시도하며 시도마다 점수와 능력치를 정산합니다. 성공 시 다음 기본 공격에 물리·마법 공격력 각각 {jackpotDamageRatio:percent}의 잭팟 폭발을 준비합니다. 반경 {jackpotRadius}블록, 최대 {maxTargets}기, 최대 {maxCharges}회 저장. 전부 실패하면 점수 추가 -{allFailedScoreLoss}. 슬롯·포커 베팅에는 적용되지 않습니다. | [GamblerTower](../src/main/java/kim/biryeong/semiontd/tower/gamble/GamblerTower.java) |
+| `job_body_s` | 시선강탈 | 조준 | 기존 사거리 내 빔 방향 자동 조준; 사거리 증가 아님 | [BodyTower](../src/main/java/kim/biryeong/semiontd/tower/body/BodyTower.java) |
+| `job_body_g1` | 두근두근 | 속도 | 심장이 정상적으로 {normalBeats}번 뛸 때마다 추가로 한 번 박동합니다. 추가 박동에도 다른 신체가 함께 행동하며 추가 박동은 이 효과를 재발동하지 않습니다. | [BodyTower](../src/main/java/kim/biryeong/semiontd/tower/body/BodyTower.java) |
+| `job_body_g2` | 아드레날린 | 체력 | 최대 체력·저체력 회복 + 일시적 박동 가속 | [BodyTower](../src/main/java/kim/biryeong/semiontd/tower/body/BodyTower.java) |
+| `job_body_p` | 예민한 피부 | 속도 | 각 피부가 적에게 실제로 잃은 체력을 누적해 현재 최대 체력의 {healthLossRatio:percent}마다 연결된 심장이 추가 박동합니다. 심장마다 {cooldownTicks:seconds}초에 최대 1회이며 대기 박동을 저장하지 않습니다. 누적 손실은 웨이브마다 초기화됩니다. | [BodyTower](../src/main/java/kim/biryeong/semiontd/tower/body/BodyTower.java) |
+| `job_pet_towers_s` | 집 밖도 좋아 | 조준 | 주인 마당의 지원 범위 확장; 기본 공격 사거리 증가 아님 | [PetTower](../src/main/java/kim/biryeong/semiontd/tower/pet/PetTower.java) |
+| `job_pet_towers_g1` | 우리 동네 대장 | 공격 | 지정 도구로 내 반려 한 마리를 대장으로 정합니다. 대장의 기본 공격이 {hitsRequired}번 적중하면 같은 마당의 다른 종이 함께 공격합니다. 종마다 한 마리, 최대 {maxAllies}마리가 같은 적에게 기본 공격 피해의 {damageRatio:percent}로 추가 공격합니다. | [PetTower](../src/main/java/kim/biryeong/semiontd/tower/pet/PetTower.java) |
+| `job_pet_towers_g2` | 다 컸네, 다 컸어 | 강화 | 성체 전투 능력 조기 해금·새의 회복 대상 증가; 실제 성장·승급 조건 유지 | [PetTower](../src/main/java/kim/biryeong/semiontd/tower/pet/PetTower.java) |
+| `job_pet_towers_p` | 우리 가족 | 연계 | 같은 마당에 실제 성체 개, 고양이, 새가 있으면 고양이 여러 마리도 독립 효과가 발동합니다. 고양이와 새도 개 무리에 참여해 같은 티어 개의 무리 강화 효과를 받으며, 새가 다친 반려 최대 {healTargets}마리를 동시에 회복합니다. | [PetBondService](../src/main/java/kim/biryeong/semiontd/tower/pet/PetBondService.java) |
+| `job_developer_towers_s` | 버그 복사기 | 연계 | 라운드 첫 조건부 피해 강화 버그가 생기면, 같은 버그나 복사 효과가 없는 가장 가까운 내 개발자 전투 타워 한 기도 그 강화 효과를 {bonusRatio:percent}로 획득합니다. 버그의 불이익은 복사하지 않습니다. | [DeveloperAugments](../src/main/java/kim/biryeong/semiontd/tower/developer/DeveloperAugments.java) |
+| `job_developer_towers_g1` | 의도된 사항입니다 | 공격 | 경계 조건·버퍼 오버런·하드코딩·은신·지연 로딩의 추가 피해가 조건 없이 발동합니다. 기존 불이익은 유지합니다. | [DeveloperTower](../src/main/java/kim/biryeong/semiontd/tower/developer/DeveloperTower.java) |
+| `job_developer_towers_g2` | 슈퍼핫픽스 | 강화 | 라운드 첫 성공한 핫픽스의 능력치 증가량이 {statMultiplier}배가 되고 불안정을 추가하지 않습니다. 기존 버그 발생은 유지합니다. | [DeveloperPatchService](../src/main/java/kim/biryeong/semiontd/tower/developer/DeveloperPatchService.java) |
+| `job_developer_towers_p` | 일괄 배포 | 연계 | 라운드 첫 성공한 정식 패치를 현재 보유한 내 모든 개발자 전투 타워에 예약합니다. 패치 횟수는 한 번만 소모하며, 버전 고정과 롤백 실패의 기존 패치 제한은 유지합니다. | [DeveloperPatchService](../src/main/java/kim/biryeong/semiontd/tower/developer/DeveloperPatchService.java) |
+| `job_frost_s` | 빙판길 | 제어 | 냉매 상태의 적이 죽으면 반경 {radius}블록에 {durationTicks:seconds}초간 빙판을 만듭니다. 빙판 위 적의 이동 속도가 {slow:percent} 감소합니다. | [FrostAugments](../src/main/java/kim/biryeong/semiontd/tower/frost/FrostAugments.java) |
+| `job_frost_g1` | 급속 냉동 | 제어 | 내 냉기 방출 계열 파동의 한기 부여량이 {chillMultiplier}배가 됩니다. 아군과 적 모두에게 적용합니다. | [FrostAugments](../src/main/java/kim/biryeong/semiontd/tower/frost/FrostAugments.java) |
+| `job_frost_g2` | 해동 맛집 | 공격 | 적을 해동하면 대상 반경 {radius}블록의 최대 {maxTargets}기에게 해동한 타워 공격력의 {damageRatio:percent} 추가 마법 피해를 줍니다. 같은 적을 중심으로 {cooldownTicks:seconds}초마다 발동합니다. | [FrostAugments](../src/main/java/kim/biryeong/semiontd/tower/frost/FrostAugments.java) |
+| `job_frost_p` | 빙하기 | 제어 | 내 타워가 만든 냉매 적 최대 {maxSources}기가 {intervalTicks:seconds}초마다 반경 {radius}블록의 다른 적 최대 {maxTargets}기에게 한기 {chill:percent}를 전파합니다. 내 타워가 냉매로 만든 적은 {stunTicks:seconds}초 기절합니다. 같은 적의 기절은 {stunCooldownTicks:seconds}초마다 발동합니다. | [FrostAugments](../src/main/java/kim/biryeong/semiontd/tower/frost/FrostAugments.java) |
+| `job_pirate_s` | 약탈의 대가 | 자원 | 보상용 보물상자 무료권; 전투 유닛 소환과 구분 | [PirateAugments](../src/main/java/kim/biryeong/semiontd/tower/pirate/PirateAugments.java) |
+| `job_pirate_g1` | 열쇠공 | 자원 | 보물상자 만기 개봉 보상이 {rewardBonus:percent} 증가합니다. 라운드 첫 만기 개봉 시 남은 내 보물상자가 {roundReduction}라운드 일찍 열립니다. 기본 환급, 영구 성장, 뱃사공 수입은 유지하며 연쇄 개봉도 건별로 한 번씩 정산합니다. | [PirateAugments](../src/main/java/kim/biryeong/semiontd/tower/pirate/PirateAugments.java) |
+| `job_pirate_g2` | 함대 포격 | 공격 | 내 제독·항해사 계열은 매 전투 첫 {openingAttacks}회 기본 공격마다 {shotSpacingTicks:seconds}초 간격으로 포탄을 {extraShots}발 추가 발사합니다. 포탄은 대상 반경 {radius}블록의 최대 {maxTargets}기에게 공격력의 {damageRatio:percent} 물리 피해를 줍니다. 대상이 죽거나 사거리 밖으로 나가면 사거리 안에서 다시 선택합니다. | [PirateAugments](../src/main/java/kim/biryeong/semiontd/tower/pirate/PirateAugments.java) |
+| `job_pirate_p` | 거함 거포 | 공격 | 보물상자 개봉 다이아 보상도 있으나 저장 함포의 반복 포격이 핵심 | [PirateAugments](../src/main/java/kim/biryeong/semiontd/tower/pirate/PirateAugments.java) |
+| `job_mage_towers_s` | 막타 환급 | 자원 | 공격 주문으로 적을 처치하면 그 주문에 실제 사용한 마나의 {refundRatio:percent}를 돌려받습니다. 주문당 1회. | [MageWizardTower](../src/main/java/kim/biryeong/semiontd/tower/mage/MageWizardTower.java) |
+| `job_mage_towers_g1` | 마나 홍수 | 자원 | 즉시 마나 {initialMana}을 얻습니다. 자연 마나 생산량이 {productionMultiplier}배가 되며, 주문을 쓴 마법사도 자연 마나 생산에 참여합니다. | [MageAugments](../src/main/java/kim/biryeong/semiontd/tower/mage/MageAugments.java) |
+| `job_mage_towers_g2` | 이중 주문 | 공격 | 마법사마다 {castInterval}번째 공격 주문은 피해를 {damageRatio:percent}로 한 번 더 적용합니다. 추가 피해에는 마나 소모가 없습니다. | [MageWizardTower](../src/main/java/kim/biryeong/semiontd/tower/mage/MageWizardTower.java) |
+| `job_mage_towers_p` | 온 세상이 사거리 | 조준 | 마나 조건부 레인 전체 표적 확장; 차원 붕괴 제외 | [MageWizardTower](../src/main/java/kim/biryeong/semiontd/tower/mage/MageWizardTower.java) |
+| `job_insect_towers_s` | 알껍질 방패 | 보호 | 부활한 벌레가 처음 받는 피해 1회를 막습니다. | [InsectUnitTower](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectUnitTower.java) |
+| `job_insect_towers_g1` | 급행 부화 | 재기 | 벌레마다 첫 {revivalCount}번의 부활 대기시간이 {waitReduction:percent} 감소합니다. 이때 부활하면 반경 {radius}블록 안에서 부활을 기다리는 다른 벌레 최대 {maxNeighbors}기의 남은 대기시간이 {neighborReductionTicks:seconds}초 감소합니다. | [InsectUnitTower](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectUnitTower.java) |
+| `job_insect_towers_g2` | 군락 대행진 | 소환 | 원본 벌레가 죽을 때마다 최대 체력과 공격력이 원본의 {statRatio:percent}인 유충을 최대 {spawnCount}기 생성합니다. 생성 대기를 포함해 동시에 최대 {activeCap}기. 유충은 사망·접촉 폭발을 계승하며 유충 생성·부활·부활 거점은 계승하지 않습니다. | [InsectAugments](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectAugments.java) |
+| `job_insect_towers_p` | 살아 있는 군락 | 재기 | 살아 있는 내 원본 벌레도 부활 거점이 됩니다. 원래 스포너가 사라져도 기존 스포너 연결 범위 안의 동료 원본 벌레 곁에서 부활할 수 있습니다. | [InsectUnitTower](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectUnitTower.java) |
+| `job_future_agency_towers_s` | 교차 사격 | 제어 | 동일 표적 협공으로 속박; 추가 피해를 부여하지 않음 | [FutureAgencyAgentTower](../src/main/java/kim/biryeong/semiontd/tower/futureagency/FutureAgencyAgentTower.java) |
+| `job_future_agency_towers_g1` | 살아서 돌아왔다 | 조준 | 생존자 전투 시작 완전 회복 + 잠시 레인 전체 사거리·공격력 증가 | [FutureAgencyAgentTower](../src/main/java/kim/biryeong/semiontd/tower/futureagency/FutureAgencyAgentTower.java) |
+| `job_future_agency_towers_g2` | 구조대 증원 | 소환 | 연결 생존자 보유 상한 증가 + 원본 피해 감소 | [FutureAgencyAgentTower](../src/main/java/kim/biryeong/semiontd/tower/futureagency/FutureAgencyAgentTower.java) |
+| `job_future_agency_towers_p` | 구조 타임루프 | 재기 | 치명 피해 시 시작 체력 복원·죽은 연결 생존자 복귀; 추가 생성 아님 | [FutureAgencyAgentTower](../src/main/java/kim/biryeong/semiontd/tower/futureagency/FutureAgencyAgentTower.java) |
+| `job_magic_school_s` | 머글의 지팡이 | 강화 | 새 주문 사용 권한 해금; 즉시 공격력 보너스가 아님 | [MagicSchoolWizardTower](../src/main/java/kim/biryeong/semiontd/tower/magicschool/MagicSchoolWizardTower.java) |
+| `job_magic_school_g1` | 하늘을 나는 빗자루 | 연계 | 기존 아군의 레인 간 지원 이동; 새 유닛 생성 아님 | [MagicSchoolBroomsticks](../src/main/java/kim/biryeong/semiontd/tower/magicschool/MagicSchoolBroomsticks.java) |
+| `job_magic_school_g2` | 마법 대학원 | 성장 | 주문 숙련도 획득량이 {proficiencyGainBonus:percent} 증가합니다. 다른 획득 보정과 곱연산하며 T3 마법사의 최대 주문 숙련도가 {proficiencyCapBonus} 증가합니다. | [MagicSchoolWizardTower](../src/main/java/kim/biryeong/semiontd/tower/magicschool/MagicSchoolWizardTower.java) |
+| `job_magic_school_p` | 용서받지 못할 저주 | 강화 | 저주 주문 해금이 핵심; 다이아 지급·숙련도 조건 공속 페널티 동반 | [MagicSchoolWizardTower](../src/main/java/kim/biryeong/semiontd/tower/magicschool/MagicSchoolWizardTower.java) |
+| `job_insect_towers_s2` | 불안정 진화 I | 체력 | 최대 체력 증가와 받는 피해 증가를 함께 적용; 피해 차단 아님 | [InsectAugments](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectAugments.java) |
+| `job_insect_towers_g3` | 불안정 진화 II | 체력 | 최대 체력 증가와 받는 피해 증가를 함께 적용; 피해 차단 아님 | [InsectAugments](../src/main/java/kim/biryeong/semiontd/tower/insect/InsectAugments.java) |
+| `engagement_plan_quick` | 속전 | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `forecast_offensive` | 복제본 생성 | 공격 | 예약 인컴의 공격 강화; 구매·출발 시점 조건도 존재 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `winning_barrage` | 칼날비 | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `domino_fire` | 도미노 사격 | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `biased_armor_physical` | 물리장갑 | 보호 | 피해 감소·차단; 체력 증가와 구분 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `biased_armor_magic` | 마법장갑 | 보호 | 피해 감소·차단; 체력 증가와 구분 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `additional_payload` | 과다 투자 | 체력 | 유틸 인컴의 체력·회복·보호막 강화와 비용 증가 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `overheat_core` | 오버히트 | 공격 | 이번 라운드 지정 타워 피해 강화; 라운드 후 주는 피해를 낮추는 영구 페널티 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `battlefield_mastery` | 고참병의 흉터 | 성장 | 피해를 받고 생존한 지정 타워의 누적 숙련 성장 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `emergency_loan` | 비상 융자 | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `support_performance` | 인센티브 | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `cash_settlement` | 일시불 | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `forbidden_blueprint` | 금지된 설계도 | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `low_pressure_high_yield` | 내실 다지기 | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `folding_barricade_blueprint` | 방벽 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `pulse_relay_blueprint` | 결속 타워 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `barrier_core_call` | 수호자 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `giant_hunter_call` | 공성 전차 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `emergency_bell_blueprint` | 수호천사 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `capacitor_post_blueprint` | 전지 타워 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `ambush_workshop_blueprint` | 지뢰 생성기 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `starlight_cocoon_call` | 별빛 고치 호출 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `ordnance_factory_call` | 인컴 대포 | 소환 | 전투 타워 배치권·소환·복제·보유 수 증가 | [AugmentTowers](../src/main/java/kim/biryeong/semiontd/tower/augment/AugmentTowers.java) |
+| `triangle_formation` | 삼각진 | 연계 | 배치 관계·연결·공유·아군 지원 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `twin_squadron` | 쌍둥이 | 연계 | 배치 관계·연결·공유·아군 지원 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `frontline_specialization` | 영혼 결속 | 연계 | 배치 관계·연결·공유·아군 지원 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `independent_position` | 혼자가 편해 | 연계 | 배치 관계·연결·공유·아군 지원 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `engagement_plan_long` | 지구전 | 강화 | 다중 능력치·기존 능력 강화·기능 해금 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `one_man_show` | 원맨쇼 | 강화 | 다중 능력치·기존 능력 강화·기능 해금 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `wartime_economy` | 총동원령 | 강화 | 수입을 희생하는 일반 타워 공격·체력 강화 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_1_assault` | 전술 지정 I (돌격) | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_1_cover` | 전술 지정 I (엄호) | 보호 | 피해 감소·차단; 체력 증가와 구분 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `finishing_fire_1` | 마무리 사격 I | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `beneficial_effect_1` | 엄청 이로운 효과 I | 강화 | 다중 능력치·기존 능력 강화·기능 해금 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_2_assault` | 전술 지정 II (돌격) | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_2_cover` | 전술 지정 II (엄호) | 보호 | 피해 감소·차단; 체력 증가와 구분 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `finishing_fire_2` | 마무리 사격 II | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `beneficial_effect_2` | 엄청 이로운 효과 II | 강화 | 다중 능력치·기존 능력 강화·기능 해금 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_3_assault` | 전술 지정 III (돌격) | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `tactical_designation_3_cover` | 전술 지정 III (엄호) | 보호 | 피해 감소·차단; 체력 증가와 구분 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `finishing_fire_3` | 마무리 사격 III | 공격 | 직접·추가·범위 피해와 피해 증폭 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `beneficial_effect_3` | 엄청 이로운 효과 III | 강화 | 다중 능력치·기존 능력 강화·기능 해금 | [AugmentCombat](../src/main/java/kim/biryeong/semiontd/augment/AugmentCombat.java) |
+| `reserve_diamonds_silver` | 예비 다이아 I | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_income_silver` | 예비 인컴 I | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_production_silver` | 예비 생산 I | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_diamonds_gold` | 예비 다이아 II | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_income_gold` | 예비 인컴 II | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_production_gold` | 예비 생산 II | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_diamonds_prismatic` | 예비 다이아 III | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_income_prismatic` | 예비 인컴 III | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+| `reserve_production_prismatic` | 예비 생산 III | 자원 | 다이아·인컴·생산·마나·물·전력·보상 | [AugmentEconomyService](../src/main/java/kim/biryeong/semiontd/augment/AugmentEconomyService.java) |
+
+
+### 하이퍼 캐리형 빌더 공통 계약
+
+엔드·흑마법사·마왕을 하이퍼 캐리형으로 분류한다. 분류는 기존 `SemionJob.isHyperCarry()`와 `JobRegistry`를 사용하며 영웅의 기존 지정 증강 효율 예외는 별도로 유지한다. 공통 제한 설명은 직업을 나열하지 않고 **하이퍼 캐리형**으로 표시한다. 알·진화·희생·전이 등 각 빌더의 고유 조건은 다른 빌더에 복사하지 않는다.
+
+- 특성·증강 제한을 반드시 연결한다. 완강함은 핵심 전투체에 `CoreMaxHealthBonus`를 적용하고 일반 보조 타워에는 일반 수치를 유지한다. 마왕의 별도 체력 풀도 같은 축소 수치를 한 번만 적용하며 특성 동기화로 현재 체력을 채우지 않는다. 지정 증강의 강화·패널티는 20%이고 중첩 한도·발동 조건·지속 시간은 유지한다. 전용 증강의 직업 조건도 유지한다.
+- 생명력 흡수는 실제 피해·기준 피해·성장 진행률을 연결하고 표시와 실제 회복이 같은 계산을 사용해야 한다. 엔드는 `DamageLifeSteal` 기준 피해 30, 흑마법사는 40을 사용한다. **마왕은 현재 피해 비례 회복 및 최대 체력 상한을 사용하는 별도 경로이며 공통 계산으로의 이행은 미완료다.** 마왕의 기준 피해·진행률·기존 패시브/제단 상한 관계는 승인된 수치가 없으므로 임의로 정하거나 기존 회복량을 바꾸지 않는다. 새 하이퍼 캐리형은 이 값을 확정하고 공통 경로를 검증하기 전 완료로 처리하지 않는다.
+- 체력·피해의 성장 보너스는 선형 구간과 이후 스케일을 모두 정의해야 한다. `LogarithmicScaling`은 `x ≤ threshold`에서 x, 이후 `threshold + scale × log1p((x-threshold)/scale)`이다. 마왕의 레벨 체력 보너스는 체력 단위 threshold/scale 500/500, 피해 보너스는 비율 단위 0.5/0.5(50%/50%)를 사용한다. 경계에서 연속이며 배분 능력치의 기존 선형 증가는 별도로 유지한다. 체력 500/500도 최대 체력 전체가 아닌 레벨 원시 성장분(체력 포인트)만 제어한다. **마왕의 피해 0.5/0.5는 무차원 레벨 추가 배율만 제어하며, 기본 공격력 포인트나 최종 피해량의 임계값·스케일이 아니다.** 이를 엔드·흑마의 공격력 포인트 점감과 동일한 구현 완료로 간주하지 않는다. 마왕의 피해량 자체 점감은 현재 미구현이고 기준값·스케일도 미정이다. 승인 없이 새 피해량 점감이나 수치를 추가하지 않는다.
+
+새 빌더 추가 시 분류 등록, 특성의 실제 체력 및 HUD 연결, 증강 후보·선택·리롤·지정 검증, 흡수 표시/실제 피해와 회복 일치, 성장 경계 전후와 중복 적용·무료 회복 방지 테스트를 확인한다. 전체 테스트 및 격리 클라이언트 표시 검증을 통과해야 한다.
+
+
+증강 카드와 상세창은 `AugmentDescriptions.describe`의 동일한 축약 설명을 사용한다. 조건·주요 수치·대상·제약을 문장으로 압축하며 원문을 덧붙이거나 문자열 길이로 자르지 않는다. 기본 카탈로그 181개를 실제 한국어 폰트의 너비 90픽셀·7줄·줄 높이 9픽셀로 검사하며 글자 크기는 유지한다. 서버 측 측정과 실제 GUI3 클라이언트 측정을 모두 확인한다. 사용자 설정 수치는 템플릿에서 동적으로 렌더링한다.
+
+마왕의 현행 생명력 흡수는 흡혈 참격이 주 대상과 주변에 실제로 준 피해 합계의 15%, 회당 현재 최대 체력의 4% 상한이다. 영혼 착취는 T1~T4 실제 피해 합계의 25%/30%/35%/40%, 회당 최대 체력의 12%/15%/18%/22% 상한이다. 레벨·능력치 배분·계약 등으로 실제 피해와 현재 최대 체력이 변해 회복량과 상한에 간접 반영되며, 독립 흡수 단계나 피해 기준 효율 감쇠는 없다. 공통 계산으로 이행하려면 기준 피해, 성장 진행률의 원천·상한, 광역 피해 합산 기준, 스킬별 기존 비율·체력 상한 유지 여부를 확정해야 한다.

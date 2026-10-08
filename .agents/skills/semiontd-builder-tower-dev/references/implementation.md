@@ -650,3 +650,14 @@ The complete gameplay gate remains `./gradlew test runGameTest remapJar --consol
 
 
 Entity-backed tests must declare a structure that contains every arena coordinate, including final-defense targets and hidden skill carriers. Use `RuntimeArenaFixture` for synchronous combat cases that need loaded entity sections before invocation; its bounded GameTest sequence checks `ServerLevel.areEntitiesActuallyLoadedAndTicking`, preserves the annotation timeout and reports reflective assertion failures as `GameTestAssertException` with their original cause. `FullChunkStatus.ENTITY_TICKING` alone does not establish entity-section readiness. Body and Demon Lord tests use the existing `combat_arena` structure. Keep setup, assertions and cleanup inside one invocation; do not leave raw `AssertionError` callbacks scheduled on server ticks. The test-only `RuntimeEnvironmentFixture` initializes missing Fabric server/registry/profile context for mock logins, and `RuntimePacketContextTest` exercises block-entity chunk serialization through both mock-player paths.
+
+
+### 하이퍼 캐리형 빌더 공통 계약
+
+엔드·흑마법사·마왕을 하이퍼 캐리형으로 분류한다. 분류는 기존 `SemionJob.isHyperCarry()`와 `JobRegistry`를 사용하며 영웅의 기존 지정 증강 효율 예외는 별도로 유지한다. 공통 제한 설명은 직업을 나열하지 않고 **하이퍼 캐리형**으로 표시한다. 알·진화·희생·전이 등 각 빌더의 고유 조건은 다른 빌더에 복사하지 않는다.
+
+- 특성·증강 제한을 반드시 연결한다. 완강함은 핵심 전투체에 `CoreMaxHealthBonus`를 적용하고 일반 보조 타워에는 일반 수치를 유지한다. 마왕의 별도 체력 풀도 같은 축소 수치를 한 번만 적용하며 특성 동기화로 현재 체력을 채우지 않는다. 지정 증강의 강화·패널티는 20%이고 중첩 한도·발동 조건·지속 시간은 유지한다. 전용 증강의 직업 조건도 유지한다.
+- 생명력 흡수는 실제 피해·기준 피해·성장 진행률을 연결하고 표시와 실제 회복이 같은 계산을 사용해야 한다. 엔드는 `DamageLifeSteal` 기준 피해 30, 흑마법사는 40을 사용한다. **마왕은 현재 피해 비례 회복 및 최대 체력 상한을 사용하는 별도 경로이며 공통 계산으로의 이행은 미완료다.** 마왕의 기준 피해·진행률·기존 패시브/제단 상한 관계는 승인된 수치가 없으므로 임의로 정하거나 기존 회복량을 바꾸지 않는다. 새 하이퍼 캐리형은 이 값을 확정하고 공통 경로를 검증하기 전 완료로 처리하지 않는다.
+- 체력·피해의 성장 보너스는 선형 구간과 이후 스케일을 모두 정의해야 한다. `LogarithmicScaling`은 `x ≤ threshold`에서 x, 이후 `threshold + scale × log1p((x-threshold)/scale)`이다. 마왕의 레벨 체력 보너스는 체력 단위 threshold/scale 500/500, 피해 보너스는 비율 단위 0.5/0.5(50%/50%)를 사용한다. 경계에서 연속이며 배분 능력치의 기존 선형 증가는 별도로 유지한다. 체력 500/500도 최대 체력 전체가 아닌 레벨 원시 성장분(체력 포인트)만 제어한다. **마왕의 피해 0.5/0.5는 무차원 레벨 추가 배율만 제어하며, 기본 공격력 포인트나 최종 피해량의 임계값·스케일이 아니다.** 이를 엔드·흑마의 공격력 포인트 점감과 동일한 구현 완료로 간주하지 않는다. 마왕의 피해량 자체 점감은 현재 미구현이고 기준값·스케일도 미정이다. 승인 없이 새 피해량 점감이나 수치를 추가하지 않는다.
+
+새 빌더 추가 시 분류 등록, 특성의 실제 체력 및 HUD 연결, 증강 후보·선택·리롤·지정 검증, 흡수 표시/실제 피해와 회복 일치, 성장 경계 전후와 중복 적용·무료 회복 방지 테스트를 확인한다. 전체 테스트 및 격리 클라이언트 표시 검증을 통과해야 한다.

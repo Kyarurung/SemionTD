@@ -20,6 +20,11 @@ public final class WarlockTowerJob extends SemionJob {
     }
 
     @Override
+    public boolean isHyperCarry() {
+        return true;
+    }
+
+    @Override
     public List<Component> description() {
         return List.of(
                 SemionText.mini("<green><bold>시작</bold></green> <gray>희생으로 성장해 원거리·근거리 중 선택합니다.</gray>"),

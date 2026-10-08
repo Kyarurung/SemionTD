@@ -39,7 +39,7 @@ import net.minecraft.world.phys.AABB;
 
 public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void dispatchHitsOnlyItsPrimaryWhileOrdinarySummonsRetainAreaAndPierce(GameTestHelper context) {
+    public void dispatchAreaUsesHalfSecondaryDamageWhileDwarfRemainsSingleTarget(GameTestHelper context) {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
         IncomeSummons.reloadBuiltIns(SummonConfig.defaultConfig());
         for (String id : List.of("dark_priest", "dwarf_gunner", "ogre_champion")) {
@@ -51,9 +51,12 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
                             id + " retains the original impact timing.");
                     fixture.attacker.attackStyle().hit(fixture.attacker, fixture.primaryEntity);
                     require(fixture.primary.health() < primary, id + " still deals primary damage.");
-                    require(dispatch ? fixture.neighbor.health() == neighbor : fixture.neighbor.health() < neighbor,
+                    double primaryLost = primary - fixture.primary.health();
+                    double secondaryLost = neighbor - fixture.neighbor.health();
+                    double expected = dispatch ? (id.equals("dwarf_gunner") ? 0.0 : primaryLost * 0.5) : primaryLost;
+                    require(Math.abs(secondaryLost - expected) < 0.001,
                             id + " secondary damage must follow the income dispatch boundary: " + dispatch);
-                    if (dispatch) {
+                    if (dispatch && id.equals("dwarf_gunner")) {
                         var neighborEntity = context.getLevel().getEntity(((EntityBackedTower) fixture.neighbor).entityId().orElseThrow());
                         MonsterAttackStyle.strike(fixture.attacker, (SemionTowerEntity) neighborEntity,
                                 fixture.attacker.attackDamageAmount());
@@ -82,7 +85,7 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void removingPriestSplashPreservesHealingForMultipleAllies(GameTestHelper context) {
+    public void dispatchPriestHealingUsesGrowthAndTwoPercentForMultipleAllies(GameTestHelper context) {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
         IncomeSummons.reloadBuiltIns(SummonConfig.defaultConfig());
         try (Fixture fixture = Fixture.start(context, "dark_priest", true)) {
@@ -100,8 +103,13 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
             var goals = unit.createAbilityGoals(fixture.attacker);
             require(goals.size() == 1, "The priest keeps its independent area-healing ability.");
             goals.getFirst().tick();
-            require(fixture.attacker.runtimeMonster().health() > selfBefore && ally.runtimeMonster().health() > allyBefore,
-                    "The dispatch priest must still heal itself and its nearby ally.");
+            double growth = Math.max(1.0, fixture.attacker.runtimeMonster().maxHealth() / unit.maxHealth());
+            double expectedSelf = 16.0 * growth + fixture.attacker.runtimeMonster().maxHealth() * 0.02;
+            double expectedAlly = 16.0 * growth + ally.runtimeMonster().maxHealth() * 0.02;
+            require(Math.abs(fixture.attacker.runtimeMonster().health() - selfBefore - expectedSelf) < 0.001,
+                    "The dispatch priest must heal itself with the two-percent formula.");
+            require(Math.abs(ally.runtimeMonster().health() - allyBefore - expectedAlly) < 0.001,
+                    "The dispatch priest must use each ally's own maximum health.");
         }
         context.succeed();
     }
@@ -145,12 +153,46 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
         context.succeed();
     }
 
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void dispatchAreaCapsAtFiveIncludingPrimaryAndOnlyHitsNearestNeighbors(GameTestHelper context) {
+        ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
+        IncomeSummons.reloadBuiltIns(SummonConfig.defaultConfig());
+        for (String id : List.of("dark_priest", "ogre_champion")) {
+            try (Fixture fixture = Fixture.start(context, id, true)) {
+                var towers = fixture.lane.towers();
+                double[] before = towers.stream().mapToDouble(Tower::health).toArray();
+                double primaryBefore = fixture.primary.health();
+                fixture.attacker.attackStyle().hit(fixture.attacker, fixture.primaryEntity);
+                double primaryLost = primaryBefore - fixture.primary.health();
+                int hitCount = 0;
+                for (int i = 0; i < towers.size(); i++) {
+                    var tower = towers.get(i);
+                    double lost = before[i] - tower.health();
+                    if (lost > 0.0) {
+                        hitCount++;
+                        require(Math.abs(lost - primaryLost * (tower == fixture.primary ? 1.0 : 0.5)) < 0.001,
+                                id + " every extra target takes exactly half damage.");
+                        var entity = context.getLevel().getEntity(((EntityBackedTower) tower).entityId().orElseThrow());
+                        require(entity.position().distanceToSqr(fixture.primaryEntity.position()) <= 1.01,
+                                id + " selects the primary and nearest four towers.");
+                    }
+                }
+                require(hitCount == 5, id + " hits exactly five of nine adjacent defenses, got " + hitCount);
+            }
+        }
+        context.succeed();
+    }
+
     private record Fixture(SemionGame game, PlayerLane lane, Tower primary, Tower neighbor,
             SemionTowerEntity primaryEntity, SemionMonsterEntity attacker) implements AutoCloseable {
         static Fixture start(GameTestHelper context, String id, boolean dispatch) {
             UUID owner = UUID.randomUUID();
             UUID enemy = UUID.randomUUID();
-            SemionGame game = new SemionGame(EconomyConfig.defaultConfig(), WaveConfig.defaultConfig(),
+            var defaults = EconomyConfig.defaultConfig();
+            var economy = new EconomyConfig(defaults.startingDiamond(), defaults.startingEmerald(), defaults.startingIncome(),
+                    defaults.emeraldCap(), defaults.emeraldProduction(), new EconomyConfig.TowerLimitConfig(25, 5, 5, 0, 25),
+                    defaults.killReward(), defaults.teamTransfer(), defaults.emeraldIncomeBoost());
+            SemionGame game = new SemionGame(economy, WaveConfig.defaultConfig(),
                     SyntheticArenaFactory.create(context.getLevel(), context.absolutePos(BlockPos.ZERO)));
             try {
                 require(game.selectJob(owner, DemonLordTowerJob.ID), "The sender must be a Demon Lord.");
@@ -162,9 +204,11 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
                 PlayerLane lane = game.playerLane(enemy).orElseThrow();
                 BlockPos at = adjacent(lane);
                 game.players().get(enemy).economy().addMineral(100000);
-                for (BlockPos pos : List.of(at, at.east())) {
-                    require(ProductionTowerService.placeTower(game, enemy, pos, DeveloperTowers.ALPHA.id())
-                            == TowerPlacementResult.SUCCESS, "Two adjacent defenses must be placed.");
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        require(ProductionTowerService.placeTower(game, enemy, at.offset(dx, 0, dz), DeveloperTowers.ALPHA.id())
+                                == TowerPlacementResult.SUCCESS, "Nine adjacent defenses must be placed.");
+                    }
                 }
                 Tower primary = lane.towerAt(GridPosition.from(at));
                 Tower neighbor = lane.towerAt(GridPosition.from(at.east()));
@@ -201,7 +245,13 @@ public final class IncomeDispatchDamageTest implements RuntimeArenaFixture {
         for (int x = bounds.min().getX(); x < bounds.max().getX(); x++) {
             for (int z = bounds.min().getZ(); z <= bounds.max().getZ(); z++) {
                 var position = new BlockPos(x, bounds.min().getY(), z);
-                if (lane.canPlaceTowerAt(position) && lane.canPlaceTowerAt(position.east())) return position;
+                boolean fits = true;
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        fits &= lane.canPlaceTowerAt(position.offset(dx, 0, dz));
+                    }
+                }
+                if (fits) return position;
             }
         }
         throw new AssertionError("The fixture needs adjacent tower plots.");

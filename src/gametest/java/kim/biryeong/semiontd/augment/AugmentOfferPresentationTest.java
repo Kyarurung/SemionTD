@@ -18,6 +18,40 @@ import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.world.inventory.ContainerInput;
 
 public final class AugmentOfferPresentationTest extends AugmentControllerFixture {
+    @GameTest
+    public void cardScopeLabelsShowOnlyDedicatedMarker(GameTestHelper context) {
+        for (var card : AugmentCatalog.definitions()) {
+            String label = kim.biryeong.semiontd.ui.augment.AugmentCardDialog.categoryLabel(card);
+            require(!label.contains("실버") && !label.contains("골드") && !label.contains("프리즘"), "Rarity words must not label cards.");
+            if (card.requiredJobId() == null) {
+                require(label.isEmpty(), "Common cards have no upper label.");
+            } else {
+                require(label.equals("전용"), "Dedicated cards show only the dedicated marker, without a job name.");
+
+            }
+        }
+        context.succeed();
+    }
+
+    @GameTest
+    public void bareAugmentAliasRequiresNoSubcommandOrOperatorPermission(GameTestHelper context) {
+        var server = context.getLevel().getServer();
+        var dispatcher = server.getCommands().getDispatcher();
+        var command = dispatcher.getRoot().getChild("증강");
+        require(command != null && command.getCommand() != null, "The bare augment alias must have an executable action.");
+        for (int level = 0; level <= 2; level++) {
+            var source = server.createCommandSourceStack().withPermission(
+                    net.minecraft.server.permissions.LevelBasedPermissionSet.forLevel(
+                            net.minecraft.server.permissions.PermissionLevel.byId(level)));
+            require(command.canUse(source), "Players do not need operator permission to reopen augments.");
+            var parsed = dispatcher.parse("증강", source);
+            require(!parsed.getReader().canRead() && parsed.getExceptions().isEmpty()
+                            && parsed.getContext().getCommand() != null,
+                    "The exact bare command must parse without a subcommand.");
+        }
+        context.succeed();
+    }
+
     private static final String COMMAND = "/semiontd augment ";
 
     @GameTest
@@ -43,7 +77,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                 var state = player.augments();
                 var offer = state.currentOffer().orElseThrow();
                 var screen = game.augmentService().offerScreen(game, player, offer, true);
-                require(screen.columns() == 3 && screen.cards().size() == 3 && screen.buttons().size() == 9,
+                require(screen.columns() == 3 && screen.cards().size() == 3 && screen.buttons().size() == 7,
                         "Three cards, three independent rerolls and three navigation actions must remain.");
                 try (var fixture = new AugmentOfferGuiFixture(online, screen, revealed(),
                         () -> game.phase() == RoundPhase.PREPARE_AND_SUMMON
@@ -171,7 +205,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
     }
 
     @GameTest
-    public void nativeDialogBodyKeepsCardIdentitySlotRerollsTooltipsAndStaleGuards(GameTestHelper context) {
+    public void nativeDialogBodyKeepsCardIdentitySharedRerollTooltipsAndStaleGuards(GameTestHelper context) {
         for (String schedule : List.of("SSS", "GGG", "PPP")) {
             var online = context.makeMockServerPlayerInLevel();
             var game = prepare(context, online, schedule);
@@ -181,7 +215,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                 advance(game, online, 20);
                 var player = game.players().get(online.getUUID());
                 var state = player.augments();
-                for (int slot = 0; slot < 3; slot++) {
+                for (int slot = 0; slot < 1; slot++) {
                     var offer = state.currentOffer().orElseThrow();
                     var screen = game.augmentService().offerScreen(game, player, offer, true);
                     var dialog = kim.biryeong.semiontd.ui.augment.AugmentCardDialog.dialog(screen);
@@ -204,14 +238,14 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                                         && tooltip.value().getString().equals(screen.buttons().get(cardSlot).description()),
                                 "Sliced cards must retain their complete production tooltip.");
                     }
-                    String reroll = screen.buttons().get(slot + 3).command();
-                    require(screen.canReroll().get(slot) && styles.containsKey(reroll), "An available slot reroll is clickable in the body.");
+                    String reroll = screen.buttons().get(3).command();
+                    require(screen.canReroll() && styles.containsKey(reroll), "The shared reroll is clickable in the body.");
                     require(game.augmentService().handle(game, online, reroll.substring(COMMAND.length()), false) == 1,
-                            "The real body command rerolls its slot.");
+                            "The real body command replaces all three cards.");
                     var after = state.currentOffer().orElseThrow();
                     for (int other = 0; other < 3; other++) {
-                        require(other == slot || after.cardIds().get(other).equals(offer.cardIds().get(other)),
-                                "A body reroll cannot change either neighboring card.");
+                        require(!offer.cardIds().contains(after.cardIds().get(other)),
+                                "A body reroll changes every card and cannot retain an old card.");
                     }
                     require(state.rerollsRemaining(slot) == 4, "Each independently used slot is charged once.");
                     require(game.augmentService().handle(game, online, reroll.substring(COMMAND.length()), false) == 0,
@@ -219,7 +253,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                     require(game.augmentService().handle(game, online, screen.buttons().get(slot).command().substring(COMMAND.length()), false) == 0,
                             "The prior card action is stale after replacement.");
                 }
-                require(state.rerollsRemainingBySlot().equals(List.of(4, 4, 4)), "The three body controls have independent balances.");
+                require(state.rerollsRemainingBySlot().equals(List.of(4, 4, 4)), "The single body control has one shared balance.");
                 var current = state.currentOffer().orElseThrow();
                 var disabled = game.augmentService().offerScreen(game, player, current, false);
                 var commands = new java.util.HashSet<String>();
@@ -227,7 +261,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                     if (style.getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.RunCommand click) commands.add(click.command());
                     return java.util.Optional.empty();
                 }, net.minecraft.network.chat.Style.EMPTY);
-                for (int slot = 0; slot < 3; slot++) require(!commands.contains(disabled.buttons().get(slot + 3).command()),
+                require(!commands.contains(disabled.buttons().get(3).command()),
                         "Disabled reroll glyphs have no executable action.");
                 int selectedSlot = java.util.stream.IntStream.range(0, 3)
                         .filter(slot -> AugmentService.modes(current.cardIds().get(slot)).isEmpty()).findFirst().orElseThrow();

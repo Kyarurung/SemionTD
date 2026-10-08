@@ -89,7 +89,8 @@ public record SummonConfig(Map<String, SummonDefinition> summons) {
             if (!merged.containsKey(entry.getKey())) {
                 merged.put(entry.getKey(), entry.getValue());
                 changed = true;
-            } else if (UtilitySupportProfile.supports(entry.getKey())) {
+            } else if (UtilitySupportProfile.supports(entry.getKey())
+                    || entry.getKey().equals("dark_priest") || entry.getKey().equals("ogre_champion")) {
                 SummonDefinition current = merged.get(entry.getKey());
                 LinkedHashMap<String, Double> abilities = new LinkedHashMap<>(entry.getValue().abilityValues());
                 abilities.putAll(current.abilityValues());
@@ -169,7 +170,11 @@ public record SummonConfig(Map<String, SummonDefinition> summons) {
         return new SummonDefinition(id, displayName, true, emeraldCost, incomeGain, maxHealth, armor, resistance,
                 attackDamage, attackKind, damageType, "minecraft:zombie", "semion-td:invasion/" + id,
                 new DimensionConfig(width, height), diamondReward, tier, roles, acts(SummonAbilityActivation.PASSIVE),
-                List.of(description), Map.of());
+                List.of(description), switch (id) {
+                    case "dark_priest" -> Map.of("maxTargets", 5.0, "healAmount", 16.0, "healMaxHealthRatio", 0.02);
+                    case "ogre_champion" -> Map.of("maxTargets", 5.0);
+                    default -> Map.of();
+                });
     }
 
     /** Blockbench 모델 없이 바닐라 모습을 그대로 쓰는 침공군 유닛. */

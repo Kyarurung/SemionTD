@@ -117,3 +117,6 @@ Report only:
 2. changed files or installed artifact path;
 3. exact test, GameTest, reload, and packaging evidence;
 4. live-config assumptions or blockers that remain.
+
+
+하이퍼 캐리형(엔드·흑마법사·마왕) 작업은 `references/implementation.md`의 하이퍼 캐리형 빌더 공통 계약을 따른다. 특성·증강 제한, 생명력 흡수, 체력·피해의 선형 구간 및 스케일 연결과 검증은 필수다. 미확정 수치를 임의로 만들지 말고 기존 구현의 미이행 항목을 명시한다.

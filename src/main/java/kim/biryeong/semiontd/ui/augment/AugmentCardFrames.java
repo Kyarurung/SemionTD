@@ -8,28 +8,31 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.GradientPaint;
 import java.awt.Font;
-import java.awt.RenderingHints;
+import java.awt.Graphics2D;
+import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
-import kim.biryeong.semiontd.augment.AugmentDisplayRole;
+import kim.biryeong.semiontd.augment.AugmentIconCategory;
 import kim.biryeong.semiontd.augment.AugmentRarity;
-import kim.biryeong.semiontd.ui.rp.AugmentCardIcons;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 
 public final class AugmentCardFrames {
-    public static final int WIDTH = 144;
+    public static final int WIDTH = 108;
+    public static final int BUTTON_WIDTH = 40;
+    public static final int BUTTON_INSET = (WIDTH - BUTTON_WIDTH) / 2;
     public static final int ROW_HEIGHT = 9;
-    public static final int CARD_ROWS = 22;
+    public static final int CARD_ROWS = 19;
     public static final int BUTTON_ROWS = 2;
     public static final Identifier FONT = Identifier.fromNamespaceAndPath("semion-td", "augment_card_dialog");
-    private static final int FIRST_CARD = 0xEA00;
-    private static final int FIRST_BUTTON = 0xEC00;
+    public static final int CARD_COLUMNS = AugmentRarity.values().length * AugmentIconCategory.values().length;
+    private static final int FIRST_CARD = 0xE000;
+    private static final int FIRST_BUTTON = 0xE400;
     private static final Style STYLE = Style.EMPTY.withFont(new FontDescription.Resource(FONT))
             .withColor(0xFFFFFF).withShadowColor(0).withBold(false).withItalic(false);
 
@@ -39,8 +42,8 @@ public final class AugmentCardFrames {
         PolymerResourcePackUtils.RESOURCE_PACK_AFTER_INITIAL_CREATION_EVENT.register(AugmentCardFrames::resources);
     }
 
-    public static Component card(AugmentRarity rarity, AugmentDisplayRole role, int row) {
-        return glyph(FIRST_CARD + row * 9 + rarity.ordinal() * 3 + role.ordinal());
+    public static Component card(AugmentRarity rarity, AugmentIconCategory role, int row) {
+        return glyph(FIRST_CARD + row * CARD_COLUMNS + rarity.ordinal() * AugmentIconCategory.values().length + role.ordinal());
     }
 
     public static Component button(AugmentRarity rarity, boolean enabled, int remaining, int row) {
@@ -60,70 +63,27 @@ public final class AugmentCardFrames {
         };
     }
 
+    public static boolean isCardGlyph(int codePoint) {
+        return codePoint >= FIRST_CARD && codePoint < FIRST_CARD + CARD_ROWS * CARD_COLUMNS;
+    }
+
     static BufferedImage cards() {
-        BufferedImage icons = null;
-        try (var stream = AugmentCardFrames.class.getResourceAsStream(AugmentCardIcons.SOURCE)) {
-            if (stream != null) icons = ImageIO.read(stream);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot load augment card artwork", exception);
-        }
-        var image = new BufferedImage((WIDTH - 1) * 9, CARD_ROWS * ROW_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        var image = new BufferedImage((WIDTH - 1) * CARD_COLUMNS, CARD_ROWS * ROW_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         var graphics = image.createGraphics();
         try {
-            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             int height = image.getHeight();
-            for (int variant = 0; variant < 9; variant++) {
+            int center = (WIDTH - 2) / 2;
+            for (int variant = 0; variant < CARD_COLUMNS; variant++) {
                 int x = variant * (WIDTH - 1);
-                Color accent = new Color(color(AugmentRarity.values()[variant / 3]));
+                Color accent = new Color(color(AugmentRarity.values()[variant / AugmentIconCategory.values().length]));
                 graphics.setPaint(new GradientPaint(x, 0, new Color(0x202B43), x, height, new Color(0x0A1020)));
                 graphics.fillRect(x, 0, WIDTH - 1, height);
-                graphics.setColor(new Color(0x3C4964));
-                graphics.drawRect(x, 0, WIDTH - 2, height - 1);
-                graphics.setColor(accent);
-                graphics.drawRect(x + 2, 2, WIDTH - 6, height - 5);
-                graphics.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 68));
-                graphics.drawRect(x + 5, 5, WIDTH - 12, height - 11);
-                for (int side : new int[]{0, 1}) {
-                    int edge = side == 0 ? x + 2 : x + WIDTH - 4;
-                    int direction = side == 0 ? 1 : -1;
-                    graphics.setColor(accent);
-                    graphics.drawLine(edge, 10, edge + direction * 8, 2);
-                    graphics.drawLine(edge, height - 11, edge + direction * 8, height - 3);
-                }
-                graphics.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 26));
-                graphics.fillOval(x + 37, 30, 68, 68);
-                graphics.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 105));
-                graphics.drawOval(x + 36, 29, 70, 70);
-                graphics.setColor(accent);
-                graphics.fillPolygon(new int[]{x + 71, x + 75, x + 71, x + 67}, new int[]{5, 9, 13, 9}, 4);
-                graphics.drawLine(x + 17, 121, x + 57, 121);
-                graphics.drawLine(x + 85, 121, x + 125, 121);
-                graphics.fillPolygon(new int[]{x + 71, x + 74, x + 71, x + 68}, new int[]{118, 121, 124, 121}, 4);
-                if (icons != null) {
-                    AugmentCardIcons.validateDimensions(icons.getWidth(), icons.getHeight());
-                    int cell = icons.getWidth() / 3;
-                    int sourceX = variant % 3 * cell;
-                    int sourceY = variant / 3 * cell;
-                    int left = cell, top = cell, right = -1, bottom = -1;
-                    for (int iy = 0; iy < cell; iy++) {
-                        for (int ix = 0; ix < cell; ix++) {
-                            if ((icons.getRGB(sourceX + ix, sourceY + iy) >>> 24) == 0) continue;
-                            left = Math.min(left, ix);
-                            top = Math.min(top, iy);
-                            right = Math.max(right, ix);
-                            bottom = Math.max(bottom, iy);
-                        }
-                    }
-                    if (right >= left && bottom >= top) {
-                        double scale = 58.0 / Math.max(right - left + 1, bottom - top + 1);
-                        int width = (int) Math.round((right - left + 1) * scale);
-                        int iconHeight = (int) Math.round((bottom - top + 1) * scale);
-                        int targetX = x + (143 - width) / 2;
-                        int targetY = 64 - iconHeight / 2;
-                        graphics.drawImage(icons, targetX, targetY, targetX + width, targetY + iconHeight,
-                                sourceX + left, sourceY + top, sourceX + right + 1, sourceY + bottom + 1, null);
-                    }
-                }
+                frame(graphics, x, height, accent);
+                graphics.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 55));
+                graphics.drawLine(x + 12, 94, x + WIDTH - 14, 94);
+                graphics.drawImage(AugmentCategoryIcons.image(
+                        AugmentIconCategory.values()[variant % AugmentIconCategory.values().length], accent),
+                        x + center - 24, 20, null);
             }
         } finally {
             graphics.dispose();
@@ -131,30 +91,77 @@ public final class AugmentCardFrames {
         return image;
     }
 
+    private static void frame(Graphics2D graphics, int x, int height, Color accent) {
+        var frame = (Graphics2D) graphics.create(x, 0, WIDTH - 1, height);
+        try {
+            var light = new Color(accent.getRed() + (255 - accent.getRed()) * 45 / 100,
+                    accent.getGreen() + (255 - accent.getGreen()) * 45 / 100,
+                    accent.getBlue() + (255 - accent.getBlue()) * 45 / 100);
+            var shade = new Color(accent.getRed() * 48 / 100, accent.getGreen() * 48 / 100,
+                    accent.getBlue() * 48 / 100);
+            var rim = new Path2D.Double();
+            rim.moveTo(4, 11);
+            rim.lineTo(11, 4);
+            rim.lineTo(WIDTH - 13, 4);
+            rim.lineTo(WIDTH - 6, 11);
+            rim.lineTo(WIDTH - 6, height - 8);
+            rim.lineTo(WIDTH - 9, height - 5);
+            rim.lineTo(7, height - 5);
+            rim.lineTo(4, height - 8);
+            rim.closePath();
+            frame.setColor(new Color(0x070D13));
+            frame.setStroke(new BasicStroke(7F, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+            frame.draw(rim);
+            frame.setPaint(new GradientPaint(0, 3, light, 0, height - 4, shade));
+            frame.setStroke(new BasicStroke(4F, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
+            frame.draw(rim);
+            frame.setStroke(new BasicStroke(1F));
+            frame.setColor(light);
+            frame.drawLine(11, 2, WIDTH - 13, 2);
+            frame.drawLine(2, 12, 2, height - 13);
+            frame.setColor(shade);
+            frame.drawLine(WIDTH - 4, 12, WIDTH - 4, height - 13);
+            frame.drawLine(11, height - 3, WIDTH - 13, height - 3);
+            frame.setColor(new Color(accent.getRed() * 72 / 100, accent.getGreen() * 72 / 100,
+                    accent.getBlue() * 72 / 100));
+            for (int side = 0; side < 2; side++) {
+                int edge = side == 0 ? 7 : WIDTH - 9;
+                int direction = side == 0 ? 1 : -1;
+                frame.drawPolyline(new int[]{edge, edge, edge + direction * 5, edge + direction * 16},
+                        new int[]{25, 14, 9, 9}, 4);
+                frame.drawPolyline(new int[]{edge, edge, edge + direction * 5, edge + direction * 16},
+                        new int[]{height - 26, height - 8, height - 6, height - 6}, 4);
+            }
+        } finally {
+            frame.dispose();
+        }
+    }
+
     static BufferedImage buttons() {
-        var image = new BufferedImage((WIDTH - 1) * 6, BUTTON_ROWS * ROW_HEIGHT * 6, BufferedImage.TYPE_INT_ARGB);
+        int height = BUTTON_ROWS * ROW_HEIGHT;
+        var image = new BufferedImage(BUTTON_WIDTH * 6, height * 6, BufferedImage.TYPE_INT_ARGB);
         var graphics = image.createGraphics();
         try {
-            graphics.setFont(new Font(Font.MONOSPACED, Font.BOLD, 10));
+            graphics.setFont(new Font(Font.MONOSPACED, Font.BOLD, 8));
             for (int remaining = 0; remaining <= 5; remaining++) {
-                graphics.translate(0, remaining * 18);
+                graphics.translate(0, remaining * height);
                 for (int variant = 0; variant < 6; variant++) {
-                    int x = variant * (WIDTH - 1);
+                    int x = variant * BUTTON_WIDTH;
                     boolean enabled = variant % 2 == 0;
                     Color accent = enabled ? new Color(color(AugmentRarity.values()[variant / 2])) : new Color(0x65738A);
-                    graphics.setPaint(new GradientPaint(x, 0, new Color(enabled ? 0x37415A : 0x192333), x, 18, new Color(0x101827)));
-                    graphics.fillRect(x, 0, WIDTH - 1, 18);
+                    graphics.setPaint(new GradientPaint(x, 2, new Color(enabled ? 0x37415A : 0x192333), x, 16, new Color(0x101827)));
+                    graphics.fillRect(x, 2, BUTTON_WIDTH, 14);
+                    graphics.setStroke(new BasicStroke(1));
                     graphics.setColor(accent);
-                    graphics.drawRect(x, 0, WIDTH - 2, 17);
-                    graphics.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 60));
-                    graphics.drawRect(x + 2, 2, WIDTH - 6, 13);
-                    graphics.setColor(accent);
+                    graphics.drawRect(x, 2, BUTTON_WIDTH - 1, 13);
+                    graphics.setPaint(AugmentCategoryIcons.gradient(accent, 4, 12));
                     graphics.setStroke(new BasicStroke(1.5F));
-                    graphics.drawArc(x + 46, 4, 9, 9, 40, 285);
-                    graphics.fillPolygon(new int[]{x + 56, x + 51, x + 55}, new int[]{3, 5, 8}, 3);
-                    graphics.drawString(remaining + " / 5", x + 69, 12);
+                    graphics.drawArc(x + 8, 5, 7, 7, 40, 285);
+                    graphics.fillPolygon(new int[]{x + 16, x + 12, x + 16}, new int[]{4, 6, 9}, 3);
+                    graphics.setColor(accent);
+                    graphics.drawString(Integer.toString(remaining), x + 25, 12);
                 }
-                graphics.translate(0, -remaining * 18);
+                graphics.translate(0, -remaining * height);
             }
         } finally {
             graphics.dispose();
@@ -164,7 +171,7 @@ public final class AugmentCardFrames {
 
     private static void resources(ResourcePackBuilder builder) {
         var providers = new JsonArray();
-        add(builder, providers, "cards", cards(), CARD_ROWS, 9, FIRST_CARD);
+        add(builder, providers, "cards", cards(), CARD_ROWS, CARD_COLUMNS, FIRST_CARD);
         add(builder, providers, "buttons", buttons(), BUTTON_ROWS * 6, 6, FIRST_BUTTON);
         var font = new JsonObject();
         font.add("providers", providers);

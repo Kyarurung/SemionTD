@@ -1521,7 +1521,11 @@
       "description": [
         "멀리서 범위 마법 피해를 주고, 공격과 따로 주변 아군을 광역 치유합니다."
       ],
-      "abilityValues": {}
+      "abilityValues": {
+        "maxTargets": 5.0,
+        "healAmount": 16.0,
+        "healMaxHealthRatio": 0.02
+      }
     },
     "dwarf_gunner": {
       "id": "dwarf_gunner",
@@ -1773,7 +1777,9 @@
       "description": [
         "몽둥이로 내려찍어 주변 타워를 한꺼번에 때리는 거대한 탱커입니다."
       ],
-      "abilityValues": {}
+      "abilityValues": {
+        "maxTargets": 5.0
+      }
     }
   }
 }

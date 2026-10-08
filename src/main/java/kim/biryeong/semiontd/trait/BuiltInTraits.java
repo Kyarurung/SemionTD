@@ -58,7 +58,7 @@ public final class BuiltInTraits {
                 "내 타워가 기본 웨이브 몬스터에게 입히는 피해를 높입니다.");
         register(FORTITUDE_ID, 1, "완강함",
                 "내 모든 타워의 최대 체력을 높입니다.",
-                "흑마법사와 엔드 핵심 타워는 별도 수치를 사용합니다.");
+                "하이퍼 캐리형의 핵심 전투체는 별도 수치를 사용합니다.");
         register(DOUBLE_EDGED_SWORD_ID, 1, "양날의 검",
                 "내 타워의 최종 피해가 증가하지만 받는 최종 피해도 증가합니다.");
         register(STRENGTH_IN_NUMBERS_ID, 1, "무리의 힘",
@@ -135,7 +135,7 @@ public final class BuiltInTraits {
                     + signedPercentage(value(id, "damageBonus") * scale);
             case "fortitude" -> "최대 체력 "
                     + signedPercentage(value(id, "maxHealthBonus") * scale)
-                    + " · 흑마법사, 엔드 "
+                    + " · 하이퍼 캐리형 "
                     + signedPercentage(value(id, "CoreMaxHealthBonus") * scale);
             case "double_edged_sword" -> "입히는 피해 "
                     + signedPercentage(value(id, "outgoingDamageBonus") * scale)

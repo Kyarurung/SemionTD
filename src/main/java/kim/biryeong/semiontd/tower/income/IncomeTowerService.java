@@ -39,9 +39,9 @@ public final class IncomeTowerService {
 
     public static List<String> description(SummonMonsterType unit) {
         return switch (unit.id()) {
-            case "dark_priest" -> List.of("멀리서 한 대상에게 마법 피해를 주고, 공격과 따로 주변 아군을 광역 치유합니다.");
+            case "dark_priest", "ogre_champion" -> java.util.stream.Stream.concat(unit.description().stream(),
+                    java.util.stream.Stream.of("주 대상 피해는 100%, 추가 광역 대상 피해는 각각 50%입니다.")).toList();
             case "dwarf_gunner" -> List.of("탄환으로 한 대상에게 물리 피해를 줍니다.");
-            case "ogre_champion" -> List.of("몽둥이로 한 대상을 내려찍는 거대한 탱커입니다.");
             default -> unit.description();
         };
     }

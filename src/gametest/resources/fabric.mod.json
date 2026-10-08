@@ -15,6 +15,7 @@
     "fabric-gametest": [
       "kim.biryeong.semiontd.tower.demonlord.DemonLordSwapInputTest",
       "kim.biryeong.semiontd.augment.AugmentOfferPresentationTest",
+      "kim.biryeong.semiontd.augment.AugmentDescriptionLayoutTest",
       "kim.biryeong.semiontd.ui.UiAugmentOfferViewTest",
       "kim.biryeong.semiontd.tower.pet.PetCatRangeTest",
       "kim.biryeong.semiontd.tower.demonlord.DemonLordTickScaleSyncTest",
@@ -31,6 +32,7 @@
       "kim.biryeong.semiontd.game.GameParticipantLateJoinTest",
       "kim.biryeong.semiontd.map.RuntimeWorldDaylightTest",
       "kim.biryeong.semiontd.summon.invasion.InvasionSiegeTargetTest",
+      "kim.biryeong.semiontd.summon.invasion.InvasionAreaAttackTest",
       "kim.biryeong.semiontd.tower.adversary.AdversaryTowerCentralAttackTest",
       "kim.biryeong.semiontd.command.CommandCosmeticPointsTest",
       "kim.biryeong.semiontd.gametest.BugReportGameTest",

@@ -28,6 +28,11 @@ public final class EndTowerJob extends SemionJob {
     }
 
     @Override
+    public boolean isHyperCarry() {
+        return true;
+    }
+
+    @Override
     public boolean canUseTower(JobContext context, TowerType towerType) {
         if (!includesTowerInCatalog(towerType)) {
             return false;

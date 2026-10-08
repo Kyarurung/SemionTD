@@ -32,10 +32,16 @@ final class SummonLocalizationTest {
     }
 
     @Test
-    void incomeTooltipDescribesSingleTargetWhileOrdinarySummonKeepsItsOriginalMechanic() {
+    void incomeTooltipDescribesHalfSplashAndKeepsDwarfSingleTarget() {
         for (var unit : IncomeSummons.build(SummonConfig.defaultConfig())) {
             if (java.util.List.of("dark_priest", "dwarf_gunner", "ogre_champion").contains(unit.id())) {
-                assertTrue(IncomeTowerService.description(unit).getFirst().contains("한 대상"), unit.id());
+                if (unit.id().equals("dwarf_gunner")) {
+                    assertTrue(IncomeTowerService.description(unit).getFirst().contains("한 대상"), unit.id());
+                } else {
+                    String text = String.join(" ", IncomeTowerService.description(unit));
+                    assertTrue(text.contains("최대 5기") && text.contains("100%") && text.contains("50%"), text);
+                    if (unit.id().equals("dark_priest")) assertTrue(text.contains("2%"), text);
+                }
                 assertNotEquals(unit.description(), IncomeTowerService.description(unit), unit.id());
             }
         }

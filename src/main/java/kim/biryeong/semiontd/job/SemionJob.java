@@ -35,6 +35,10 @@ public abstract class SemionJob {
         return description;
     }
 
+    public boolean isHyperCarry() {
+        return false;
+    }
+
     public void onSelected(JobContext context) {
         JobBuilderLifecycle.onSelected(id, context);
     }

@@ -42,6 +42,18 @@ class JobRegistryTest {
     }
 
     @Test
+    void hyperCarryClassificationContainsExactlyThreeBuildersAndPreservesHeroException() {
+        assertEquals(Set.of(EndTowerJob.ID, WarlockTowerJob.ID, DemonLordTowerJob.ID),
+                JobRegistry.all().stream().filter(SemionJob::isHyperCarry).map(SemionJob::id)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertFalse(new HeroPartyTowerJob().isHyperCarry());
+        assertTrue(HyperCarryBuilders.isCore(kim.biryeong.semiontd.tower.warlock.WarlockTowers.BASE_WARLOCK_TOWER));
+        assertFalse(HyperCarryBuilders.includes(OceanTowers.T1_WATER));
+        assertTrue(kim.biryeong.semiontd.tower.demonlord.DemonLordTowers.all().stream()
+                .allMatch(HyperCarryBuilders::includes));
+    }
+
+    @Test
     void disablingAJobKeepsItRegisteredButBlocksSelection() {
         JobAvailabilityConfig disabled = JobAvailabilityConfig.defaultConfig()
                 .withEnabled(NetherTowerJob.ID, false)

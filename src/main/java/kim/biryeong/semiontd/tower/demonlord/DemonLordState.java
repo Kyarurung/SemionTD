@@ -55,6 +55,12 @@ public final class DemonLordState {
     private int roundMetricsTick;
     private final DemonLordAugments augments = new DemonLordAugments();
     private AugmentSnapshot augmentSnapshot = AugmentSnapshot.none();
+    private double fortitudeBonus;
+
+    public void syncTraits(kim.biryeong.semiontd.trait.TraitLoadout loadout) {
+        fortitudeBonus = kim.biryeong.semiontd.trait.TraitEffects.hyperCarryMaxHealthBonus(loadout);
+        health = Math.min(health, maxHealth());
+    }
     private DemonLordLoadout loadout = new DemonLordLoadout();
     /** 파멸의 계약을 건 뒤 시작된 웨이브 수. 0이면 아직 계약이 시작되지 않았습니다. */
     private int pactRoundsServed;
@@ -120,7 +126,7 @@ public final class DemonLordState {
                 global("healthBonusThreshold", 500.0),
                 global("healthBonusScale", 500.0)
         );
-        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot))
+        return Math.max(1.0, (base + scaledLevelBonus + allocated) * (1.0 + augments.maxHealthBonus(augmentSnapshot) + fortitudeBonus)
                 * pact("healthMultiplier", 2.5));
     }
 

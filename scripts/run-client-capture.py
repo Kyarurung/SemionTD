@@ -131,7 +131,8 @@ try:
                                  "assets/semion-td/textures/font/augment-icons.png"]
                         assets = {path: archive.read(path) for path in paths}
                         font = json.loads(assets[paths[0]])
-                        if len(font["providers"]) != 2 or len(font["providers"][0]["chars"]) != 22:
+                        if len(font["providers"]) != 2 or len(font["providers"][0]["chars"]) != 19 or any(
+                                len(row) != 39 for row in font["providers"][0]["chars"]):
                             raise ValueError("Unexpected native card row font contract")
                         original = head / "src/main/resources/semiontd/ui/augment-icons.png"
                         if assets[paths[3]] != original.read_bytes():

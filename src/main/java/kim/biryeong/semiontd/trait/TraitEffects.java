@@ -5,8 +5,7 @@ import kim.biryeong.semiontd.config.TraitBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.Tower;
-import kim.biryeong.semiontd.tower.end.EndTowers;
-import kim.biryeong.semiontd.tower.warlock.WarlockTowers;
+import kim.biryeong.semiontd.job.HyperCarryBuilders;
 import net.minecraft.resources.Identifier;
 
 public final class TraitEffects {
@@ -86,9 +85,15 @@ public final class TraitEffects {
     }
 
     public static double towerMaxHealthBonus(TraitLoadout loadout, Tower tower) {
-        boolean isCoreTower = tower != null && (WarlockTowers.isWarlockCore(tower.type()) || EndTowers.isBaseEndTower(tower.type()));
+        return maxHealthBonus(loadout, tower != null && HyperCarryBuilders.isCore(tower.type()));
+    }
 
-        double fullPower = isCoreTower
+    public static double hyperCarryMaxHealthBonus(TraitLoadout loadout) {
+        return maxHealthBonus(loadout, true);
+    }
+
+    private static double maxHealthBonus(TraitLoadout loadout, boolean hyperCarry) {
+        double fullPower = hyperCarry
                 ? value(BuiltInTraits.FORTITUDE_ID, "CoreMaxHealthBonus")
                 : value(BuiltInTraits.FORTITUDE_ID, "maxHealthBonus");
 

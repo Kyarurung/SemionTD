@@ -363,6 +363,10 @@ SQLite를 쓸 때는 `semiontd.db`, `semiontd.db-shm`, `semiontd.db-wal`을 같�
 
 `summons.json`을 수정하면 `/semiontd reload` 후 소환 UI와 `/semiontd summons` 출력으로 확인합니다.
 
+마왕 인컴 파견의 암흑 신관·오우거 광역 공격은 주 대상 100%, 추가 대상 각각 50% 피해입니다. 두 유닛의 `abilityValues.maxTargets` 기본값은 주 대상을 포함한 5이며, 가까운 대상부터 선택합니다. 일반 침공의 광역 공격도 대상 수 제한은 적용하되 피해 배율은 기존 값을 유지합니다. 파견 드워프는 단일 공격이며 일반 침공 드워프의 기존 관통 공격은 변경하지 않습니다.
+
+암흑 신관 회복은 `healAmount × 성장 배율 + 대상 최대 체력 × healMaxHealthRatio`입니다. 기본값은 각각 `16`, `0.02`이며 성장 배율은 신관 최대 체력 / 기본 최대 체력(최소 1)입니다. 누락된 키만 보충하고 기존 운영자 설정은 보존합니다. 이미 `healMaxHealthRatio`를 지정한 운영 설정에는 기본값 변경이 덮어써지지 않으므로 배포 시 해당 값을 확인해야 합니다.
+
 ## `leader_targeting.json`
 
 - `maxTargetingTeamsPerTarget`: 한 대상 팀을 동시에 타겟팅할 수 있는 팀 수입니다.

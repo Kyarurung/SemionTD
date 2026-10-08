@@ -28,6 +28,40 @@ class DemonLordAugmentsTest {
     }
 
     @Test
+    void fortitudeUsesHyperCarryRateOnceAndSyncCannotHeal() {
+        kim.biryeong.semiontd.config.TraitBalanceRuntime.apply(
+                kim.biryeong.semiontd.config.TraitBalanceConfig.defaultConfig());
+        var none = kim.biryeong.semiontd.trait.TraitLoadout.none();
+        var primary = new kim.biryeong.semiontd.trait.TraitLoadout(
+                kim.biryeong.semiontd.trait.BuiltInTraits.FORTITUDE_ID,
+                kim.biryeong.semiontd.trait.BuiltInTraits.NONE_ID);
+        var secondary = new kim.biryeong.semiontd.trait.TraitLoadout(
+                kim.biryeong.semiontd.trait.BuiltInTraits.NONE_ID,
+                kim.biryeong.semiontd.trait.BuiltInTraits.FORTITUDE_ID);
+        var state = new DemonLordState(UUID.randomUUID());
+        double base = state.maxHealth();
+        state.syncTraits(primary);
+        assertEquals(base * 1.1, state.maxHealth(), 1e-6);
+        assertEquals(base, state.health(), 1e-6);
+        state.enterCombat();
+        state.applyDamage(100, AugmentSnapshot.none(), 0, false);
+        double injured = state.health();
+        for (int i = 0; i < 10; i++) {
+            state.syncTraits(primary);
+            assertEquals(base * 1.1, state.maxHealth(), 1e-6);
+            assertEquals(injured, state.health(), 1e-6);
+            state.syncTraits(none);
+            state.syncTraits(primary);
+            assertEquals(injured, state.health(), 1e-6);
+        }
+        state.syncTraits(secondary);
+        assertEquals(base * (1 + .1 * kim.biryeong.semiontd.trait.TraitSlot.SECONDARY.effectScale()), state.maxHealth(), 1e-6);
+        assertEquals(injured, state.health(), 1e-6);
+        state.syncAugments(snapshot("beneficial_effect_1"));
+        assertEquals(base * (1 + .05 + .1 * kim.biryeong.semiontd.trait.TraitSlot.SECONDARY.effectScale()), state.maxHealth(), 1e-6);
+    }
+
+    @Test
     void beneficialEffectsIncreaseSelfHealthDamageAndBladeSpeedAtEveryTier() {
         for (int tier = 1; tier <= 3; tier++) {
             DemonLordState state = new DemonLordState(UUID.randomUUID());

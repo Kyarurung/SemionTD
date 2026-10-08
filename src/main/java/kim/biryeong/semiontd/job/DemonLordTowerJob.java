@@ -29,6 +29,11 @@ public final class DemonLordTowerJob extends SemionJob {
     }
 
     @Override
+    public boolean isHyperCarry() {
+        return true;
+    }
+
+    @Override
     public List<Component> description() {
         return List.of(
                 SemionText.mini("<green><bold>시작</bold></green> <gray>타워 관리 창의 <aqua>[스킬 배정]</aqua>에서 <aqua>1~4, 마검 우클릭, F, Q</aqua> 슬롯에 스킬을 다이아로 삽니다. 타워 수를 차지하지 않고, 빼면 전액 환불됩니다.</gray>"),

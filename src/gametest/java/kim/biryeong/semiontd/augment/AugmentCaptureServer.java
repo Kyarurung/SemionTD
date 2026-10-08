@@ -25,9 +25,13 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
     private SemionGame game;
     private long initialOfferRevision;
     private String expectedSelectedCard;
+    private double unselectedMaxHealth;
+    private int unselectedAttackInterval;
+    private double expectedSelectedBonus;
     private List<String> checkedCards;
     private List<Integer> checkedRerolls;
     private long checkedRevision;
+    private PlayerAugmentState.Offer checkedOffer;
     private eu.pb4.polymer.virtualentity.api.ElementHolder sky;
     private kim.biryeong.semiontd.tower.end.EndDragonCaptureScene dragon;
 
@@ -48,6 +52,13 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
                     }
                 }));
             }
+            command.then(Commands.literal("iconpreview")
+                    .then(Commands.argument("page", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 4))
+                    .executes(context -> {
+                        kim.biryeong.semiontd.ui.AugmentIconPreview.show(context.getSource().getPlayerOrException(),
+                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "page"));
+                        return 1;
+                    })));
             command.then(Commands.literal("checkreroll").executes(context -> {
                 var player = context.getSource().getPlayerOrException();
                 var state = captureState(player);
@@ -59,34 +70,47 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
                 System.out.println("SEMION_HUD_REROLL_CONFIRMED remaining=4 selections=0 revision=" + state.currentOffer().orElseThrow().revision());
                 return 1;
             }));
-            command.then(Commands.literal("checkslot")
-                    .then(Commands.argument("slot", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 2))
+            command.then(Commands.literal("checkreroll")
                     .then(Commands.argument("remaining", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 5))
                     .executes(context -> {
                         var player = context.getSource().getPlayerOrException();
-                        int slot = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "slot");
                         int remaining = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "remaining");
                         var state = captureState(player);
                         var offer = state.currentOffer().orElseThrow();
-                        if (state.rerollsRemaining(slot) != remaining || checkedRerolls.get(slot) != remaining + 1
-                                || !state.selections().isEmpty() || offer.revision() == checkedRevision
-                                || offer.cardIds().get(slot).equals(checkedCards.get(slot))) {
-                            throw new IllegalStateException("Native card reroll did not change only its selected slot exactly once");
-                        }
-                        for (int other = 0; other < 3; other++) {
-                            if (other != slot && (!offer.cardIds().get(other).equals(checkedCards.get(other))
-                                    || state.rerollsRemaining(other) != checkedRerolls.get(other))) {
-                                throw new IllegalStateException("Native reroll changed a different card or its independent counter");
-                            }
+                        if (state.rerollsRemaining() != remaining || checkedRerolls.getFirst() != remaining + 1
+                                || !state.selections().isEmpty() || offer.revision() != checkedRevision + 1
+                                || !java.util.Collections.disjoint(offer.cardIds(), checkedCards)
+                                || new java.util.HashSet<>(offer.cardIds()).size() != 3
+                                || offer.deadlineTickExclusive() != checkedOffer.deadlineTickExclusive()) {
+                            throw new IllegalStateException("Shared reroll must replace all three cards and spend one charge atomically");
                         }
                         checkedCards = List.copyOf(offer.cardIds());
                         checkedRerolls = state.rerollsRemainingBySlot();
                         checkedRevision = offer.revision();
-                        player.setExperienceLevels(2100 + slot * 10 + remaining);
-                        System.out.println("SEMION_NATIVE_SLOT_REROLL slot=" + slot + " remaining=" + checkedRerolls
-                                + " revision=" + checkedRevision + " otherSlotsPreserved=true");
+                        checkedOffer = offer;
+                        player.setExperienceLevels(2100 + remaining);
+                        System.out.println("SEMION_NATIVE_SHARED_REROLL remaining=" + remaining
+                                + " revision=" + checkedRevision + " allThreeChanged=true deadlinePreserved=true");
                         return 1;
-                    }))));
+                    })));
+            command.then(Commands.literal("lastroll").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                show(player, "silver");
+                var state = captureState(player);
+                setField(state, "rerollsUsedBySlot", new int[]{0, 4, 2});
+                checkedRerolls = state.rerollsRemainingBySlot();
+                if (state.rerollsRemaining() != 1) throw new IllegalStateException("Legacy minimum balance must migrate to one");
+                game.augmentService().reopen(game, player);
+                player.setExperienceLevels(2144);
+                System.out.println("SEMION_NATIVE_LEGACY_BUDGET_MIGRATED remaining=1");
+                return 1;
+            }));
+            command.then(Commands.literal("longtext").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                show(player, "longtext");
+                player.setExperienceLevels(2145);
+                return 1;
+            }));
             command.then(Commands.literal("checkdisabled").executes(context -> {
                 var player = context.getSource().getPlayerOrException();
                 var state = captureState(player);
@@ -98,15 +122,35 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
                 System.out.println("SEMION_NATIVE_DISABLED_REROLL ignored=true remaining=" + checkedRerolls);
                 return 1;
             }));
-            command.then(Commands.literal("checkselection").executes(context -> {
+            command.then(Commands.literal("checkpreserved").executes(context -> {
                 var player = context.getSource().getPlayerOrException();
                 var state = captureState(player);
-                if (state.selections().size() != 1 || !state.rerollsRemainingBySlot().equals(List.of(5, 5, 5))
-                        || !state.selections().getFirst().augmentId().equals(expectedSelectedCard)) {
-                    throw new IllegalStateException("Actual mouse card selection did not grant exactly the clicked augment");
+                if (!state.currentOffer().orElseThrow().equals(checkedOffer)
+                        || !state.rerollsRemainingBySlot().equals(checkedRerolls) || !state.selections().isEmpty()) {
+                    throw new IllegalStateException("Closing or reopening changed the live offer, deadline or reroll budgets");
                 }
+                player.setExperienceLevels(2141);
+                System.out.println("SEMION_NATIVE_CLOSE_REOPEN_PRESERVED revision=" + checkedRevision + " remaining=" + checkedRerolls);
+                return 1;
+            }));
+            command.then(Commands.literal("dedicated").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                show(player, "dedicated");
+                player.setExperienceLevels(2142);
+                return 1;
+            }));
+            command.then(Commands.literal("checkselection").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                verifySelectedState(player);
                 player.setExperienceLevels(2042);
                 System.out.println("SEMION_HUD_SELECTION_CONFIRMED card=" + expectedSelectedCard + " selections=1 rerolls=5");
+                return 1;
+            }));
+            command.then(Commands.literal("checkselectedreopen").executes(context -> {
+                var player = context.getSource().getPlayerOrException();
+                verifySelectedState(player);
+                player.setExperienceLevels(2143);
+                System.out.println("SEMION_SELECTED_REOPEN_PRESERVED card=" + expectedSelectedCard + " selections=1 offerClosed=true");
                 return 1;
             }));
             if ("sky".equals(System.getProperty("semiontd.capture.mode"))) {
@@ -208,6 +252,10 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
     }
 
     private void show(ServerPlayer player, String rarity) {
+        boolean longText = rarity.equals("longtext");
+        if (longText) rarity = "prismatic";
+        boolean dedicated = rarity.equals("dedicated");
+        if (dedicated) rarity = "silver";
         if (!player.getGameProfile().name().equals("SemionCapture")) {
             throw new IllegalStateException("The capture command is reserved for the isolated test account");
         }
@@ -242,10 +290,13 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
         setField(game, "phase", RoundPhase.ROUND_PAYOUT);
         game.tick(server);
         int tier = rarity.equals("silver") ? 1 : rarity.equals("gold") ? 2 : 3;
-        String cards = "finishing_fire_" + tier + " tactical_designation_" + tier + "_cover beneficial_effect_" + tier;
+        if (dedicated) game.players().get(player.getUUID()).assignJob(new kim.biryeong.semiontd.job.FutureAgencyTowerJob());
+        if (longText) game.players().get(player.getUUID()).assignJob(new kim.biryeong.semiontd.job.EndTowerJob());
+        String cards = longText ? "job_end_towers_p tactical_designation_3_cover reserve_production_prismatic" : dedicated ? "job_future_agency_towers_s finishing_fire_1 beneficial_effect_1"
+                : "finishing_fire_" + tier + " tactical_designation_" + tier + "_cover beneficial_effect_" + tier;
         var definitions = java.util.Arrays.stream(cards.split(" ")).map(id -> AugmentCatalog.find(id).orElseThrow()).toList();
         if (definitions.stream().anyMatch(card -> card.rarity().ordinal() != tier - 1)
-                || !definitions.stream().map(AugmentDisplayRole::of).toList()
+                || !dedicated && !definitions.stream().map(AugmentDisplayRole::of).toList()
                         .equals(List.of(AugmentDisplayRole.ATTACK, AugmentDisplayRole.DEFENSE, AugmentDisplayRole.OTHER))) {
             throw new IllegalStateException("Capture cards must cover the requested rarity and all three display roles");
         }
@@ -257,16 +308,45 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
         player.getAbilities().flying = true;
         player.onUpdateAbilities();
         game.augmentService().reopen(game, player);
-        initialOfferRevision = captureState(player).currentOffer().orElseThrow().revision();
+        checkedOffer = captureState(player).currentOffer().orElseThrow();
+        initialOfferRevision = checkedOffer.revision();
         checkedRevision = initialOfferRevision;
         checkedCards = List.copyOf(captureState(player).currentOffer().orElseThrow().cardIds());
         checkedRerolls = captureState(player).rerollsRemainingBySlot();
         expectedSelectedCard = AugmentCatalog.normalizeId("beneficial_effect_" + tier);
+        var entity = ((kim.biryeong.semiontd.tower.EntityBackedTower) tower).runtimeEntity(lane).orElseThrow();
+        unselectedMaxHealth = entity.getMaxHealth();
+        unselectedAttackInterval = entity.attackIntervalTicks();
+        expectedSelectedBonus = tier / 20.0;
         setField(manager, "activeGame", game);
         if (manager.playableGame(player.getUUID()).orElse(null) != game) {
             throw new IllegalStateException("The production augment command cannot resolve the isolated capture game");
         }
         player.setExperienceLevels(2040);
+    }
+
+    private void verifySelectedState(ServerPlayer player) {
+        var state = captureState(player);
+        if (state.selections().size() != 1 || state.currentOffer().isPresent()
+                || !state.rerollsRemainingBySlot().equals(List.of(5, 5, 5))
+                || !state.selections().getFirst().augmentId().equals(expectedSelectedCard)) {
+            throw new IllegalStateException("Actual card input must grant exactly one selected augment and close its offer");
+        }
+        var lane = game.playerLane(player.getUUID()).orElseThrow();
+        var tower = lane.towers().iterator().next();
+        var entity = ((kim.biryeong.semiontd.tower.EntityBackedTower) tower).runtimeEntity(lane).orElseThrow();
+        double health = unselectedMaxHealth * (1 + expectedSelectedBonus);
+        int interval = (int) Math.ceil(unselectedAttackInterval / (1 + expectedSelectedBonus));
+        double damage = AugmentCombat.damageBonus(tower, entity);
+        if (!tower.augmentSnapshot().has(expectedSelectedCard)
+                || Math.abs(entity.getMaxHealth() - health) > .001
+                || entity.attackIntervalTicks() != interval
+                || Math.abs(damage - expectedSelectedBonus) > 1.0e-9) {
+            throw new IllegalStateException("Actual selected card effect mismatch: health=" + entity.getMaxHealth()
+                    + "/" + health + " interval=" + entity.attackIntervalTicks() + "/" + interval + " damage=" + damage);
+        }
+        System.out.println("SEMION_CLICK_EFFECT_APPLIED card=" + expectedSelectedCard + " maxHealth=" + entity.getMaxHealth()
+                + " attackInterval=" + entity.attackIntervalTicks() + " damageBonus=" + damage + " offerClosed=true");
     }
 
     private PlayerAugmentState captureState(ServerPlayer player) {

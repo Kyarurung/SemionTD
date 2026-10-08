@@ -312,6 +312,7 @@ public final class DemonLordService {
             return;
         }
         DemonLordState state = DemonLordStates.getOrCreate(owner);
+        state.syncTraits(lane.traitLoadout());
         state.syncAugments(lane.augmentSnapshot());
         state.setLaneId(lane.laneId());
         state.setTeamId(lane.teamId());
@@ -430,6 +431,7 @@ public final class DemonLordService {
     public static void beginWave(PlayerLane lane, int round) {
         DemonLordState state = DemonLordStates.get(lane.ownerPlayer());
         if (state != null) {
+            state.syncTraits(lane.traitLoadout());
             state.syncAugments(lane.augmentSnapshot());
             state.countPactRound();
             state.enterCombat();

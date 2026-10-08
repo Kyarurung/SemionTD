@@ -21,7 +21,7 @@ final class AugmentCardClientCapture {
         context.getInput().resizeWindow(1600, 1000);
         context.waitFor(client -> client.getResourceManager().getResource(
                 net.minecraft.resources.Identifier.parse("semion-td:font/augment_card_dialog.json")).isPresent(), 1200);
-        for (int scale : new int[]{3, 2}) {
+        for (int scale : new int[]{3}) {
             context.runOnClient(client -> {
                 client.options.guiScale().set(scale);
                 client.resizeGui();
@@ -29,46 +29,160 @@ final class AugmentCardClientCapture {
             for (String rarity : List.of("silver", "gold", "prismatic")) {
                 open(context, rarity);
                 context.getInput().setCursorPos(20, 20);
-                screenshot(context, "augment-card-" + rarity + "-scale" + scale);
-                move(context, 2, 72, 144);
+                screenshot(context, "augment-card-shared-" + rarity + "-scale" + scale);
+                move(context, 2, AugmentCardFrames.WIDTH / 2, 144);
                 context.waitTicks(3);
-                screenshot(context, "augment-card-" + rarity + "-tooltip-scale" + scale);
+                screenshot(context, "augment-card-shared-" + rarity + "-tooltip-scale" + scale);
                 if (rarity.equals("silver")) {
-                    for (int remaining = 4; remaining >= 0; remaining--) {
-                        move(context, 0, 72, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
-                        context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
-                        context.waitTicks(20);
-                        command(context, "semioncapture checkslot 0 " + remaining);
-                        int expected = 2100 + remaining;
-                        context.waitFor(client -> client.player.experienceLevel == expected, 200);
-                        geometry(context);
-                    }
-                    context.getInput().setCursorPos(20, 20);
-                    screenshot(context, "augment-card-disabled-scale" + scale);
-                    move(context, 0, 72, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                    String[] rerollCommand = new String[1];
+                    context.runOnClient(client -> {
+                        var style = styleAt(client, cardWidget(client), AugmentCardFrames.WIDTH + AugmentCardDialog.GAP
+                                + AugmentCardFrames.WIDTH / 2, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                        rerollCommand[0] = ((net.minecraft.network.chat.ClickEvent.RunCommand) style.getClickEvent()).command();
+                    });
+                    move(context, 1, AugmentCardFrames.WIDTH / 2, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
                     context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
-                    context.waitTicks(5);
+                    context.waitTicks(20);
+                    command(context, "semioncapture checkreroll 4");
+                    context.waitFor(client -> client.player.experienceLevel == 2104, 200);
+                    geometry(context);
+                    screenshot(context, "augment-card-shared-reroll-after-scale" + scale);
+                    context.runOnClient(client -> client.getConnection().sendCommand(rerollCommand[0].substring(1)));
+                    for (int outside : new int[]{0, 2}) {
+                        move(context, outside, AugmentCardFrames.WIDTH / 2, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                        context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
+                    }
+                    command(context, "semioncapture checkpreserved");
+                    context.waitFor(client -> client.player.experienceLevel == 2141, 200);
+                    move(context, 1, AugmentCardFrames.BUTTON_INSET, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                    context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
+                    context.waitTicks(20);
+                    command(context, "semioncapture checkreroll 3");
+                    context.waitFor(client -> client.player.experienceLevel == 2103, 200);
+                    System.out.println("SEMION_NATIVE_SHARED_REROLL_LEFT_EDGE x=" + AugmentCardFrames.BUTTON_INSET);
+                    closeAndReopen(context, scale);
+                    command(context, "semioncapture lastroll");
+                    context.waitFor(client -> client.player.experienceLevel == 2144 && client.gui.screen() instanceof DialogScreen<?>, 200);
+                    move(context, 1, AugmentCardFrames.BUTTON_INSET + AugmentCardFrames.BUTTON_WIDTH - 1,
+                            (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                    context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
+                    context.waitTicks(20);
+                    command(context, "semioncapture checkreroll 0");
+                    context.waitFor(client -> client.player.experienceLevel == 2100, 200);
+                    System.out.println("SEMION_NATIVE_SHARED_REROLL_RIGHT_EDGE x="
+                            + (AugmentCardFrames.BUTTON_INSET + AugmentCardFrames.BUTTON_WIDTH - 1));
+                    geometry(context);
+                    context.getInput().setCursorPos(20, 20);
+                    screenshot(context, "augment-card-shared-reroll-disabled-scale" + scale);
+                    move(context, 1, AugmentCardFrames.WIDTH / 2, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
+                    context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
                     command(context, "semioncapture checkdisabled");
                     context.waitFor(client -> client.player.experienceLevel == 2140, 200);
                     open(context, rarity);
-                    for (int slot = 0; slot < 3; slot++) {
-                        move(context, slot, 72, (AugmentCardFrames.CARD_ROWS + 1) * 9 + 8);
-                        context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
-                        context.waitTicks(20);
-                        command(context, "semioncapture checkslot " + slot + " 4");
-                        int expected = 2100 + slot * 10 + 4;
-                        context.waitFor(client -> client.player.experienceLevel == expected, 200);
-                    }
-                    screenshot(context, "augment-card-independent-rerolls-scale" + scale);
-                    open(context, rarity);
                 }
-                move(context, 2, 72, 144);
+                String[] clickedCommand = new String[1];
+                context.runOnClient(client -> {
+                    var style = styleAt(client, cardWidget(client),
+                            2 * (AugmentCardFrames.WIDTH + AugmentCardDialog.GAP) + AugmentCardFrames.WIDTH / 2, 144);
+                    if (style == null || !(style.getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.RunCommand action)) {
+                        throw new AssertionError("The clicked native card needs its actual server command");
+                    }
+                    clickedCommand[0] = action.command();
+                });
+                move(context, 2, AugmentCardFrames.WIDTH / 2, 144);
                 context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
                 context.waitTicks(10);
+                context.runOnClient(client -> client.getConnection().sendCommand(clickedCommand[0].substring(1)));
+                context.waitTicks(5);
+                System.out.println("SEMION_NATIVE_SELECTION_CALLBACK_REPLAY rarity=" + rarity);
                 command(context, "semioncapture checkselection");
                 context.waitFor(client -> client.player.experienceLevel == 2042, 200);
                 System.out.println("SEMION_NATIVE_CARD_INPUT rarity=" + rarity + " scale=" + scale + " selected=true");
+                command(context, "증강");
+                context.waitFor(client -> client.gui.screen() instanceof DialogScreen<?>
+                        && client.gui.screen().getTitle().getString().contains("증강 선택 기록"), 200);
+                command(context, "semioncapture checkselectedreopen");
+                context.waitFor(client -> client.player.experienceLevel == 2143, 200);
+                System.out.println("SEMION_BARE_COMMAND_AFTER_SELECTION rarity=" + rarity + " history=true");
             }
+            command(context, "semioncapture dedicated");
+            context.waitFor(client -> client.player.experienceLevel == 2142 && client.gui.screen() instanceof DialogScreen<?>, 200);
+            context.waitTicks(5);
+            geometry(context);
+            context.getInput().setCursorPos(20, 20);
+            context.runOnClient(client -> {
+                String text = cardWidget(client).getMessage().getString();
+                if (!text.contains("전용") || text.contains("미래기관 전용") || text.contains("일반 ·")) {
+                    throw new AssertionError("The actual offer must show only the dedicated marker and no common category label");
+                }
+            });
+            screenshot(context, "augment-card-shared-dedicated-scale" + scale);
+            command(context, "semioncapture longtext");
+            context.waitFor(client -> client.player.experienceLevel == 2145 && client.gui.screen() instanceof DialogScreen<?>, 200);
+            context.waitTicks(5);
+            geometry(context);
+            context.getInput().setCursorPos(20, 20);
+            screenshot(context, "augment-card-shared-long-description-scale" + scale);
+            context.runOnClient(client -> {
+                int count = 0;
+                for (var card : kim.biryeong.semiontd.augment.AugmentCatalog.definitions()) {
+                    String summary = kim.biryeong.semiontd.augment.AugmentService.offerSummary(card,
+                            kim.biryeong.semiontd.augment.AugmentConfig.defaults());
+                    var lines = client.font.split(net.minecraft.network.chat.Component.literal(summary), 90);
+                    if (lines.size() > 7 || summary.contains("…") || lines.stream().anyMatch(line -> client.font.width(line) > 90)) {
+                        throw new AssertionError("Actual client font overflows description: " + card.id() + " lines=" + lines.size());
+                    }
+                    if (client.font.split(net.minecraft.network.chat.Component.literal(card.displayName()), 90).size() > 2) {
+                        throw new AssertionError("Actual client font overflows title: " + card.id());
+                    }
+                    count++;
+                }
+                System.out.println("SEMION_NATIVE_DESCRIPTION_FIT cards=" + count + " width=90 rows=7 lineHeight=" + client.font.lineHeight);
+            });
+            for (int page = 0; page < 5; page++) {
+                command(context, "semioncapture iconpreview " + page);
+                int expected = 2060 + page;
+                context.waitFor(client -> client.player.experienceLevel == expected
+                        && client.gui.screen() instanceof DialogScreen<?>, 200);
+                context.waitTicks(5);
+                geometry(context, false);
+                context.getInput().setCursorPos(20, 20);
+                screenshot(context, "augment-card-category-preview-" + (page + 1) + "-scale" + scale);
+            }
+        }
+    }
+
+    private static void closeAndReopen(ClientGameTestContext context, int scale) {
+        double[] target = new double[2];
+        context.runOnClient(client -> {
+            var screen = client.gui.screen();
+            var widgets = new ArrayList<net.minecraft.client.gui.components.AbstractWidget>();
+            collectWidgets(screen, widgets);
+            var close = widgets.stream().filter(widget -> widget.getMessage().getString().equals("닫기"))
+                    .findFirst().orElseThrow(() -> new AssertionError("The live dialog has no close button"));
+            target[0] = (close.getX() + close.getWidth() / 2.0) * client.getWindow().getScreenWidth() / screen.width;
+            target[1] = (close.getY() + close.getHeight() / 2.0) * client.getWindow().getScreenHeight() / screen.height;
+        });
+        context.getInput().setCursorPos(target[0], target[1]);
+        context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
+        context.waitFor(client -> client.gui.screen() == null, 200);
+        command(context, "semioncapture checkpreserved");
+        context.waitFor(client -> client.player.experienceLevel == 2141, 200);
+        command(context, "증강");
+        context.waitFor(client -> client.gui.screen() instanceof DialogScreen<?>, 200);
+        context.waitTicks(5);
+        command(context, "semioncapture checkpreserved");
+        geometry(context);
+        context.getInput().setCursorPos(20, 20);
+        screenshot(context, "augment-card-shared-reopened-scale" + scale);
+        System.out.println("SEMION_NATIVE_CLOSE_REOPEN_INPUT scale=" + scale + " closed=true command=증강 sameOffer=true");
+    }
+
+    private static void collectWidgets(net.minecraft.client.gui.components.events.GuiEventListener element,
+                                       List<net.minecraft.client.gui.components.AbstractWidget> widgets) {
+        if (element instanceof net.minecraft.client.gui.components.AbstractWidget widget) widgets.add(widget);
+        if (element instanceof net.minecraft.client.gui.components.events.ContainerEventHandler container) {
+            for (var child : container.children()) collectWidgets(child, widgets);
         }
     }
 
@@ -85,6 +199,10 @@ final class AugmentCardClientCapture {
     }
 
     private static void geometry(ClientGameTestContext context) {
+        geometry(context, true);
+    }
+
+    private static void geometry(ClientGameTestContext context, boolean checkInput) {
         context.runOnClient(client -> {
             var widget = cardWidget(client);
             var lines = client.font.split(widget.getMessage(), widget.getWidth() - widget.getPadding() * 2);
@@ -98,7 +216,7 @@ final class AugmentCardClientCapture {
             }
             System.out.println("SEMION_NATIVE_CARD_GEOMETRY scale=" + client.options.guiScale().get() + " x=" + widget.getX()
                     + " y=" + widget.getY() + " width=" + widget.getWidth() + " height=" + widget.getHeight());
-            hitRegions(client, widget);
+            if (checkInput) hitRegions(client, widget);
         });
     }
 
@@ -126,8 +244,8 @@ final class AugmentCardClientCapture {
     private static void hitRegions(Minecraft client, FocusableTextWidget widget) {
         for (int row = 0; row < AugmentCardDialog.TOTAL_ROWS; row++) {
             for (int slot = 0; slot < 3; slot++) {
-                for (int x : new int[]{1, 72, 142}) {
-                    var style = styleAt(client, widget, slot * 156 + x, row * 9 + 4);
+                for (int x : new int[]{1, AugmentCardFrames.WIDTH / 2, AugmentCardFrames.WIDTH - 2}) {
+                    var style = styleAt(client, widget, slot * (AugmentCardDialog.CARD_WIDTH + AugmentCardDialog.GAP) + x, row * 9 + 4);
                     var click = style == null ? null : style.getClickEvent();
                     if (row < AugmentCardFrames.CARD_ROWS) {
                         if (!(click instanceof net.minecraft.network.chat.ClickEvent.RunCommand command)
@@ -137,18 +255,35 @@ final class AugmentCardClientCapture {
                     } else if (row == AugmentCardFrames.CARD_ROWS && click != null) {
                         throw new AssertionError("The visual gap below a card must not activate it");
                     } else if (click instanceof net.minecraft.network.chat.ClickEvent.RunCommand command
-                            && !command.command().matches(".* reroll [0-9]+ " + slot + " .*")) {
-                        throw new AssertionError("Reroll frame points at a different slot");
+                            && (slot != 1 || !command.command().matches(".* reroll [0-9]+ [0-9a-f-]+"))) {
+                        throw new AssertionError("Only the centered shared reroll may be clickable");
                     }
                 }
             }
-            for (int gap : new int[]{150, 306}) {
+            if (row > AugmentCardFrames.CARD_ROWS) {
+                for (int slot = 0; slot < 3; slot++) {
+                    int origin = slot * (AugmentCardDialog.CARD_WIDTH + AugmentCardDialog.GAP);
+                    var center = styleAt(client, widget, origin + AugmentCardFrames.WIDTH / 2, row * 9 + 4);
+                    var expected = center == null ? null : center.getClickEvent();
+                    for (int x = 0; x < AugmentCardFrames.WIDTH; x++) {
+                        var style = styleAt(client, widget, origin + x, row * 9 + 4);
+                        var click = style == null ? null : style.getClickEvent();
+                        boolean inside = slot == 1 && x >= AugmentCardFrames.BUTTON_INSET
+                                && x < AugmentCardFrames.BUTTON_INSET + AugmentCardFrames.BUTTON_WIDTH;
+                        if (!java.util.Objects.equals(inside ? expected : null, click)) {
+                            throw new AssertionError("Centered reroll hit width mismatch: slot=" + slot + " x=" + x);
+                        }
+                    }
+                }
+            }
+            for (int gap : new int[]{AugmentCardDialog.CARD_WIDTH + AugmentCardDialog.GAP / 2,
+                    AugmentCardDialog.CARD_WIDTH * 2 + AugmentCardDialog.GAP * 3 / 2}) {
                 var style = styleAt(client, widget, gap, row * 9 + 4);
                 if (style != null && style.getClickEvent() != null) throw new AssertionError("Card-column gap is clickable");
             }
         }
         System.out.println("SEMION_NATIVE_CARD_HIT_REGIONS scale=" + client.options.guiScale().get()
-                + " rows=" + AugmentCardDialog.TOTAL_ROWS + " overlay=true gaps=true");
+                + " rows=" + AugmentCardDialog.TOTAL_ROWS + " overlay=true gaps=true rerollWidth=" + AugmentCardFrames.BUTTON_WIDTH + " centered=true");
     }
 
     private static net.minecraft.network.chat.Style styleAt(Minecraft client, FocusableTextWidget widget, int x, int y) {
@@ -168,7 +303,7 @@ final class AugmentCardClientCapture {
             var widgets = new ArrayList<net.minecraft.client.gui.components.AbstractWidget>();
             ((Layout) content.get(body.get(dialog))).visitWidgets(widgets::add);
             return widgets.stream().filter(FocusableTextWidget.class::isInstance).map(FocusableTextWidget.class::cast)
-                    .filter(widget -> widget.getMessage().getString().codePoints().anyMatch(point -> point >= 0xEA00 && point < 0xEB00))
+                    .filter(widget -> widget.getMessage().getString().codePoints().anyMatch(AugmentCardFrames::isCardGlyph))
                     .findFirst().orElseThrow(() -> new AssertionError("Actual card frame text widget missing"));
         } catch (ReflectiveOperationException exception) {
             throw new AssertionError("Cannot inspect native card layout", exception);
@@ -176,6 +311,8 @@ final class AugmentCardClientCapture {
     }
 
     private static void screenshot(ClientGameTestContext context, String name) {
+        String requested = System.getProperty("semiontd.capture.screenshot");
+        if (requested != null && !requested.equals(name)) return;
         context.runOnClient(client -> client.gui.toastManager().clear());
         var file = context.takeScreenshot(TestScreenshotOptions.of(name).withSize(1600, 1000).disableCounterPrefix());
         if (!Files.isRegularFile(file)) throw new AssertionError("Actual native augment framebuffer missing");

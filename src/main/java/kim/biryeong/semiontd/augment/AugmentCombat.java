@@ -673,8 +673,7 @@ public final class AugmentCombat {
 
     public static boolean reducedDesignationEfficiency(Tower tower) {
         return tower != null && (tower instanceof HeroTower
-                || kim.biryeong.semiontd.tower.warlock.WarlockTowers.isWarlockTower(tower.type())
-                || EndTowers.isEndTower(tower.type()) || DemonLordTowers.isDemonLordTower(tower.type()));
+                || kim.biryeong.semiontd.job.HyperCarryBuilders.includes(tower.type()));
     }
 
     /** Scale effect strength, not stack limits, qualification thresholds or durations. */
