@@ -4,6 +4,7 @@
   "package": "kim.biryeong.semiontd.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
+    "ArenaCombatClockMixin",
     "AbstractContainerMenuMixin",
     "AvatarRendererLifecycleMixin",
     "EngineerPressurePlateMixin",

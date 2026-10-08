@@ -13,6 +13,7 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.game.ArenaCombatTickerGameTest",
       "kim.biryeong.semiontd.game.CombatClientTickScaleTest",
       "kim.biryeong.semiontd.gametest.CombatStepTest",
       "kim.biryeong.semiontd.tower.demonlord.DemonLordSwapInputTest",
