@@ -173,20 +173,38 @@ public final class SemionRatingGameTest {
                     context.fail(net.minecraft.network.chat.Component.literal("Rating arena entry failed: " + failure));
                     return;
                 }
-                RuntimePlayerFixture.whenChunksTrackEntities(context, red.world(),
-                        List.of(red.layout().lane(1).orElseThrow().spawn(),
-                                red.layout().lane(1).orElseThrow().positionAt(0.95),
-                                red.layout().lane(1).orElseThrow().positionAt(1.0)), () -> {
+                var lane = red.layout().lane(1).orElseThrow();
+                var positions = List.of(lane.spawn(), lane.positionAt(0.95), lane.positionAt(1.0));
+                var forcedChunks = new java.util.ArrayList<net.minecraft.world.level.ChunkPos>();
+                Runnable cleanup = () -> {
                     try {
-                        verifyLaneAttributionRuntime(context, arena);
+                        for (var chunk : forcedChunks) {
+                            red.world().setChunkForced(chunk.x(), chunk.z(), false);
+                        }
                     } finally {
                         observer.close();
                         arena.unload();
                     }
-                }, () -> {
-                    observer.close();
-                    arena.unload();
-                });
+                };
+                try {
+                    for (var position : positions) {
+                        var chunk = new net.minecraft.world.level.ChunkPos(net.minecraft.core.BlockPos.containing(position));
+                        if (red.world().setChunkForced(chunk.x(), chunk.z(), true)) {
+                            forcedChunks.add(chunk);
+                        }
+                    }
+                } catch (Throwable failure) {
+                    cleanup.run();
+                    context.fail(net.minecraft.network.chat.Component.literal("Rating lane simulation tickets failed: " + failure));
+                    return;
+                }
+                RuntimePlayerFixture.whenChunksTrackEntities(context, red.world(), positions, () -> {
+                    try {
+                        verifyLaneAttributionRuntime(context, arena);
+                    } finally {
+                        cleanup.run();
+                    }
+                }, cleanup);
             });
         } catch (Exception exception) {
             throw new AssertionError("Lane attribution arena preparation failed", exception);
