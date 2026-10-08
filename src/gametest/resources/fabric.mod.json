@@ -17,6 +17,7 @@
       "kim.biryeong.semiontd.game.simulation.CombatSimulationRuntimeTest",
       "kim.biryeong.semiontd.game.simulation.CombatSimulationSessionRuntimeTest",
       "kim.biryeong.semiontd.game.simulation.SemionGameManagerSimulationFaultTest",
+      "kim.biryeong.semiontd.game.simulation.CombatPurchaseBoundaryTest",
       "kim.biryeong.semiontd.entity.simulation.EntitySimulationPhysicsTest",
       "kim.biryeong.semiontd.game.simulation.EntitySimulationAmbientTest",
       "kim.biryeong.semiontd.game.replay.ReplayOpeningCaptureTest",
