@@ -153,7 +153,14 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     @Override
     public CombatSimulationRuntime.EntityView view(Entity entity) {
-        return controls(entity) && ((ServerLevel) entity.level()).getEntity(entity.getId()) == entity
+        if (!controls(entity)) {
+            return null;
+        }
+        CombatSimulationRuntime.EntityView existing = views.get(entity);
+        if (existing != null) {
+            return existing;
+        }
+        return ((ServerLevel) entity.level()).getEntity(entity.getId()) == entity
                 ? views.computeIfAbsent(entity, CombatSimulationRuntime.EntityView::capture) : null;
     }
 

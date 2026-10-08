@@ -28,6 +28,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -109,6 +110,8 @@ public final class CombatSimulationSessionRuntimeTest {
         private final CombatSimulationSession session;
         private final SemionMonsterEntity survivor;
         private final SemionMonsterEntity corpse;
+        private final SemionMonsterEntity removedTarget;
+        private final Vec3 removedPosition;
         private final long startTime;
         private final int startAge;
         private final int stepsPerFrame;
@@ -141,6 +144,9 @@ public final class CombatSimulationSessionRuntimeTest {
             lane.activeMonsters().add(survivor.runtimeMonster());
             corpse = monster(world, new Vec3(6.5, 65, 1.5), "session_corpse");
             corpse.setHealth(0.0F);
+            Vec3 physicalTargetPosition = new Vec3(4.5, 65, 1.5);
+            removedTarget = monster(world, physicalTargetPosition, "session_removed_target");
+            removedPosition = physicalTargetPosition.add(0.25, 0, 0);
             var phase = SemionGame.class.getDeclaredField("phase");
             phase.setAccessible(true);
             phase.set(game, RoundPhase.LANE_WAVE);
@@ -162,7 +168,24 @@ public final class CombatSimulationSessionRuntimeTest {
             survivor.startAttack(survivor);
             Scheduler.INSTANCE.submit(world, ignored -> tasks.add(world.getGameTime() - startTime), 2);
             session = new CombatSimulationSession(world.getServer(), game);
+            session.input(() -> {
+                var unspawned = new SemionMonsterEntity(SemionEntityTypes.MONSTER, world);
+                require(session.view(unspawned) == null, "A constructor must not acquire a view before native registration");
+                var knownView = session.view(removedTarget);
+                require(knownView != null, "A registered target must already have a logical view");
+                removedTarget.setPos(removedPosition);
+                removedTarget.discard();
+                require(world.getEntity(removedTarget.getId()) == null, "Removed target must leave native registration");
+                require(session.view(removedTarget) == knownView, "Removal must retain the existing logical event view");
+                require(removedTarget.position().equals(removedPosition), "Same-step removal callbacks must retain final logical geometry");
+                Vec3[] physical = new Vec3[1];
+                CombatSimulationRuntime.nativeAccess(() -> physical[0] = removedTarget.position());
+                require(physical[0].equals(physicalTargetPosition), "Removed target's logical move must remain unpublished");
+                require(world.getEntities((Entity) null, removedTarget.getBoundingBox().inflate(1),
+                        entity -> entity == removedTarget).isEmpty(), "Removed logical target must stay out of spatial queries");
+            });
             session.setStepObserver(tick -> {
+                require(removedTarget.position().equals(removedPosition), "Deferred observers must retain removed target geometry");
                 require(world.getGameTime() == startTime + tick, "Each native callback uses its logical world clock");
                 require(game.currentTick() == tick, "Game work runs once per committed logical step");
                 require(session.entityTick(survivor) == startAge + tick, "Native actor age advances once per logical step");
@@ -220,6 +243,7 @@ public final class CombatSimulationSessionRuntimeTest {
             } finally {
                 survivor.discard();
                 corpse.discard();
+                removedTarget.discard();
                 game.teams().values().forEach(team -> team.closeRuntime());
                 ArenaCombatClock.remove(world);
                 handle.unload();
