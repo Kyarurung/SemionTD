@@ -42,6 +42,43 @@ import xyz.nucleoid.map_templates.BlockBounds;
 
 public final class EngineerGameTest {
     @GameTest
+    public void pressurePlateReleaseUsesTenVirtualWorldTicks(GameTestHelper context) {
+        UUID owner = stableUuid("engineer-virtual-plate-release");
+        PlayerLane lane = testLane(context, owner);
+        GridPosition platePosition = floor(context, 6, 2, 6);
+        prepareFloor(context, platePosition);
+        EngineerCircuitTower plate = new EngineerCircuitTower(
+                EngineerTowers.plate(EngineerTowers.PlateKind.WOOD),
+                owner,
+                TeamId.RED,
+                1,
+                platePosition,
+                platePosition
+        );
+        lane.addTower(plate);
+        try {
+            long pressedAt = lane.arenaWorld().getGameTime();
+            require(plate.pressPlate(lane), "The engineer pressure plate must accept its scripted press.");
+            BlockPos position = plate.circuitPosition();
+            var blockTicks = (net.minecraft.world.ticks.LevelChunkTicks<net.minecraft.world.level.block.Block>)
+                    lane.arenaWorld().getChunkAt(position).getBlockTicks();
+            long releaseAt = blockTicks.getAll()
+                    .filter(tick -> tick.pos().equals(position) && tick.type().equals(Blocks.OAK_PRESSURE_PLATE))
+                    .mapToLong(net.minecraft.world.ticks.ScheduledTick::triggerTick)
+                    .min()
+                    .orElseThrow();
+            require(releaseAt == pressedAt + 10,
+                    "Pressure plate release must remain ten virtual world ticks after the press.");
+            context.succeed();
+        } catch (Throwable failure) {
+            context.fail(Component.literal("Engineer virtual plate clock GameTest failed: "
+                    + failure.getClass().getName() + ": " + failure.getMessage()));
+        } finally {
+            lane.clearTowers();
+        }
+    }
+
+    @GameTest
     public void engineerPlateIgnoresEntitiesOtherThanCopperGolem(GameTestHelper context) {
         UUID owner = stableUuid("engineer-golem-only-plate");
         PlayerLane lane = testLane(context, owner);

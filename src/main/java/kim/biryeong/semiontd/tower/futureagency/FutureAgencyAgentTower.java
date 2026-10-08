@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
@@ -412,7 +413,7 @@ public final class FutureAgencyAgentTower extends ProductionTower {
                         && laneId() == agent.laneId()
                         && originalPosition().equals(agent.originalPosition())).findFirst().orElse(null) : this;
         if (original == null) return;
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         Crossfire previous = original.crossfire.getOrDefault(target.getUUID(), new Crossfire(-1_000_000, -1_000_000, -1_000_000));
         long originalHit = carriedCopy ? previous.originalHit : now;
         long survivorHit = carriedCopy ? now : previous.survivorHit;

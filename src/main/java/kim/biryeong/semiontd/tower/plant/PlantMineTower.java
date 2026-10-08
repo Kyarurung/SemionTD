@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.plant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -111,7 +112,7 @@ public class PlantMineTower extends PlantCombatTower {
         }
         int maximum = augmentSnapshot().has("job_plant_towers_g2")
                 ? (int) augmentSnapshot().parameter("job_plant_towers_g2", "explosions", 3) : 1;
-        if (explosionsThisRound >= maximum || lane.arenaWorld().getGameTime() < rearmAt
+        if (explosionsThisRound >= maximum || CombatSpeedRuntime.gameTime(lane.arenaWorld()) < rearmAt
                 || (explosionsThisRound > 0 && !AugmentCombat.allowsTriggers())) return true;
         SemionTowerEntity source = towerEntity(lane).orElse(null);
         if (source == null) {
@@ -124,7 +125,7 @@ public class PlantMineTower extends PlantCombatTower {
             fuseLit = false;
             spentThisRound = true;
             explosionsThisRound++;
-            rearmAt = lane.arenaWorld().getGameTime()
+            rearmAt = CombatSpeedRuntime.gameTime(lane.arenaWorld())
                     + (long) augmentSnapshot().parameter("job_plant_towers_g2", "rearmTicks", 60);
             return true;
         }

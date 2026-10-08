@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.frost;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -77,7 +78,7 @@ public final class FrostVanguardTower extends ProductionTower {
             double normallyReducedDamage
     ) {
         return FrostFullOperationService.fixedIncomingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), originalDamage, normallyReducedDamage);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), originalDamage, normallyReducedDamage);
     }
 
     @Override
@@ -87,7 +88,7 @@ public final class FrostVanguardTower extends ProductionTower {
             double damageAmount
     ) {
         return FrostFullOperationService.fixedOutgoingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), damageAmount);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), damageAmount);
     }
 
     @Override
@@ -97,7 +98,7 @@ public final class FrostVanguardTower extends ProductionTower {
             double damageAmount
     ) {
         return FrostFullOperationService.fixedOutgoingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), damageAmount);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), damageAmount);
     }
 
     @Override

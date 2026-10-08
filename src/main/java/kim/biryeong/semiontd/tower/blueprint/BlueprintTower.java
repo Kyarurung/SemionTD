@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
@@ -279,7 +280,7 @@ public class BlueprintTower extends ProductionTower {
                 || monster.id().toLowerCase(java.util.Locale.ROOT).contains("boss")) {
             return;
         }
-        long now = towerEntity.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(towerEntity.level());
         if (monster.getData(KNOCKBACK_IMMUNE_UNTIL).orElse(0L) > now) {
             return;
         }
@@ -418,7 +419,7 @@ public class BlueprintTower extends ProductionTower {
         if (level(BlueprintModule.THORNS) <= 0 || towerEntity == null || damageAmount <= 0.0) {
             return;
         }
-        long now = towerEntity.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(towerEntity.level());
         if (lastThornsTick != Long.MIN_VALUE && now - lastThornsTick < (long) value(BlueprintModule.THORNS, "cooldownTicks")) {
             return;
         }

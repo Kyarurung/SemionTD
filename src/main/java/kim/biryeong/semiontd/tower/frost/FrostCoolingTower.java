@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.tower.frost;
 
 import java.util.List;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -66,7 +67,7 @@ public final class FrostCoolingTower extends SupportTower {
                 source,
                 request,
                 ignored -> FrostFullOperationService.fixedOutgoingDamage(
-                        ownerPlayer(), source.level().getGameTime(), type().damage()),
+                        ownerPlayer(), CombatSpeedRuntime.gameTime(source.level()), type().damage()),
                 true,
                 (target, damage, killed) -> {
                     if (!killed) {
@@ -128,7 +129,7 @@ public final class FrostCoolingTower extends SupportTower {
             double damageAmount
     ) {
         return FrostFullOperationService.fixedOutgoingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), damageAmount);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), damageAmount);
     }
 
     @Override
@@ -139,7 +140,7 @@ public final class FrostCoolingTower extends SupportTower {
             double normallyReducedDamage
     ) {
         return FrostFullOperationService.fixedIncomingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), originalDamage, normallyReducedDamage);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), originalDamage, normallyReducedDamage);
     }
 
     private void hitExceptionalAlliedTargets(

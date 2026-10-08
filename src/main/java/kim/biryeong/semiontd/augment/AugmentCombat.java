@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -198,7 +199,7 @@ public final class AugmentCombat {
     }
 
     public static void startWave(PlayerLane lane, int round) {
-        long startTick = lane.arenaWorld() == null ? 0 : lane.arenaWorld().getGameTime();
+        long startTick = lane.arenaWorld() == null ? 0 : CombatSpeedRuntime.gameTime(lane.arenaWorld());
         for (Tower tower : lane.towers()) {
             AugmentSnapshot snapshot = tower.augmentSnapshot();
             boolean twin = snapshot.has("twin_squadron") && isNormalAttacker(tower)
@@ -638,7 +639,7 @@ public final class AugmentCombat {
     private static boolean engagementActive(Tower tower, SemionTowerEntity entity, String mode) {
         Wave wave = wave(tower);
         if (wave.round() == 0 || !tower.augmentSnapshot().has("engagement_plan") || !mode(tower, "engagement_plan", mode)) return false;
-        long now = entity == null || entity.level() == null ? wave.startTick() : entity.level().getGameTime();
+        long now = entity == null || entity.level() == null ? wave.startTick() : CombatSpeedRuntime.gameTime(entity.level());
         boolean opening = now - wave.startTick() < integer(tower, "engagement_plan", "transitionTicks", 160);
         return "QUICK".equals(mode) == opening;
     }

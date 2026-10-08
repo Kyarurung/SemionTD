@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -69,7 +70,7 @@ public final class FrostAugments {
         if (!result.becameRefrigerated() || !tower.augmentSnapshot().has(AGE)) return;
         if (!AugmentCombat.allowsTriggers()) return;
         wave.refrigerated.put(target.runtimeMonster().logicalId(), new Refrigerant(source, target));
-        long time = source.level().getGameTime();
+        long time = CombatSpeedRuntime.gameTime(source.level());
         int cooldown = (int) tower.augmentSnapshot().parameter(AGE, "stunCooldownTicks", 160);
         if (claimCooldown(target.runtimeMonster(), LAST_STUN, time, cooldown)) {
             target.applyTimedEffect(TimedEffectType.MONSTER_STUN, 1,
@@ -79,7 +80,7 @@ public final class FrostAugments {
 
     static void onThawed(Tower tower, SemionTowerEntity source, SemionMonsterEntity target) {
         if (!AugmentCombat.allowsTriggers() || !tower.augmentSnapshot().has(THAW)) return;
-        if (!claimCooldown(target.runtimeMonster(), LAST_THAW, source.level().getGameTime(),
+        if (!claimCooldown(target.runtimeMonster(), LAST_THAW, CombatSpeedRuntime.gameTime(source.level()),
                 (int) tower.augmentSnapshot().parameter(THAW, "cooldownTicks", 60))) return;
         double damage = source.attackDamageAmount(null) * tower.augmentSnapshot().parameter(THAW, "damageRatio", 3);
         MonsterAreaEffectRequest request = MonsterAreaEffectRequest.aroundTarget(
@@ -159,7 +160,7 @@ public final class FrostAugments {
         return true;
     }
 
-    private static long now(PlayerLane lane) { return lane.arenaWorld() == null ? 0 : lane.arenaWorld().getGameTime(); }
+    private static long now(PlayerLane lane) { return lane.arenaWorld() == null ? 0 : CombatSpeedRuntime.gameTime(lane.arenaWorld()); }
     private record Ice(SemionTowerEntity source, Vec3 position, long expiresAt) { }
     private record Refrigerant(SemionTowerEntity source, SemionMonsterEntity target) { }
     private static final class Wave {

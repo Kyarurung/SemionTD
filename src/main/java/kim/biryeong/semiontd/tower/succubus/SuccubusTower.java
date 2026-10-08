@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -157,7 +158,7 @@ public final class SuccubusTower extends ProductionTower {
                           double previousHealth, double currentHealth) {
         if (role() != SuccubusRole.SLEEPWALKER || lane == null || SuccubusDreams.isAsleep(this)
                 || !(source.getEntity() instanceof SemionMonsterEntity monster)) return;
-        long now = towerEntity.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(towerEntity.level());
         long ready = counterReadyAt.getOrDefault(monster.getUUID(), 0L);
         if (now >= ready) {
             int stacks = Math.max(1, SuccubusBalance.abilityInt(type().id(), "counterStacks", 1));

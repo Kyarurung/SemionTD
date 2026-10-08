@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
@@ -135,7 +136,7 @@ public final class FrostSplashTower extends ProductionTower {
             double damageAmount
     ) {
         return FrostFullOperationService.fixedOutgoingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), damageAmount);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), damageAmount);
     }
 
     @Override
@@ -145,7 +146,7 @@ public final class FrostSplashTower extends ProductionTower {
             double damageAmount
     ) {
         return FrostFullOperationService.fixedOutgoingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), damageAmount);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), damageAmount);
     }
 
     @Override
@@ -156,7 +157,7 @@ public final class FrostSplashTower extends ProductionTower {
             double normallyReducedDamage
     ) {
         return FrostFullOperationService.fixedIncomingDamage(
-                ownerPlayer(), towerEntity.level().getGameTime(), originalDamage, normallyReducedDamage);
+                ownerPlayer(), CombatSpeedRuntime.gameTime(towerEntity.level()), originalDamage, normallyReducedDamage);
     }
 
     @Override

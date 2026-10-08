@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
@@ -59,7 +60,7 @@ public final class AdversaryTeamEffects {
             return;
         }
 
-        long gameTime = level.getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(level);
         healOwnedFoxes(fox, source, laneGroup, gameTime);
 
         int scanInterval = Math.max(1, globalInt(

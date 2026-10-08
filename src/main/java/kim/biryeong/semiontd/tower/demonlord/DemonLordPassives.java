@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
@@ -250,7 +251,7 @@ public final class DemonLordPassives {
         if (pool.isEmpty()) {
             return 0;
         }
-        Random random = new Random(lane.arenaWorld().getGameTime() ^ (lane.ownerPlayer() == null ? 0 : lane.ownerPlayer().hashCode()));
+        Random random = new Random(CombatSpeedRuntime.gameTime(lane.arenaWorld()) ^ (lane.ownerPlayer() == null ? 0 : lane.ownerPlayer().hashCode()));
         Collections.shuffle(pool, random);
         List<GridPosition> free = freePositions(lane);
         Collections.shuffle(free, random);

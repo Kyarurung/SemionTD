@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -24,7 +25,7 @@ public final class ResonanceService {
             return;
         }
         refresh(lane.towers());
-        long now = lane.arenaWorld() == null ? 0 : lane.arenaWorld().getGameTime();
+        long now = lane.arenaWorld() == null ? 0 : CombatSpeedRuntime.gameTime(lane.arenaWorld());
         for (Tower tower : lane.towers()) {
             if (tower instanceof ResonanceTower resonance) resonance.startAugmentWave(now);
         }
@@ -32,7 +33,7 @@ public final class ResonanceService {
 
     public static void tickAugments(PlayerLane lane) {
         if (lane == null || lane.arenaWorld() == null || !lane.augmentSnapshot().has(ResonanceTower.CYCLE)) return;
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         List<ResonanceTower> towers = lane.towers().stream().filter(ResonanceTower.class::isInstance)
                 .map(ResonanceTower.class::cast).filter(tower -> tower.health() > 0)
                 .sorted(Comparator.comparingInt(ResonanceTower::resonanceLevel).reversed()

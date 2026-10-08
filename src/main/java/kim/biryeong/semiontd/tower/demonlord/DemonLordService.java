@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.KillSourceKind;
@@ -182,15 +183,15 @@ public final class DemonLordService {
                 return true;
             }
             // 체력은 보스바 풀에서만 관리합니다. 바닐라 체력은 건드리지 않습니다.
-            state.expireShieldIfNeeded(player.level().getGameTime());
+            state.expireShieldIfNeeded(CombatSpeedRuntime.gameTime(player.level()));
             PlayerLane lane = gameManager.playableGame(player.getUUID())
                     .flatMap(game -> game.playerLane(player.getUUID())).orElse(null);
             boolean knockedOut = state.applyDamage(amount,
                     lane == null ? kim.biryeong.semiontd.augment.AugmentSnapshot.none() : lane.augmentSnapshot(),
-                    player.level().getGameTime(), source.getEntity() instanceof SemionMonsterEntity monster
+                    CombatSpeedRuntime.gameTime(player.level()), source.getEntity() instanceof SemionMonsterEntity monster
                             && kim.biryeong.semiontd.augment.AugmentCombat.canBuildCondition(monster.runtimeMonster()));
             if (state.augments().consumeCooldownChanges()) {
-                syncSkillCooldowns(player, state, player.level().getGameTime());
+                syncSkillCooldowns(player, state, CombatSpeedRuntime.gameTime(player.level()));
             }
             // 바닐라 피해를 막으면 연출도 같이 사라지므로 피격 패킷을 직접 보냅니다.
             sendHitFeedback(player, source, amount);
@@ -222,7 +223,7 @@ public final class DemonLordService {
             // 그대로 최대 피해가 됩니다. 차지 비율을 바닐라와 같은 곡선으로 곱해 줍니다.
             int interval = (int) TowerBalanceRuntime.ability(
                     DemonLordTowers.GLOBAL_CONFIG_ID, "bladeAttackIntervalTicks", 12.0);
-            long now = attacker.level().getGameTime();
+            long now = CombatSpeedRuntime.gameTime(attacker.level());
             double charge = state.bladeChargeScale(now, interval);
             state.recordBladeAttack(now);
             PlayerLane lane = gameManager.playableGame(attacker.getUUID())
@@ -249,7 +250,7 @@ public final class DemonLordService {
         if (dealt <= 0.0 || lane == null) {
             return;
         }
-        double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), attacker.level().getGameTime());
+        double ratio = state.augments().consumeFinisher(lane.augmentSnapshot(), CombatSpeedRuntime.gameTime(attacker.level()));
         if (ratio > 0.0) {
             kim.biryeong.semiontd.augment.AugmentCombat.runWithoutTriggers(() -> dealDamage(
                     attacker, lane, altar, target, state.bladeDamage() * ratio, DamageType.PHYSICAL));
@@ -266,7 +267,7 @@ public final class DemonLordService {
                 || player.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
             return;
         }
-        long now = player.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(player.level());
         if (state.swingIgnored(now)) {
             return;
         }
@@ -285,7 +286,7 @@ public final class DemonLordService {
     public static void ignoreDropSwing(ServerPlayer player) {
         DemonLordState state = DemonLordStates.get(player.getUUID());
         if (state != null) {
-            state.ignoreSwingUntil(player.level().getGameTime() + 1);
+            state.ignoreSwingUntil(CombatSpeedRuntime.gameTime(player.level()) + 1);
         }
     }
 
@@ -316,7 +317,7 @@ public final class DemonLordService {
         state.syncAugments(lane.augmentSnapshot());
         state.setLaneId(lane.laneId());
         state.setTeamId(lane.teamId());
-        long gameTime = lane.arenaWorld().getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         state.augments().tickVisuals(gameTime);
 
         syncCarriers(lane, state);
@@ -944,7 +945,7 @@ public final class DemonLordService {
         if (lane == null || lane.arenaWorld() == null) {
             return true;
         }
-        tryCast(player, lane, state, binding, lane.arenaWorld().getGameTime());
+        tryCast(player, lane, state, binding, CombatSpeedRuntime.gameTime(lane.arenaWorld()));
         return true;
     }
 
@@ -1163,7 +1164,7 @@ public final class DemonLordService {
         DemonLordState augmentState = attacker == null ? null : DemonLordStates.get(attacker.getUUID());
         double originalAmount = amount;
         if (augmentState != null && lane != null) {
-            amount *= augmentState.augments().damageMultiplier(lane.augmentSnapshot(), attacker.level().getGameTime());
+            amount *= augmentState.augments().damageMultiplier(lane.augmentSnapshot(), CombatSpeedRuntime.gameTime(attacker.level()));
         }
         SemionTowerEntity source = altar == null ? null : altar.entity(lane);
         if (source != null) {

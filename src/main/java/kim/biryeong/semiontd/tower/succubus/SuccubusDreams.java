@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -87,7 +88,7 @@ public final class SuccubusDreams {
     public static boolean addFromLullaby(Tower target, PlayerLane lane, Tower source, int amount) {
         if (target == null || lane == null || lane.arenaWorld() == null) return false;
         TowerKey key = TowerKey.of(target);
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (now < LULLABY_READY_AT.getOrDefault(key, 0L)) return false;
         if (!add(target, lane, source, amount)) return false;
         LULLABY_READY_AT.put(key, now + 80L);

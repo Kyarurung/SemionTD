@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
@@ -205,7 +206,7 @@ public final class QueenCardTower extends ProductionTower {
     public void onAttackResolved(SemionTowerEntity source, SemionMonsterEntity target, double attempted,
                                  double outgoing, double dealt, boolean killed) {
         if (target == null || !target.isAlive()) return;
-        lastCombatTick = source.level().getGameTime();
+        lastCombatTick = CombatSpeedRuntime.gameTime(source.level());
         double points = QueenBalance.cardShrinkPoints() * (1.0 + pokerBonus);
         QueenShrink.apply(target, points);
         shrinkNearbyTargets(source, target, points);
@@ -214,7 +215,7 @@ public final class QueenCardTower extends ProductionTower {
     @Override
     public void onDamaged(SemionTowerEntity source, DamageSource damageSource, double amount,
                           double previousHealth, double currentHealth) {
-        if (currentHealth < previousHealth) lastCombatTick = source.level().getGameTime();
+        if (currentHealth < previousHealth) lastCombatTick = CombatSpeedRuntime.gameTime(source.level());
     }
 
     @Override

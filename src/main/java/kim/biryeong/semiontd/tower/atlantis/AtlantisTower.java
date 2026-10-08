@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -47,7 +48,7 @@ public class AtlantisTower extends ProductionTower {
     public void onWaveStarted(PlayerLane lane, int currentRound) {
         super.onWaveStarted(lane, currentRound);
         currentLane = lane;
-        nextTsunamiTick = lane.arenaWorld().getGameTime() + (long) parameter("s", "intervalTicks", 120);
+        nextTsunamiTick = CombatSpeedRuntime.gameTime(lane.arenaWorld()) + (long) parameter("s", "intervalTicks", 120);
     }
 
     public AtlantisTower(TowerType type, UUID ownerPlayer, TeamId teamId, int laneId, GridPosition position) {
@@ -123,7 +124,7 @@ public class AtlantisTower extends ProductionTower {
         if (lane == null || lane.arenaWorld() == null) {
             return;
         }
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (role() == AtlantisRole.DOLPHIN) {
             releaseLapsedPressure(lane, now);
             return;
@@ -162,7 +163,7 @@ public class AtlantisTower extends ProductionTower {
         if (owned.isEmpty()) {
             return;
         }
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         boolean showZoneVfx = lastZoneVfxTick == Long.MIN_VALUE
                 || now - lastZoneVfxTick >= AtlantisBalance.zoneVfxIntervalTicks();
         if (showZoneVfx) {

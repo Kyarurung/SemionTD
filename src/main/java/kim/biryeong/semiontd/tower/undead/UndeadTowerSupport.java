@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.tower.undead;
 
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -30,7 +31,7 @@ abstract class UndeadTowerSupport extends EntityBackedTower {
 
     @Override
     public double modifyAttackDamage(SemionTowerEntity towerEntity, SemionMonsterEntity target, double damageAmount) {
-        if (towerEntity == null || damageBoostExpiresAt <= towerEntity.level().getGameTime()) {
+        if (towerEntity == null || damageBoostExpiresAt <= CombatSpeedRuntime.gameTime(towerEntity.level())) {
             return damageAmount;
         }
         return damageAmount + flatDamageBoost;
@@ -48,7 +49,7 @@ abstract class UndeadTowerSupport extends EntityBackedTower {
             return;
         }
         flatDamageBoost = amount;
-        damageBoostExpiresAt = towerEntity.level().getGameTime()
+        damageBoostExpiresAt = CombatSpeedRuntime.gameTime(towerEntity.level())
                 + TowerBalanceRuntime.abilityTicks(type().id(), "damageBoostTicks");
     }
 

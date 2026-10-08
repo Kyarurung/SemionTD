@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.frost;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import static kim.biryeong.semiontd.tower.description.TowerDescriptionTemplate.format;
 
 import java.util.List;
@@ -136,7 +137,7 @@ public final class FrostFullOperationService {
             return;
         }
         FrostFullOperationState state = STATES.computeIfAbsent(lane.ownerPlayer(), ignored -> new FrostFullOperationState());
-        if (!state.record(family, lane.arenaWorld().getGameTime())) {
+        if (!state.record(family, CombatSpeedRuntime.gameTime(lane.arenaWorld()))) {
             return;
         }
         updateReadiness(lane, state);
@@ -158,7 +159,7 @@ public final class FrostFullOperationService {
         if (state == null || !state.active()) {
             return;
         }
-        long gameTime = lane.arenaWorld().getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (gameTime >= state.activeUntilTick()) {
             state.expire();
             clearFullOperationEffects(lane);
@@ -210,7 +211,7 @@ public final class FrostFullOperationService {
             clearActivationItem(player);
             return false;
         }
-        long gameTime = lane.arenaWorld().getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         state.activate(gameTime);
         clearActivationItem(player);
         refreshFullOperationEffects(lane, state, gameTime);

@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.demonlord;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.vfx.DisplayEffect;
 import net.minecraft.core.BlockPos;
@@ -51,7 +52,7 @@ public final class DemonLordVfx {
     }
 
     public static long seed(PlayerLane lane) {
-        return lane == null || lane.arenaWorld() == null ? 0L : lane.arenaWorld().getGameTime();
+        return lane == null || lane.arenaWorld() == null ? 0L : CombatSpeedRuntime.gameTime(lane.arenaWorld());
     }
 
     /** 디버그 명령과 시험용: 기본 수치로 그 스킬 연출을 한 번 띄웁니다. */

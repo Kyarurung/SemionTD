@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.tower.undead;
 
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.game.GridPosition;
@@ -46,7 +47,7 @@ public class UndeadDrownedTower extends UndeadHuskTower {
         if (towerEntity == null || damageAmount <= 0.0) {
             return damageAmount;
         }
-        long gameTime = towerEntity.level().getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(towerEntity.level());
         if (lastStandEndsAt > gameTime) {
             return 0.0;
         }

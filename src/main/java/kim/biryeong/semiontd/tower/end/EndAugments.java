@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
@@ -102,7 +103,7 @@ final class EndAugments {
         double radius = tower.augmentSnapshot().parameter(MINE, "radius", 3);
         for (Iterator<Mine> iterator = mines.iterator(); iterator.hasNext();) {
             Mine mine = iterator.next();
-            if (lane.arenaWorld().getGameTime() % 10 == 0) {
+            if (CombatSpeedRuntime.gameTime(lane.arenaWorld()) % 10 == 0) {
                 lane.arenaWorld().sendParticles(ParticleTypes.REVERSE_PORTAL, mine.center().x, mine.center().y,
                         mine.center().z, 2, .25, .05, .25, .01);
             }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
@@ -309,7 +310,7 @@ public class ArmyTower extends ProductionTower {
         }
         currentLane = lane;
         equipmentVisual = TowerEquipmentVisual.sync(equipmentVisual, entity(lane).orElse(null));
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (now - lastCommandTick < ArmyBalance.COMMAND_SCAN_INTERVAL_TICKS) {
             return;
         }

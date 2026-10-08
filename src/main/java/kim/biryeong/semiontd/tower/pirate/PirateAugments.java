@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -108,7 +109,7 @@ public final class PirateAugments {
         State state = state(tower.attachedLane());
         int spacing = (int) tower.augmentSnapshot().parameter(FLEET, "shotSpacingTicks", 4);
         for (int shot = 1; shot <= (int) tower.augmentSnapshot().parameter(FLEET, "extraShots", 2); shot++) {
-            state.shells.add(new Shell(tower, target, source.level().getGameTime() + (long) shot * spacing));
+            state.shells.add(new Shell(tower, target, CombatSpeedRuntime.gameTime(source.level()) + (long) shot * spacing));
         }
     }
 
@@ -221,7 +222,7 @@ public final class PirateAugments {
     static int pendingShells(UUID owner) { State state = STATES.get(owner); return state == null ? 0 : state.shells.size(); }
     static int pendingCannonShots(UUID owner) { State state = STATES.get(owner); return state == null ? 0 : state.shots; }
     static double cannonDamage(UUID owner) { State state = STATES.get(owner); return state == null ? 0 : state.bombardmentDamage; }
-    private static long now(PlayerLane lane) { return lane.arenaWorld() == null ? 0 : lane.arenaWorld().getGameTime(); }
+    private static long now(PlayerLane lane) { return lane.arenaWorld() == null ? 0 : CombatSpeedRuntime.gameTime(lane.arenaWorld()); }
     private static State state(PlayerLane lane) { return STATES.computeIfAbsent(lane.ownerPlayer(), ignored -> new State()); }
     private record Shell(Tower tower, SemionMonsterEntity target, long at) { }
     private static final class State {

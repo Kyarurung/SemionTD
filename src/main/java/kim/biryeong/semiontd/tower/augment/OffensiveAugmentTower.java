@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -164,7 +165,7 @@ public final class OffensiveAugmentTower extends AugmentTower {
             updateName(lane);
         } else if (is(AugmentTowers.ORDNANCE_FACTORY)) {
             if (target.runtimeMonster() == null || AugmentEconomyService.isLowPressure(target.runtimeMonster())) return;
-            long now = source.level().getGameTime();
+            long now = CombatSpeedRuntime.gameTime(source.level());
             OrdnanceState previous = ordnance();
             OrdnanceState next = previous.fire(now, integer("shellIntervalTicks", 100));
             if (next == previous) return;

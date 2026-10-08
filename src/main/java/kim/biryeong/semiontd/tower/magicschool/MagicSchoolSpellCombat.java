@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.magicschool;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.*;
@@ -181,7 +182,7 @@ public final class MagicSchoolSpellCombat {
 
     private static void heal(SemionTowerEntity source) {
         var spell = MagicSchoolSpell.EPISKEY;
-        long now = source.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(source.level());
         List<SemionTowerEntity> candidates = new ArrayList<>();
         SemionTdApi.areaEffects().applyToTowers(allies(source, spell).withFilter(target ->
                 target.tower() instanceof MagicSchoolWizardTower && target.entity().isPresent()

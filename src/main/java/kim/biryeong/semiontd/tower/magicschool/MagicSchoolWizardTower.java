@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Comparator;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
@@ -172,8 +173,8 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
         nextProtectionVisualTick = 0;
         runtimeEntity(lane).ifPresent(entity -> {
             MagicSchoolSpellCombat.onWaveStarted(this, entity);
-            nextRennervateTick = entity.level().getGameTime() + MagicSchoolSpell.RENNERVATE.ticks("intervalTicks");
-            nextLeviosaTick = entity.level().getGameTime() + MagicSchoolSpell.WINGARDIUM_LEVIOSA.ticks("intervalTicks");
+            nextRennervateTick = CombatSpeedRuntime.gameTime(entity.level()) + MagicSchoolSpell.RENNERVATE.ticks("intervalTicks");
+            nextLeviosaTick = CombatSpeedRuntime.gameTime(entity.level()) + MagicSchoolSpell.WINGARDIUM_LEVIOSA.ticks("intervalTicks");
         });
     }
 
@@ -354,9 +355,9 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
                 || target.activeTimedEffectMagnitude(kim.biryeong.semiontd.effect.TimedEffectType.MONSTER_LUMOS) <= 0
                 || !MagicSchoolCurriculum.purchased(ownerPlayer(), Upgrade.SPELL_TRANSFER)) return;
 
-        runtimeEntity(attachedLane()).filter(source -> source.level().getGameTime() >= nextTransferTick).ifPresent(source -> {
+        runtimeEntity(attachedLane()).filter(source -> CombatSpeedRuntime.gameTime(source.level()) >= nextTransferTick).ifPresent(source -> {
 
-            nextTransferTick = source.level().getGameTime() + MagicSchoolCurriculum.integer("spellTransferCooldownTicks", 70);
+            nextTransferTick = CombatSpeedRuntime.gameTime(source.level()) + MagicSchoolCurriculum.integer("spellTransferCooldownTicks", 70);
             MagicSchoolSpellCombat.transfer(this, source, target, dealtDamage);
         });
     }
@@ -496,16 +497,16 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
         if (spellWave > 0 && health() > 0) {
             runtimeEntity(lane).filter(entity -> entity.isAlive() && !entity.isRemoved()
                     && entity.activeEffectMagnitude(TimedEffectType.TOWER_PROTEGO) > 0
-                    && entity.level().getGameTime() >= nextProtectionVisualTick).ifPresent(entity -> {
+                    && CombatSpeedRuntime.gameTime(entity.level()) >= nextProtectionVisualTick).ifPresent(entity -> {
                 TowerVfxService.showMagicSchoolVisual(entity,
                         selectedSpell(), MagicSchoolSpellVfx.Kind.SHIELD,
                         entity.position().add(0, .35, 0), .7);
-                nextProtectionVisualTick = entity.level().getGameTime() + 10;
+                nextProtectionVisualTick = CombatSpeedRuntime.gameTime(entity.level()) + 10;
             });
         }
         if (spellWave > 0 && health() > 0 && !isTemporaryCopy()) {
-            runtimeEntity(lane).filter(entity -> entity.isAlive() && entity.level().getGameTime() >= nextLeviosaTick).ifPresent(entity -> {
-                long now = entity.level().getGameTime();
+            runtimeEntity(lane).filter(entity -> entity.isAlive() && CombatSpeedRuntime.gameTime(entity.level()) >= nextLeviosaTick).ifPresent(entity -> {
+                long now = CombatSpeedRuntime.gameTime(entity.level());
                 int interval = MagicSchoolSpell.WINGARDIUM_LEVIOSA.ticks("intervalTicks");
 
                 nextLeviosaTick += ((now - nextLeviosaTick) / interval + 1) * interval;
@@ -513,9 +514,9 @@ public abstract class MagicSchoolWizardTower extends ProductionTower {
             });
         }
         if (spellWave > 0 && health() > 0 && selectedSpell() == MagicSchoolSpell.RENNERVATE) {
-            runtimeEntity(lane).filter(entity -> entity.level().getGameTime() >= nextRennervateTick).ifPresent(entity -> {
+            runtimeEntity(lane).filter(entity -> CombatSpeedRuntime.gameTime(entity.level()) >= nextRennervateTick).ifPresent(entity -> {
                 MagicSchoolSpellCombat.rennervate(entity);
-                nextRennervateTick = entity.level().getGameTime() + selectedSpell().ticks("intervalTicks");
+                nextRennervateTick = CombatSpeedRuntime.gameTime(entity.level()) + selectedSpell().ticks("intervalTicks");
             });
         }
     }

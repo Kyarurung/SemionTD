@@ -19,7 +19,9 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.PlayerLane;
+import kim.biryeong.semiontd.tower.area.TowerContactSweep;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -79,8 +81,8 @@ final class QueenGiantRunner {
             if (state != null) state.runner(null);
             return;
         }
-        move();
-        contact(queen, state);
+        move(queen, state);
+        contact(queen, state, entity.position(), entity.position());
         if (segment >= path.size()) {
             if (!returning && queen.augmentSnapshot().has("job_queen_towers_p") && AugmentCombat.allowsTriggers()) {
                 Collections.reverse(path);
@@ -99,7 +101,7 @@ final class QueenGiantRunner {
         if (!entity.isRemoved()) entity.discard();
     }
 
-    private void move() {
+    private void move(QueenTower queen, QueenStates.PlayerState state) {
         double remaining = QueenBalance.giantSpeed();
         Vec3 current = entity.position();
         while (remaining > 0.0 && segment < path.size()) {
@@ -108,24 +110,35 @@ final class QueenGiantRunner {
             double distance = delta.length();
             if (distance > 0.0001) orientToward(entity, target);
             if (distance <= remaining + 0.0001) {
+                contactAlongStep(queen, state, current, target);
                 current = target;
                 remaining -= distance;
                 segment++;
                 continue;
             }
             Vec3 step = delta.normalize().scale(remaining);
-            current = current.add(step);
+            Vec3 next = current.add(step);
+            contactAlongStep(queen, state, current, next);
+            current = next;
             remaining = 0.0;
         }
         entity.setPos(current.x, current.y, current.z);
     }
 
-    private void contact(QueenTower queen, QueenStates.PlayerState state) {
+    private void contactAlongStep(QueenTower queen, QueenStates.PlayerState state, Vec3 from, Vec3 to) {
+        if (CombatSpeedRuntime.multiplier(entity.level()) > 1.0) {
+            entity.setPos(to);
+            contact(queen, state, from, to);
+        }
+    }
+
+    private void contact(QueenTower queen, QueenStates.PlayerState state, Vec3 from, Vec3 to) {
+        TowerContactSweep contact = new TowerContactSweep(from, to, QueenBalance.giantContactRadius());
         MonsterAreaEffectRequest request = new MonsterAreaEffectRequest(
-                EFFECT_ID, source, entity.position(), QueenBalance.giantContactRadius(), Set.of(),
+                EFFECT_ID, source, contact.center(), contact.searchRadius(), Set.of(),
                 target -> target.runtimeMonster() != null
                         && target.runtimeMonster().targetTeam() == queen.teamId()
-                        && !contacted.contains(target.getUUID()), AreaVfxSpec.onChange(AreaVfxStyles.DEBUFF));
+                        && !contacted.contains(target.getUUID()) && contact.contains(target.position()), AreaVfxSpec.onChange(AreaVfxStyles.DEBUFF));
         SemionTdApi.areaEffects().applyToMonsters(request, target -> {
             contacted.add(target.getUUID());
             if (target.runtimeMonster() == null) return AreaEffectOutcome.UNCHANGED;

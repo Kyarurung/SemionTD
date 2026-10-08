@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.engineer;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import eu.pb4.polymer.virtualentity.api.ElementHolder;
 import eu.pb4.polymer.virtualentity.api.attachment.EntityAttachment;
 import eu.pb4.polymer.virtualentity.api.elements.BlockDisplayElement;
@@ -212,7 +213,7 @@ public final class EngineerTrapTower extends EntityBackedTower {
                 receiveSignal(lane, source, activation);
             });
         }
-        if (pendingExplosion != null && lane.arenaWorld().getGameTime() >= pendingExplosion.dueTick()) {
+        if (pendingExplosion != null && CombatSpeedRuntime.gameTime(lane.arenaWorld()) >= pendingExplosion.dueTick()) {
             PendingExplosion pending = pendingExplosion;
             pendingExplosion = null;
             MonsterAreaEffectRequest repeat = new MonsterAreaEffectRequest(
@@ -487,7 +488,7 @@ public final class EngineerTrapTower extends EntityBackedTower {
         if (AugmentCombat.allowsTriggers() && augmentSnapshot().has(card)) {
             pendingExplosion = new PendingExplosion(source.position(), radius, cap,
                     resolveOutgoingDamage(source, null, baseDamage) * augmentSnapshot().parameter(card, "repeatDamageRatio", .80),
-                    source.level().getGameTime() + (int) augmentSnapshot().parameter(card, "delayTicks", 40));
+                    CombatSpeedRuntime.gameTime(source.level()) + (int) augmentSnapshot().parameter(card, "delayTicks", 40));
         }
         TowerAreaDamage.apply(
                 this, source, request,
@@ -501,7 +502,7 @@ public final class EngineerTrapTower extends EntityBackedTower {
         double radius = ability("radius", pistonRadius(tier));
         long cap = (long) intAbility("maxTargets", pistonMaxTargets(tier))
                 + EngineerBalance.pistonExtraTargets(pressCount());
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         Vec3 start = lane.laneLayout().positionAt(0.0);
         liveMonsters(lane).stream()
                 .filter(target -> !target.runtimeMonster().inFinalDefenseCombat())
@@ -678,7 +679,7 @@ public final class EngineerTrapTower extends EntityBackedTower {
     }
 
     private Optional<EngineerTrapSignalController.Activation> plateActivation(PlayerLane lane, boolean requireRecentPress) {
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         Map<BlockPos, EngineerTrapSignalSnapshot> circuits = new HashMap<>();
         for (var tower : lane.towers()) {
             if (tower instanceof EngineerCircuitTower circuit && ownerPlayer().equals(circuit.ownerPlayer())) {

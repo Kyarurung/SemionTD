@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.plant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
@@ -518,7 +519,7 @@ public class PlantCombatTower extends ProductionTower {
         if (entity == null) {
             return false;
         }
-        long now = entity.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(entity.level());
         long window = Math.max(1, globalTicks("soilPulseIntervalTicks"));
         Long lastHealedTick = healed.getDataOrDefault(LAST_MEADOW_HEAL_TICK, null);
         boolean overlapping = lastHealedTick != null && now - lastHealedTick < window;

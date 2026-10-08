@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -129,7 +130,7 @@ public final class QueenTower extends ProductionTower {
         }
         accelerationActive = false;
         if (!waveActive || isDestroyed(lane) || !hasActiveEnemies(state, lane)) return;
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         double radiusSqr = QueenBalance.giantAccelerationRadius() * QueenBalance.giantAccelerationRadius();
         accelerationActive = lane.towers().stream().filter(QueenCardTower.class::isInstance)
                 .map(QueenCardTower.class::cast).filter(card -> card.ownerPlayer().equals(ownerPlayer()))

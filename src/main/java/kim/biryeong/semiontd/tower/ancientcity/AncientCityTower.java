@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
@@ -199,7 +200,7 @@ public final class AncientCityTower extends EntityBackedTower {
             AncientCityTower strongest = strongestWarden(attachedLane());
             lines.add("깨어난 도시 기준: " + (strongest == null ? "워든 없음" : strongest.type().displayName()));
             lines.add("충격파 대기 " + oneDecimal(AncientCityStates.cityPulseTicksRemaining(ownerPlayer(),
-                    attachedLane().arenaWorld().getGameTime()) / 20.0) + "초");
+                    CombatSpeedRuntime.gameTime(attachedLane().arenaWorld())) / 20.0) + "초");
         }
         return lines;
     }
@@ -413,7 +414,7 @@ public final class AncientCityTower extends EntityBackedTower {
                 || SuccubusDreams.isAsleep(this)) {
             return;
         }
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (AncientCityStates.cityPulseTicksRemaining(ownerPlayer(), now) > 0) {
             return;
         }

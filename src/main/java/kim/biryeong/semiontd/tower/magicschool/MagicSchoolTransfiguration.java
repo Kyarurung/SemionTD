@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.game.PlayerLane;
@@ -24,7 +25,7 @@ public final class MagicSchoolTransfiguration {
         var lane = wizard.attachedLane();
         if (lane == null || source == null || target == null || target instanceof MagicSchoolBombBarrelEntity
                 || wizard.isTemporaryCopy() || target.runtimeMonster() == null || target.runtimeMonster().health() > 0
-                || !MagicSchoolCurriculum.beginBarrel(wizard.ownerPlayer(), wizard.currentRound(), source.level().getGameTime())) return;
+                || !MagicSchoolCurriculum.beginBarrel(wizard.ownerPlayer(), wizard.currentRound(), CombatSpeedRuntime.gameTime(source.level()))) return;
         Props props = PROPS.computeIfAbsent(wizard.ownerPlayer(), ignored -> new Props());
         props.bombs.removeIf(SemionMonsterEntity::isRemoved);
         props.barrels.removeIf(barrel -> {

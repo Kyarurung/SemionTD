@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
@@ -117,7 +118,7 @@ public class ThunderTower extends ProductionTower {
         if (lane == null || lane.arenaWorld() == null) {
             return;
         }
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (!force && lastGridScanTick != Long.MIN_VALUE && now - lastGridScanTick < GRID_SCAN_INTERVAL_TICKS) {
             return;
         }
@@ -211,7 +212,7 @@ public class ThunderTower extends ProductionTower {
         if (world == null) {
             return;
         }
-        long now = world.getGameTime();
+        long now = CombatSpeedRuntime.gameTime(world);
         if (lastStunTick != Long.MIN_VALUE && now - lastStunTick < ThunderBalance.stunCooldownTicks()) {
             return;
         }

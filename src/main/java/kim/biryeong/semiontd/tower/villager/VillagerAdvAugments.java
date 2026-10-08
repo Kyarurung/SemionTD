@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
@@ -37,7 +38,7 @@ public final class VillagerAdvAugments {
     }
 
     public static void startWave(PlayerLane lane) {
-        long now = lane.arenaWorld() == null ? 0 : lane.arenaWorld().getGameTime();
+        long now = lane.arenaWorld() == null ? 0 : CombatSpeedRuntime.gameTime(lane.arenaWorld());
         for (Tower tower : lane.towers()) {
             if (!eligible(tower)) continue;
             tower.removeData(TOP_GRADUATE);
@@ -82,7 +83,7 @@ public final class VillagerAdvAugments {
                 .filter(tower -> tower.health() > 0).sorted(byExperience()).toList();
         Map<String, Tower> representatives = new LinkedHashMap<>();
         for (Tower tower : candidates) representatives.putIfAbsent(role(tower), tower);
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         for (Tower tower : candidates) {
             if (now < tower.getDataOrDefault(NEXT_CONTEST, Long.MAX_VALUE)) continue;
             tower.setData(NEXT_CONTEST, now + interval(tower));

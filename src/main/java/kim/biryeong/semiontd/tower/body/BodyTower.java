@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.body;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import static kim.biryeong.semiontd.tower.body.BodyTowerTargetGeometry.eyeDirection;
 import static kim.biryeong.semiontd.tower.body.BodyTowerTargetGeometry.insideEyeRay;
 
@@ -367,7 +368,7 @@ public final class BodyTower extends EntityBackedTower {
         if (!accumulateSkinLoss(lost)) {return;}
         PlayerLane lane = attachedLane();
         if (lane == null) {return;}
-        long now = source.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(source.level());
         for (Tower tower : List.copyOf(lane.towers())) {
             if (tower instanceof BodyTower heart && BodyTowers.isHeart(heart.type())
                     && ownerPlayer().equals(heart.ownerPlayer()) && heart.acceptSkinHeartbeat(now)) {

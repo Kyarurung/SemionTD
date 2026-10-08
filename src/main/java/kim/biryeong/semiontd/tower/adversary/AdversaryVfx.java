@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.adversary;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -95,7 +96,7 @@ public final class AdversaryVfx {
 
     static void showSupportPulse(SemionTowerEntity source, FoxForm form) {
         if (source == null || form == null || !(source.level() instanceof ServerLevel level)
-                || Math.floorMod(level.getGameTime() + source.getId(), 40) != 0) {
+                || Math.floorMod(CombatSpeedRuntime.gameTime(level) + source.getId(), 40) != 0) {
             return;
         }
         Vec3 center = towerCenter(source).add(0.0, -0.35, 0.0);

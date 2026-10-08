@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectAction;
@@ -752,7 +753,7 @@ public final class DemonLordSkills {
             DemonLordSkillTower altar) {
         double shield = state.maxHealth() * ability(altar, "shieldRatio", 0.25);
         int duration = (int) Math.max(1.0, ability(altar, "shieldDurationTicks", 160.0));
-        state.grantShield(shield, player.level().getGameTime() + duration);
+        state.grantShield(shield, CombatSpeedRuntime.gameTime(player.level()) + duration);
         DemonLordVfx.follow(DemonLordDisplayVfx.demonBarrier(DemonLordVfx.seed(lane)), player);
         sound(player, SoundEvents.TOTEM_USE, 0.8f, 1.2f);
     }

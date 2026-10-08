@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.TeamId;
@@ -143,7 +144,7 @@ public final class EngineerCircuitTower extends Tower {
         lane.arenaWorld().scheduleTick(position, pressed.getBlock(), 10);
         boolean activated = platePressed(lane);
         if (activated) {
-            lastPressedGameTime = lane.arenaWorld().getGameTime();
+            lastPressedGameTime = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         }
         return activated;
     }

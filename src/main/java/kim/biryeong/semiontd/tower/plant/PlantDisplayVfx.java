@@ -1,5 +1,6 @@
 package kim.biryeong.semiontd.tower.plant;
 
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import static kim.biryeong.semiontd.vfx.DisplayShapes.ground;
 import static kim.biryeong.semiontd.vfx.DisplayShapes.vec;
 
@@ -82,7 +83,7 @@ public final class PlantDisplayVfx {
     }
 
     static long seed(ServerLevel level) {
-        return level == null ? 0L : level.getGameTime();
+        return level == null ? 0L : CombatSpeedRuntime.gameTime(level);
     }
 
     // ------------------------------------------------------------------ 물병 식물

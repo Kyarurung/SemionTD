@@ -14,6 +14,7 @@ import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.TeamId;
@@ -21,6 +22,7 @@ import kim.biryeong.semiontd.tower.ProductionTower;
 import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerType;
 import kim.biryeong.semiontd.tower.area.AreaEffectIds;
+import kim.biryeong.semiontd.tower.area.TowerContactSweep;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -213,9 +215,10 @@ public class PandaTower extends ProductionTower {
      */
     private void advanceDash(SemionTowerEntity source) {
         double step = ability("chargeDistance") / Math.max(1, dashTotalTicks);
+        Vec3 previous = source.position();
         source.move(net.minecraft.world.entity.MoverType.SELF, dashDirection.scale(step));
         source.syncVelocity = true;
-        sweep(source);
+        sweep(source, CombatSpeedRuntime.multiplier(source.level()) > 1.0 ? previous : source.position());
         dashTicksLeft--;
         if (dashTicksLeft <= 0) {
             setRolling(source, false);
@@ -236,7 +239,7 @@ public class PandaTower extends ProductionTower {
     /**
      * 지금 서 있는 자리를 훑습니다. 이번 돌진에 아직 안 맞은 적만 대상입니다.
      */
-    private void sweep(SemionTowerEntity source) {
+    private void sweep(SemionTowerEntity source, Vec3 previous) {
         double hitRadius = ability("chargeHitRadius");
         if (hitRadius <= 0.0) {
             return;
@@ -247,14 +250,15 @@ public class PandaTower extends ProductionTower {
         double attackSpeedReduction = ability("chargeAttackSpeedReduction");
         double rangeReduction = ability("chargeRangeReduction");
         Vec3 here = source.position();
+        TowerContactSweep contact = new TowerContactSweep(previous, here, hitRadius);
 
         MonsterAreaEffectRequest request = new MonsterAreaEffectRequest(
                 AreaEffectIds.tower(this, "panda_charge"),
                 source,
-                here,
-                hitRadius,
+                contact.center(),
+                contact.searchRadius(),
                 java.util.Set.copyOf(dashHits),
-                monster -> !dashHits.contains(monster.getUUID()),
+                monster -> !dashHits.contains(monster.getUUID()) && contact.contains(monster.position()),
                 AreaVfxSpec.none()
         );
         boolean firstImpact = dashHits.isEmpty();

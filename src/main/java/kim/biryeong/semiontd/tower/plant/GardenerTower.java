@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.DamageType;
@@ -198,7 +199,7 @@ public class GardenerTower extends PlantCombatTower {
         if (source == null || lane.arenaWorld() == null || health() <= 0.0) {
             return true;
         }
-        long now = lane.arenaWorld().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         boolean pulse = now >= nextPulseTick;
         if (pulse) {
             nextPulseTick = now + 20;

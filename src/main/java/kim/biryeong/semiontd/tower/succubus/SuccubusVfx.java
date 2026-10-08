@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.succubus;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.api.area.AreaVfxContext;
 import kim.biryeong.semiontd.api.area.AreaVfxOutput;
@@ -92,7 +93,7 @@ public final class SuccubusVfx {
                 kind == DebugKind.SLEEP ? 1.25 : kind == DebugKind.SMOKE ? 0.75
                         : kind == DebugKind.WAKE ? SuccubusBalance.spreadRadius() : 3.0,
                 List.of(source), 1, 1, 0,
-                player.level().getGameTime()
+                CombatSpeedRuntime.gameTime(player.level())
         ));
     }
 

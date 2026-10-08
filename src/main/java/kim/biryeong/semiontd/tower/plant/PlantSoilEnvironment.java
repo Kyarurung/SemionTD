@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.tower.plant;
 
 import java.util.List;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.effect.TimedEffectType;
 import kim.biryeong.semiontd.entity.monster.DamageType;
@@ -35,7 +36,7 @@ public final class PlantSoilEnvironment {
         if (owner == null) {
             return;
         }
-        long gameTime = lane.arenaWorld().getGameTime();
+        long gameTime = CombatSpeedRuntime.gameTime(lane.arenaWorld());
         if (PlantSoilStates.totalCount(owner) == 0) {
             return;
         }

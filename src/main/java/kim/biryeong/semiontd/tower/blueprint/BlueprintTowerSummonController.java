@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.tower.blueprint;
 
 import java.util.List;
 import java.util.UUID;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -27,7 +28,7 @@ final class BlueprintTowerSummonController {
         while (iterator.hasNext()) {
             var entry = iterator.next();
             var entity = world.getEntity(entry.getKey());
-            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || world.getGameTime() >= entry.getValue()
+            if (!(entity instanceof SemionTowerEntity minion) || !minion.isAlive() || CombatSpeedRuntime.gameTime(world) >= entry.getValue()
                     || minion.runtimeTower() == null || minion.runtimeTower().health() <= 0.0) {
                 if (entity != null && !entity.isRemoved()) {
                     entity.discard();
@@ -61,7 +62,7 @@ final class BlueprintTowerSummonController {
         minion.markIllusionClone();
         minion.setPos(spawn.x, spawn.y, spawn.z);
         if (world.addFreshEntity(minion)) {
-            minions.put(minion.getId(), world.getGameTime() + (long) value(tower, "durationTicks"));
+            minions.put(minion.getId(), CombatSpeedRuntime.gameTime(world) + (long) value(tower, "durationTicks"));
         }
     }
 
