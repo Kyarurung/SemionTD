@@ -104,6 +104,36 @@ public final class CombatSimulationRuntimeTest implements RuntimeArenaFixture {
         context.succeed();
     }
 
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void externalImpulseSurvivesCompletedFramePublication(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        SemionMonsterEntity actor = new SemionMonsterEntity(SemionEntityTypes.MONSTER, world);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(3, 3, 3))));
+        world.addFreshEntity(actor);
+        TestOwner owner = new TestOwner(world.getGameTime());
+        owner.views.put(actor, CombatSimulationRuntime.EntityView.capture(actor));
+        Vec3 impulse = new Vec3(0.2, 0, -0.1);
+        try {
+            CombatSimulationRuntime.register(world, owner);
+            actor.push(impulse);
+            context.assertTrue(owner.inputs.size() == 1 && actor.getDeltaMovement().equals(Vec3.ZERO),
+                    "An external impulse must wait without changing the published or in-flight velocity");
+            owner.views.get(actor).publish(actor);
+            context.assertTrue(actor.getDeltaMovement().equals(Vec3.ZERO),
+                    "Publishing the prior completed frame must not consume the queued impulse");
+            CombatSimulationRuntime.run(owner, () -> owner.inputs.removeFirst().run());
+            context.assertTrue(owner.inputs.isEmpty() && owner.views.get(actor).velocity().equals(impulse),
+                    "The accepted impulse must modify logical velocity exactly once without requeueing");
+            owner.views.get(actor).publish(actor);
+            context.assertTrue(actor.getDeltaMovement().equals(impulse),
+                    "The next completed frame must publish the accepted impulse");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            actor.discard();
+        }
+        context.succeed();
+    }
+
     private static final class TestOwner implements CombatSimulationRuntime.Owner {
         private final Map<Entity, CombatSimulationRuntime.EntityView> views = new IdentityHashMap<>();
         private final List<Runnable> inputs = new ArrayList<>();

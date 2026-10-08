@@ -103,6 +103,19 @@ abstract class CombatSimulationEntityViewMixin {
         }
     }
 
+    @Inject(method = "push(DDD)V", at = @At("HEAD"), cancellable = true)
+    private void semiontd$boundaryImpulse(double x, double y, double z, CallbackInfo callback) {
+        Entity entity = (Entity) (Object) this;
+        if (CombatSimulationRuntime.controls(entity) && entity.level() instanceof net.minecraft.server.level.ServerLevel world
+                && CombatSimulationRuntime.input(world, () -> {
+                    if (!entity.isRemoved()) {
+                        entity.push(x, y, z);
+                    }
+                })) {
+            callback.cancel();
+        }
+    }
+
     @Inject(method = "getInBlockState", at = @At("HEAD"), cancellable = true)
     private void semiontd$logicalInBlockState(CallbackInfoReturnable<BlockState> callback) {
         Entity entity = (Entity) (Object) this;
