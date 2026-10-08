@@ -1,6 +1,6 @@
 # 빌더와 타워
 
-이 문서는 현재 코드에 등록된 빌더와 타워 계열을 정리합니다. 기준 코드는 `JobRegistry`와 `ProductionTowerCatalogs.reloadBuiltIns(...)`입니다. 제작 API와 등록 예시는 [프로덕션 타워 카탈로그](production-tower-catalog.ko.md), 밸런스 기준은 [밸런스 문서](tower-balance-reference.ko.md)를 봅니다. 아래 계열 설명의 숫자는 제작용 고정 상수가 아닙니다. 실제 값은 로드된 설정을 사용하고, 새 설치의 기본값은 `src/main/resources/semiontd/balance-defaults/`와 대조합니다.
+이 문서는 현재 코드에 등록된 빌더와 타워 계열을 정리합니다. 기준 코드는 `JobRegistry`와 `ProductionTowerCatalogs.reloadBuiltIns(...)`입니다. 새 계열의 전체 구현 순서는 [신규 빌더 구현 가이드](builder-development.ko.md), 제작 API와 등록 예시는 [프로덕션 타워 카탈로그](production-tower-catalog.ko.md), 밸런스 기준은 [밸런스 문서](tower-balance-reference.ko.md)를 봅니다. 아래 계열 설명의 숫자는 제작용 고정 상수가 아닙니다. 실제 값은 로드된 설정을 사용하고, 새 설치의 기본값은 `src/main/resources/semiontd/balance-defaults/`와 대조합니다.
 
 ## 현재 코드로 빌더 제작하기
 

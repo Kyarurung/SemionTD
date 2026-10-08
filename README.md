@@ -64,6 +64,7 @@ Fabric Loader와 Fabric API는 서로 다른 의존성입니다. Minecraft 26.3�
 - [서버 유지보수 인수인계](docs/next-session-handoff.ko.md): 빌드, 배포, 백업, 복구, 장애 확인 순서입니다.
 - [서비스 준비 체크리스트](docs/service-readiness-checklist.ko.md): 운영 전 서버 및 실클라이언트 확인 항목입니다.
 - [빌더와 타워](docs/builders-and-towers.ko.md): 현재 등록된 빌더와 계열별 타워 흐름입니다.
+- [신규 빌더 구현 가이드](docs/builder-development.ko.md): 직업·타워·업그레이드·스킬·증강·표시·웹·테스트의 전체 구현 경로입니다.
 - [겜블 빌더](docs/gamble-builder.ko.md): 주사위 지원, 고정 수치 도박, 고유 능력 규칙입니다.
 - [설정 파일](docs/config-reference.ko.md): `config/semion-td/*.json` 자동 생성 파일과 운영 데이터 구분입니다.
 - [타워 수치 설정](docs/tower-balance-reference.ko.md): `tower_balance.json`의 공통 수치, 업그레이드 가격, 고유 능력값입니다.

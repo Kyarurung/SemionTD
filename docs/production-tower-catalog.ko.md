@@ -1,6 +1,6 @@
 # 프로덕션 타워 카탈로그
 
-Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드입니다. 빌더 목록과 테스트 배치는 [빌더와 타워](builders-and-towers.ko.md), 설정·공식 패치의 값은 [밸런스 문서](tower-balance-reference.ko.md)를 기준으로 합니다.
+Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드입니다. 직업부터 증강·전투·표시까지의 전체 연결은 [신규 빌더 구현 가이드](builder-development.ko.md), 빌더 목록과 테스트 배치는 [빌더와 타워](builders-and-towers.ko.md), 설정·공식 패치의 값은 [밸런스 문서](tower-balance-reference.ko.md)를 기준으로 합니다.
 
 ## 책임과 코드 위치
 
