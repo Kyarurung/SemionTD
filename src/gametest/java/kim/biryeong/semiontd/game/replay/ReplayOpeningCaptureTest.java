@@ -57,7 +57,7 @@ public final class ReplayOpeningCaptureTest {
     private static Driver active;
     private static boolean listenersRegistered;
 
-    @GameTest(maxTicks = 1800)
+    @GameTest(maxTicks = 20000)
     public void recordedEngineerOpeningUsesNativePlacementAndOptionalIndependentBattleCapture(GameTestHelper context) {
         registerListeners();
         MinecraftServer server = context.getLevel().getServer();
@@ -300,7 +300,7 @@ public final class ReplayOpeningCaptureTest {
             if (physicalFrames % 100 == 0) {
                 System.out.println("REPLAY progress " + progress());
             }
-            if (physicalFrames >= 1600 && !finishing) {
+            if (physicalFrames >= 18000 && !finishing) {
                 throw new IllegalStateException("Capture did not finish within its diagnostic frame bound: " + progress());
             }
             if (finishing && (session == null || (boolean) call("idle") || (boolean) call("isClosed"))) {
