@@ -6,6 +6,7 @@ import kim.biryeong.semiontd.config.EconomyConfig;
 import kim.biryeong.semiontd.config.WaveConfig;
 import kim.biryeong.semiontd.gametest.RuntimeArenaFixture;
 import kim.biryeong.semiontd.gametest.SyntheticArenaFactory;
+import kim.biryeong.semiontd.util.Scheduler;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -39,6 +40,36 @@ public final class CombatMultiplierRuntimeTest implements RuntimeArenaFixture {
             CombatSpeedRuntime.clear();
             require(CombatSpeedRuntime.multiplier(world) == 1.0 && CombatSpeedRuntime.logicalSteps(world) == 1,
                     "Fallback must remove multiplier and timer budget");
+        } finally {
+            CombatSpeedRuntime.clear();
+        }
+        context.succeed();
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void delayedDamageUsesTheSchedulingLogicalStep(GameTestHelper context) throws ReflectiveOperationException {
+        var world = context.getLevel();
+        var server = world.getServer();
+        var game = new SemionGame(EconomyConfig.defaultConfig(), WaveConfig.defaultConfig(),
+                SyntheticArenaFactory.create(world, context.absolutePos(BlockPos.ZERO)));
+        List<Long> hits = new ArrayList<>();
+        long endTime = world.getGameTime();
+        try {
+            CombatSpeedRuntime.configure(server, game, 40.0F, 2);
+            CombatSpeedRuntime.runGameStep(0, () -> {
+                Scheduler.INSTANCE.submit(world,
+                        ignored -> hits.add(CombatSpeedRuntime.gameTime(world)), 1);
+                Scheduler.INSTANCE.runWorldTasks(world);
+            });
+            require(hits.isEmpty(), "Delayed hit must not run in the scheduling step");
+            var serverDrain = Scheduler.class.getDeclaredMethod("runTasks", net.minecraft.server.MinecraftServer.class);
+            serverDrain.setAccessible(true);
+            serverDrain.invoke(Scheduler.INSTANCE, server);
+            require(hits.isEmpty(), "Server callback order must not drain accelerated deadlines early");
+            CombatSpeedRuntime.runGameStep(1, () -> Scheduler.INSTANCE.runWorldTasks(world));
+            require(hits.equals(List.of(endTime)), "One-tick hit must resolve in the next logical step");
+            Scheduler.INSTANCE.runWorldTasks(world);
+            require(hits.size() == 1, "Server-end drain must not repeat a resolved hit");
         } finally {
             CombatSpeedRuntime.clear();
         }

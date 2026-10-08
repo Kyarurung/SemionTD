@@ -74,7 +74,7 @@ public final class Scheduler {
 
     public void submit(ServerLevel world, Consumer<MinecraftServer> task, int delay) {
         arenaTasks.computeIfAbsent(world, ignored -> new ArenaTaskQueue())
-                .submit(world.getGameTime(), () -> task.accept(world.getServer()), delay);
+                .submit(CombatSpeedRuntime.gameTime(world), () -> task.accept(world.getServer()), delay);
     }
 
     public void runWorldTasks(ServerLevel world) {
@@ -121,7 +121,10 @@ public final class Scheduler {
 
         this.taskQueue.removeIf(task -> task.tryRun(server, time));
         for (ServerLevel world : server.getAllLevels()) {
-            runWorldTasks(world);
+            // Accelerated arena deadlines are drained by the manager at each logical step.
+            if (CombatSpeedRuntime.multiplier(world) <= 1.0) {
+                runWorldTasks(world);
+            }
         }
     }
 
