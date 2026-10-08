@@ -1904,12 +1904,12 @@ public final class SemionGameManager {
                             IllusionCloneSpawnQueue.tick(combatGame.arena());
                         }
                         combatGame.tick(server);
-                    });
-                    for (var world : server.getAllLevels()) {
-                        if (combatGame.arena().containsWorld(world)) {
-                            Scheduler.INSTANCE.runWorldTasks(world);
+                        for (var world : server.getAllLevels()) {
+                            if (combatGame.arena().containsWorld(world)) {
+                                Scheduler.INSTANCE.runWorldTasks(world);
+                            }
                         }
-                    }
+                    });
                 });
         if (combatGame.phase() != RoundPhase.LANE_WAVE) {
             combatSteps.reset();

@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.IdentityHashMap;
@@ -79,7 +80,7 @@ public final class Scheduler {
     public void runWorldTasks(ServerLevel world) {
         ArenaTaskQueue queue = arenaTasks.get(world);
         if (queue != null) {
-            queue.runTasks(world.getGameTime());
+            queue.runTasks(CombatSpeedRuntime.gameTime(world));
             if (queue.isEmpty()) {
                 arenaTasks.remove(world);
             }
