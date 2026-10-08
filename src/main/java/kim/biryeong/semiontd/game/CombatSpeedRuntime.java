@@ -66,6 +66,10 @@ public final class CombatSpeedRuntime {
         }
     }
 
+    public static void runTimerStep(int step, Runnable action) {
+        runGameStep(step, action);
+    }
+
     static void clear() {
         ARENA_TICK_RATES.clear();
         LOGICAL_STEPS.clear();
