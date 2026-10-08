@@ -23,7 +23,7 @@ public final class BenchmarkRecorder {
     private long waitStart;
     private long waitNanos;
     private Long waitCpuStart;
-    private long waitCpu;
+    private Long waitCpu;
     private boolean enabled;
     private Long workerId;
     private Long lastWorkerCpu;
@@ -60,7 +60,8 @@ public final class BenchmarkRecorder {
         frameStart = start.wall();
         frameCpu = start.mainCpu();
         frameAllocated = start.mainAllocated();
-        nativeNanos = outerNanos = waitNanos = waitCpu = 0;
+        nativeNanos = outerNanos = waitNanos = 0;
+        waitCpu = 0L;
     }
 
     public void frameBoundary(int configuredRate) {
@@ -77,7 +78,8 @@ public final class BenchmarkRecorder {
         frameStart = now;
         frameCpu = cpu;
         frameAllocated = allocated;
-        nativeNanos = outerNanos = waitNanos = waitCpu = 0;
+        nativeNanos = outerNanos = waitNanos = 0;
+        waitCpu = 0L;
     }
 
     public void nativeBegin() { if (enabled) { nativeStart = System.nanoTime(); } }
@@ -93,7 +95,7 @@ public final class BenchmarkRecorder {
         if (enabled) {
             waitNanos += System.nanoTime() - waitStart;
             Long delta = difference(cpu(Thread.currentThread().threadId()), waitCpuStart);
-            if (delta != null) { waitCpu += delta; }
+            waitCpu = waitCpu == null || delta == null ? null : waitCpu + delta;
         }
     }
 
@@ -124,7 +126,7 @@ public final class BenchmarkRecorder {
             row.addProperty("native_tick_wall_ns", frame.nativeTick());
             row.addProperty("outer_tick_wall_ns", frame.outerTick());
             row.addProperty("wait_wall_ns", frame.waitTime());
-            row.addProperty("wait_main_cpu_ns", frame.waitCpu());
+            nullable(row, "wait_main_cpu_ns", frame.waitCpu());
             row.addProperty("deadline_overrun", frame.overrun());
             frameRows.add(row);
         }
@@ -160,5 +162,5 @@ public final class BenchmarkRecorder {
     private record Snapshot(long wall, Long mainCpu, Long mainAllocated, Long workerCpu, Long workerAllocated,
                             Long processCpu, Long gcCount, Long gcMillis) {}
     private record Frame(long interval, Long cpu, Long allocated, long nativeTick, long outerTick,
-                         long waitTime, long waitCpu, boolean overrun) {}
+                         long waitTime, Long waitCpu, boolean overrun) {}
 }

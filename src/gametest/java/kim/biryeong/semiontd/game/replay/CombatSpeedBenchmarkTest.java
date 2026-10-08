@@ -274,6 +274,17 @@ public final class CombatSpeedBenchmarkTest {
                 output.addProperty("seed", "1");
                 output.addProperty("scope", "CONTROLLED_REPLICATED_ENGINEER_WORKLOAD_NOT_HISTORICAL_MATCH_OR_CLIENT_RENDERING");
                 output.addProperty("instrumentation", "TICK_BODY_PLUS_WHOLE_MAIN_HEAD_TO_NEXT_HEAD_INCLUDING_OWNER_WAIT_COMPLETIONS");
+                JsonObject environment = new JsonObject();
+                environment.addProperty("java_version", System.getProperty("java.version"));
+                environment.addProperty("vm_name", System.getProperty("java.vm.name"));
+                environment.addProperty("os_name", System.getProperty("os.name"));
+                environment.addProperty("os_version", System.getProperty("os.version"));
+                environment.addProperty("architecture", System.getProperty("os.arch"));
+                environment.addProperty("logical_processors", Runtime.getRuntime().availableProcessors());
+                environment.addProperty("maximum_heap_bytes", Runtime.getRuntime().maxMemory());
+                environment.add("vm_arguments", new Gson().toJsonTree(java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()));
+                environment.add("gc_names", new Gson().toJsonTree(java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream().map(java.lang.management.GarbageCollectorMXBean::getName).toList()));
+                output.add("environment", environment);
                 output.add("trials", trials);
                 Path path = Path.of(System.getProperty("semiontd.benchmark.output"));
                 Files.createDirectories(path.toAbsolutePath().getParent());

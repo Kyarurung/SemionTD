@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--lanes', type=int, choices=(1, 22), required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--dry-repetitions', type=int, choices=(1, 2), default=1)
     parser.add_argument('--order', choices=('A1', 'B1', 'B2', 'A2'), default='A1')
     parser.add_argument('--quiet-host-confirmed', action='store_true')
     args = parser.parse_args()
@@ -46,7 +47,7 @@ def main():
         'semiontd.benchmark.productionRevision': production,
         'semiontd.benchmark.lanes': str(args.lanes),
         'semiontd.benchmark.warmups': '0' if args.dry_run else '3',
-        'semiontd.benchmark.measured': '1' if args.dry_run else '5',
+        'semiontd.benchmark.measured': str(args.dry_repetitions) if args.dry_run else '5',
         'semiontd.benchmark.dry': str(args.dry_run).lower(),
         'semiontd.benchmark.order': args.order,
         'semiontd.benchmark.output': output.as_posix(),
