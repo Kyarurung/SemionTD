@@ -28,7 +28,9 @@ public final class AugmentClientCaptureTest implements FabricClientGameTest {
         }, 2400);
         context.waitFor(client -> client.getResourceManager().getResource(
                 net.minecraft.resources.Identifier.parse("semion-td:font/ui.json")).isPresent(), 2400);
-        if ("sky".equals(System.getProperty("semiontd.capture.mode"))) {
+        if ("demon".equals(System.getProperty("semiontd.capture.mode"))) {
+            captureDemon(context);
+        } else if ("sky".equals(System.getProperty("semiontd.capture.mode"))) {
             captureSky(context);
         } else if ("dragon".equals(System.getProperty("semiontd.capture.mode"))) {
             EndDragonClientCapture.capture(context);
@@ -45,6 +47,63 @@ public final class AugmentClientCaptureTest implements FabricClientGameTest {
         context.waitFor(client -> client.level == null);
         context.waitTicks(2);
         context.setScreen(net.minecraft.client.gui.screens.TitleScreen::new);
+    }
+
+    private static void captureDemon(ClientGameTestContext context) {
+        context.getInput().resizeWindow(1600, 1000);
+        for (int scale : new int[]{2, 3}) {
+            context.runOnClient(client -> {
+                client.options.guiScale().set(scale);
+                client.resizeGui();
+            });
+            for (var skill : List.of(kim.biryeong.semiontd.tower.demonlord.DemonLordSkill.SOUL_DRAIN,
+                    kim.biryeong.semiontd.tower.demonlord.DemonLordSkill.SKY_BREAKER,
+                    kim.biryeong.semiontd.tower.demonlord.DemonLordSkill.GRIP_OF_DOOM,
+                    kim.biryeong.semiontd.tower.demonlord.DemonLordSkill.HELLFIRE_BRAND)) {
+                context.runOnClient(client -> {
+                    client.gui.setScreen(null);
+                    client.getConnection().sendCommand("semioncapture demon " + skill.name());
+                });
+                context.waitFor(client -> client.player.experienceLevel == 2300 + skill.ordinal()
+                        && client.gui.screen() instanceof net.minecraft.client.gui.screens.dialog.DialogScreen<?>, 1200);
+                context.waitTicks(10);
+                context.runOnClient(client -> {
+                    try {
+                        var dialog = client.gui.screen();
+                        var body = net.minecraft.client.gui.screens.dialog.DialogScreen.class.getDeclaredField("bodyScroll");
+                        body.setAccessible(true);
+                        var content = net.minecraft.client.gui.components.ScrollableLayout.class.getDeclaredField("content");
+                        content.setAccessible(true);
+                        var widgets = new java.util.ArrayList<net.minecraft.client.gui.components.AbstractWidget>();
+                        ((net.minecraft.client.gui.layouts.Layout) content.get(body.get(dialog))).visitWidgets(widgets::add);
+                        StringBuilder text = new StringBuilder();
+                        for (var widget : widgets) {
+                            if (!(widget instanceof net.minecraft.client.gui.components.FocusableTextWidget field)) continue;
+                            text.append(field.getMessage().getString());
+                            int width = field.getWidth() - field.getPadding() * 2;
+                            for (var line : client.font.split(field.getMessage(), width)) {
+                                if (client.font.width(line) > width) throw new AssertionError("Demon detail line overflow");
+                            }
+                            if (field.getX() < 0 || field.getX() + field.getWidth() > dialog.width) {
+                                throw new AssertionError("Demon detail widget exceeds the viewport");
+                            }
+                        }
+                        if (!text.toString().contains("피해 포인트") || !text.toString().contains("100.0/50.0")
+                                || !text.toString().contains("점감 후 기준 피해") || text.toString().contains("{ability.")) {
+                            throw new AssertionError("Live Demon details are missing scaling values");
+                        }
+                        client.gui.toastManager().clear();
+                        System.out.println("SEMION_DEMON_NATIVE_LAYOUT_OK skill=" + skill + " scale=" + scale);
+                    } catch (ReflectiveOperationException error) {
+                        throw new AssertionError(error);
+                    }
+                });
+                var shot = context.takeScreenshot(TestScreenshotOptions.of("demon-damage-" + skill.name().toLowerCase(java.util.Locale.ROOT)
+                        + "-scale" + scale).withSize(1600, 1000).disableCounterPrefix());
+                if (!Files.isRegularFile(shot)) throw new AssertionError("Demon GPU screenshot missing");
+                System.out.println("SEMION_CAPTURE_SCREENSHOT=" + shot.toAbsolutePath());
+            }
+        }
     }
 
     private static void captureSky(ClientGameTestContext context) {

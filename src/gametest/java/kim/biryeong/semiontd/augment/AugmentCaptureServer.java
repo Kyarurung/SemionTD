@@ -41,6 +41,26 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
         kim.biryeong.semiontd.ui.CardDialogPoc.register();
         CommandRegistrationCallback.EVENT.register((dispatcher, registry, environment) -> {
             var command = Commands.literal("semioncapture");
+            if ("demon".equals(System.getProperty("semiontd.capture.mode"))) {
+                command.then(Commands.literal("demon").then(Commands.argument("skill", com.mojang.brigadier.arguments.StringArgumentType.word())
+                        .executes(context -> {
+                            var player = context.getSource().getPlayerOrException();
+                            show(player, "silver");
+                            var participant = game.players().get(player.getUUID());
+                            participant.assignJob(new kim.biryeong.semiontd.job.DemonLordTowerJob());
+                            var state = kim.biryeong.semiontd.tower.demonlord.DemonLordStates.getOrCreate(player.getUUID());
+                            state.addExperience(1e12);
+                            var skill = kim.biryeong.semiontd.tower.demonlord.DemonLordSkill.valueOf(
+                                    com.mojang.brigadier.arguments.StringArgumentType.getString(context, "skill"));
+                            var tower = new kim.biryeong.semiontd.tower.demonlord.DemonLordSkillTower(
+                                    kim.biryeong.semiontd.config.TowerBalanceRuntime.resolve(kim.biryeong.semiontd.tower.demonlord.DemonLordTowers.tower(skill, 4)), player.getUUID(),
+                                    participant.teamId(), participant.laneId(), new kim.biryeong.semiontd.game.GridPosition(0, 80, 0));
+                            new kim.biryeong.semiontd.ui.SemionDialogService().showTowerDetails(player, game, tower);
+                            player.setExperienceLevels(2300 + skill.ordinal());
+                            System.out.println("SEMION_DEMON_DETAILS=" + skill + " " + tower.runtimeDetailLines());
+                            return 1;
+                        })));
+            }
             for (String rarity : List.of("silver", "gold", "prismatic")) {
                 command.then(Commands.literal(rarity).executes(context -> {
                     try {

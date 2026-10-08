@@ -2394,7 +2394,8 @@ public record TowerBalanceConfig(
         String global = DemonLordTowers.GLOBAL_CONFIG_ID;
         validatePositive(global,
                 "baseMaxHealth", "experienceBase", "experienceGrowth", "bladeAttackIntervalTicks",
-                "healthBonusThreshold", "healthBonusScale", "damageBonusThreshold", "damageBonusScale");
+                "healthBonusThreshold", "healthBonusScale", "damageBonusThreshold", "damageBonusScale",
+                "physicalDamageThreshold", "physicalDamageScale", "magicDamageThreshold", "magicDamageScale");
         validateAtLeast(global, 0.0,
                 "maxHealthPerLevel", "experiencePerMaxHealth", "damagePerLevel", "bladeDamage");
         validateIntegral(global, false, "maxLevel", "bladeAttackIntervalTicks");
@@ -5255,6 +5256,10 @@ public record TowerBalanceConfig(
         global.put("healthBonusScale", 500.0);
         global.put("damageBonusThreshold", 0.5);
         global.put("damageBonusScale", 0.5);
+        global.put("physicalDamageThreshold", 100.0);
+        global.put("physicalDamageScale", 100.0);
+        global.put("magicDamageThreshold", 100.0);
+        global.put("magicDamageScale", 50.0);
         global.put("bladeDamage", 19.0);
         global.put("bladeAttackIntervalTicks", 12.0);
         // 몹을 하나도 못 잡은 라운드에도 주는 기본 경험치입니다. 한 번 밀린 마왕이 영영

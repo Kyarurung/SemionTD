@@ -84,7 +84,7 @@ public final class DemonLordStatGui extends SimpleGui {
     private static String currentEffect(DemonLordState state, DemonLordStat stat) {
         return switch (stat) {
             case MAX_HEALTH -> "최대 체력 " + Math.round(state.maxHealth());
-            case ATTACK -> "피해 배율 " + percent(state.damageMultiplier());
+            case ATTACK -> "점감 전 피해 배율 " + percent(state.damageMultiplier());
             case DEFENSE -> "피해 감소 " + percent(state.damageReduction());
             case COOLDOWN -> "쿨타임 " + percent(state.cooldownMultiplier()) + " (낮을수록 좋음)";
             case SKILL_RANGE -> "범위 배율 " + percent(state.skillRangeMultiplier());
