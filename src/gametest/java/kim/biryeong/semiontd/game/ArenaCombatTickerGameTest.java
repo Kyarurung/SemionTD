@@ -37,6 +37,7 @@ import xyz.nucleoid.fantasy.util.VoidChunkGenerator;
 public final class ArenaCombatTickerGameTest {
     private static Fixture observedFixture;
     private static List<ServerLevel> observedOrder;
+    private static boolean stopDuringWorldTick;
 
     static {
         ServerTickEvents.START_WORLD_TICK.register(world -> {
@@ -45,7 +46,57 @@ public final class ArenaCombatTickerGameTest {
                 observedOrder.add(world);
                 require(fixture.first.asWorld().getGameTime() == fixture.second.asWorld().getGameTime(),
                         "Both arenas must see the same substep clock before either world ticks.");
-                ArenaCombatTicker.tick(world.getServer(), fixture.game);
+                require(!ArenaCombatTicker.tick(world.getServer(), fixture.game), "Reentrant world steps must report rejection.");
+                if (stopDuringWorldTick) {
+                    setPhase(fixture.game, RoundPhase.ROUND_PAYOUT);
+                }
+            }
+        });
+    }
+
+    @GameTest
+    public void phaseChangeDuringWorldStepReportsIncompleteGroup(GameTestHelper context) {
+        try (Fixture fixture = new Fixture(context.getLevel().getServer())) {
+            observedFixture = fixture;
+            observedOrder = new ArrayList<>();
+            stopDuringWorldTick = true;
+            require(!ArenaCombatTicker.tick(context.getLevel().getServer(), fixture.game),
+                    "A phase change in a world callback must reject the extra logical step.");
+            require(observedOrder.size() == 1, "A changed phase must stop before the remaining arena ticks.");
+        } finally {
+            observedFixture = null;
+            observedOrder = null;
+            stopDuringWorldTick = false;
+        }
+        context.succeed();
+    }
+
+    @GameTest
+    public void missingRequiredWorldRejectsWholeGroupBeforeClockAdvance(GameTestHelper context) {
+        Fixture fixture = new Fixture(context.getLevel().getServer());
+        fixture.second.unload();
+        awaitWorldUnloaded(context, fixture, 0);
+    }
+
+    private static void awaitWorldUnloaded(GameTestHelper context, Fixture fixture, int attempts) {
+        context.runAfterDelay(1, () -> {
+            MinecraftServer server = context.getLevel().getServer();
+            try {
+                ServerLevel missing = fixture.second.asWorld();
+                if (server.getLevel(missing.dimension()) == missing) {
+                    require(attempts < 40, "The isolated arena world did not unload.");
+                    awaitWorldUnloaded(context, fixture, attempts + 1);
+                    return;
+                }
+                long before = fixture.first.asWorld().getGameTime();
+                require(!ArenaCombatTicker.tick(server, fixture.game), "A missing required world must reject the group.");
+                require(fixture.first.asWorld().getGameTime() == before,
+                        "Rejected preflight must not advance a remaining arena's clock.");
+                fixture.close();
+                context.succeed();
+            } catch (Throwable failure) {
+                fixture.close();
+                context.fail(Component.literal(failure.getMessage() == null ? failure.toString() : failure.getMessage()));
             }
         });
     }
@@ -65,16 +116,16 @@ public final class ArenaCombatTickerGameTest {
             }
             observedOrder = new ArrayList<>();
             observedFixture = fixture;
-            ArenaCombatTicker.tick(server, fixture.game);
+            require(ArenaCombatTicker.tick(server, fixture.game), "A complete arena group must report success.");
             require(observedOrder.equals(expected), "Each live arena must tick once in server iteration order.");
             require(first.getGameTime() == vanillaTime + 1 && second.getGameTime() == vanillaTime + 1,
                     "Fantasy arena clocks must advance despite inheriting overworld time.");
             require(server.overworld().getGameTime() == vanillaTime, "The overworld must not accelerate.");
             setPhase(fixture.game, RoundPhase.PREPARE_AND_SUMMON);
-            ArenaCombatTicker.tick(server, fixture.game);
+            require(!ArenaCombatTicker.tick(server, fixture.game), "Preparation must reject extra simulation.");
             require(first.getGameTime() == vanillaTime + 1, "Preparation must retain the clock offset without ticking.");
             setPhase(fixture.game, RoundPhase.LANE_WAVE);
-            ArenaCombatTicker.tick(server, fixture.game);
+            require(ArenaCombatTicker.tick(server, fixture.game), "A later combat phase must allow a complete group.");
             require(first.getGameTime() == vanillaTime + 2, "A later combat phase must continue the same clock.");
             ArenaCombatClock.remove(first);
             require(first.getGameTime() == vanillaTime && second.getGameTime() == vanillaTime + 2,
@@ -241,8 +292,12 @@ public final class ArenaCombatTickerGameTest {
 
         @Override
         public void close() {
-            first.unload();
-            second.unload();
+            if (first.asWorld().getServer().getLevel(first.asWorld().dimension()) == first.asWorld()) {
+                first.unload();
+            }
+            if (second.asWorld().getServer().getLevel(second.asWorld().dimension()) == second.asWorld()) {
+                second.unload();
+            }
         }
     }
 }

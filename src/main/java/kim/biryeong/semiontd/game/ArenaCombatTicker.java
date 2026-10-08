@@ -17,50 +17,60 @@ public final class ArenaCombatTicker {
     private ArenaCombatTicker() {
     }
 
-    public static void tick(MinecraftServer server, SemionGame game) {
+    public static boolean tick(MinecraftServer server, SemionGame game) {
         if (server == null || game == null || game.arena() == null || game.phase() != RoundPhase.LANE_WAVE
                 || !server.tickRateManager().runsNormally()) {
-            return;
+            return false;
         }
         if (!server.isSameThread()) {
             throw new IllegalStateException("Arena combat must tick on the server thread.");
         }
         if (!TICKING.add(server)) {
-            return;
+            return false;
         }
         try {
             int round = game.currentRound();
+            Set<ServerLevel> requiredWorlds = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (TeamId team : TeamId.values()) {
+                game.arena().teamArena(team).ifPresent(arena -> requiredWorlds.add(arena.world()));
+            }
+            if (requiredWorlds.isEmpty() || requiredWorlds.contains(null)) {
+                return false;
+            }
             List<ServerLevel> worlds = new ArrayList<>();
             for (ServerLevel world : server.getAllLevels()) {
-                if (game.arena().containsWorld(world) && canTick(server, world)) {
+                if (requiredWorlds.contains(world)) {
+                    if (!canTick(server, world)) {
+                        return false;
+                    }
                     worlds.add(world);
                 }
+            }
+            if (worlds.size() != requiredWorlds.size()) {
+                return false;
             }
             for (ServerLevel world : worlds) {
                 if (world.getLevelData() instanceof DerivedLevelData) {
                     ArenaCombatClock.advance(world);
                 }
             }
-            Set<ServerLevel> tickedWorlds = Collections.newSetFromMap(new IdentityHashMap<>());
             for (ServerLevel world : worlds) {
-                if (!isCurrentRound(game, round)) {
-                    break;
+                if (!isCurrentRound(game, round) || !canTick(server, world)) {
+                    return false;
                 }
-                if (canTick(server, world)) {
-                    world.tick(() -> true);
-                    tickedWorlds.add(world);
-                }
+                world.tick(() -> true);
             }
             for (ServerPlayer player : List.copyOf(server.getPlayerList().getPlayers())) {
                 if (!isCurrentRound(game, round)) {
-                    break;
+                    return false;
                 }
                 ServerLevel world = player.level();
-                if (tickedWorlds.contains(world) && canTick(server, world) && !player.isRemoved()
+                if (requiredWorlds.contains(world) && canTick(server, world) && !player.isRemoved()
                         && !player.hasDisconnected() && !world.tickRateManager().isEntityFrozen(player)) {
                     tickPlayer(player);
                 }
             }
+            return isCurrentRound(game, round) && worlds.stream().allMatch(world -> canTick(server, world));
         } finally {
             TICKING.remove(server);
         }
