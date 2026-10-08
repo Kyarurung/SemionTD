@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +16,7 @@ final class CombatStepRunnerTest {
         CombatStepRunner.run(3, () -> true, () -> {
             events.add("red");
             events.add("blue");
+            return true;
         }, () -> events.add("game"));
         assertEquals(List.of("red", "blue", "game", "red", "blue", "game", "red", "blue", "game"), events);
     }
@@ -24,10 +26,39 @@ final class CombatStepRunnerTest {
         for (int exitStep : new int[] {1, 2, 3}) {
             AtomicInteger games = new AtomicInteger();
             AtomicInteger worlds = new AtomicInteger();
-            CombatStepRunner.run(5, () -> games.get() < exitStep, worlds::incrementAndGet, games::incrementAndGet);
+            CombatStepRunner.run(5, () -> games.get() < exitStep, () -> {
+                worlds.incrementAndGet();
+                return true;
+            }, games::incrementAndGet);
             assertEquals(exitStep, games.get());
             assertEquals(exitStep - 1, worlds.get());
         }
+    }
+
+    @Test
+    void rejectedWorldStepDoesNotAdvanceGameOrRetryWithinTheBatch() {
+        AtomicInteger games = new AtomicInteger();
+        AtomicInteger attempts = new AtomicInteger();
+        CombatStepRunner.run(5, () -> true, () -> {
+            attempts.incrementAndGet();
+            return false;
+        }, games::incrementAndGet);
+        assertEquals(1, games.get());
+        assertEquals(1, attempts.get());
+    }
+
+    @Test
+    void worldStepChangingEligibilityCannotAdvanceTheStaleGame() {
+        AtomicBoolean wave = new AtomicBoolean(true);
+        AtomicInteger games = new AtomicInteger();
+        AtomicInteger worlds = new AtomicInteger();
+        CombatStepRunner.run(5, wave::get, () -> {
+            worlds.incrementAndGet();
+            wave.set(false);
+            return true;
+        }, games::incrementAndGet);
+        assertEquals(1, games.get());
+        assertEquals(1, worlds.get());
     }
 
     @Test

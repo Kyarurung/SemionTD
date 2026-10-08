@@ -148,7 +148,10 @@ public final class CombatStepTest {
             for (int wallTick = 0; wallTick < (accelerated ? 10 : 20); wallTick++) {
                 worlds.run();
                 if (accelerated) {
-                    CombatStepRunner.run(2, () -> game.phase() == RoundPhase.LANE_WAVE, worlds, logical);
+                    CombatStepRunner.run(2, () -> game.phase() == RoundPhase.LANE_WAVE, () -> {
+                        worlds.run();
+                        return true;
+                    }, logical);
                 } else {
                     logical.run();
                 }
@@ -185,7 +188,10 @@ public final class CombatStepTest {
         boolean eligible = !game.isSandboxMode() && !game.isTutorialMode() && game.phase() == RoundPhase.LANE_WAVE;
         int round = game.currentRound();
         CombatStepRunner.run(steps, () -> eligible && game.phase() == RoundPhase.LANE_WAVE && game.currentRound() == round,
-                worlds, () -> game.tick(context.getLevel().getServer()));
+                () -> {
+                    worlds.run();
+                    return true;
+                }, () -> game.tick(context.getLevel().getServer()));
     }
 
     private static List<PlayerLane> lanes(SemionGame game) {
