@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -236,6 +237,53 @@ final class CombatSimulationSessionTest {
         }
     }
 
+    @Test
+    void synchronousDeadActorAmbientWorkCompletesWithoutAWorkerApply() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        bridge.ambient.add("a");
+        Dispatcher dispatcher = new Dispatcher();
+        try (var coordinator = coordinator(bridge, dispatcher, ignored -> {})) {
+            coordinator.beginFrame(2);
+            while (!coordinator.idle()) {
+                dispatcher.next().run();
+            }
+            assertEquals(2, coordinator.completedSteps());
+            assertEquals(2, bridge.prefixes.get("a"));
+            assertFalse(bridge.events.stream().anyMatch(event -> event.startsWith("apply:a:")));
+            assertEquals(2, bridge.prefixes.get("b"));
+            assertEquals(2, bridge.committedTick);
+        }
+    }
+
+    @Test
+    void rejectedOwnerDispatchClosesOnTheNextFrameInsteadOfStallingTheAcceptedStep() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        try (var coordinator = new CombatSimulationSession.Coordinator<>(bridge,
+                input -> new Result(input.actor(), input.tick()), action -> {
+                    throw new RejectedExecutionException("owner dispatcher stopped");
+                })) {
+            coordinator.beginFrame(1);
+            IllegalStateException reported = null;
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            while (reported == null && System.nanoTime() < deadline) {
+                try {
+                    coordinator.endFrame();
+                } catch (IllegalStateException failure) {
+                    reported = failure;
+                }
+                if (reported == null) {
+                    Thread.sleep(1);
+                }
+            }
+            assertTrue(reported != null, "A failed dispatch must be reported to the owner frame.");
+            assertTrue(reported.getCause() instanceof RejectedExecutionException);
+            assertTrue(coordinator.isClosed());
+            assertEquals(1, bridge.closes);
+            assertEquals(0, coordinator.completedSteps());
+            assertFalse(bridge.events.contains("circuit:1"));
+        }
+    }
+
     private static CombatSimulationSession.Coordinator<String, Request, Result> coordinator(
             FakeBridge bridge, Dispatcher dispatcher, Consumer<Request> work) {
         return new CombatSimulationSession.Coordinator<>(bridge, input -> {
@@ -267,6 +315,7 @@ final class CombatSimulationSessionTest {
         private final List<String> events = new ArrayList<>();
         private final List<String> members = new ArrayList<>(List.of("a", "b"));
         private final Set<String> removed = new HashSet<>();
+        private final Set<String> ambient = new HashSet<>();
         private final Map<String, Integer> prefixes = new HashMap<>();
         private final Map<String, Long> actorRevisions = new HashMap<>();
         private final List<Long> presentedTicks = new ArrayList<>();
@@ -293,7 +342,7 @@ final class CombatSimulationSessionTest {
         public Request prepare(String actor) {
             events.add("prepare:" + actor + ":" + tick);
             prefixes.merge(actor, 1, Integer::sum);
-            return new Request(actor, tick);
+            return ambient.contains(actor) ? null : new Request(actor, tick);
         }
         public void apply(String actor, Request input, Result result) {
             assertEquals(actor, input.actor());

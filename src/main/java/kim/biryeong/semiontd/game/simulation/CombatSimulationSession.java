@@ -458,6 +458,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
         void beginFrame(int steps) {
             requireOwner();
+            checkNotification();
             if (steps < 1 || steps > MAX_STEPS) {
                 throw new IllegalArgumentException("Combat frame budget must be within 1..5.");
             }
@@ -469,6 +470,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
         void endFrame() {
             requireOwner();
+            checkNotification();
             if (!closed) {
                 bridge.present();
             }
@@ -476,6 +478,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
         void input(Runnable input) {
             requireOwner();
+            checkNotification();
             Objects.requireNonNull(input);
             if (closed || closeRequested) {
                 throw new IllegalStateException("Combat session is closed.");
@@ -626,6 +629,11 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         void fail(RuntimeException failure) {
             closeNow();
             throw failure;
+        }
+
+        private void checkNotification() {
+            executor.notificationFailure().ifPresent(failure -> fail(
+                    new IllegalStateException("Combat completion could not be dispatched to its owner.", failure)));
         }
 
         @Override
