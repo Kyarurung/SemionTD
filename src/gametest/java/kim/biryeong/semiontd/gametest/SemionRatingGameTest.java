@@ -188,7 +188,8 @@ public final class SemionRatingGameTest {
                 };
                 try {
                     for (var position : positions) {
-                        var chunk = new net.minecraft.world.level.ChunkPos(net.minecraft.core.BlockPos.containing(position));
+                        var chunk = new net.minecraft.world.level.ChunkPos(
+                                (int) Math.floor(position.x) >> 4, (int) Math.floor(position.z) >> 4);
                         if (red.world().setChunkForced(chunk.x(), chunk.z(), true)) {
                             forcedChunks.add(chunk);
                         }
