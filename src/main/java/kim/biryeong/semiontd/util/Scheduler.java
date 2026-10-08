@@ -1,7 +1,7 @@
 package kim.biryeong.semiontd.util;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -23,7 +23,7 @@ public final class Scheduler {
 
     private Scheduler() {
         ServerTickEvents.END_SERVER_TICK.register(this::runTasks);
-        ServerWorldEvents.UNLOAD.register((server, world) -> arenaTasks.remove(world));
+        ServerLevelEvents.UNLOAD.register((server, world) -> arenaTasks.remove(world));
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> arenaTasks.clear());
     }
 
