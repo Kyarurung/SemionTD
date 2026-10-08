@@ -29,7 +29,6 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.level.ChunkPos;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.fantasy.RuntimeLevelHandle;
@@ -184,7 +183,7 @@ public final class ArenaCombatTickerTest {
     private static void awaitEntityTicking(GameTestHelper context, Fixture fixture, CountingMonster monster, int attempts) {
         context.runAfterDelay(1, () -> {
             try {
-                if (!((ServerLevel) monster.level()).areEntitiesActuallyLoadedAndTicking(new ChunkPos(monster.blockPosition()))
+                if (!((ServerLevel) monster.level()).areEntitiesActuallyLoadedAndTicking(monster.chunkPosition())
                         || monster.tickCount < 2) {
                     require(attempts < 40, "The isolated arena entity chunk did not become tickable.");
                     awaitEntityTicking(context, fixture, monster, attempts + 1);
