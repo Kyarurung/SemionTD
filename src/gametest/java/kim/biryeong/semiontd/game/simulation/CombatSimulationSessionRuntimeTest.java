@@ -41,6 +41,15 @@ import xyz.nucleoid.fantasy.util.VoidChunkGenerator;
 public final class CombatSimulationSessionRuntimeTest {
     @GameTest(maxTicks = 240)
     public void realSessionCommitsTimersInputsDeathsAndWorldTasksAcrossTwentyAcceptedFrames(GameTestHelper context) {
+        run(context, 2);
+    }
+
+    @GameTest(maxTicks = 240)
+    public void oneStepFramesRetainTheSameNativeFortyStepTimerAndDeathTrace(GameTestHelper context) {
+        run(context, 1);
+    }
+
+    private static void run(GameTestHelper context, int stepsPerFrame) {
         var server = context.getLevel().getServer();
         RuntimeLevelHandle handle = Fantasy.get(server).openTemporaryLevel(
                 Identifier.fromNamespaceAndPath("semion-td-gametest", "combat_session_" + UUID.randomUUID()),
@@ -54,7 +63,7 @@ public final class CombatSimulationSessionRuntimeTest {
                 world.areEntitiesActuallyLoadedAndTicking(new ChunkPos(0, 0)),
                 "Session fixture chunk must be ticking")).thenExecute(() -> {
                     try {
-                        Fixture fixture = new Fixture(world, handle);
+                        Fixture fixture = new Fixture(world, handle, stepsPerFrame);
                         drive(context, fixture);
                     } catch (Throwable failure) {
                         handle.unload();
@@ -70,14 +79,14 @@ public final class CombatSimulationSessionRuntimeTest {
                 throw new AssertionError("The active fixture wave must retain its simulation owner");
             }
             if (fixture.session.idle()) {
-                if (fixture.frames == 20) {
+                if (fixture.frames == 40 / fixture.stepsPerFrame) {
                     fixture.verify();
                     fixture.close();
                     context.succeed();
                     return;
                 }
                 fixture.frames++;
-                fixture.session.beginFrame(2);
+                fixture.session.beginFrame(fixture.stepsPerFrame);
                 if (fixture.frames == 1) {
                     fixture.session.input(() -> fixture.inputs.add("first:" + fixture.game.currentTick()));
                     fixture.session.input(() -> fixture.inputs.add("second:" + fixture.game.currentTick()));
@@ -102,6 +111,7 @@ public final class CombatSimulationSessionRuntimeTest {
         private final SemionMonsterEntity corpse;
         private final long startTime;
         private final int startAge;
+        private final int stepsPerFrame;
         private final List<Long> steps = new ArrayList<>();
         private final List<Long> hits = new ArrayList<>();
         private final List<Long> tasks = new ArrayList<>();
@@ -111,9 +121,10 @@ public final class CombatSimulationSessionRuntimeTest {
         private boolean closed;
 
         @SuppressWarnings("unchecked")
-        private Fixture(ServerLevel world, RuntimeLevelHandle handle) throws ReflectiveOperationException {
+        private Fixture(ServerLevel world, RuntimeLevelHandle handle, int stepsPerFrame) throws ReflectiveOperationException {
             this.world = world;
             this.handle = handle;
+            this.stepsPerFrame = stepsPerFrame;
             for (int x = 0; x < 8; x++) {
                 for (int z = 0; z < 8; z++) {
                     world.setBlock(new BlockPos(x, 64, z), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
@@ -167,8 +178,8 @@ public final class CombatSimulationSessionRuntimeTest {
         }
 
         private void verify() {
-            require(frames == 20 && session.logicalTickCount() == 40 && steps.size() == 40,
-                    "Twenty accepted doubled frames must commit forty logical steps");
+            require(frames == 40 / stepsPerFrame && session.logicalTickCount() == 40 && steps.size() == 40,
+                    "Both one-step and two-step accepted frames must commit the same forty logical steps");
             require(inputs.equals(List.of("first:1", "second:1")), "Pending-step inputs must run in order at the next boundary");
             require(tasks.equals(List.of(1L)), "Legacy two-tick world tasks must run once at the first logical deadline");
             require(hits.equals(List.of(3L)), "Pending attack must resolve once at its native logical age");
