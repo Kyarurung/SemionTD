@@ -58,7 +58,7 @@ public final class CombatMultiplierRuntimeTest implements RuntimeArenaFixture {
             CombatSpeedRuntime.configure(server, game, 40.0F, 2);
             CombatSpeedRuntime.runGameStep(0, () -> {
                 Scheduler.INSTANCE.submit(world,
-                        ignored -> hits.add(CombatSpeedRuntime.gameTime(world)), 1);
+                        ignored -> hits.add(CombatSpeedRuntime.gameTime(world)), 2);
                 Scheduler.INSTANCE.runWorldTasks(world);
             });
             require(hits.isEmpty(), "Delayed hit must not run in the scheduling step");
@@ -67,7 +67,7 @@ public final class CombatMultiplierRuntimeTest implements RuntimeArenaFixture {
             serverDrain.invoke(Scheduler.INSTANCE, server);
             require(hits.isEmpty(), "Server callback order must not drain accelerated deadlines early");
             CombatSpeedRuntime.runGameStep(1, () -> Scheduler.INSTANCE.runWorldTasks(world));
-            require(hits.equals(List.of(endTime)), "One-tick hit must resolve in the next logical step");
+            require(hits.equals(List.of(endTime)), "Legacy two-tick delay must resolve in the next logical step");
             Scheduler.INSTANCE.runWorldTasks(world);
             require(hits.size() == 1, "Server-end drain must not repeat a resolved hit");
         } finally {
