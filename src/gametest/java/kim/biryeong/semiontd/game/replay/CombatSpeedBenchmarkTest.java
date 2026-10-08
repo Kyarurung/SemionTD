@@ -96,6 +96,8 @@ public final class CombatSpeedBenchmarkTest {
         private long groupBase;
         private long groupTarget;
         private long groups;
+        private long completedEightGroups;
+        private long threeStepRequests;
         private long spilledGroups;
         private long maxGroupLag;
         private long beginWaits;
@@ -124,7 +126,7 @@ public final class CombatSpeedBenchmarkTest {
         private void prepare() throws Exception {
             battle = new Battle(server, lanes);
             session = null;
-            physicalFrames = groupStartFrame = groupBase = groupTarget = groups = spilledGroups = maxGroupLag = logicalTicks = 0;
+            physicalFrames = groupStartFrame = groupBase = groupTarget = groups = completedEightGroups = threeStepRequests = spilledGroups = maxGroupLag = logicalTicks = 0;
             extraThree = measuring = finished = false;
         }
 
@@ -176,6 +178,7 @@ public final class CombatSpeedBenchmarkTest {
                 configure();
                 require(server.tickRateManager().tickrate() == (mode.equals("native") ? 160F : 20F), "Actual physical frame clock differs from benchmark mode");
                 if (session != null && (boolean) call("idle")) {
+                    require(groupTarget == 0 || logicalTicks == groupTarget, "A new eight-step request must wait for completion of the prior group");
                     if (groupTarget != 0) {
                         long lag = physicalFrames - groupStartFrame;
                         maxGroupLag = Math.max(maxGroupLag, lag);
@@ -214,8 +217,10 @@ public final class CombatSpeedBenchmarkTest {
                 logicalTicks = tick;
                 if (session != null && !extraThree && tick == groupBase + 5 && battle.game.phase() == RoundPhase.LANE_WAVE) {
                     extraThree = true;
+                    threeStepRequests++;
                     call("beginFrame", int.class, 3);
                 }
+                if (session != null && tick == groupTarget) { completedEightGroups++; }
                 require(tick < 5000 || battle.game.phase() != RoundPhase.LANE_WAVE, "The controlled battle did not naturally finish within five thousand logical ticks");
                 if (battle.game.phase() != RoundPhase.LANE_WAVE) {
                     recorder.freezeWorker();
@@ -233,6 +238,9 @@ public final class CombatSpeedBenchmarkTest {
             metrics.addProperty("repetition", repetition);
             metrics.addProperty("warmup", repetition < warmups);
             metrics.addProperty("requested_eight_step_groups", groups);
+            metrics.addProperty("completed_eight_step_groups", completedEightGroups);
+            metrics.addProperty("additional_three_step_requests", threeStepRequests);
+            metrics.addProperty("last_group_completed_steps", session == null ? 0 : logicalTicks - groupBase);
             metrics.addProperty("final_group_requested_steps", groupTarget == 0 ? 0 : 8);
             metrics.addProperty("groups_spanning_multiple_physical_frames", spilledGroups);
             metrics.addProperty("maximum_group_physical_frames", maxGroupLag);
@@ -284,6 +292,7 @@ public final class CombatSpeedBenchmarkTest {
                 environment.addProperty("maximum_heap_bytes", Runtime.getRuntime().maxMemory());
                 environment.add("vm_arguments", new Gson().toJsonTree(java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments()));
                 environment.add("gc_names", new Gson().toJsonTree(java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream().map(java.lang.management.GarbageCollectorMXBean::getName).toList()));
+                environment.add("jvm_tuning", new Gson().toJsonTree(java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream().filter(argument -> argument.startsWith("-X")).toList()));
                 output.add("environment", environment);
                 output.add("trials", trials);
                 Path path = Path.of(System.getProperty("semiontd.benchmark.output"));

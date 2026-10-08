@@ -22,7 +22,10 @@ def run(driver, run_id):
             'driver': driver, 'engineer_lanes': 1, 'warmup_trials': 3, 'measured_trials': 5,
             'dry_run': False, 'physical_tps': 160 if driver == 'native' else 20,
             'logical_target_tps': 160, 'scenario_sha256': '2' * 64, 'rules_sha256': '3' * 64,
-            'map_sha256': '4' * 64, 'seed': '1', 'trials': trials}
+            'map_sha256': '4' * 64, 'seed': '1', 'trials': trials,
+            'environment': {'java_version': '25.0.3', 'vm_name': 'OpenJDK', 'os_name': 'Windows 11',
+                            'os_version': '10.0', 'architecture': 'amd64', 'logical_processors': 12,
+                            'maximum_heap_bytes': 8000000000, 'gc_names': ['G1'], 'jvm_tuning': []}}
 
 
 class BenchmarkSummaryTest(unittest.TestCase):
@@ -71,6 +74,13 @@ class BenchmarkSummaryTest(unittest.TestCase):
         self.runs[0]['trials'][3]['base_wait_calls'] = 0
         with self.assertRaises(summary.BenchmarkError):
             summary.summarize(self.runs)
+
+    def test_different_heap_gc_or_jvm_flags_refuses_comparison(self):
+        for field, value in (('maximum_heap_bytes', 1000000000), ('gc_names', ['ZGC']), ('jvm_tuning', ['-Xint'])):
+            runs = copy.deepcopy(self.runs)
+            runs[1]['environment'][field] = value
+            with self.subTest(field=field), self.assertRaises(summary.BenchmarkError):
+                summary.summarize(runs)
 
 
 if __name__ == '__main__':

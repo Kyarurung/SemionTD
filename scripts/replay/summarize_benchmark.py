@@ -122,6 +122,11 @@ def summarize(runs):
     for field in ('engineer_lanes', 'scenario_sha256', 'rules_sha256', 'map_sha256', 'seed'):
         if len({run.get(field) for run in runs}) != 1:
             raise BenchmarkError(f'Incompatible {field}; do not compare different workload conditions')
+    for field in ('java_version', 'vm_name', 'os_name', 'os_version', 'architecture',
+                  'logical_processors', 'maximum_heap_bytes', 'gc_names', 'jvm_tuning'):
+        values = [run.get('environment', {}).get(field) for run in runs]
+        if any(value is None for value in values) or any(value != values[0] for value in values[1:]):
+            raise BenchmarkError(f'Incompatible or missing runtime environment {field}')
     hashes = {trial['matched_work_sha256'] for run in runs for trial in run['trials']}
     if len(hashes) != 1:
         raise BenchmarkError('Actual final workload differs across repetitions or native/simulation; no performance conclusion')
