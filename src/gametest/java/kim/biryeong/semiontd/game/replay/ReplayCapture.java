@@ -372,7 +372,7 @@ public final class ReplayCapture implements AutoCloseable {
         trace.add("metadata", metadata);
         trace.add("samples", samples);
         Files.createDirectories(output.toAbsolutePath().getParent());
-        Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(trace) + "\n", StandardCharsets.UTF_8);
+        Files.writeString(output, new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(trace) + "\n", StandardCharsets.UTF_8);
     }
 
     private void add(String channel, JsonObject event) {

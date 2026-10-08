@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from compare_traces import load_trace, validate_trace
 
 REFERENCE = '7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13'
 PRODUCTION_PATHS = ('src/main', 'compat', 'build.gradle', 'gradle.properties', 'settings.gradle')
@@ -58,6 +59,7 @@ def main():
         return result.returncode
     if not output.is_file():
         raise RuntimeError('GameTest did not produce a complete capture; no parity conclusion is available')
+    validate_trace(load_trace(output))
     print(f'Capture: {output}; verified production revision: {revision}')
     return 0
 
