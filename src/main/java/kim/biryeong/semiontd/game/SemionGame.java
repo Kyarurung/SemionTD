@@ -31,6 +31,7 @@ import kim.biryeong.semiontd.config.WaveMonsterEntry;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.MonsterOrigin;
 import kim.biryeong.semiontd.entity.monster.MonsterSupportMetrics;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.job.JobContext;
 import kim.biryeong.semiontd.job.JobBuilderLifecycle;
 import kim.biryeong.semiontd.job.JobRegistry;
@@ -546,6 +547,9 @@ public final class SemionGame {
     }
 
     public boolean purchaseTowerLimit(UUID playerId) {
+        if (outsideCombatInput(playerId)) {
+            return false;
+        }
         SemionPlayer player = players.get(playerId);
         if (player == null) return false;
         long beforeDiamond = player.economy().diamond();
@@ -559,6 +563,9 @@ public final class SemionGame {
     }
 
     public TeamMoneyTransferResult requestTeamMoney(UUID requesterId, long amount) {
+        if (outsideCombatInput(requesterId)) {
+            return TeamMoneyTransferResult.failure(TeamMoneyTransferResultType.MATCH_ENDED);
+        }
         EconomyConfig.TeamTransferConfig config = economyConfig.teamTransfer();
         pruneExpiredTeamMoneyRequests();
         if (!config.enabled()) {
@@ -611,6 +618,9 @@ public final class SemionGame {
     }
 
     public TeamMoneyTransferResult acceptTeamMoneyRequest(UUID senderId, String requestId) {
+        if (outsideCombatInput(senderId)) {
+            return TeamMoneyTransferResult.failure(TeamMoneyTransferResultType.MATCH_ENDED);
+        }
         EconomyConfig.TeamTransferConfig config = economyConfig.teamTransfer();
         if (!config.enabled()) {
             return TeamMoneyTransferResult.failure(TeamMoneyTransferResultType.DISABLED);
@@ -1069,6 +1079,9 @@ public final class SemionGame {
         if (phase != RoundPhase.PREPARE_AND_SUMMON && phase != RoundPhase.LANE_WAVE) {
             return SummonResult.failure(SummonResultType.INVALID_PHASE, summonId);
         }
+        if (outsideCombatInput(playerId)) {
+            return SummonResult.failure(SummonResultType.INVALID_PHASE, summonId);
+        }
 
         SemionPlayer player = players.get(playerId);
         if (player == null) {
@@ -1187,6 +1200,9 @@ public final class SemionGame {
     }
 
     public boolean upgradeGasProduction(UUID playerId) {
+        if (outsideCombatInput(playerId)) {
+            return false;
+        }
         SemionPlayer player = players.get(playerId);
         if (player == null) {
             return false;
@@ -1207,6 +1223,12 @@ public final class SemionGame {
             );
         }
         return upgraded;
+    }
+
+    private boolean outsideCombatInput(UUID playerId) {
+        return playerLane(playerId).map(PlayerLane::arenaWorld)
+                .filter(CombatSimulationRuntime::controls)
+                .filter(world -> !CombatSimulationRuntime.usesView(world)).isPresent();
     }
 
     public void recordTowerPlacement(UUID playerId, String towerId, GridPosition position, long cost) {

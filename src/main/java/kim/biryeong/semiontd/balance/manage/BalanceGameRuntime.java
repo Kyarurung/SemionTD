@@ -71,6 +71,9 @@ public final class BalanceGameRuntime implements BalanceChangeService.Runtime {
     }
 
     public String writeBlocked() {
+        if (manager.combatSimulationFailed()) {
+            return "Combat simulation failed; dispose the stopped match before applying balance changes.";
+        }
         return manualConfigConflict;
     }
 
@@ -101,6 +104,9 @@ public final class BalanceGameRuntime implements BalanceChangeService.Runtime {
     @Override
     public String apply(BalanceBundle candidate, ApplyMode mode, String requestId, String nextRevision) {
         requireServerThread();
+        if (manager.combatSimulationFailed()) {
+            throw new IllegalStateException("Combat simulation failed; dispose the stopped match before applying balance changes.");
+        }
         if (manager.hasPracticeGames()) {
             throw new IllegalStateException("Balance changes require all sandbox and tutorial sessions to finish");
         }

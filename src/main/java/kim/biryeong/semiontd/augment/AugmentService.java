@@ -15,6 +15,7 @@ import kim.biryeong.semiontd.game.RoundPhase;
 import kim.biryeong.semiontd.game.SemionGame;
 import kim.biryeong.semiontd.game.SemionPlayer;
 import kim.biryeong.semiontd.game.AugmentTelemetrySnapshot;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.job.HeroPartyTowerJob;
@@ -614,6 +615,10 @@ public final class AugmentService {
     }
 
     public int handle(SemionGame game, ServerPlayer online, String input, boolean administrator) {
+        if (game.playerLane(online.getUUID()).map(lane -> CombatSimulationRuntime.input(lane.arenaWorld(),
+                () -> handle(game, online, input, administrator))).orElse(false)) {
+            return 1;
+        }
         SemionPlayer player = game.players().get(online.getUUID());
         if (!game.augmentsEnabled() || !alive(game, player)) {
             error(online, "증강은 시즌 3 NORMAL의 생존 참가자만 사용할 수 있습니다.");

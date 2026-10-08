@@ -28,6 +28,7 @@ import kim.biryeong.semiontd.cosmetic.CosmeticCatalog;
 import kim.biryeong.semiontd.cosmetic.CosmeticItemSupport;
 import kim.biryeong.semiontd.cosmetic.CosmeticService;
 import kim.biryeong.semiontd.game.*;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.job.JobRegistry;
 import kim.biryeong.semiontd.job.SemionJob;
 import kim.biryeong.semiontd.map.ArenaLoadException;
@@ -2622,6 +2623,15 @@ public final class SemionCommands {
             return 0;
         }
 
+        if (game.playerLane(requesterPlayer.getUUID()).map(lane -> CombatSimulationRuntime.input(lane.arenaWorld(), () -> {
+            try {
+                requestTeamMoney(source, gameManager, amount);
+            } catch (CommandSyntaxException invalidSource) {
+                failure(source, invalidSource.getMessage());
+            }
+        })).orElse(false)) {
+            return 1;
+        }
         TeamMoneyTransferResult result = game.requestTeamMoney(requesterPlayer.getUUID(), amount);
         if (result.type() != TeamMoneyTransferResultType.SUCCESS) {
             failure(source, teamMoneyFailureMessage(result));
@@ -2651,6 +2661,15 @@ public final class SemionCommands {
             return 0;
         }
 
+        if (game.playerLane(senderPlayer.getUUID()).map(lane -> CombatSimulationRuntime.input(lane.arenaWorld(), () -> {
+            try {
+                acceptTeamMoney(source, gameManager, requestId);
+            } catch (CommandSyntaxException invalidSource) {
+                failure(source, invalidSource.getMessage());
+            }
+        })).orElse(false)) {
+            return 1;
+        }
         TeamMoneyTransferResult result = game.acceptTeamMoneyRequest(senderPlayer.getUUID(), requestId);
         if (result.type() != TeamMoneyTransferResultType.SUCCESS) {
             failure(source, teamMoneyFailureMessage(result));
@@ -3218,6 +3237,16 @@ public final class SemionCommands {
         }
 
         UUID playerId = source.getPlayerOrException().getUUID();
+        if (game.playerLane(playerId).map(lane -> CombatSimulationRuntime.input(
+                lane.arenaWorld(), () -> {
+                    try {
+                        emeraldUp(source, gameManager);
+                    } catch (CommandSyntaxException invalidSource) {
+                        failure(source, invalidSource.getMessage());
+                    }
+                })).orElse(false)) {
+            return 1;
+        }
         boolean upgraded = game.upgradeGasProduction(playerId);
         if (!upgraded) {
             failure(source, "에메랄드 생산 업그레이드에 실패했습니다.");
@@ -3240,6 +3269,16 @@ public final class SemionCommands {
         }
 
         UUID playerId = source.getPlayerOrException().getUUID();
+        if (game.playerLane(playerId).map(lane -> CombatSimulationRuntime.input(
+                lane.arenaWorld(), () -> {
+                    try {
+                        towerLimitUp(source, gameManager);
+                    } catch (CommandSyntaxException invalidSource) {
+                        failure(source, invalidSource.getMessage());
+                    }
+                })).orElse(false)) {
+            return 1;
+        }
         boolean upgraded = game.purchaseTowerLimit(playerId);
         if (!upgraded) {
             failure(source, "타워 설치 수 증가 구매에 실패했습니다.");
@@ -3902,6 +3941,16 @@ public final class SemionCommands {
         }
 
         ServerPlayer player = source.getPlayerOrException();
+        if (game.playerLane(player.getUUID()).map(lane -> CombatSimulationRuntime.input(
+                lane.arenaWorld(), () -> {
+                    try {
+                        summon(source, gameManager, summonId);
+                    } catch (CommandSyntaxException invalidSource) {
+                        failure(source, invalidSource.getMessage());
+                    }
+                })).orElse(false)) {
+            return 1;
+        }
         if (game.augmentService().showSummonPurchase(game, player, summonId)) {
             return 1;
         }
