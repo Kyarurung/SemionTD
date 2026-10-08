@@ -185,6 +185,7 @@ public final class SemionGameManager {
     private SemionGame simulationGame;
     private int simulationRound;
     private boolean combatSimulationFailureReported;
+    private boolean balanceTickPending;
 
     public enum StartCountdownResult {
         SCHEDULED,
@@ -1853,7 +1854,8 @@ public final class SemionGameManager {
         }
         boolean arenaSpeed = simulationEnabled && combatSpeedAccelerated
                 && server.tickRateManager().runsNormally();
-        int steps = combatSteps.steps(arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
+        int steps = server.tickRateManager().runsNormally()
+                ? combatSteps.steps(arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE) : 1;
         CombatSpeedRuntime.configure(server, arenaSpeed ? activeGame : null,
                 arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE, 1);
         if (simulationEnabled) {
@@ -1863,13 +1865,22 @@ public final class SemionGameManager {
                 simulationRound = activeGame.currentRound();
             }
             if (server.tickRateManager().runsNormally()) {
-                combatSimulation.beginFrame(steps);
+                try {
+                    combatSimulation.beginFrame(steps);
+                } catch (RuntimeException | Error failure) {
+                    if (combatSimulation.failure() == null) {
+                        throw failure;
+                    }
+                    reportCombatSimulationFailure(server);
+                    restoreCombatTickRate(server);
+                    combatSpeedAccelerated = false;
+                }
             }
         }
     }
 
     public void tick(MinecraftServer server) {
-        balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
+        tickBalanceBoundary();
         IllusionCloneSpawnQueue.tick();
         musicService.tick(server, activeGame, java.util.stream.Stream
                 .concat(sandboxGames.values().stream(), tutorialGames.values().stream())
@@ -1923,7 +1934,17 @@ public final class SemionGameManager {
 
         SemionGame combatGame = activeGame;
         if (combatSimulation != null && simulationGame == combatGame) {
-            combatSimulation.endFrame();
+            try {
+                combatSimulation.endFrame();
+            } catch (RuntimeException | Error failure) {
+                if (combatSimulation.failure() == null) {
+                    throw failure;
+                }
+                reportCombatSimulationFailure(server);
+                restoreCombatTickRate(server);
+                combatSpeedAccelerated = false;
+                return;
+            }
         } else {
             combatGame.tick(server);
         }
@@ -2195,6 +2216,22 @@ public final class SemionGameManager {
         simulationGame = null;
         simulationRound = 0;
         combatSimulationFailureReported = false;
+        balanceTickPending = false;
+    }
+
+    private void tickBalanceBoundary() {
+        if (combatSimulation == null || combatSimulation.isClosed()
+                || CombatSimulationRuntime.active(combatSimulation) || combatSimulation.failure() != null) {
+            balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
+            return;
+        }
+        if (!balanceTickPending) {
+            balanceTickPending = true;
+            combatSimulation.input(() -> {
+                balanceTickPending = false;
+                balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
+            });
+        }
     }
 
     private void reportCombatSimulationFailure(MinecraftServer server) {
