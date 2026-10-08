@@ -93,7 +93,7 @@ public final class ArenaCombatTicker {
     }
 
     private static boolean canTick(MinecraftServer server, ServerLevel world) {
-        return server.getLevel(world.dimension()) == world && server.isLevelEnabled(world)
+        return server.getLevel(world.dimension()) == world
                 && world.tickRateManager().runsNormally() && !world.isHandlingTick();
     }
 

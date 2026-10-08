@@ -3,7 +3,7 @@ package kim.biryeong.semiontd.game;
 import java.util.Map;
 import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
@@ -20,7 +20,7 @@ public final class ArenaCombatClock {
 
     public static synchronized void advance(ServerLevel world) {
         if (!lifecycleRegistered) {
-            ServerWorldEvents.UNLOAD.register((server, unloadedWorld) -> remove(unloadedWorld));
+            ServerLevelEvents.UNLOAD.register((server, unloadedWorld) -> remove(unloadedWorld));
             ServerLifecycleEvents.SERVER_STOPPING.register(ArenaCombatClock::clear);
             lifecycleRegistered = true;
         }

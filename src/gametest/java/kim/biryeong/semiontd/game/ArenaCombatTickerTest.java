@@ -21,7 +21,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,22 +29,23 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.level.ChunkPos;
 import xyz.nucleoid.fantasy.Fantasy;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
-import xyz.nucleoid.fantasy.RuntimeWorldHandle;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
+import xyz.nucleoid.fantasy.RuntimeLevelHandle;
 import xyz.nucleoid.fantasy.util.VoidChunkGenerator;
 
-public final class ArenaCombatTickerGameTest {
+public final class ArenaCombatTickerTest {
     private static Fixture observedFixture;
     private static List<ServerLevel> observedOrder;
     private static boolean stopDuringWorldTick;
 
     static {
-        ServerTickEvents.START_WORLD_TICK.register(world -> {
+        ServerTickEvents.START_LEVEL_TICK.register(world -> {
             Fixture fixture = observedFixture;
             if (fixture != null && fixture.game.arena().containsWorld(world)) {
                 observedOrder.add(world);
-                require(fixture.first.asWorld().getGameTime() == fixture.second.asWorld().getGameTime(),
+                require(fixture.first.asLevel().getGameTime() == fixture.second.asLevel().getGameTime(),
                         "Both arenas must see the same substep clock before either world ticks.");
                 require(!ArenaCombatTicker.tick(world.getServer(), fixture.game), "Reentrant world steps must report rejection.");
                 if (stopDuringWorldTick) {
@@ -82,15 +83,15 @@ public final class ArenaCombatTickerGameTest {
         context.runAfterDelay(1, () -> {
             MinecraftServer server = context.getLevel().getServer();
             try {
-                ServerLevel missing = fixture.second.asWorld();
+                ServerLevel missing = fixture.second.asLevel();
                 if (server.getLevel(missing.dimension()) == missing) {
                     require(attempts < 40, "The isolated arena world did not unload.");
                     awaitWorldUnloaded(context, fixture, attempts + 1);
                     return;
                 }
-                long before = fixture.first.asWorld().getGameTime();
+                long before = fixture.first.asLevel().getGameTime();
                 require(!ArenaCombatTicker.tick(server, fixture.game), "A missing required world must reject the group.");
-                require(fixture.first.asWorld().getGameTime() == before,
+                require(fixture.first.asLevel().getGameTime() == before,
                         "Rejected preflight must not advance a remaining arena's clock.");
                 fixture.close();
                 context.succeed();
@@ -105,8 +106,8 @@ public final class ArenaCombatTickerGameTest {
     public void extraTicksAdvanceOnlyArenaClocksInServerOrder(GameTestHelper context) {
         MinecraftServer server = context.getLevel().getServer();
         try (Fixture fixture = new Fixture(server)) {
-            ServerLevel first = fixture.first.asWorld();
-            ServerLevel second = fixture.second.asWorld();
+            ServerLevel first = fixture.first.asLevel();
+            ServerLevel second = fixture.second.asLevel();
             long vanillaTime = server.overworld().getGameTime();
             List<ServerLevel> expected = new ArrayList<>();
             for (ServerLevel world : server.getAllLevels()) {
@@ -170,7 +171,7 @@ public final class ArenaCombatTickerGameTest {
     @GameTest
     public void extraTicksKeepAlternatingGoalsEffectsAndDelayedHits(GameTestHelper context) {
         Fixture fixture = new Fixture(context.getLevel().getServer());
-        ServerLevel world = fixture.first.asWorld();
+        ServerLevel world = fixture.first.asLevel();
         world.setChunkForced(0, 0, true);
         world.getChunk(0, 0);
         CountingMonster monster = new CountingMonster(world);
@@ -183,7 +184,8 @@ public final class ArenaCombatTickerGameTest {
     private static void awaitEntityTicking(GameTestHelper context, Fixture fixture, CountingMonster monster, int attempts) {
         context.runAfterDelay(1, () -> {
             try {
-                if (!((ServerLevel) monster.level()).isPositionEntityTicking(monster.blockPosition()) || monster.tickCount < 2) {
+                if (!((ServerLevel) monster.level()).areEntitiesActuallyLoadedAndTicking(new ChunkPos(monster.blockPosition()))
+                        || monster.tickCount < 2) {
                     require(attempts < 40, "The isolated arena entity chunk did not become tickable.");
                     awaitEntityTicking(context, fixture, monster, attempts + 1);
                     return;
@@ -264,8 +266,8 @@ public final class ArenaCombatTickerGameTest {
     }
 
     private static final class Fixture implements AutoCloseable {
-        private final RuntimeWorldHandle first;
-        private final RuntimeWorldHandle second;
+        private final RuntimeLevelHandle first;
+        private final RuntimeLevelHandle second;
         private final SemionGame game;
 
         private Fixture(MinecraftServer server) {
@@ -277,25 +279,26 @@ public final class ArenaCombatTickerGameTest {
                 throw exception;
             }
             game = new SemionGame(EconomyConfig.defaultConfig(), WaveConfig.defaultConfig(), new GameArena(Map.of(
-                    TeamId.RED, new TeamArena(TeamId.RED, () -> {}, first.asWorld(), null),
-                    TeamId.BLUE, new TeamArena(TeamId.BLUE, () -> {}, second.asWorld(), null))));
+                    TeamId.RED, new TeamArena(TeamId.RED, () -> {}, first.asLevel(), null),
+                    TeamId.BLUE, new TeamArena(TeamId.BLUE, () -> {}, second.asLevel(), null))));
             setPhase(game, RoundPhase.LANE_WAVE);
         }
 
-        private static RuntimeWorldHandle createWorld(MinecraftServer server) {
-            RuntimeWorldHandle handle = Fantasy.get(server).openTemporaryWorld(
-                    ResourceLocation.fromNamespaceAndPath("semion-td", "combat_tick_test_" + UUID.randomUUID()),
-                    new RuntimeWorldConfig().setGenerator(new VoidChunkGenerator(server)).setShouldTickTime(false));
+        private static RuntimeLevelHandle createWorld(MinecraftServer server) {
+            RuntimeLevelHandle handle = Fantasy.get(server).openTemporaryLevel(
+                    Identifier.fromNamespaceAndPath("semion-td", "combat_tick_test_" + UUID.randomUUID()),
+                    new RuntimeLevelConfig().setGenerator(new VoidChunkGenerator(server)).setShouldTickTime(false)
+                            .setGameTime(server.overworld().getGameTime()));
             handle.setTickWhenEmpty(true);
             return handle;
         }
 
         @Override
         public void close() {
-            if (first.asWorld().getServer().getLevel(first.asWorld().dimension()) == first.asWorld()) {
+            if (first.asLevel().getServer().getLevel(first.asLevel().dimension()) == first.asLevel()) {
                 first.unload();
             }
-            if (second.asWorld().getServer().getLevel(second.asWorld().dimension()) == second.asWorld()) {
+            if (second.asLevel().getServer().getLevel(second.asLevel().dimension()) == second.asLevel()) {
                 second.unload();
             }
         }
