@@ -186,11 +186,16 @@ public final class CombatSimulationSessionRuntimeTest {
             require(world.getGameTime() == startTime + 40, "Outside the scope the world exposes the latest completed clock");
             require(survivor.activeTimedEffectTicks(TimedEffectType.MONSTER_ATTACK_DAMAGE_BONUS) == 0,
                     "Forty logical ticks expire the original effect");
-            session.input(() -> survivor.startAttack(survivor));
+            Vec3 acceptedPosition = survivor.position().add(0.25, 0, 0);
+            session.input(() -> {
+                survivor.setPos(acceptedPosition);
+                survivor.startAttack(survivor);
+            });
             survivor.tickCount = startAge + 200;
             session.close();
             require(session.isClosed() && !CombatSimulationRuntime.controls(world), "Idle handoff must unregister the owner");
             require(survivor.tickCount == startAge + 40, "Handoff must adopt completed age even behind physical frame age");
+            require(survivor.position().equals(acceptedPosition), "Handoff cannot restore the pose from before an accepted input");
             require(world.getGameTime() == startTime + 40, "Handoff must also retain the completed world clock");
             world.tickNonPassenger(survivor);
             world.tickNonPassenger(survivor);

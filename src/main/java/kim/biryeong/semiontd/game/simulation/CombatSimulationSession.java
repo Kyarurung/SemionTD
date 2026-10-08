@@ -204,6 +204,14 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         }
     }
 
+    private void captureCompletedState() {
+        captureCompletedViews();
+        completedAnimations.putAll(animations);
+        animations.clear();
+        completedClocks.putAll(clocks);
+        circuits.forEach((world, circuit) -> completedCircuits.put(world, circuit.snapshot()));
+    }
+
     private void publishCompleted() {
         publishing = true;
         try {
@@ -366,6 +374,9 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             CombatSimulationRuntime.run(CombatSimulationSession.this, () -> {
                 revision++;
                 input.run();
+                if (!closed) {
+                    captureCompletedState();
+                }
             });
         }
 
@@ -377,11 +388,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                 for (ServerLevel world : worlds) {
                     Scheduler.INSTANCE.runWorldTasks(world);
                 }
-                captureCompletedViews();
-                completedAnimations.putAll(animations);
-                animations.clear();
-                completedClocks.putAll(clocks);
-                circuits.forEach((world, circuit) -> completedCircuits.put(world, circuit.snapshot()));
+                captureCompletedState();
                 stepObserver.accept(coordinator.completedSteps() + 1);
             });
         }
