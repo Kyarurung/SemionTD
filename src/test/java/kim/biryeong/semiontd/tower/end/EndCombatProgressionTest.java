@@ -57,7 +57,7 @@ class EndCombatProgressionTest extends EndTestFixture {
         dragon.syncHealth(10.0);
         lane.addTower(shulker);
         dragon.tick(lane);
-        double rawPermanentHealth = 4.0;
+        double rawPermanentHealth = 6.0;
         double rawRoundHealth = 50.0;
         double expectedPermanentHealth = expectedHealthBonus(rawPermanentHealth);
         double expectedTotalHealth = expectedHealthBonus(rawPermanentHealth + rawRoundHealth);
@@ -84,13 +84,13 @@ class EndCombatProgressionTest extends EndTestFixture {
             lane.addTower(tower(EndTowers.T1_SHULKER_TOWER, index + 21));
         }
         tick(dragon, lane, 1);
-        double rawPermanentHealth = 80.0;
+        double rawPermanentHealth = 120.0;
         double rawRoundHealth = 1000.0;
         double rawTotalHealth = rawPermanentHealth + rawRoundHealth;
         double expectedPermanentHealth = expectedHealthBonus(rawPermanentHealth);
         double expectedTotalHealth = expectedHealthBonus(rawTotalHealth);
         double expectedRoundHealth = expectedTotalHealth - expectedPermanentHealth;
-        double rawPermanentDamage = 8.0;
+        double rawPermanentDamage = 12.0;
         double rawRoundDamage = 132.0;
         double rawTotalDamage = rawPermanentDamage + rawRoundDamage;
         double expectedPermanentDamage = expectedDamageBonus(rawPermanentDamage);

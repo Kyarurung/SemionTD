@@ -193,6 +193,8 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
                 1,
                 GridPosition.from(nearbyTowerPlacementPos(lane, corePos))
         );
+        if (!assertClose(context, 0.02, TowerBalanceRuntime.ability(core.type().id(), "permanentHealth"), "Requested permanent health growth must be active.")) return;
+        if (!assertClose(context, 0.02, TowerBalanceRuntime.ability(core.type().id(), "permanentDamage"), "Requested permanent damage growth must be active.")) return;
         lane.addTower(core);
         lane.addTower(sacrifice);
         core.markWaveStarted(1);
@@ -218,7 +220,7 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
         }
         if (!assertClose(
                 context,
-                31.875,
+                31.5,
                 core.health(),
                 "Base warlock should heal only the absorbed max-health increase plus the flat absorption heal."
         )) {
@@ -226,7 +228,7 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
         }
         if (!assertClose(
                 context,
-                31.875,
+                31.5,
                 core.roundMetricsTracker().snapshot().healingDone(),
                 "Warlock sacrifice healing should be recorded in round metrics."
         )) {
@@ -256,6 +258,8 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
                 1,
                 GridPosition.from(corePos)
         );
+        if (!assertClose(context, 0.04, TowerBalanceRuntime.ability(core.type().id(), "permanentHealth"), "Requested permanent health growth must be active.")) return;
+        if (!assertClose(context, 0.07, TowerBalanceRuntime.ability(core.type().id(), "permanentDamage"), "Requested permanent damage growth must be active.")) return;
         lane.addTower(core);
         BlockPos t1Pos = nearbyTowerPlacementPos(lane, corePos);
         WarlockSacrificeTower t1Ranged = new WarlockSacrificeTower(
@@ -372,6 +376,8 @@ public final class WarlockTowerRuntimeTest extends GameTestParticipantFixture {
                 1,
                 GridPosition.from(corePos)
         );
+        if (!assertClose(context, 0.07, TowerBalanceRuntime.ability(core.type().id(), "permanentHealth"), "Requested permanent health growth must be active.")) return;
+        if (!assertClose(context, 0.04, TowerBalanceRuntime.ability(core.type().id(), "permanentDamage"), "Requested permanent damage growth must be active.")) return;
         lane.addTower(core);
         BlockPos t1Pos = nearbyTowerPlacementPos(lane, corePos);
         WarlockSacrificeTower t1Melee = new WarlockSacrificeTower(

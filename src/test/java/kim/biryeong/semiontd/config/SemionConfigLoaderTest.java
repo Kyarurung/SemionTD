@@ -962,7 +962,7 @@ final class SemionConfigLoaderTest {
         assertFalse(global.containsKey("healthScale"));
         assertEquals(1400.0, global.get("awakeningKills"));
         assertEquals(30.0, global.get("absorptionHeal"));
-        assertEquals(140.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageThreshold", -1.0));
+        assertEquals(160.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageThreshold", -1.0));
         assertEquals(0.65, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "threshold", -1.0));
         assertEquals(40.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "damageScale", -1.0));
         assertEquals(2000.0, configs.towerBalance().ability(WarlockTowers.RANGED_WARLOCK_TOWER.id(), "healthThreshold", -1.0));
@@ -989,7 +989,7 @@ final class SemionConfigLoaderTest {
         assertFalse(writtenGlobal.has("damageScale"));
         assertFalse(writtenGlobal.has("healthThreshold"));
         assertFalse(writtenGlobal.has("healthScale"));
-        assertTrue(written.contains("\"damageThreshold\": 140.0"));
+        assertTrue(written.contains("\"damageThreshold\": 160.0"));
         assertTrue(written.contains("\"healthThreshold\": 3000.0"));
         assertTrue(written.contains("\"awakeningKills\": 1400.0"));
         assertTrue(written.contains("\"absorptionHeal\": 30.0"));

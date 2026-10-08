@@ -57,7 +57,7 @@ public final class InvasionAreaAttackTest implements RuntimeArenaFixture {
     }
 
     @GameTest(structure = "semion-td-gametest:combat_arena", maxTicks = 60)
-    public void dwarfShotLosesTwentyPercentForEveryTowerItPierces(GameTestHelper context) {
+    public void ordinaryDwarfShotPreservesFullDamageThroughEveryTower(GameTestHelper context) {
         Arena arena = new Arena(context);
         try {
             List<Tower> row = arena.grid(4, 1);
@@ -68,7 +68,7 @@ public final class InvasionAreaAttackTest implements RuntimeArenaFixture {
             double[] lost = arena.lost(row, before);
             context.assertTrue(lost[0] > 0.0, "The first tower takes the full shot");
             for (int i = 1; i < lost.length; i++) {
-                double expected = lost[0] * Math.pow(0.8, i);
+                double expected = lost[0];
                 context.assertTrue(Math.abs(lost[i] - expected) < 0.05,
                         "Pierced tower " + i + " must take " + expected + ", took " + lost[i]);
             }
@@ -93,7 +93,7 @@ public final class InvasionAreaAttackTest implements RuntimeArenaFixture {
             Goal heal = new InvasionSummon(kim.biryeong.semiontd.config.SummonConfig.defaultConfig().summons().get("dark_priest"))
                     .createAbilityGoals(priest).getFirst();
             heal.tick();
-            double expected = 16.0 * SummonBalancePolicy.summonHealthMultiplier(round) + ally.maxHealth() * 0.04;
+            double expected = 16.0 * SummonBalancePolicy.summonHealthMultiplier(round) + ally.maxHealth() * 0.02;
             double healed = ally.health() - before;
             context.assertTrue(Math.abs(healed - expected) < 0.5,
                     "Round " + round + " priest heal must be " + expected + ", healed " + healed);

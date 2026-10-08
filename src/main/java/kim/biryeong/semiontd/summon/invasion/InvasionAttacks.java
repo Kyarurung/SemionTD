@@ -6,6 +6,7 @@ import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.tower.Tower;
+import kim.biryeong.semiontd.tower.income.IncomeTowerService;
 import kim.biryeong.semiontd.tower.ancientcity.AncientCityTower;
 import kim.biryeong.semiontd.tower.area.AreaEffectLaneIndex;
 import kim.biryeong.semiontd.tower.plant.PlantTowers;
@@ -90,10 +91,6 @@ final class InvasionAttacks {
         };
     }
 
-    /**
-     * 맞는 자리 둘레 {@code radius}의 방어 대상을 최대 {@code maxTargets}개까지 때리는 공격(암흑 신관·오우거).
-     * 노린 대상이 먼저, 나머지는 맞는 자리에 가까운 순서입니다. 대상이 먼저 죽어도 그 자리는 맞습니다.
-     */
     static MonsterAttackStyle area(int hitDelay, double radius, int maxTargets, VfxAt vfx) {
         return new MonsterAttackStyle() {
             @Override
@@ -105,8 +102,12 @@ final class InvasionAttacks {
             public void hit(SemionMonsterEntity attacker, LivingEntity target) {
                 Vec3 center = target != null ? target.position() : attacker.position().add(attacker.getLookAngle().scale(2.0));
                 double damage = attacker.attackDamageAmount();
-                for (LivingEntity victim : nearestFirst(defensesNear(attacker, center, radius), target, center, maxTargets)) {
-                    MonsterAttackStyle.strike(attacker, victim, damage);
+                boolean dispatch = IncomeTowerService.isDispatch(attacker.runtimeMonster());
+                if (!dispatch || attacker.canDamageDefense(target)) {
+                    for (LivingEntity victim : nearestFirst(defensesNear(attacker, center, radius), target, center, maxTargets)) {
+                        double multiplier = dispatch && victim != target ? 0.5 : 1.0;
+                        MonsterAttackStyle.strike(attacker, victim, damage * multiplier);
+                    }
                 }
                 if (vfx != null) {
                     vfx.play(attacker, center);
@@ -179,8 +180,8 @@ final class InvasionAttacks {
 
     // ------------------------------------------------------------------ 드워프: 관통 탄환
 
-    /** 총구에서 대상 쪽으로 곧게 날아가 선 위의 모든 방어 대상을 꿰뚫는 탄환. 하나를 꿰뚫을 때마다 피해가 {@code falloff}씩 줄어듭니다. */
-    static MonsterAttackStyle pierce(int hitDelay, double length, double width, double falloff) {
+    /** 총구에서 대상 쪽으로 곧게 날아가 선 위의 모든 방어 대상을 꿰뚫는 탄환. */
+    static MonsterAttackStyle pierce(int hitDelay, double length, double width) {
         return new MonsterAttackStyle() {
             @Override
             public int hitDelayTicks() {
@@ -197,13 +198,16 @@ final class InvasionAttacks {
                 }
                 Vec3 end = muzzle.add(direction.normalize().scale(length));
                 double damage = attacker.attackDamageAmount();
-                double keep = Mth.clamp(1.0 - falloff, 0.0, 1.0);
-                List<LivingEntity> victims = defensesOnLine(attacker, muzzle, end, width).stream()
-                        .sorted(java.util.Comparator.comparingDouble(victim -> victim.position().distanceToSqr(muzzle)))
-                        .toList();
-                for (LivingEntity victim : victims) {
-                    MonsterAttackStyle.strike(attacker, victim, damage);
-                    damage *= keep;
+                if (IncomeTowerService.isDispatch(attacker.runtimeMonster())) {
+                    if (attacker.canDamageDefense(target)
+                            && (target.getBoundingBox().inflate(width).contains(muzzle)
+                            || target.getBoundingBox().inflate(width).clip(muzzle, end).isPresent())) {
+                        MonsterAttackStyle.strike(attacker, target, damage);
+                    }
+                } else {
+                    for (LivingEntity victim : defensesOnLine(attacker, muzzle, end, width)) {
+                        MonsterAttackStyle.strike(attacker, victim, damage);
+                    }
                 }
                 Vec3 origin = attacker.position();
                 InvasionVfx.playAt(level(attacker), InvasionVfx.dwarfShot(

@@ -109,34 +109,60 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
     }
 
     @GameTest
-    public void rerollControllerReplacesTheWholeOfferAndPreservesBudgetOnReopen(GameTestHelper context) {
+    public void slotRerollChecksIdentityAndPreservesBudgetsOnReconnectAndNextRound(GameTestHelper context) {
         ServerPlayer online = context.makeMockServerPlayerInLevel();
         SemionGame game = prepare(context, online, "GGG");
         try {
             force(game, online, "tactical_designation_2_assault frontline_specialization battlefield_mastery");
             advance(game, online, 20);
-            var state = game.players().get(online.getUUID()).augments();
+            var player = game.players().get(online.getUUID());
+            var state = player.augments();
             var before = state.currentOffer().orElseThrow();
-            String command = "reroll " + before.revision() + " " + UUID.randomUUID();
-            require(handle(game, online, command) == 1, "One reroll button must replace the whole offer.");
+            UUID request = UUID.randomUUID();
+            String command = "reroll " + before.revision() + " 0 " + before.cardIds().get(0) + " " + request;
+            require(game.augmentService().handle(game, online, command, false) == 0, "Reroll requires the match session token.");
+            require(handle(game, online, "reroll " + before.revision() + " " + request) == 0,
+                    "The previous all-card reroll command must be rejected.");
+            require(handle(game, online, "reroll " + before.revision() + " 0 " + before.cardIds().get(1) + " " + UUID.randomUUID()) == 0,
+                    "A callback naming another card in the slot must be rejected.");
+            require(handle(game, online, command) == 1, "One reroll replaces only its own slot.");
             var after = state.currentOffer().orElseThrow();
-            require(after.cardIds().size() == 3 && after.cardIds().stream().noneMatch(before.cardIds()::contains),
-                    "All three original cards must leave the offer.");
-            require(state.rerollsRemaining() == 4 && AugmentService.offerHeader(state).contains("4/5"),
-                    "The server and visible header must show the same remaining match budget.");
-            require(handle(game, online, command) == 1, "Replayed successful input keeps its receipt.");
-            require(handle(game, online, "reroll " + before.revision() + " " + UUID.randomUUID()) == 0,
-                    "A stale reroll button cannot alter a new offer.");
-            require(handle(game, online, "ui reroll") == 1, "The full-offer reroll dialog must render.");
+            require(!after.cardIds().get(0).equals(before.cardIds().get(0))
+                            && after.cardIds().subList(1, 3).equals(before.cardIds().subList(1, 3)),
+                    "Both other cards must remain byte-for-byte identical.");
+            require(state.rerollsRemainingBySlot().equals(List.of(4, 5, 5)) && AugmentService.offerHeader(state).contains("4/5"),
+                    "The server and visible header must show independent remaining budgets.");
+            require(handle(game, online, command) == 0, "A repeated callback must be rejected without another charge.");
+            require(handle(game, online, "reroll " + before.revision() + " 1 " + after.cardIds().get(1) + " " + UUID.randomUUID()) == 0,
+                    "An old revision cannot reroll even an unchanged card.");
+            require(handle(game, online, "reroll " + after.revision() + " 1 " + after.cardIds().get(1) + " " + request) == 0,
+                    "A request ID cannot be reused for another slot.");
+            require(handle(game, online, "ui reroll") == 1, "The slot-specific reroll dialog must render.");
+            require(game.restorePlayerPlacement(online.level().getServer(), online), "The real reconnect placement path must find the participant.");
             game.augmentService().reopen(game, online);
-            require(state.currentOffer().orElseThrow().equals(after) && state.rerollsRemaining() == 4,
-                    "Duplicate input, dialog reopening and reconnect restoration cannot spend more rerolls.");
+            require(game.players().get(online.getUUID()) == player && player.augments() == state
+                            && state.currentOffer().orElseThrow().equals(after) && state.rerollsRemainingBySlot().equals(List.of(4, 5, 5)),
+                    "Reconnect must preserve the same match state, offer and all three balances.");
             require(state.offerEvents().stream().filter(event -> event.eventType().equals("REROLLED")).count() == 1,
                     "Only one successful replacement is recorded.");
-            var event = game.players().get(online.getUUID()).augmentTelemetry().snapshot().guiEvents().stream()
+            var event = player.augmentTelemetry().snapshot().guiEvents().stream()
                     .filter(row -> row.eventType().equals("REROLL")).findFirst().orElseThrow();
-            require(event.slot() == null && event.augmentId() == null,
-                    "A full-offer reroll must not be attributed to one card slot.");
+            require(Integer.valueOf(0).equals(event.slot()) && after.cardIds().get(0).equals(event.augmentId()),
+                    "The reroll observation must identify the replaced slot and its new card.");
+            require(handle(game, online, "draft " + after.revision() + " 2 " + after.cardIds().get(2) + " " + UUID.randomUUID()) == 1,
+                    "The unchanged card remains immediately selectable before assigning its target.");
+            require(state.currentOffer().isEmpty(), "One selection resolves the current offer.");
+            var config = game.augmentConfig();
+            setField(game, "augmentConfig", new AugmentConfig(config.enabled(), true,
+                    config.rarityWeights(), config.parameters(), config.disabledIds()));
+            setField(game, "currentRound", 14);
+            setField(game, "phase", RoundPhase.ROUND_PAYOUT);
+            game.tick(online.level().getServer());
+            require(game.currentRound() == 15 && game.phase() == RoundPhase.PREPARE_AND_SUMMON,
+                    "The real payout hook must advance into the next augment preparation.");
+            require(state.currentOffer().orElseThrow().milestoneRound() == 15
+                            && state.rerollsRemainingBySlot().equals(List.of(4, 5, 5)),
+                    "The next milestone must carry each balance without refilling or pooling them.");
         } finally {game.close();}
         context.succeed();
     }
@@ -209,8 +235,8 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
                 var blockedOffer = blocked.offer(5, 5, 1200, predicate);
                 require(blockedOffer.cardIds().stream().allMatch(candidate -> AugmentCatalog.find(candidate).orElseThrow().reserve()),
                         "Initial offer must use three reserves when all jobs mismatch.");
-                require(blocked.reroll(5, blockedOffer.revision(), UUID.randomUUID(), 20, predicate).status()
-                                == PlayerAugmentState.Status.NO_REPLACEMENT && blocked.rerollsRemaining() == 5,
+                require(blocked.reroll(5, 0, blockedOffer.revision(), UUID.randomUUID(), 20, predicate).status()
+                                == PlayerAugmentState.Status.NO_REPLACEMENT && blocked.rerollsRemaining(0) == 5,
                         "A reroll cannot introduce another job or spend a charge without a replacement.");
                 require(!game.augmentService().isEligible(game, player, id), "Other jobs cannot acquire " + id);
                 player.assignJob(kim.biryeong.semiontd.job.JobRegistry.find(
@@ -225,7 +251,7 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
                 rerolled.initialize(1, onlyJobs, schedule);
                 var reserveOffer = rerolled.forceOffer(5, 5, 1200, List.of("reserve_diamonds_" + rarity,
                         "reserve_income_" + rarity, "reserve_production_" + rarity));
-                require(rerolled.reroll(5, reserveOffer.revision(), UUID.randomUUID(), 20, predicate).status()
+                require(rerolled.reroll(5, 0, reserveOffer.revision(), UUID.randomUUID(), 20, predicate).status()
                                 == PlayerAugmentState.Status.SUCCESS
                                 && rerolled.currentOffer().orElseThrow().cardIds().contains(card.id()),
                         "Reroll admits only the matching job card.");
@@ -290,6 +316,13 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
     public void singleClickSelectionChecksSessionRevealAndDuplicateRequests(GameTestHelper context) {
         ServerPlayer online = context.makeMockServerPlayerInLevel();
         SemionGame game = prepare(context, online);
+        var displayed = new java.util.ArrayList<kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture>();
+        AugmentService.OfferGuiFactory guiFactory = (viewer, screen, started, valid, execute, canReroll) -> {
+            var fixture = new kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture(
+                    viewer, screen, started, valid, execute, canReroll);
+            displayed.add(fixture);
+            return fixture.gui;
+        };
         try {
             force(game, online, "reserve_diamonds_silver reserve_income_silver reserve_production_silver");
             SemionPlayer player = game.players().get(online.getUUID());
@@ -304,9 +337,18 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
             require(game.augmentService().handle(game, online, "session " + UUID.randomUUID() + " " + draft, false) == 0,
                     "An old match token must not mutate an otherwise current offer.");
             var pending = state.currentOffer().orElseThrow();
+            game.augmentService().reopen(game, online);
+            require(player.augmentTelemetry().snapshot().guiEvents().stream()
+                            .noneMatch(event -> event.eventType().equals("SHOWN")),
+                    "An unavailable renderer must not record an offer as displayed.");
+            game.augmentService().showOffer(game, online, player, guiFactory);
+            require(displayed.getLast().gui.isOpen(), "The prepared renderer must open the actual offer container.");
             require(handle(game, online, "ui offer back") == 1, "Returning to candidates must remain a read-only dialog action.");
             game.augmentService().reopen(game, online);
-            require(pending.equals(state.currentOffer().orElseThrow()), "Reopening a native dialog must not change its stored offer or draft.");
+            game.augmentService().showOffer(game, online, player, guiFactory);
+            require(displayed.size() == 2 && displayed.getLast().gui.isOpen(),
+                    "Restoring a prepared renderer must open the actual offer again.");
+            require(pending.equals(state.currentOffer().orElseThrow()), "Reopening the offer GUI must not change its stored offer or draft.");
             long income = player.economy().income();
             require(handle(game, online, draft) == 1 && state.currentOffer().isEmpty(),
                     "A card with no settings must be granted by the first click, without a confirmation step.");
@@ -328,6 +370,7 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
         } catch (AssertionError error) {
             context.fail(Component.literal(error.getMessage()));
         } finally {
+            displayed.forEach(kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture::close);
             game.close();
         }
         context.succeed();

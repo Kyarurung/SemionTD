@@ -97,7 +97,13 @@ public final class EndDragonAssaultTest extends TowerCoreAugmentFixture implemen
             tick(core, fixture, 40);
             requireClose(first + 9 * later, 10000 - victim.runtimeMonster().health(), "The burn expires after exactly ten seconds.");
             require(core.assaultPhase() == EndDragonAssault.Phase.SPENT, "The dragon returns and consumes this round's use.");
-            requireClose(0, source.position().distanceTo(rear(fixture)), "The final position is the lane rear.");
+            var bounds = fixture.lane.laneLayout().laneArea();
+            double centerX = (bounds.min().getX() + bounds.max().getX() + 1.0) / 2;
+            double centerZ = (bounds.min().getZ() + bounds.max().getZ() + 1.0) / 2;
+            require(Math.abs(source.getX() - centerX) <= .5 && Math.abs(source.getZ() - centerZ) <= .5,
+                    "The final position is a central buildable lane cell.");
+            requireClose(Math.floor(fixture.lane.laneLayout().spawn().y) + 1, source.getY(),
+                    "The return preserves the normal dragon height above the actual lane floor.");
             context.succeed();
         }
     }

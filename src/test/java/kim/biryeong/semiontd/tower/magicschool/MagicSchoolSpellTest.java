@@ -24,6 +24,22 @@ class MagicSchoolSpellTest {
         ProductionTowerCatalogs.reloadBuiltIns(TowerBalanceConfig.defaultConfig());
     }
 
+    @Test void protegoDefaultsFallbackAndDescriptionUseThirtyPercentWithoutChangingMaxima() {
+        var spell = MagicSchoolSpell.PROTEGO;
+        assertEquals(.3, TowerBalanceConfig.codeDefaults().ability(spell.configId(), "damageReduction", -1));
+        assertEquals(.3, spell.value("damageReduction"));
+        assertTrue(spell.effectDescription().contains("30%"));
+        kim.biryeong.semiontd.config.TowerBalanceRuntime.apply(new TowerBalanceConfig(Map.of(), Map.of(), Map.of()));
+        assertEquals(.3, spell.value("damageReduction"));
+        assertEquals(.3, MagicSchoolSpell.PROTEGO_MAXIMA.value("damageReduction"));
+        assertEquals(.05, MagicSchoolSpell.PROTEGO_MAXIMA.value("auraReduction"));
+        assertEquals(3, MagicSchoolSpell.PROTEGO_MAXIMA.value("maxAuraStacks"));
+        kim.biryeong.semiontd.config.TowerBalanceRuntime.apply(new TowerBalanceConfig(Map.of(), Map.of(),
+                Map.of(spell.configId(), Map.of("damageReduction", .37))));
+        assertEquals(.37, spell.value("damageReduction"));
+        assertTrue(spell.effectDescription().contains("37%"));
+    }
+
     @Test void seventeenKoreanSpellsFitStableTierRowsAndSharePackagedConfig() {
         assertEquals(17, MagicSchoolSpell.values().length);
         int[] counts = new int[6];

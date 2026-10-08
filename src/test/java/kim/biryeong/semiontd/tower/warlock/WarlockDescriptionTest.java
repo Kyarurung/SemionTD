@@ -39,8 +39,8 @@ class WarlockDescriptionTest {
         assertTrue(description.contains("흡수 시 최대 체력 증가분에 체력 30을 더해 회복"));
         assertTrue(description.contains("주위 25블록 내 아군 타워를 흡수합니다."));
         assertTrue(description.contains("흡수한 타워 체력과 피해의 50%"));
-        assertTrue(description.contains("체력 +2.5%"));
-        assertTrue(description.contains("피해 +5%"));
+        assertTrue(description.contains("체력 +4%"));
+        assertTrue(description.contains("피해 +7%"));
         assertTrue(description.contains("생존 중인 개구리 계열마다 체력 +4%, 피해 +10%"));
         assertTrue(description.contains("최대 체력 +20%, 피해 +50%까지 증가"));
         assertTrue(description.contains("체력 40% 이하"));
@@ -58,8 +58,8 @@ class WarlockDescriptionTest {
         assertTrue(meleeDescription.contains("흡수 시 최대 체력 증가분에 체력 30을 더해 회복"));
         assertTrue(meleeDescription.contains("주위 25블록 내 아군 타워를 흡수합니다."));
         assertTrue(meleeDescription.contains("흡수한 타워 체력과 피해의 60%"));
-        assertTrue(meleeDescription.contains("체력 +5%"));
-        assertTrue(meleeDescription.contains("피해 +2.5%"));
+        assertTrue(meleeDescription.contains("체력 +7%"));
+        assertTrue(meleeDescription.contains("피해 +4%"));
         assertTrue(meleeDescription.contains("생존 중인 양 계열마다 체력 +10%, 피해 +4%"));
         assertTrue(meleeDescription.contains("최대 체력 +50%, 피해 +20%까지 증가"));
         assertTrue(meleeDescription.contains("체력 40% 이하"));

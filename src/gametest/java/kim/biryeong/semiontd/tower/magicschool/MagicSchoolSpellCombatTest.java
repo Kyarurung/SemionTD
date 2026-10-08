@@ -437,14 +437,14 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
     }
 
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
-    public void protegoReducesDamageByTwentyPercentAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
+    public void protegoReducesDamageByThirtyPercentAndLockedMuggleDefinitionHasFixedCombatValues(GameTestHelper context) {
         try (var f = new Fixture(context)) {
             var wizard = f.wizard(MagicSchoolSpell.PROTEGO, 0);
             wizard.onWaveStarted(f.lane, 1);
             var source = wizard.runtimeEntity(f.lane).orElseThrow();
             double health = source.getHealth();
             source.hurt(source.damageSources().generic(), 100);
-            requireClose(health - 80, source.getHealth(), "Protego alone must reduce received damage by twenty percent.");
+            requireClose(health - 70, source.getHealth(), "Protego alone must reduce received damage by thirty percent.");
             var target = f.monster(3, 10000);
             double attack = source.attackDamageAmount(target);
             hit(wizard, target);
@@ -461,6 +461,28 @@ public final class MagicSchoolSpellCombatTest implements kim.biryeong.semiontd.g
             hit(wizard, target);
             requireClose(before - 80, target.getHealth(), "The reserved Muggle hit must remain fixed at 80 despite damage buffs.");
             check(wizard.primaryDamageType() == DamageType.PHYSICAL, "The reserved Muggle damage must be physical.");
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void protegoThirtyPercentStillMultipliesWithOrdinaryReductionAndThreeMaximaAuras(GameTestHelper context) {
+        for (int scenario = 0; scenario < 3; scenario++) {
+            try (var f = new Fixture(context)) {
+                var wizard = f.wizard(MagicSchoolSpell.PROTEGO, 0);
+                wizard.onWaveStarted(f.lane, 1);
+                var source = wizard.runtimeEntity(f.lane).orElseThrow();
+                if (scenario >= 1) source.applyTimedEffect(TimedEffectType.TOWER_DAMAGE_REDUCTION, .2, 200);
+                if (scenario == 2) {
+                    for (int i = 1; i <= 3; i++) f.wizard(MagicSchoolSpell.PROTEGO_MAXIMA, i).onWaveStarted(f.lane, 1);
+                    requireClose(.3998375, MagicSchoolSpellCombat.protection(source), "Self 30% and three 5% auras must keep multiplying.");
+                }
+                double before = source.getHealth();
+                source.hurt(source.damageSources().generic(), 100);
+                double expected = new double[]{70, 56, 48.013}[scenario];
+                requireClose(expected, before - source.getHealth(), "Actual Protego combination " + scenario);
+                System.out.println("PROTEGO_30 scenario=" + scenario + " damage=" + (before - source.getHealth()));
+            }
         }
         context.succeed();
     }

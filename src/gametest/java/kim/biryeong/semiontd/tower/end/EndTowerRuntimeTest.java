@@ -33,6 +33,47 @@ import kim.biryeong.semiontd.gametest.GameTestParticipantFixture;
 
 public final class EndTowerRuntimeTest extends GameTestParticipantFixture {
     @GameTest
+    public void permanentGrowthRetainsSixPercentAfterRealWaveReset(GameTestHelper context) {
+        UUID owner = stableUuid("end-six-percent-growth");
+        SemionGame game = startedSinglePlayerGame(context, owner, TeamId.RED, EndTowerJob.ID);
+        try {
+            PlayerLane lane = redLane(game, 1);
+            BlockPos corePos = towerPlacementPos(lane);
+            EndTower core = new EndTower(TowerBalanceRuntime.resolve(EndTowers.BASE_END_TOWER),
+                    owner, TeamId.RED, 1, GridPosition.from(corePos));
+            lane.addTower(core);
+            BlockPos shulkerPos = nearbyTowerPlacementPos(lane, corePos);
+            EndTower shulker = new EndTower(TowerBalanceRuntime.resolve(EndTowers.T1_SHULKER_TOWER),
+                    owner, TeamId.RED, 1, GridPosition.from(shulkerPos));
+            lane.addTower(shulker);
+            BlockPos crystalPos = nearbyTowerPlacementPos(lane, shulkerPos);
+            EndTower crystal = new EndTower(TowerBalanceRuntime.resolve(EndTowers.T1_ENDERMITE_TOWER),
+                    owner, TeamId.RED, 1, GridPosition.from(crystalPos));
+            lane.addTower(crystal);
+            double health = shulker.currentMaxHealth();
+            double damage = crystal.sacrificeAttackDamage();
+            lane.markWaveStarted(1);
+            for (int tick = 0; tick < 200; tick++) {
+                core.tick(lane);
+            }
+            if (!assertClose(context, 0, shulker.health(), "The shulker transfer must complete.")) return;
+            if (!assertClose(context, 0, crystal.health(), "The crystal-line transfer must complete.")) return;
+            if (!assertClose(context, health * .06, core.transferStats().permanentHealthBonus(), "Permanent health must be six percent.")) return;
+            if (!assertClose(context, damage * .06, core.transferStats().permanentDamageBonus(), "Permanent damage must be six percent.")) return;
+            if (!assertClose(context, health * .50, core.transferStats().roundHealthBonus(), "Round health remains fifty percent.")) return;
+            if (!assertClose(context, damage * .66, core.transferStats().roundDamageBonus(), "Round damage remains sixty-six percent.")) return;
+            game.teams().get(TeamId.RED).resetForRound();
+            if (!assertClose(context, health * .06, core.transferStats().permanentHealthBonus(), "Round reset preserves permanent health.")) return;
+            if (!assertClose(context, damage * .06, core.transferStats().permanentDamageBonus(), "Round reset preserves permanent damage.")) return;
+            if (!assertClose(context, 0, core.transferStats().roundHealthBonus(), "Round reset clears temporary health.")) return;
+            if (!assertClose(context, 0, core.transferStats().roundDamageBonus(), "Round reset clears temporary damage.")) return;
+            context.succeed();
+        } finally {
+            game.close();
+        }
+    }
+
+    @GameTest
     public void endTowerJobLimitsCoreToOne(GameTestHelper context) {
         UUID playerId = stableUuid("end-job-tower-owner");
         SemionGame game = startedSinglePlayerGame(context, playerId, TeamId.RED, EndTowerJob.ID);

@@ -171,6 +171,10 @@ public final class TextUncenterer {
     }
 
     public static int width(Component text) {
+        return (int) Math.ceil(preciseWidth(text));
+    }
+
+    public static double preciseWidth(Component text) {
         final double[] totalWidth = {0};
         text.visit((style, string) -> {
             if (!string.isEmpty()) {
@@ -178,14 +182,14 @@ public final class TextUncenterer {
             }
             return Optional.empty();
         }, Style.EMPTY);
-        return (int) Math.ceil(totalWidth[0]);
+        return totalWidth[0];
     }
 
     private static double getTextWidth(Style style, String string) {
         Identifier fontId = style.getFont() instanceof net.minecraft.network.chat.FontDescription.Resource font
                 ? font.id() : DEFAULT_FONT_ID;
         if (SemionUiFont.usesFont(fontId)) {
-            return string.codePoints().map(codePoint -> SemionUiFont.advance(codePoint) + (style.isBold() ? 1 : 0)).sum();
+            return string.codePoints().mapToDouble(codePoint -> SemionUiFont.preciseAdvance(codePoint) + (style.isBold() ? 1 : 0)).sum();
         }
         var font = DefaultFonts.REGISTRY.getDefaultedFont(fontId);
         return string.codePoints().mapToDouble(codePoint -> {

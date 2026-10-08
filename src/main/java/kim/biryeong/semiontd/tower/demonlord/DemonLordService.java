@@ -111,6 +111,8 @@ public final class DemonLordService {
 
     /** 플레이어별로 마지막으로 맞춘 배속. 바뀌면 쿨타임 표시를 다시 보냅니다. */
     private static final Map<UUID, Float> LAST_TICK_RATIO = new ConcurrentHashMap<>();
+    private static final DemonLordBinding[] BINDINGS = DemonLordBinding.values();
+    private static final DemonLordSkill[] SKILLS = DemonLordSkill.values();
 
     private static final Identifier MOVE_SPEED_MODIFIER_ID =
             Identifier.fromNamespaceAndPath(SemionTd.MOD_ID, "demon_lord_move_speed");
@@ -327,8 +329,10 @@ public final class DemonLordService {
             state.clearLoadoutDirty();
         }
         syncBossBar(player, state);
-        syncMoveSpeed(player, state);
-        syncTickScale(player, state, gameTime);
+        float tickRatio = state.inCombat()
+                ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
+        syncMoveSpeed(player, state, tickRatio);
+        syncTickScale(player, state, gameTime, tickRatio);
 
         if (!state.inCombat()) {
             DemonLordExecuteMarks.clear(player);
@@ -647,13 +651,12 @@ public final class DemonLordService {
      * 등급 단위(20%)로는 불가능하기 때문입니다. 일시(transient) 수정자라 저장되지 않고, 값이
      * 달라질 때만 갱신해 매 틱 속성을 흔들지 않습니다.
      */
-    private static void syncMoveSpeed(ServerPlayer player, DemonLordState state) {
+    private static void syncMoveSpeed(ServerPlayer player, DemonLordState state, float ratio) {
         AttributeInstance attribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (attribute == null) {
             return;
         }
         // 스탯 보너스에 전투 배속을 곱합니다. 곱연산 수정자라 (1 + 보너스) × 배속 - 1을 넣습니다.
-        double ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0;
         double bonus = state.inCombat() ? (1.0 + state.moveSpeedBonus()) * ratio - 1.0 : 0.0;
         AttributeModifier existing = attribute.getModifier(MOVE_SPEED_MODIFIER_ID);
         if (bonus <= 0.0) {
@@ -850,8 +853,9 @@ public final class DemonLordService {
     }
 
     static void syncSkillCooldowns(ServerPlayer player, DemonLordState state, long now) {
-        for (DemonLordSkill skill : DemonLordSkill.values()) {
-            showCooldown(player, skill, state.remainingCooldownTicks(skill, now));
+        float ratio = kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer());
+        for (DemonLordSkill skill : SKILLS) {
+            showCooldown(player, skill, state.remainingCooldownTicks(skill, now), ratio);
         }
     }
 
@@ -861,10 +865,17 @@ public final class DemonLordService {
      * 직접 판단하고, 서버 쪽 값은 서버 틱으로 줄어 표시와 어긋나기 때문입니다.
      */
     private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks) {
+        showCooldown(player, skill, remainingServerTicks,
+                kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()));
+    }
+
+    private static void showCooldown(ServerPlayer player, DemonLordSkill skill, int remainingServerTicks, float ratio) {
         Identifier group = player.getCooldowns().getCooldownGroup(new ItemStack(skill.item()));
         player.getCooldowns().removeCooldown(group);
-        player.connection.send(new net.minecraft.network.protocol.game.ClientboundCooldownPacket(group,
-                kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(player.level().getServer(), remainingServerTicks)));
+        if (remainingServerTicks > 0) {
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundCooldownPacket(group,
+                    kim.biryeong.semiontd.game.ClientTickScale.toClientTicks(ratio, remainingServerTicks)));
+        }
     }
 
     /**
@@ -887,9 +898,11 @@ public final class DemonLordService {
         }
     }
 
-    private static void syncTickScale(ServerPlayer player, DemonLordState state, long now) {
-        float ratio = state.inCombat() ? kim.biryeong.semiontd.game.ClientTickScale.ratio(player.level().getServer()) : 1.0F;
-        Float previous = LAST_TICK_RATIO.put(player.getUUID(), ratio);
+    private static void syncTickScale(ServerPlayer player, DemonLordState state, long now, float ratio) {
+        Float previous = LAST_TICK_RATIO.get(player.getUUID());
+        if (previous == null || Float.compare(previous, ratio) != 0) {
+            LAST_TICK_RATIO.put(player.getUUID(), ratio);
+        }
         if (previous == null || Math.abs(previous - ratio) > 1.0E-3F) {
             syncSkillCooldowns(player, state, now);
         }
@@ -983,7 +996,7 @@ public final class DemonLordService {
         }
         EnumMap<DemonLordBinding, DemonLordSkillTower> carriers = set.carriers();
         Map<DemonLordBinding, DemonLordLoadout.Slot> wanted = state.loadout().view();
-        for (DemonLordBinding binding : DemonLordBinding.values()) {
+        for (DemonLordBinding binding : BINDINGS) {
             DemonLordLoadout.Slot slot = wanted.get(binding);
             DemonLordSkillTower current = carriers.get(binding);
             TowerType type = slot == null ? null : DemonLordSkillShop.resolved(slot.skill(), slot.tier());

@@ -150,12 +150,111 @@ final class SemionSkyboxLibraryTest {
         assertTrue(patched.indexOf("semion_skybox_fog(vec4 color") > patched.indexOf("#ifndef OIT_ALPHA_ONLY"));
         assertTrue(patched.contains("executeAlphaOnlyPhase(gl_FragCoord.z, color.a);"));
     }
+    @Test
+    void vertexFarDepthPreservesPipelineAndUpgradesEarlierSkyPatch() {
+        String original = modernVertex();
+        String patched = SemionSkyboxResourcePack.patchVertexShader(original, LoggerFactory.getLogger("skybox-test"));
+        assertTrue(patched.contains("gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);"));
+        assertTrue(patched.contains("if (semionSkyboxFarDepth && ProjMat[3][3] == 0.0)"));
+        assertTrue(patched.contains("#ifdef RENDERPEARL_DEPTH_IS_ZERO_TO_ONE"));
+        assertTrue(patched.contains("gl_Position.z = gl_Position.w * 1.0e-6;"));
+        assertTrue(patched.contains("gl_Position.z = gl_Position.w * (-1.0 + 1.0e-6);"));
+        assertTrue(patched.contains("texelFetch(Sampler0, semionSkyboxTexel, 0).a"));
+        assertTrue(patched.indexOf("if (semionSkyboxFarDepth &&") < patched.indexOf("if (make_hud())"));
+        assertEquals(1, patched.split("uniform sampler2D Sampler0;", -1).length - 1);
+        assertEquals(patched, SemionSkyboxResourcePack.patchVertexShader(patched, LoggerFactory.getLogger("skybox-test")));
+        String earlier = original.replace("void main() {", "layout(location = 8) out vec4 semionSkyboxOriginalColor;\nvoid main() {\nsemionSkyboxOriginalColor = Color;");
+        String upgraded = SemionSkyboxResourcePack.patchVertexShader(earlier, LoggerFactory.getLogger("skybox-test"));
+        assertTrue(upgraded.contains("semionSkyboxFarDepth"));
+        assertEquals(1, upgraded.split("layout\\(location = 8\\) out vec4 semionSkyboxOriginalColor;", -1).length - 1);
+    }
+
+    @Test
+    void skyboxFaceUvCornersStayInsideTheirOwnMarkedTiles() throws Exception {
+        var source = new BufferedImage(64, 32, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 64; x++) {
+                if (y >= 16 || x >= 16 && x < 48) source.setRGB(x, y, 0xFF204080);
+            }
+        }
+        ImageIO.write(source, "png", tempDir.resolve("corners.png").toFile());
+        var library = SemionSkyboxLibrary.load(tempDir, LoggerFactory.getLogger("skybox-test"));
+        var builder = new CapturingBuilder();
+        for (String name : List.of("entity", "item")) {
+            builder.addStringData("assets/minecraft/shaders/core/" + name + ".vsh", modernVertex());
+            builder.addStringData("assets/minecraft/shaders/core/" + name + ".fsh", modernFragment());
+        }
+        SemionSkyboxResourcePack.addToResourcePack(library, builder, LoggerFactory.getLogger("skybox-test"));
+        var model = com.google.gson.JsonParser.parseString(builder.getStringData("assets/semion-td/models/item/skybox_base.json"))
+                .getAsJsonObject();
+        var element = model.getAsJsonArray("elements").get(0).getAsJsonObject();
+        assertEquals("[16,0,0]", element.getAsJsonArray("from").toString());
+        assertEquals("[0,16,16]", element.getAsJsonArray("to").toString());
+        var normalized = ImageIO.read(new ByteArrayInputStream(library.skyboxes().getFirst().textureData()));
+        for (var face : element.getAsJsonObject("faces").entrySet()) {
+            var uv = face.getValue().getAsJsonObject().getAsJsonArray("uv");
+            for (int ui : new int[]{0, 2}) {
+                for (int vi : new int[]{1, 3}) {
+                    int x = (int) (uv.get(ui).getAsDouble() * normalized.getWidth() / 16);
+                    int y = (int) (uv.get(vi).getAsDouble() * normalized.getHeight() / 16);
+                    assertEquals(252, normalized.getRGB(x, y) >>> 24,
+                            face.getKey() + " vertex must sample its own marked face, including top and bottom");
+                }
+            }
+        }
+    }
+
+    @Test
+    void skyboxFarDepthLeavesPerspectiveCoordinatesUnchanged() {
+        String patched = SemionSkyboxResourcePack.patchVertexShader(modernVertex(), LoggerFactory.getLogger("skybox-test"));
+        assertTrue(patched.contains("gl_Position.z = gl_Position.w * 1.0e-6;"));
+        assertTrue(patched.contains("gl_Position.z = gl_Position.w * (-1.0 + 1.0e-6);"));
+        int previouslyClipped = 0;
+        for (boolean zeroToOne : new boolean[]{false, true}) {
+            for (float far : new float[]{512, 640, 1024, 2048}) {
+                var projection = new org.joml.Matrix4f().setPerspective((float) Math.toRadians(70), 16F / 9F, far, .05F, zeroToOne);
+                float correctedDepth = zeroToOne ? 1.0e-6F : -1F + 1.0e-6F;
+                var nearPoint = projection.transform(new org.joml.Vector4f(0, 0, -.05F, 1));
+                var frontPoint = projection.transform(new org.joml.Vector4f(0, 0, -10, 1));
+                var farPoint = projection.transform(new org.joml.Vector4f(0, 0, -far, 1));
+                assertEquals(1F, nearPoint.z / nearPoint.w, .00001F);
+                assertEquals(zeroToOne ? 0F : -1F, farPoint.z / farPoint.w, .00001F);
+                assertTrue(frontPoint.z / frontPoint.w > correctedDepth,
+                        "A foreground block must pass the actual GREATER_THAN_OR_EQUAL depth test ahead of the sky");
+                for (float yaw : new float[]{0, 22.5F, 45}) {
+                    for (float pitch : new float[]{0, 45}) {
+                        var transform = new org.joml.Matrix4f(projection)
+                                .rotateX((float) Math.toRadians(pitch)).rotateY((float) Math.toRadians(yaw));
+                        for (float x : new float[]{-500, 500}) {
+                            for (float y : new float[]{-500, 500}) {
+                                for (float z : new float[]{-500, 500}) {
+                                    var before = transform.transform(new org.joml.Vector4f(x, y, z, 1));
+                                    if (before.w <= 0) continue;
+                                    float minimumClip = zeroToOne ? 0F : -before.w;
+                                    if (before.z < minimumClip) previouslyClipped++;
+                                    var after = new org.joml.Vector4f(before);
+                                    after.z = after.w * correctedDepth;
+                                    assertTrue(after.z <= after.w && after.z >= minimumClip);
+                                    assertEquals(before.x, after.x);
+                                    assertEquals(before.y, after.y);
+                                    assertEquals(before.w, after.w);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assertTrue(previouslyClipped > 0, "The actual 1000-block cube must reproduce far clipping before correction");
+    }
+
     private static String modernVertex() {
         return """
                 #version 330
                 layout(location = 2) out vec4 vertexColor;
                 //Hud
                 void main() {
+                    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
                     texCoord0 = UV0;
                     if (make_hud()) {
                         return;

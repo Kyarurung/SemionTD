@@ -113,6 +113,7 @@ public class RPHandler {
             builder.addData(String.format("assets/%s/textures/font/%s.png", ShaderEffects.FONT.getNamespace(), ShaderEffects.FONT.getPath()), out.toByteArray());
             if (ADD_LOCAL) builder.addData(String.format("assets/%s/textures/font/%s_local.png", ShaderEffects.FONT.getNamespace(), ShaderEffects.FONT.getPath()), outLocal.toByteArray());
             builder.addData("assets/minecraft/shaders/core/text.fsh", fragmentShader.getBytes(StandardCharsets.UTF_8));
+            BetterHudTextShaderCompatibility.register(builder, fragmentShader);
         });
     }
 

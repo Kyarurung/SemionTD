@@ -1479,12 +1479,12 @@ public final class SemionDialogService {
             Component label = Component.literal(unit.displayName())
                     .withStyle(affordable ? ChatFormatting.WHITE : ChatFormatting.DARK_GRAY)
                     .append(Component.literal(" " + cost + "◆").withStyle(affordable ? ChatFormatting.GREEN : ChatFormatting.RED));
-            Component tooltip = Component.literal(unit.displayName() + " · " + unit.tier().name()
+            Component tooltip = Component.literal(unit.displayName() + " · " + (unit.tier().ordinal() + 1) + "단계"
                     + "\n설치 " + cost + " 에메랄드 · 레벨당 인컴 +" + unit.incomeGain()
                     + " · 타워 수 " + kim.biryeong.semiontd.tower.TowerCapacity.slotCost(IncomeTowerService.towerType(unit))
                     + "\n체력 " + Math.round(unit.maxHealth() * IncomeTowerBalance.statMultiplier(1))
                     + " · 공격력 " + Math.round(unit.attackDamage() * IncomeTowerBalance.statMultiplier(1))
-                    + (unit.description().isEmpty() ? "" : "\n" + unit.description().getFirst()));
+                    + (IncomeTowerService.description(unit).isEmpty() ? "" : "\n" + IncomeTowerService.description(unit).getFirst()));
             actions.add(actionButton(label, "/semiontd income build " + unit.id(), tooltip, COMPACT_BUTTON_WIDTH));
         }
         showActions(player, "세미온 TD 인컴 타워", body.toString(), actions, 2);
@@ -1498,13 +1498,16 @@ public final class SemionDialogService {
         double attackScale = IncomeTowerBalance.attackDamageMultiplier(tower.level(), game.currentRound());
         StringBuilder body = new StringBuilder();
         body.append("<gradient:#f472b6:#a78bfa><bold>인컴 타워</bold></gradient>\n");
-        body.append("<white><bold>").append(tower.type().displayName()).append("</bold></white> <yellow>Lv.")
+        body.append("<white><bold>").append(tower.type().displayName()).append("</bold></white> <yellow>레벨 ")
                 .append(tower.level()).append('/').append(IncomeTowerBalance.MAX_LEVEL).append("</yellow>\n");
         body.append("<divider>\n");
         if (unit != null) {
             body.append("<white>보내는 유닛</white> 체력 <red>").append(Math.round(unit.maxHealth() * healthScale))
                     .append("</red> · 공격력 <gold>").append(Math.round(unit.attackDamage() * attackScale))
                     .append("</gold> <dark_gray>(이번 라운드 기준)</dark_gray>\n");
+            for (String line : IncomeTowerService.description(unit)) {
+                body.append("<gray>").append(line).append("</gray>\n");
+            }
         }
         body.append("<white>라운드 인컴</white> <aqua>+").append(IncomeTowerService.incomeOf(game, tower)).append("</aqua>\n");
         body.append("<white>판매 시 환불</white> <green>").append(IncomeTowerBalance.sellRefund(tower.paidEmerald()))
@@ -1524,7 +1527,7 @@ public final class SemionDialogService {
             long cost = IncomeTowerService.upgradeCost(game, tower);
             boolean affordable = semionPlayer.economy().emerald() >= cost;
             actions.add(actionButton(
-                    Component.literal("레벨업 → Lv." + (tower.level() + 1) + " (" + cost + "◆)")
+                    Component.literal("레벨업 → 레벨 " + (tower.level() + 1) + " (" + cost + "◆)")
                             .withStyle(affordable ? ChatFormatting.GREEN : ChatFormatting.RED),
                     "/semiontd income upgrade " + coordinates,
                     Component.literal("보내는 유닛이 세지고 라운드 인컴이 +" + (unit == null ? 0 : unit.incomeGain()) + " 오릅니다."),
@@ -1684,7 +1687,9 @@ public final class SemionDialogService {
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_HEAL_AMOUNT_BONUS, "<green>❤ 회복량 증가 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_ABILITY_INTERVAL_REDUCTION, "<green>⏱ 주기 감소 +", "</green>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION, "<red>⚡ 공속 감소 -", "</red>");
+        appendTimedEffect(effects, entity, TimedEffectType.TOWER_ATTACK_SPEED_MULTIPLICATIVE_REDUCTION, "<red>⚡ 공격 속도 -", "</red>");
         appendTimedEffect(effects, entity, TimedEffectType.TOWER_RANGE_REDUCTION, "<red>🎯 사거리 감소 -", "</red>");
+        appendTimedEffect(effects, entity, TimedEffectType.TOWER_RANGE_MULTIPLICATIVE_REDUCTION, "<red>🎯 사거리 -", "</red>");
         appendTimedEffectValue(effects, entity, TimedEffectType.TOWER_FLAT_RANGE_BONUS,
                 "<green>🎯 사거리 증가 +", "칸</green>");
         appendTimedEffectValue(effects, entity, TimedEffectType.TOWER_FLAT_RANGE_REDUCTION,
@@ -1881,19 +1886,15 @@ public final class SemionDialogService {
         if (!screen.body().isBlank()) {
             bodies.add(new PlainMessage(miniMessage(screen.body()), AUGMENT_BODY_WIDTH));
         }
-        for (AugmentService.CardLine card : screen.cards()) {
-            ItemStack icon = new ItemStack(switch (card.category()) {
-                case "TRADE_OFF" -> Items.IRON_CHAIN;
-                case "TOWER" -> Items.SCAFFOLDING;
-                case "GAME_CHANGER" -> Items.NETHER_STAR;
-                case "INCOME" -> Items.EMERALD;
-                default -> Items.COMPASS;
-            });
-            bodies.add(new ItemBody(net.minecraft.world.item.ItemStackTemplate.fromNonEmptyStack(icon), Optional.of(new PlainMessage(miniMessage(card.text()), AUGMENT_BODY_WIDTH - 24)),
-                    false, false, 16, 16));
+        if (screen.cards().size() == 3) {
+            bodies.addAll(UiAugmentOfferView.bodies(screen.cards()));
+        } else {
+            for (AugmentService.CardLine card : screen.cards()) {
+                bodies.add(new PlainMessage(miniMessage(card.text()), AUGMENT_BODY_WIDTH));
+            }
         }
         List<ActionButton> actions = screen.buttons().stream()
-                .map(button -> actionButton(Component.literal(button.label()), button.command(), Component.literal(button.description()), COMPACT_BUTTON_WIDTH))
+                .map(button -> actionButton(Component.literal(button.label()), button.command(), Component.literal(button.description()), screen.cards().size() == 3 ? UiAugmentOfferView.CARD_WIDTH : COMPACT_BUTTON_WIDTH))
                 .toList();
         showActions(player, miniMessage(screen.title()), bodies, actions, screen.columns());
     }

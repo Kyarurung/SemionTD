@@ -89,8 +89,7 @@
     "semiontd:job_warlock_towers_g1": {
       "radius": 3,
       "maxTargets": 12,
-      "healthRatio": 1,
-      "growthBonus": 0.25
+      "healthRatio": 1
     },
     "semiontd:job_warlock_towers_g2": {
       "healthThreshold": 0.6,

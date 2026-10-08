@@ -43,10 +43,6 @@ final class WarlockSacrificeController {
         WarlockSacrifice.Snapshot snapshot = WarlockSacrifice.snapshot(target);
         Vec3 center = sacrificedCenter(lane, target);
         WarlockSacrifice.Gain gain = sacrificeGain(warlock, snapshot);
-        if (AugmentCombat.allowsTriggers() && warlock.augmentSnapshot().has(WarlockAugments.EXPLOSIVE)) {
-            gain = gain.withPermanentMultiplier(1.0 + warlock.augmentSnapshot().parameter(
-                    WarlockAugments.EXPLOSIVE, "growthBonus", .25));
-        }
         boolean killed = lane.killTower(target);
         if (!killed) {
             return false;

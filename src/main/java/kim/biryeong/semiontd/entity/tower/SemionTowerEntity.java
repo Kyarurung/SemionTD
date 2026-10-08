@@ -369,8 +369,10 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         double resolved = attackRange * Math.max(0.01, multiplier)
                 + timedEffects.magnitude(TimedEffectType.TOWER_FLAT_RANGE_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_FLAT_RANGE_REDUCTION);
-        return Math.max(0.0, runtimeTower == null ? resolved
+        double finalRange = Math.max(0.0, runtimeTower == null ? resolved
                 : kim.biryeong.semiontd.tower.villager.VillagerAdvAugments.attackRange(runtimeTower, resolved));
+        return finalRange * (1.0 - Math.clamp(
+                timedEffects.magnitude(TimedEffectType.TOWER_RANGE_MULTIPLICATIVE_REDUCTION), 0.0, 1.0));
     }
 
     public double targetAcquireRange() {
@@ -523,6 +525,8 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
                 + AugmentCombat.beneficialBonus(runtimeTower, "attackSpeedBonus")
                 + timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_BONUS)
                 - timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_REDUCTION);
+        attackSpeedMultiplier *= 1.0 - Math.clamp(
+                timedEffects.magnitude(TimedEffectType.TOWER_ATTACK_SPEED_MULTIPLICATIVE_REDUCTION), 0.0, 1.0);
         int minimumInterval = runtimeTower == null ? 1 : Math.max(1, runtimeTower.minimumAttackIntervalTicks());
         int resolvedInterval = (int) Math.ceil(adjustedInterval / Math.max(0.01, attackSpeedMultiplier));
         int interval = Math.max(minimumInterval, resolvedInterval);
@@ -1089,6 +1093,35 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     }
 
     @Override
+    public void setInvisible(boolean invisible) {
+        boolean previousProxy = usesInvisibleEndDragonProxy();
+        super.setInvisible(invisible);
+        if (previousProxy != usesInvisibleEndDragonProxy() && isAlive() && !isRemoved()
+                && runtimeTower != null && runtimeTower.health() > 0 && level() instanceof ServerLevel) {
+            PolymerEntityUtils.refreshEntity(this);
+        }
+    }
+
+    private boolean usesEndDragonVisual() {
+        return blockbenchModelId == null && polymerEntityType == net.minecraft.world.entity.EntityTypes.ENDER_DRAGON
+                && runtimeTower instanceof EndTower endTower && endTower.state() == EndTowerState.DRAGON;
+    }
+
+    private boolean usesInvisibleEndDragonProxy() {
+        return isInvisible() && usesEndDragonVisual();
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getAddEntityPacket(
+            net.minecraft.server.level.ServerEntity tracker) {
+        if (usesEndDragonVisual()) {
+            return new net.minecraft.network.protocol.game.ClientboundAddEntityPacket(getId(), getUUID(),
+                    getX(), getY(), getZ(), getXRot(), getYRot(), getType(), 0, getDeltaMovement(), getYHeadRot());
+        }
+        return super.getAddEntityPacket(tracker);
+    }
+
+    @Override
     public EntityType<?> getPolymerEntityType(PacketContext context) {
         if (blockbenchModelId != null) {
             return AnimatedEntity.super.getPolymerEntityType(context);
@@ -1096,7 +1129,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (usesMoobloomOverlayVisual()) {
             return net.minecraft.world.entity.EntityTypes.INTERACTION;
         }
-        if (usesBlockDisplayOverlayVisual()) {
+        if (usesBlockDisplayOverlayVisual() || usesInvisibleEndDragonProxy()) {
             return net.minecraft.world.entity.EntityTypes.ARMOR_STAND;
         }
         return polymerEntityType;
@@ -1107,6 +1140,9 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             List<Pair<EquipmentSlot, ItemStack>> items,
             ServerPlayer player
     ) {
+        if (usesInvisibleEndDragonProxy()) {
+            return List.of();
+        }
         if (polymerEntityType != net.minecraft.world.entity.EntityTypes.ALLAY) {
             return items;
         }
@@ -1124,6 +1160,19 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             return;
         }
         if (usesMoobloomOverlayVisual()) {
+            return;
+        }
+        if (usesEndDragonVisual() && !isInvisible()) {
+            data.removeIf(value -> value.id() == EntityData.FLAGS.id());
+            data.add(SynchedEntityData.DataValue.create(EntityData.FLAGS, entityData.get(DATA_SHARED_FLAGS_ID)));
+        }
+        if (usesInvisibleEndDragonProxy()) {
+            data.removeIf(value -> value.id() == EntityData.FLAGS.id()
+                    || value.id() == EntityData.CUSTOM_NAME.id() || value.id() == EntityData.NAME_VISIBLE.id());
+            data.add(SynchedEntityData.DataValue.create(EntityData.FLAGS,
+                    (byte) ((entityData.get(DATA_SHARED_FLAGS_ID) | 0x20) & ~0x40)));
+            data.add(SynchedEntityData.DataValue.create(EntityData.CUSTOM_NAME, Optional.empty()));
+            data.add(SynchedEntityData.DataValue.create(EntityData.NAME_VISIBLE, false));
             return;
         }
         if (usesFakePlayerOverlayVisual() || usesBlockDisplayOverlayVisual()) {
