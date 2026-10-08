@@ -401,22 +401,25 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             if (closed) {
                 return;
             }
-            publishCompleted();
-            publishing = true;
             try {
-                closed = true;
-                CombatSimulationRuntime.unregister(CombatSimulationSession.this);
-                for (var entry : completedClocks.entrySet()) {
-                    ArenaCombatClock.adopt(entry.getKey(), entry.getValue());
-                }
-                for (var entry : completedViews.entrySet()) {
-                    entry.getKey().tickCount = entry.getValue().age();
-                }
-                circuits.forEach((world, circuit) -> circuit.close(completedCircuits.get(world)));
-                views.clear();
-                animations.clear();
+                publishCompleted();
             } finally {
-                publishing = false;
+                publishing = true;
+                try {
+                    closed = true;
+                    CombatSimulationRuntime.unregister(CombatSimulationSession.this);
+                    for (var entry : completedClocks.entrySet()) {
+                        ArenaCombatClock.adopt(entry.getKey(), entry.getValue());
+                    }
+                    for (var entry : completedViews.entrySet()) {
+                        entry.getKey().tickCount = entry.getValue().age();
+                    }
+                    circuits.forEach((world, circuit) -> circuit.close(completedCircuits.get(world)));
+                    views.clear();
+                    animations.clear();
+                } finally {
+                    publishing = false;
+                }
             }
         }
     }
@@ -485,7 +488,12 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             requireOwner();
             checkNotification();
             if (!closed) {
-                bridge.present();
+                try {
+                    bridge.present();
+                } catch (RuntimeException | Error failure) {
+                    closeNow();
+                    throw failure;
+                }
             }
         }
 

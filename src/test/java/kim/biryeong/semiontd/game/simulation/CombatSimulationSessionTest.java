@@ -284,6 +284,24 @@ final class CombatSimulationSessionTest {
         }
     }
 
+    @Test
+    void presentationFailureClosesAndAbortsPreparedWorkInsteadOfRetainingAnOwner() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        Dispatcher dispatcher = new Dispatcher();
+        try (var coordinator = coordinator(bridge, dispatcher, ignored -> {})) {
+            coordinator.beginFrame(1);
+            dispatcher.next().run();
+            Runnable pending = dispatcher.next();
+            bridge.presentationFailure = new IllegalStateException("presentation failed");
+            assertThrows(IllegalStateException.class, coordinator::endFrame);
+            pending.run();
+            assertTrue(coordinator.isClosed());
+            assertEquals(1, bridge.closes);
+            assertTrue(bridge.events.contains("abort:a"));
+            assertFalse(bridge.events.contains("apply:a:1"));
+        }
+    }
+
     private static CombatSimulationSession.Coordinator<String, Request, Result> coordinator(
             FakeBridge bridge, Dispatcher dispatcher, Consumer<Request> work) {
         return new CombatSimulationSession.Coordinator<>(bridge, input -> {
@@ -320,6 +338,7 @@ final class CombatSimulationSessionTest {
         private final Map<String, Long> actorRevisions = new HashMap<>();
         private final List<Long> presentedTicks = new ArrayList<>();
         private Consumer<String> afterApply = ignored -> {};
+        private RuntimeException presentationFailure;
         private boolean valid = true;
         private long tick;
         private long revision;
@@ -359,7 +378,12 @@ final class CombatSimulationSessionTest {
             events.add("complete:" + tick);
             committedTick = tick;
         }
-        public void present() { presentedTicks.add(committedTick); }
+        public void present() {
+            if (presentationFailure != null) {
+                throw presentationFailure;
+            }
+            presentedTicks.add(committedTick);
+        }
         public void close() { closes++; }
     }
 
