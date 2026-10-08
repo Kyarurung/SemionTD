@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.game.simulation;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,19 +12,35 @@ import java.util.function.Function;
 public final class CombatSimulationExecutor<I, O> implements AutoCloseable {
     private final Thread owner = Thread.currentThread();
     private final Function<I, O> simulation;
+    private final Executor ownerDispatcher;
+    private final Runnable completionReady;
     private final Semaphore available = new Semaphore(0);
     private final AtomicReference<Job<I>> unfinished = new AtomicReference<>();
     private final AtomicReference<Completion<O>> completed = new AtomicReference<>();
+    private final AtomicReference<RuntimeException> notificationFailure = new AtomicReference<>();
     private final AtomicLong generation = new AtomicLong();
     private final Thread worker;
     private volatile boolean closed;
 
     public CombatSimulationExecutor(Function<I, O> simulation) {
-        this(simulation, action -> new Thread(action, "semion-td-combat-simulation"));
+        this(simulation, action -> new Thread(action, "semion-td-combat-simulation"), null, null);
+    }
+
+    public CombatSimulationExecutor(Function<I, O> simulation, Executor ownerDispatcher, Runnable completionReady) {
+        this(simulation, action -> new Thread(action, "semion-td-combat-simulation"),
+                Objects.requireNonNull(ownerDispatcher, "ownerDispatcher"),
+                Objects.requireNonNull(completionReady, "completionReady"));
     }
 
     CombatSimulationExecutor(Function<I, O> simulation, ThreadFactory factory) {
+        this(simulation, factory, null, null);
+    }
+
+    CombatSimulationExecutor(Function<I, O> simulation, ThreadFactory factory,
+            Executor ownerDispatcher, Runnable completionReady) {
         this.simulation = Objects.requireNonNull(simulation, "simulation");
+        this.ownerDispatcher = ownerDispatcher;
+        this.completionReady = completionReady;
         worker = Objects.requireNonNull(factory.newThread(this::runWorker), "worker");
         if (worker.isVirtual()) {
             throw new IllegalArgumentException("Combat simulation requires a platform thread.");
@@ -58,6 +75,11 @@ public final class CombatSimulationExecutor<I, O> implements AutoCloseable {
                 ? Optional.of(result) : Optional.empty();
     }
 
+    public Optional<RuntimeException> notificationFailure() {
+        requireOwner();
+        return closed ? Optional.empty() : Optional.ofNullable(notificationFailure.get());
+    }
+
     public long invalidate() {
         requireOwner();
         if (closed) {
@@ -65,6 +87,7 @@ public final class CombatSimulationExecutor<I, O> implements AutoCloseable {
         }
         long next = generation.incrementAndGet();
         completed.set(null);
+        notificationFailure.set(null);
         worker.interrupt();
         return next;
     }
@@ -78,6 +101,7 @@ public final class CombatSimulationExecutor<I, O> implements AutoCloseable {
         closed = true;
         generation.incrementAndGet();
         completed.set(null);
+        notificationFailure.set(null);
         worker.interrupt();
     }
 
@@ -110,6 +134,33 @@ public final class CombatSimulationExecutor<I, O> implements AutoCloseable {
             } finally {
                 Thread.interrupted();
                 unfinished.compareAndSet(job, null);
+            }
+            notifyOwner(job.token());
+        }
+    }
+
+    private void notifyOwner(CombatSimulationToken token) {
+        if (ownerDispatcher == null || closed) {
+            return;
+        }
+        try {
+            ownerDispatcher.execute(() -> {
+                if (!closed) {
+                    requireOwner();
+                    completionReady.run();
+                }
+            });
+            notificationFailure.set(null);
+        } catch (RuntimeException failure) {
+            if (!closed) {
+                Completion<O> result = completed.get();
+                if (result != null && result.token().equals(token)) {
+                    completed.compareAndSet(result, new Completion<>(token, null, failure));
+                }
+                notificationFailure.set(failure);
+                if (closed) {
+                    notificationFailure.compareAndSet(failure, null);
+                }
             }
         }
     }

@@ -218,6 +218,7 @@ final class CombatSimulationExecutorTest {
                 assertThrows(IllegalStateException.class, executor::generation);
                 assertThrows(IllegalStateException.class, () -> executor.offer(token, 1));
                 assertThrows(IllegalStateException.class, executor::poll);
+                assertThrows(IllegalStateException.class, executor::notificationFailure);
                 assertThrows(IllegalStateException.class, executor::invalidate);
                 assertThrows(IllegalStateException.class, executor::close);
             }).get(3, TimeUnit.SECONDS);
