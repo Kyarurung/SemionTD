@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.tower.legion;
 import java.util.List;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.game.PlayerLane;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.map.GameArena;
 import kim.biryeong.semiontd.tower.Tower;
 import net.minecraft.world.phys.Vec3;
@@ -31,8 +32,8 @@ public final class IllusionCloneSpawnQueue {
     }
 
     public static void tick() {
-        PENDING_CLONE_SPAWNS.tick(TowerBalanceRuntime.illusionCloneMaxSpawnsPerTick(),
-                IllusionCloneSpawnQueue::spawn);
+        PENDING_CLONE_SPAWNS.tick(pending -> !CombatSimulationRuntime.controls(pending.lane().arenaWorld()),
+                TowerBalanceRuntime.illusionCloneMaxSpawnsPerTick(), IllusionCloneSpawnQueue::spawn);
     }
 
     public static void tick(GameArena arena) {

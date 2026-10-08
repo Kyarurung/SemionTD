@@ -5,6 +5,7 @@ import java.util.Map;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 
 public final class CombatSpeedRuntime {
     private static final Map<ServerLevel, Float> ARENA_TICK_RATES = new IdentityHashMap<>();
@@ -40,6 +41,9 @@ public final class CombatSpeedRuntime {
     }
 
     public static double multiplier(Level world) {
+        if (CombatSimulationRuntime.controls(world)) {
+            return 1.0;
+        }
         if (!(world instanceof ServerLevel serverWorld)) {
             return 1.0;
         }
@@ -48,10 +52,19 @@ public final class CombatSpeedRuntime {
     }
 
     public static int logicalSteps(Level world) {
+        if (CombatSimulationRuntime.controls(world)) {
+            return 1;
+        }
         return world instanceof ServerLevel serverWorld ? LOGICAL_STEPS.getOrDefault(serverWorld, 1) : 1;
     }
 
     public static long gameTime(Level world) {
+        if (world instanceof ServerLevel serverWorld) {
+            Long simulationTime = CombatSimulationRuntime.gameTime(serverWorld);
+            if (simulationTime != null) {
+                return simulationTime;
+            }
+        }
         long time = world.getGameTime();
         return logicalStep < 0 ? time : time - Math.max(0, logicalSteps(world) - 1 - logicalStep);
     }

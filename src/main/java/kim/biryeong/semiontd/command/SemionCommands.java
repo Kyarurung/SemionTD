@@ -1905,6 +1905,14 @@ public final class SemionCommands {
     }
 
     private static int reloadConfigs(CommandSourceStack source, SemionGameManager gameManager) {
+        if (gameManager.combatSimulationFailed()) {
+            failure(source, "전투 처리 오류로 멈춘 경기를 초기화한 뒤 컨픽을 다시 불러와 주세요.");
+            return 0;
+        }
+        if (gameManager.deferCombatMutation(() -> reloadConfigs(source, gameManager))) {
+            success(source, "현재 전투 틱을 마친 뒤 컨픽을 다시 불러옵니다.");
+            return 1;
+        }
         try {
             SemionGameManager.ReloadConfigResult result = gameManager.reloadConfigs(source.getServer());
             if (!result.reloaded()) {

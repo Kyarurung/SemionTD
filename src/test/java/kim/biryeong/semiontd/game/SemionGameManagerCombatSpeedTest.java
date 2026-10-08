@@ -5,9 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import kim.biryeong.semiontd.config.CombatSpeedConfig;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 final class SemionGameManagerCombatSpeedTest {
+    @BeforeAll
+    static void bootstrap() {
+        SharedConstants.tryDetectVersion();
+        Bootstrap.bootStrap();
+    }
+
     @Test
     void accelerationRequiresAnEnabledNormalWaveWithoutSandboxOrOverload() {
         CombatSpeedConfig enabled = new CombatSpeedConfig(true, 40.0F, 25.0);
@@ -24,7 +33,7 @@ final class SemionGameManagerCombatSpeedTest {
         CombatSpeedConfig arena = new CombatSpeedConfig(true, 40.0F, 25.0);
         CombatSpeedConfig legacy = new CombatSpeedConfig(true, 40.0F, 25.0, CombatSpeedConfig.Mode.SERVER);
 
-        assertEquals(CombatSpeedConfig.Mode.MULTIPLIER, arena.mode());
+        assertEquals(CombatSpeedConfig.Mode.SIMULATION, arena.mode());
         assertEquals(20.0F, arena.serverTickRate(40.0F));
         assertEquals(40.0F, legacy.serverTickRate(40.0F));
         assertEquals(20.0F, legacy.serverTickRate(20.0F));

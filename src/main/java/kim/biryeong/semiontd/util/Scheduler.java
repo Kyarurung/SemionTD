@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.IdentityHashMap;
@@ -121,8 +122,7 @@ public final class Scheduler {
 
         this.taskQueue.removeIf(task -> task.tryRun(server, time));
         for (ServerLevel world : server.getAllLevels()) {
-            // Accelerated arena deadlines are drained by the manager at each logical step.
-            if (CombatSpeedRuntime.multiplier(world) <= 1.0) {
+            if (!CombatSimulationRuntime.controls(world) && CombatSpeedRuntime.multiplier(world) <= 1.0) {
                 runWorldTasks(world);
             }
         }

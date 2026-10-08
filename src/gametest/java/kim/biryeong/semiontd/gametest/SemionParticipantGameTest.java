@@ -4392,14 +4392,29 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
         });
     }
 
-    @GameTest(maxTicks = 60)
+    @GameTest(maxTicks = 60, structure = "semion-td-gametest:combat_arena")
     public void towerEntityRetargetsNearbyMonsterBeforeFarProgressTarget(GameTestHelper context) {
+        PlayerLane geometry = new PlayerLane(TeamId.RED, 1138, stableUuid("red-tower-range-priority-owner"),
+                context.getLevel(), testArena(context).lane(TeamId.RED, 1).orElseThrow());
+        BlockPos position = towerPlacementPos(geometry);
+        var nearChunk = new net.minecraft.world.level.ChunkPos(position.getX() >> 4, position.getZ() >> 4);
+        var farChunk = new net.minecraft.world.level.ChunkPos((position.getX() + 8) >> 4, position.getZ() >> 4);
+        context.startSequence().thenWaitUntil(() -> context.assertTrue(
+                context.getLevel().areEntitiesActuallyLoadedAndTicking(nearChunk)
+                        && context.getLevel().areEntitiesActuallyLoadedAndTicking(farChunk),
+                "Both retargeting entity sections must be loaded before spawning actors"))
+                .thenExecute(() -> verifyTowerRetargeting(context));
+    }
+
+    private void verifyTowerRetargeting(GameTestHelper context) {
         UUID playerId = stableUuid("red-tower-range-priority-owner");
         SemionGame game = startedSinglePlayerGame(context, playerId, TeamId.RED);
-        PlayerLane lane = redLane(game, 1);
+        int testLaneId = 1138;
+        PlayerLane lane = new PlayerLane(TeamId.RED, testLaneId, playerId, context.getLevel(),
+                game.arena().lane(TeamId.RED, 1).orElseThrow());
         BlockPos towerPos = towerPlacementPos(lane);
         TowerType towerType = new TowerType("range_priority_test", "Range Priority Test", TowerCategory.DIRECT, 0, 50.0, 3.5, 10.0, 100, 0);
-        lane.addTower(new TestTower(towerType, playerId, TeamId.RED, 1, GridPosition.from(towerPos)));
+        lane.addTower(new TestTower(towerType, playerId, TeamId.RED, testLaneId, GridPosition.from(towerPos)));
 
         TestTower tower = (TestTower) lane.towers().getFirst();
         if (!assertTrue(context, tower.entityId().isPresent(), "Range priority tower entity should exist.")) {
@@ -4413,7 +4428,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
                 "far-progress-target",
                 Optional.empty(),
                 TeamId.RED,
-                1,
+                testLaneId,
                 towerPosition.add(8.0, 0.0, 0.0),
                 40.0,
                 List.of(SummonRole.SIEGE)
@@ -4437,7 +4452,7 @@ public final class SemionParticipantGameTest extends GameTestParticipantFixture 
                 "near-range-target",
                 Optional.empty(),
                 TeamId.RED,
-                1,
+                testLaneId,
                 towerEntity.position().add(2.0, 0.0, 0.0),
                 40.0,
                 List.of(SummonRole.RUSH)

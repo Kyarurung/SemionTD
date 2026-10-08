@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.KillSourceKind;
@@ -182,22 +183,11 @@ public final class DemonLordService {
             if (state == null || !state.inCombat()) {
                 return true;
             }
-            // 체력은 보스바 풀에서만 관리합니다. 바닐라 체력은 건드리지 않습니다.
-            state.expireShieldIfNeeded(CombatSpeedRuntime.gameTime(player.level()));
-            PlayerLane lane = gameManager.playableGame(player.getUUID())
-                    .flatMap(game -> game.playerLane(player.getUUID())).orElse(null);
-            boolean knockedOut = state.applyDamage(amount,
-                    lane == null ? kim.biryeong.semiontd.augment.AugmentSnapshot.none() : lane.augmentSnapshot(),
-                    CombatSpeedRuntime.gameTime(player.level()), source.getEntity() instanceof SemionMonsterEntity monster
-                            && kim.biryeong.semiontd.augment.AugmentCombat.canBuildCondition(monster.runtimeMonster()));
-            if (state.augments().consumeCooldownChanges()) {
-                syncSkillCooldowns(player, state, CombatSpeedRuntime.gameTime(player.level()));
+            if (CombatSimulationRuntime.input(player.level(),
+                    () -> applyCombatDamage(gameManager, player, source, amount))) {
+                return false;
             }
-            // 바닐라 피해를 막으면 연출도 같이 사라지므로 피격 패킷을 직접 보냅니다.
-            sendHitFeedback(player, source, amount);
-            if (knockedOut) {
-                knockOutOfCombat(player, state);
-            }
+            applyCombatDamage(gameManager, player, source, amount);
             return false;
         });
 
@@ -205,43 +195,74 @@ public final class DemonLordService {
             if (world.isClientSide() || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer attacker)) {
                 return InteractionResult.PASS;
             }
-            DemonLordState state = DemonLordStates.get(attacker.getUUID());
-            if (state == null || !state.inCombat() || !(target instanceof SemionMonsterEntity monsterEntity)) {
-                return InteractionResult.PASS;
-            }
-            if (monsterEntity.isStealthed() || monsterEntity.isDominated()) {
-                // 은신한 몬스터는 지정해서 벨 수 없습니다.
-                return InteractionResult.FAIL;
-            }
-            if (state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)) {
-                // 검기 패시브: 근접 평타는 없습니다. 같은 클릭의 휘두름 패킷이 검기를 쏩니다({@link #handleSwing}).
-                return InteractionResult.SUCCESS;
-            }
-            // 마검 평타. 바닐라 피해 대신 런타임 피해로 넣어야 몹의 방어/저항이 정상 적용됩니다.
-            //
-            // 바닐라 공격 쿨다운은 바닐라 피해 경로에만 걸리므로, 여기서 직접 걸지 않으면 연타가
-            // 그대로 최대 피해가 됩니다. 차지 비율을 바닐라와 같은 곡선으로 곱해 줍니다.
-            int interval = (int) TowerBalanceRuntime.ability(
-                    DemonLordTowers.GLOBAL_CONFIG_ID, "bladeAttackIntervalTicks", 12.0);
-            long now = CombatSpeedRuntime.gameTime(attacker.level());
-            double charge = state.bladeChargeScale(now, interval);
-            state.recordBladeAttack(now);
-            PlayerLane lane = gameManager.playableGame(attacker.getUUID())
-                    .flatMap(game -> game.playerLane(attacker.getUUID()))
-                    .orElse(null);
-            List<DemonLordSkillTower> altars = lane == null
-                    ? List.of()
-                    : orderedAltars(lane, attacker.getUUID());
-            DemonLordSkillTower altar = altars.isEmpty() ? null : altars.getFirst();
-            double swing = state.bladeDamage() * (0.2 + charge * charge * 0.8);
-            Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity, swing, DamageType.PHYSICAL);
-            if (lane != null && state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
-                DemonLordPassives.bloodCleave(attacker, lane, state, altar, monsterEntity, swing, result.dealtDamage());
-            }
-            applyFinisher(attacker, lane, state, altar, monsterEntity, result.dealtDamage());
-            playSwing(attacker, charge);
-            return InteractionResult.SUCCESS;
+            return attackMonster(gameManager, attacker, target);
         });
+    }
+
+    private static void applyCombatDamage(SemionGameManager gameManager, ServerPlayer player,
+            DamageSource source, float amount) {
+        DemonLordState state = DemonLordStates.get(player.getUUID());
+        if (state == null || !state.inCombat()) {
+            return;
+        }
+        // 체력은 보스바 풀에서만 관리합니다. 바닐라 체력은 건드리지 않습니다.
+        state.expireShieldIfNeeded(CombatSpeedRuntime.gameTime(player.level()));
+        PlayerLane lane = gameManager.playableGame(player.getUUID())
+                .flatMap(game -> game.playerLane(player.getUUID())).orElse(null);
+        boolean knockedOut = state.applyDamage(amount,
+                lane == null ? kim.biryeong.semiontd.augment.AugmentSnapshot.none() : lane.augmentSnapshot(),
+                CombatSpeedRuntime.gameTime(player.level()), source.getEntity() instanceof SemionMonsterEntity monster
+                        && kim.biryeong.semiontd.augment.AugmentCombat.canBuildCondition(monster.runtimeMonster()));
+        if (state.augments().consumeCooldownChanges()) {
+            syncSkillCooldowns(player, state, CombatSpeedRuntime.gameTime(player.level()));
+        }
+        // 바닐라 피해를 막으면 연출도 같이 사라지므로 피격 패킷을 직접 보냅니다.
+        sendHitFeedback(player, source, amount);
+        if (knockedOut) {
+            knockOutOfCombat(player, state);
+        }
+    }
+
+    private static InteractionResult attackMonster(SemionGameManager gameManager, ServerPlayer attacker, Entity target) {
+        DemonLordState state = DemonLordStates.get(attacker.getUUID());
+        if (state == null || !state.inCombat() || !(target instanceof SemionMonsterEntity monsterEntity)) {
+            return InteractionResult.PASS;
+        }
+        if (monsterEntity.isStealthed() || monsterEntity.isDominated()) {
+            // 은신한 몬스터는 지정해서 벨 수 없습니다.
+            return InteractionResult.FAIL;
+        }
+        if (state.loadout().hasPassive(DemonLordPassive.BLADE_WAVE)) {
+            // 검기 패시브: 근접 평타는 없습니다. 같은 클릭의 휘두름 패킷이 검기를 쏩니다({@link #handleSwing}).
+            return InteractionResult.SUCCESS;
+        }
+        if (CombatSimulationRuntime.input(attacker.level(), () -> attackMonster(gameManager, attacker, target))) {
+            return InteractionResult.SUCCESS;
+        }
+        // 마검 평타. 바닐라 피해 대신 런타임 피해로 넣어야 몹의 방어/저항이 정상 적용됩니다.
+        //
+        // 바닐라 공격 쿨다운은 바닐라 피해 경로에만 걸리므로, 여기서 직접 걸지 않으면 연타가
+        // 그대로 최대 피해가 됩니다. 차지 비율을 바닐라와 같은 곡선으로 곱해 줍니다.
+        int interval = (int) TowerBalanceRuntime.ability(
+                DemonLordTowers.GLOBAL_CONFIG_ID, "bladeAttackIntervalTicks", 12.0);
+        long now = CombatSpeedRuntime.gameTime(attacker.level());
+        double charge = state.bladeChargeScale(now, interval);
+        state.recordBladeAttack(now);
+        PlayerLane lane = gameManager.playableGame(attacker.getUUID())
+                .flatMap(game -> game.playerLane(attacker.getUUID()))
+                .orElse(null);
+        List<DemonLordSkillTower> altars = lane == null
+                ? List.of()
+                : orderedAltars(lane, attacker.getUUID());
+        DemonLordSkillTower altar = altars.isEmpty() ? null : altars.getFirst();
+        double swing = state.bladeDamage() * (0.2 + charge * charge * 0.8);
+        Tower.DamageResult result = dealDamage(attacker, lane, altar, monsterEntity, swing, DamageType.PHYSICAL);
+        if (lane != null && state.loadout().hasPassive(DemonLordPassive.BLOOD_CLEAVE)) {
+            DemonLordPassives.bloodCleave(attacker, lane, state, altar, monsterEntity, swing, result.dealtDamage());
+        }
+        applyFinisher(attacker, lane, state, altar, monsterEntity, result.dealtDamage());
+        playSwing(attacker, charge);
+        return InteractionResult.SUCCESS;
     }
 
     /** 마무리 동작 증강: 평타(또는 검기의 첫 적중)가 피해를 줬으면 대기 중인 추가 피해를 넣습니다. */
@@ -267,6 +288,9 @@ public final class DemonLordService {
                 || player.getInventory().getSelectedSlot() != DemonLordSkill.BLADE_SLOT) {
             return;
         }
+        if (CombatSimulationRuntime.input(player.level(), () -> handleSwing(gameManager, player))) {
+            return;
+        }
         long now = CombatSpeedRuntime.gameTime(player.level());
         if (state.swingIgnored(now)) {
             return;
@@ -284,6 +308,9 @@ public final class DemonLordService {
 
     /** Q(버리기)를 누르면 클라이언트가 팔도 휘두릅니다. 그 휘두름은 검기로 치지 않습니다. */
     public static void ignoreDropSwing(ServerPlayer player) {
+        if (CombatSimulationRuntime.input(player.level(), () -> ignoreDropSwing(player))) {
+            return;
+        }
         DemonLordState state = DemonLordStates.get(player.getUUID());
         if (state != null) {
             state.ignoreSwingUntil(CombatSpeedRuntime.gameTime(player.level()) + 1);
@@ -943,6 +970,9 @@ public final class DemonLordService {
                 .flatMap(game -> game.playerLane(player.getUUID()))
                 .orElse(null);
         if (lane == null || lane.arenaWorld() == null) {
+            return true;
+        }
+        if (CombatSimulationRuntime.input(lane.arenaWorld(), () -> handleKeyBinding(gameManager, player, binding))) {
             return true;
         }
         tryCast(player, lane, state, binding, CombatSpeedRuntime.gameTime(lane.arenaWorld()));

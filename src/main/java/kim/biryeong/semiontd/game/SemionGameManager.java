@@ -22,6 +22,8 @@ import kim.biryeong.semiontd.balance.manage.BalanceGameRuntime;
 import kim.biryeong.semiontd.buildguide.BuildGuide;
 import kim.biryeong.semiontd.buildguide.BuildGuideService;
 import kim.biryeong.semiontd.config.CombatSpeedConfig;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationSession;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.config.EconomyConfig;
 import kim.biryeong.semiontd.config.IncomeLaneRoutingConfig;
 import kim.biryeong.semiontd.config.JobAvailabilityConfig;
@@ -179,6 +181,10 @@ public final class SemionGameManager {
     private int combatSpeedEntryDelayTicks;
     private int combatSpeedCooldownWaves;
     private final CombatStepAccumulator combatSteps = new CombatStepAccumulator();
+    private CombatSimulationSession combatSimulation;
+    private SemionGame simulationGame;
+    private int simulationRound;
+    private boolean combatSimulationFailureReported;
 
     public enum StartCountdownResult {
         SCHEDULED,
@@ -258,6 +264,13 @@ public final class SemionGameManager {
     }
 
     public void configureCombatSpeed(CombatSpeedConfig combatSpeedConfig) {
+        if (combatSimulationFailed()) {
+            this.combatSpeedConfig = combatSpeedConfig == null ? CombatSpeedConfig.defaultConfig() : combatSpeedConfig;
+            return;
+        }
+        if (deferCombatMutation(() -> configureCombatSpeed(combatSpeedConfig))) {
+            return;
+        }
         this.combatSpeedConfig = combatSpeedConfig == null
                 ? CombatSpeedConfig.defaultConfig()
                 : combatSpeedConfig;
@@ -493,6 +506,9 @@ public final class SemionGameManager {
     }
 
     public ReloadConfigResult reloadConfigs(MinecraftServer server) {
+        if (combatSimulationFailed()) {
+            return new ReloadConfigResult(false, false, configDir);
+        }
         if (configDir == null) {
             return new ReloadConfigResult(false, false, null);
         }
@@ -1815,19 +1831,39 @@ public final class SemionGameManager {
     }
 
     public void beginCombatTick(MinecraftServer server) {
+        if (combatSimulation != null && (combatSimulation.isClosed() || simulationGame != activeGame
+                || simulationGame.phase() != RoundPhase.LANE_WAVE
+                || simulationRound != simulationGame.currentRound())) {
+            closeCombatSimulation();
+        }
+        if (combatSimulation != null && combatSimulation.failure() != null) {
+            reportCombatSimulationFailure(server);
+            restoreCombatTickRate(server);
+            combatSpeedAccelerated = false;
+            return;
+        }
         tickCombatSpeed(server);
-        boolean arenaSpeed = combatSpeedConfig.mode() == CombatSpeedConfig.Mode.MULTIPLIER
-                && combatSpeedAccelerated && server.tickRateManager().runsNormally();
+        boolean simulationEnabled = combatSpeedConfig.enabled()
+                && combatSpeedConfig.mode() != CombatSpeedConfig.Mode.SERVER
+                && activeGame != null && activeGame.phase() == RoundPhase.LANE_WAVE
+                && !activeGame.isSandboxMode() && !activeGame.isTutorialMode();
+        if (!simulationEnabled || simulationGame != activeGame
+                || simulationRound != activeGame.currentRound()) {
+            closeCombatSimulation();
+        }
+        boolean arenaSpeed = simulationEnabled && combatSpeedAccelerated
+                && server.tickRateManager().runsNormally();
         int steps = combatSteps.steps(arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
         CombatSpeedRuntime.configure(server, arenaSpeed ? activeGame : null,
-                arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE, steps);
-        if (arenaSpeed) {
-            for (var world : server.getAllLevels()) {
-                if (activeGame.arena().containsWorld(world)) {
-                    for (int step = 1; step < steps; step++) {
-                        ArenaCombatClock.advance(world);
-                    }
-                }
+                arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE, 1);
+        if (simulationEnabled) {
+            if (combatSimulation == null) {
+                combatSimulation = new CombatSimulationSession(server, activeGame);
+                simulationGame = activeGame;
+                simulationRound = activeGame.currentRound();
+            }
+            if (server.tickRateManager().runsNormally()) {
+                combatSimulation.beginFrame(steps);
             }
         }
     }
@@ -1855,6 +1891,13 @@ public final class SemionGameManager {
             return;
         }
 
+        if (combatSimulation != null && combatSimulation.failure() != null
+                && simulationGame == activeGame && activeGame.phase() == RoundPhase.LANE_WAVE) {
+            reportCombatSimulationFailure(server);
+            sidebarHudService.tick(server, activeGame, matchMode, practiceViewerIds());
+            return;
+        }
+
         tickLateJoins(server);
 
         if (pendingFinishedGame != null) {
@@ -1879,39 +1922,13 @@ public final class SemionGameManager {
         }
 
         SemionGame combatGame = activeGame;
-        int combatRound = combatGame.currentRound();
-        boolean combatWave = combatGame.phase() == RoundPhase.LANE_WAVE
-                && !combatGame.isSandboxMode() && !combatGame.isTutorialMode();
-        int steps = 1;
-        if (combatWave) {
-            for (var world : server.getAllLevels()) {
-                if (combatGame.arena().containsWorld(world)) {
-                    steps = CombatSpeedRuntime.logicalSteps(world);
-                    break;
-                }
-            }
+        if (combatSimulation != null && simulationGame == combatGame) {
+            combatSimulation.endFrame();
+        } else {
+            combatGame.tick(server);
         }
-        java.util.function.BooleanSupplier canContinueCombat = () -> activeGame == combatGame && combatWave
-                && combatGame.phase() == RoundPhase.LANE_WAVE
-                && combatGame.currentRound() == combatRound
-                && server.tickRateManager().runsNormally();
-        int[] logicalStep = {0};
-        CombatStepRunner.run(steps, canContinueCombat,
-                () -> {
-                    int step = logicalStep[0]++;
-                    CombatSpeedRuntime.runGameStep(step, () -> {
-                        if (step > 0) {
-                            IllusionCloneSpawnQueue.tick(combatGame.arena());
-                        }
-                        combatGame.tick(server);
-                        for (var world : server.getAllLevels()) {
-                            if (combatGame.arena().containsWorld(world)) {
-                                Scheduler.INSTANCE.runWorldTasks(world);
-                            }
-                        }
-                    });
-                });
         if (combatGame.phase() != RoundPhase.LANE_WAVE) {
+            closeCombatSimulation();
             combatSteps.reset();
             CombatSpeedRuntime.clear();
         }
@@ -2039,6 +2056,7 @@ public final class SemionGameManager {
             activeGame.close();
             activeGame = null;
         }
+        closeCombatSimulation();
         HeroCompanionSkins.clearAll();
         MagicSchoolSkins.clearAll();
         clearRatingProfileCache();
@@ -2156,6 +2174,7 @@ public final class SemionGameManager {
     }
 
     private void resetCombatSpeedState() {
+        closeCombatSimulation();
         previousCombatSpeedPhase = RoundPhase.WAITING;
         combatSpeedOverloaded = false;
         combatSpeedAccelerated = false;
@@ -2163,6 +2182,42 @@ public final class SemionGameManager {
         combatSpeedCooldownWaves = 0;
         combatSteps.reset();
         CombatSpeedRuntime.clear();
+    }
+
+    private void closeCombatSimulation() {
+        if (combatSimulation != null) {
+            combatSimulation.close();
+            if (!combatSimulation.isClosed()) {
+                return;
+            }
+            combatSimulation = null;
+        }
+        simulationGame = null;
+        simulationRound = 0;
+        combatSimulationFailureReported = false;
+    }
+
+    private void reportCombatSimulationFailure(MinecraftServer server) {
+        if (!combatSimulationFailureReported) {
+            combatSimulationFailureReported = true;
+            SemionTd.LOGGER.error("Combat simulation stopped; the active match requires explicit disposal.",
+                    combatSimulation.failure());
+            server.getPlayerList().broadcastSystemMessage(
+                    SemionText.prefixedPlain("전투 처리 오류로 경기 진행을 멈췄습니다. 운영자가 경기를 초기화해 주세요."), false);
+        }
+    }
+
+    public boolean deferCombatMutation(Runnable action) {
+        if (combatSimulation == null || combatSimulation.isClosed() || combatSimulation.failure() != null
+                || CombatSimulationRuntime.active(combatSimulation)) {
+            return false;
+        }
+        combatSimulation.input(action);
+        return true;
+    }
+
+    public boolean combatSimulationFailed() {
+        return combatSimulation != null && combatSimulation.failure() != null && !combatSimulation.isClosed();
     }
 
     static double combatSpeedEntryThresholdMillis(CombatSpeedConfig config) {
