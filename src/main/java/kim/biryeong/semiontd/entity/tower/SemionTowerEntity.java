@@ -1,5 +1,8 @@
 package kim.biryeong.semiontd.entity.tower;
 
+import kim.biryeong.semiontd.entity.EntityCombatSpeed;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+
 import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
 import de.tomalbrc.bil.api.AnimatedEntity;
 import de.tomalbrc.bil.api.AnimatedEntityHolder;
@@ -314,8 +317,22 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             die(serverLevel.damageSources().fellOutOfWorld());
             return;
         }
+        EntityCombatSpeed.updateMovement(this);
         super.aiStep();
         damageCooldownTime = 0;
+        for (int step = 0; step < CombatSpeedRuntime.logicalSteps(level()); step++) {
+            CombatSpeedRuntime.runTimerStep(step, this::tickCombatEffects);
+        }
+        refreshAugmentNameplate();
+        syncMoobloomVisualEntity();
+        syncBlockDisplayVisual();
+        syncEndCoreInteractionHitbox();
+        returnToFinalDefenseAreaIfNeeded();
+        syncEndCoreFlightPhysics();
+        applyLockedDragonRotation();
+    }
+
+    private void tickCombatEffects() {
         double previousMaxHealthBonus = activeTimedEffectMagnitude(TimedEffectType.TOWER_MAX_HEALTH_BONUS);
         double previousFlatMaxHealthBonus = activeTimedEffectMagnitude(TimedEffectType.TOWER_FLAT_MAX_HEALTH_BONUS);
         double previousFlatMaxHealthReduction = activeTimedEffectMagnitude(
@@ -331,13 +348,6 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         double regenerationPerSecond = activeTimedEffectMagnitude(TimedEffectType.TOWER_HEALTH_REGEN_PER_SECOND);
         double healthLossPerSecond = activeTimedEffectMagnitude(TimedEffectType.TOWER_HEALTH_LOSS_PER_SECOND);
         applyHealthOverTime(regenerationPerSecond, healthLossPerSecond);
-        refreshAugmentNameplate();
-        syncMoobloomVisualEntity();
-        syncBlockDisplayVisual();
-        syncEndCoreInteractionHitbox();
-        returnToFinalDefenseAreaIfNeeded();
-        syncEndCoreFlightPhysics();
-        applyLockedDragonRotation();
     }
 
     @Override
@@ -1703,7 +1713,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         }
 
         Vec3 velocity = getDeltaMovement();
-        Vec3 step = offset.normalize().scale(Math.min(speedModifier, distance));
+        Vec3 step = offset.normalize().scale(Math.min(speedModifier * CombatSpeedRuntime.multiplier(level()), distance));
         if (isBabyEndDragonBlockedByFriendlyTower(step)) {
             getNavigation().stop();
             getMoveControl().setWantedPosition(getX(), getY(), getZ(), 0.0);

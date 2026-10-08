@@ -2,6 +2,8 @@ package kim.biryeong.semiontd.entity.monster.goal;
 
 import java.util.EnumSet;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
+import kim.biryeong.semiontd.entity.goal.CombatCooldown;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,7 +12,7 @@ import net.minecraft.world.entity.ai.goal.Goal;
 public final class MonsterAttackTargetGoal extends Goal {
     private final SemionMonsterEntity monster;
     private final double speedModifier;
-    private int cooldownTicks;
+    private final CombatCooldown cooldown = new CombatCooldown();
 
     public MonsterAttackTargetGoal(SemionMonsterEntity monster, double speedModifier) {
         this.monster = monster;
@@ -36,9 +38,7 @@ public final class MonsterAttackTargetGoal extends Goal {
             monster.playAnimation(SemionAnimationState.IDLE);
             return;
         }
-        if (cooldownTicks > 0) {
-            cooldownTicks--;
-        }
+        cooldown.advance(CombatSpeedRuntime.multiplier(monster.level()));
         if (monster.isStunned()) {
             monster.getNavigation().stop();
             monster.playAnimation(SemionAnimationState.IDLE);
@@ -71,16 +71,20 @@ public final class MonsterAttackTargetGoal extends Goal {
         }
 
         monster.getNavigation().stop();
-        if (cooldownTicks > 0 || monster.isDisarmed()) {
+        if (!cooldown.ready() || monster.isDisarmed()) {
             monster.playAnimation(SemionAnimationState.IDLE);
             return;
         }
 
-        if (controlled && target instanceof SemionMonsterEntity ally) {
-            monster.schoolSpells().attackControlled(ally);
-        } else {
-            monster.startAttack(target);
+        for (int event = 0; event < CombatCooldown.MAX_EVENTS && cooldown.ready()
+                && monster.isAlive() && !monster.isRemoved() && target.isAlive() && !target.isRemoved()
+                && !monster.isStunned() && !monster.isDisarmed() && !SuccubusDreams.isAsleep(monster); event++) {
+            if (controlled && target instanceof SemionMonsterEntity ally) {
+                monster.schoolSpells().attackControlled(ally);
+            } else {
+                monster.startAttack(target);
+            }
+            cooldown.restart(monster.attackIntervalTicks());
         }
-        cooldownTicks = monster.attackIntervalTicks();
     }
 }

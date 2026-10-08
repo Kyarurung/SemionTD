@@ -8,6 +8,7 @@ import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
 import kim.biryeong.semiontd.effect.TimedEffectType;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -59,7 +60,7 @@ public final class MagicSchoolMonsterSpells {
 
     public void tick() {
         if (!target.isAlive() || target.isRemoved()) { curses.clear(); return; }
-        long now = target.level().getGameTime();
+        long now = CombatSpeedRuntime.gameTime(target.level());
         if (!curses.isEmpty() && now >= nextCurseVisualTick) {
             TowerVfxService.showMagicSchoolVisual(curses.values().iterator().next().source,
                     MagicSchoolSpell.CRUCIO, MagicSchoolSpellVfx.Kind.DOT,

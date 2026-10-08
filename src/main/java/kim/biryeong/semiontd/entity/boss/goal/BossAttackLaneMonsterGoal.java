@@ -4,6 +4,8 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import kim.biryeong.semiontd.config.AttackKind;
 import kim.biryeong.semiontd.entity.boss.SemionBossEntity;
+import kim.biryeong.semiontd.entity.goal.CombatCooldown;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
@@ -17,7 +19,7 @@ public final class BossAttackLaneMonsterGoal extends Goal {
     private static final double RANGED_PULL_STEP = 0.45;
 
     private final SemionBossEntity boss;
-    private int cooldownTicks;
+    private final CombatCooldown cooldown = new CombatCooldown();
 
     public BossAttackLaneMonsterGoal(SemionBossEntity boss) {
         this.boss = boss;
@@ -36,9 +38,7 @@ public final class BossAttackLaneMonsterGoal extends Goal {
 
     @Override
     public void tick() {
-        if (cooldownTicks > 0) {
-            cooldownTicks--;
-        }
+        cooldown.advance(CombatSpeedRuntime.multiplier(boss.level()));
 
         SemionMonsterEntity target = boss.level().getEntities(
                         boss,
@@ -70,9 +70,10 @@ public final class BossAttackLaneMonsterGoal extends Goal {
             return;
         }
 
-        if (cooldownTicks <= 0 && distanceSqr <= attackRangeSqr()) {
+        for (int event = 0; event < CombatCooldown.MAX_EVENTS && cooldown.ready()
+                && distanceSqr <= attackRangeSqr() && boss.isAlive() && target.isAlive() && !target.isRemoved(); event++) {
             attackTargetAndSplash(target);
-            cooldownTicks = boss.attackIntervalTicks();
+            cooldown.restart(boss.attackIntervalTicks());
         }
     }
 
@@ -120,7 +121,7 @@ public final class BossAttackLaneMonsterGoal extends Goal {
             return;
         }
 
-        double step = Math.min(RANGED_PULL_STEP, horizontalDistance);
+        double step = Math.min(RANGED_PULL_STEP * CombatSpeedRuntime.multiplier(boss.level()), horizontalDistance);
         double x = target.getX() + delta.x / horizontalDistance * step;
         double z = target.getZ() + delta.z / horizontalDistance * step;
         target.teleportTo(x, target.getY(), z);

@@ -1,5 +1,8 @@
 package kim.biryeong.semiontd.entity.monster;
 
+import kim.biryeong.semiontd.entity.EntityCombatSpeed;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+
 import de.tomalbrc.bil.api.AnimatedEntity;
 import de.tomalbrc.bil.api.AnimatedEntityHolder;
 import de.tomalbrc.bil.core.holder.entity.living.LivingEntityHolder;
@@ -76,7 +79,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private EntityDimensions runtimeDimensions = MonsterDimensions.DEFAULT.toEntityDimensions();
     private SemionAnimationState animationState = SemionAnimationState.IDLE;
     /** 공격·치유처럼 한 번 도는 동작이 끝나는 틱. 그 전에는 걷기·대기로 바뀌어도 멈추지 않습니다. */
-    private int oneShotEndTick;
+    private long oneShotEndTick;
     private boolean deathVisualShown;
     private final List<Goal> summonAbilityGoals = new ArrayList<>();
     private NaturalWaveHealGoal waveAbilityGoal;
@@ -90,10 +93,11 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     /** 공격 방식(선딜·특수 타격). 없으면 공격을 트는 틱에 바로 한 번 때립니다. */
     private MonsterAttackStyle attackStyle;
     private LivingEntity pendingHitTarget;
-    private int pendingHitTick = -1;
+    private long pendingHitTick = -1;
+    private long extraCombatTicks;
     /** 은신 유닛: 공격 중이 아니면 타워가 고를 수 없고 모델도 숨습니다. */
     private boolean stealthCapable;
-    private int revealedUntilTick;
+    private long revealedUntilTick;
     private boolean stealthVisualApplied;
     private float visibleScale = 1.0F;
     /** 타워·마왕 어그로를 모두 무시하고 레인 끝의 보스만 노립니다. */
@@ -248,13 +252,15 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             die(serverLevel.damageSources().fellOutOfWorld());
             return;
         }
+        EntityCombatSpeed.updateMovement(this);
         super.aiStep();
-        tickPendingHit();
+        for (int step = 0; step < CombatSpeedRuntime.logicalSteps(level()); step++) {
+            if (step > 0) {
+                extraCombatTicks++;
+            }
+            CombatSpeedRuntime.runTimerStep(step, this::tickCombatEffects);
+        }
         tickStealthVisual();
-        tickIgnite();
-        tickBeePoisons();
-        schoolSpells.tick();
-        timedEffects.tick();
         if (runtimeMonster != null) {
             runtimeMonster.expireShields(level().getGameTime());
             if (tickCount % 20 == 0) {
@@ -269,6 +275,14 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         } else if (getTarget() != null && !getTarget().isAlive()) {
             setTarget(null);
         }
+    }
+
+    private void tickCombatEffects() {
+        tickPendingHit();
+        tickIgnite();
+        tickBeePoisons();
+        schoolSpells.tick();
+        timedEffects.tick();
     }
 
     public boolean hasLanePath() {
@@ -337,7 +351,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         }
         if (pendingHitTick >= 0) {
             // 공격 속도가 올라 앞 공격의 타격 틱보다 먼저 다음 공격이 시작되면, 앞 타격을 지금 넣고 넘어갑니다.
-            pendingHitTick = tickCount;
+            pendingHitTick = combatTickCount();
             tickPendingHit();
         }
         int delay = Math.max(0, attackStyle.hitDelayTicks());
@@ -347,15 +361,19 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         pendingHitTarget = target;
-        pendingHitTick = tickCount + delay;
+        pendingHitTick = combatTickCount() + delay;
     }
 
     public boolean hasPendingHit() {
         return pendingHitTick >= 0;
     }
 
+    public long combatTickCount() {
+        return tickCount + extraCombatTicks;
+    }
+
     private void tickPendingHit() {
-        if (pendingHitTick < 0 || tickCount < pendingHitTick) {
+        if (pendingHitTick < 0 || combatTickCount() < pendingHitTick) {
             return;
         }
         LivingEntity target = pendingHitTarget;
@@ -410,11 +428,11 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     public boolean isStealthed() {
-        return stealthCapable && isAlive() && tickCount >= revealedUntilTick;
+        return stealthCapable && isAlive() && combatTickCount() >= revealedUntilTick;
     }
 
     public void revealFor(int ticks) {
-        revealedUntilTick = Math.max(revealedUntilTick, tickCount + Math.max(0, ticks));
+        revealedUntilTick = Math.max(revealedUntilTick, combatTickCount() + Math.max(0, ticks));
     }
 
     private void tickStealthVisual() {
@@ -651,7 +669,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             level().broadcastEntityEvent(this, (byte) 4);
         }
         if (holder != null && (this.animationState != animationState || oneShot)) {
-            boolean oneShotRunning = tickCount < oneShotEndTick;
+            boolean oneShotRunning = combatTickCount() < oneShotEndTick;
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 // 공격 직후 쿨다운 동안 대기·걷기로 돌아와도, 돌고 있는 공격·치유 동작은 끝까지 두어 위에 겹쳐 보이게 합니다.
                 // 예전에는 바로 다음 틱에 멈춰서 공격 모션이 한 틱만 보였습니다.
@@ -663,7 +681,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             holder.getAnimator().playAnimation(animationState.animationId(), oneShot ? 10 : 1, true);
             if (oneShot) {
                 de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
-                oneShotEndTick = tickCount + (animation == null ? 0 : animation.duration());
+                oneShotEndTick = combatTickCount() + (animation == null ? 0 : animation.duration());
             }
         }
         this.animationState = animationState;
@@ -890,7 +908,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
         int remainingTicks = ignite.remainingTicks() - 1;
         int ticksUntilDamage = ignite.ticksUntilDamage() - 1;
-        if (tickCount % 5 == 0) {
+        if (combatTickCount() % 5 == 0) {
             TraitVfx.showIgniteActive(this);
         }
         if (ticksUntilDamage <= 0) {

@@ -11,6 +11,7 @@ import kim.biryeong.semiontd.entity.monster.MonsterOrigin;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import kim.biryeong.semiontd.game.PlayerLane;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.tower.area.AreaEffectLaneIndex;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -48,6 +49,17 @@ final class InvasionGoals {
             return true;
         }
 
+        @Override
+        public final void tick() {
+            long firstTick = caster.combatTickCount();
+            for (int step = 0; step < CombatSpeedRuntime.logicalSteps(caster.level()) && canUse(); step++) {
+                long combatTick = firstTick + step;
+                CombatSpeedRuntime.runTimerStep(step, () -> tickAbility(combatTick));
+            }
+        }
+
+        protected abstract void tickAbility(long combatTick);
+
         /** 같은 레인으로 쳐들어간 살아 있는 아군(자기 포함). */
         protected List<SemionMonsterEntity> alliesWithin(double radius) {
             Monster self = caster.runtimeMonster();
@@ -84,9 +96,9 @@ final class InvasionGoals {
         }
 
         @Override
-        public void tick() {
+        protected void tickAbility(long combatTick) {
             Monster monster = caster.runtimeMonster();
-            if (monster == null || caster.tickCount % PERIOD != 0 || monster.health() >= monster.maxHealth()) {
+            if (monster == null || combatTick % PERIOD != 0 || monster.health() >= monster.maxHealth()) {
                 return;
             }
             caster.receiveHealing(monster.maxHealth() * ratioPerSecond * PERIOD / 20.0);
@@ -111,9 +123,9 @@ final class InvasionGoals {
         }
 
         @Override
-        public void tick() {
+        protected void tickAbility(long combatTick) {
             Monster monster = caster.runtimeMonster();
-            if (monster == null || caster.tickCount % REFRESH != 0) {
+            if (monster == null || combatTick % REFRESH != 0) {
                 return;
             }
             if (!triggered && monster.health() > monster.maxHealth() * threshold) {
@@ -149,8 +161,8 @@ final class InvasionGoals {
         }
 
         @Override
-        public void tick() {
-            if (caster.tickCount % REFRESH != 0) {
+        protected void tickAbility(long combatTick) {
+            if (combatTick % REFRESH != 0) {
                 return;
             }
             for (SemionMonsterEntity ally : alliesWithin(radius)) {
@@ -172,7 +184,7 @@ final class InvasionGoals {
         private final double maxHealthRatio;
         private final int cooldown;
         private final int retry;
-        private int readyTick;
+        private long readyTick;
 
         AreaHeal(SemionMonsterEntity caster, double radius, double healAmount, double maxHealthRatio, int cooldown, int retry) {
             super(caster);
@@ -184,8 +196,8 @@ final class InvasionGoals {
         }
 
         @Override
-        public void tick() {
-            if (caster.tickCount < readyTick || caster.isStunned()) {
+        protected void tickAbility(long combatTick) {
+            if (combatTick < readyTick || caster.isStunned()) {
                 return;
             }
             boolean healed = false;
@@ -201,7 +213,7 @@ final class InvasionGoals {
                     InvasionVfx.playAt(serverLevel(), InvasionVfx.priestHeal(seed() + ally.getId()), ally.position());
                 }
             }
-            readyTick = caster.tickCount + (healed ? cooldown : retry);
+            readyTick = combatTick + (healed ? cooldown : retry);
         }
     }
 
@@ -220,8 +232,8 @@ final class InvasionGoals {
         private final double healthRatio;
         private final double damageRatio;
         private final List<UUID> minions = new ArrayList<>();
-        private int readyTick;
-        private int nextSpawnTick = -1;
+        private long readyTick;
+        private long nextSpawnTick = -1;
         private int remaining;
 
         RaiseSkeletons(SemionMonsterEntity caster, int count, int interval, int cooldown, int castDelay, int maxAlive,
@@ -238,26 +250,26 @@ final class InvasionGoals {
         }
 
         @Override
-        public void tick() {
+        protected void tickAbility(long combatTick) {
             if (remaining > 0) {
-                if (caster.tickCount >= nextSpawnTick) {
+                if (combatTick >= nextSpawnTick) {
                     raiseOne();
                     remaining--;
-                    nextSpawnTick = caster.tickCount + interval;
+                    nextSpawnTick = combatTick + interval;
                 }
                 return;
             }
-            if (caster.tickCount < readyTick || caster.isStunned() || caster.hasPendingHit()) {
+            if (combatTick < readyTick || caster.isStunned() || caster.hasPendingHit()) {
                 return;
             }
             int room = maxAlive - aliveMinions();
             if (room <= 0) {
-                readyTick = caster.tickCount + 20;
+                readyTick = combatTick + 20;
                 return;
             }
             remaining = Math.min(count, room);
-            nextSpawnTick = caster.tickCount + castDelay;
-            readyTick = caster.tickCount + cooldown;
+            nextSpawnTick = combatTick + castDelay;
+            readyTick = combatTick + cooldown;
             caster.playAnimation(SemionAnimationState.ATTACK);
             InvasionVfx.playAt(serverLevel(), InvasionVfx.necroCast(castDelay + remaining * interval, seed()), caster.position());
         }

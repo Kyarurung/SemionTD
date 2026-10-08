@@ -6,6 +6,7 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.MonsterOrigin;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.monster.WaveHealingState;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -37,6 +38,12 @@ public final class NaturalWaveHealGoal extends Goal {
 
     @Override
     public void tick() {
+        for (int step = 0; step < CombatSpeedRuntime.logicalSteps(caster.level()) && canUse(); step++) {
+            CombatSpeedRuntime.runTimerStep(step, this::tickHealing);
+        }
+    }
+
+    private void tickHealing() {
         if (!canUse()) {return;}
         Monster monster = caster.runtimeMonster();
         WaveHealingConfig config = monster.waveHealing();

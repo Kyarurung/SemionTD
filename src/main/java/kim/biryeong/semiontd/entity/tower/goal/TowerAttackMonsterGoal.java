@@ -5,6 +5,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
+import kim.biryeong.semiontd.entity.goal.CombatCooldown;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
 import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import kim.biryeong.semiontd.entity.tower.vfx.TowerVfxService;
@@ -23,8 +25,8 @@ public final class TowerAttackMonsterGoal extends Goal {
     private static final double ENCOUNTER_RANGE_BONUS = 1.0;
 
     private final SemionTowerEntity tower;
-    private int cooldownTicks;
-    private int targetSearchCooldownTicks;
+    private final CombatCooldown cooldown = new CombatCooldown();
+    private double targetSearchCooldownTicks;
     private SemionMonsterEntity cachedTarget;
 
     public TowerAttackMonsterGoal(SemionTowerEntity tower) {
@@ -54,7 +56,7 @@ public final class TowerAttackMonsterGoal extends Goal {
         if (tower.attackRange() <= 0.0) {
             cachedTarget = null;
             targetSearchCooldownTicks = 0;
-            cooldownTicks = 0;
+            cooldown.reset();
             tower.recordCurrentAttackTarget(null);
             tower.getNavigation().stop();
             tower.playAnimation(SemionAnimationState.IDLE);
@@ -62,11 +64,9 @@ public final class TowerAttackMonsterGoal extends Goal {
         }
 
         if (tower.consumeForceAttackReady()) {
-            cooldownTicks = 0;
+            cooldown.reset();
         }
-        if (cooldownTicks > 0) {
-            cooldownTicks--;
-        }
+        cooldown.advance(CombatSpeedRuntime.multiplier(tower.level()));
 
         if (tower.needsFinalDefenseReturn()) {
             tower.returnToFinalDefenseAreaIfNeeded();
@@ -117,7 +117,7 @@ public final class TowerAttackMonsterGoal extends Goal {
         }
 
         tower.getNavigation().stop();
-        if (cooldownTicks > 0) {
+        if (!cooldown.ready()) {
             tower.playAnimation(SemionAnimationState.IDLE);
             return;
         }
@@ -125,6 +125,21 @@ public final class TowerAttackMonsterGoal extends Goal {
         if (tower.runtimeTower() != null && !tower.runtimeTower().canAttackTarget(tower, target)) {
             return;
         }
+        for (int event = 0; event < CombatCooldown.MAX_EVENTS && cooldown.ready()
+                && tower.isAlive() && !tower.isRemoved() && !SuccubusDreams.isAsleep(tower); event++) {
+            if (!isUsableTarget(target) || !isInAttackRange(target)) {
+                target = findTarget();
+            }
+            if (target == null || !isUsableTarget(target) || !isInAttackRange(target)) {
+                break;
+            }
+            tower.recordCurrentAttackTarget(target);
+            attack(target);
+            cooldown.restart(tower.attackIntervalTicks());
+        }
+    }
+
+    private void attack(SemionMonsterEntity target) {
         tower.playAnimation(SemionAnimationState.ATTACK);
         double damageAmount = tower.attackDamageAmount(target);
         float healthBeforeAttack = tower.getHealth();
@@ -153,7 +168,6 @@ public final class TowerAttackMonsterGoal extends Goal {
                 killedPrimaryTarget,
                 tower.getHealth() > healthBeforeAttack + 0.01F
         );
-        cooldownTicks = tower.attackIntervalTicks();
     }
 
     private SemionMonsterEntity findTarget() {
@@ -190,7 +204,7 @@ public final class TowerAttackMonsterGoal extends Goal {
 
         boolean usableCachedTarget = isUsableCachedTarget();
         if (usableCachedTarget && targetSearchCooldownTicks > 0) {
-            targetSearchCooldownTicks--;
+            targetSearchCooldownTicks -= CombatSpeedRuntime.multiplier(tower.level());
             cachedTarget = preferAttackableFinalDefenseTarget(cachedTarget);
             return cachedTarget;
         }
@@ -210,7 +224,7 @@ public final class TowerAttackMonsterGoal extends Goal {
         }
 
         if (targetSearchCooldownTicks > 0) {
-            targetSearchCooldownTicks--;
+            targetSearchCooldownTicks -= CombatSpeedRuntime.multiplier(tower.level());
             return null;
         }
 
