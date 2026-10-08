@@ -42,6 +42,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     private final Map<ServerLevel, EngineerCircuitSimulation.Snapshot> completedCircuits = new IdentityHashMap<>();
     private final Map<Entity, CombatSimulationRuntime.EntityView> views = new IdentityHashMap<>();
     private final Map<Entity, CombatSimulationRuntime.EntityView> completedViews = new IdentityHashMap<>();
+    private final Map<Entity, Runnable> completedVisuals = new IdentityHashMap<>();
     private final Map<Entity, AnimationFrame> animations = new IdentityHashMap<>();
     private final Map<Entity, AnimationFrame> completedAnimations = new IdentityHashMap<>();
     private final Coordinator<Entity, Work, WorkResult> coordinator;
@@ -84,7 +85,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                 completedCircuits.put(world, circuit.snapshot());
                 CombatSimulationRuntime.register(world, this);
             }
-            captureCompletedViews();
+            CombatSimulationRuntime.run(this, this::captureCompletedState);
         } catch (RuntimeException | Error failure) {
             coordinator.close();
             throw failure;
@@ -195,11 +196,14 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     private void captureCompletedViews() {
         completedViews.clear();
+        completedVisuals.clear();
         for (ServerLevel world : worlds) {
             for (Entity entity : entities(world)) {
                 CombatSimulationRuntime.EntityView view = view(entity);
                 if (view != null && !entity.isRemoved()) {
                     completedViews.put(entity, copy(view));
+                    completedVisuals.put(entity, Objects.requireNonNull(
+                            EntitySimulationBridge.capturePresentation(entity), "completed presentation"));
                 }
             }
         }
@@ -219,7 +223,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             for (var entry : completedViews.entrySet()) {
                 if (!entry.getKey().isRemoved()) {
                     entry.getValue().publish(entry.getKey());
-                    EntitySimulationBridge.present(entry.getKey());
+                    completedVisuals.get(entry.getKey()).run();
                 }
             }
             for (var entry : circuits.entrySet()) {
@@ -284,9 +288,13 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         @Override
         public boolean valid() {
             return !closed && game.phase() == RoundPhase.LANE_WAVE && game.currentRound() == round
-                    && server.tickRateManager().runsNormally()
-                    && worlds.stream().allMatch(world -> server.getLevel(world.dimension()) == world
-                            && world.tickRateManager().runsNormally());
+                    && worlds.stream().allMatch(world -> server.getLevel(world.dimension()) == world);
+        }
+
+        @Override
+        public boolean paused() {
+            return !server.tickRateManager().runsNormally()
+                    || worlds.stream().anyMatch(world -> !world.tickRateManager().runsNormally());
         }
 
         @Override
@@ -423,6 +431,9 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                     }
                     circuits.forEach((world, circuit) -> circuit.close(completedCircuits.get(world)));
                     views.clear();
+                    completedViews.clear();
+                    completedVisuals.clear();
+                    completedAnimations.clear();
                     animations.clear();
                 } finally {
                     publishing = false;
@@ -433,6 +444,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     interface Bridge<A, I, O> {
         boolean valid();
+        default boolean paused() { return false; }
         long revision();
         long logicalTick();
         int round();
@@ -466,6 +478,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
         private boolean active;
         private boolean closed;
         private boolean closeRequested;
+        private boolean completionDeferred;
         private boolean driving;
         private long inputSequence;
         private long completedSteps;
@@ -485,15 +498,17 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             if (steps < 1 || steps > MAX_STEPS) {
                 throw new IllegalArgumentException("Combat frame budget must be within 1..5.");
             }
-            if (!closed && !closeRequested && budget <= MAX_STEPS - steps) {
+            if (!closed && !closeRequested && !bridge.paused() && budget <= MAX_STEPS - steps) {
                 budget += steps;
             }
+            resumeCompletion();
             drive();
         }
 
         void endFrame() {
             requireOwner();
             checkNotification();
+            resumeCompletion();
             if (!closed) {
                 try {
                     bridge.present();
@@ -539,12 +554,18 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                         closeNow();
                         return;
                     }
+                    if (bridge.paused()) {
+                        return;
+                    }
                     if (!active) {
                         while (!inputs.isEmpty()) {
                             bridge.runInput(inputs.removeFirst());
                             inputSequence++;
                             if (!bridge.valid()) {
                                 closeNow();
+                                return;
+                            }
+                            if (bridge.paused()) {
                                 return;
                             }
                         }
@@ -614,6 +635,14 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             if (closed) {
                 return;
             }
+            if (!bridge.valid()) {
+                closeNow();
+                return;
+            }
+            if (bridge.paused()) {
+                completionDeferred = true;
+                return;
+            }
             var completion = executor.poll();
             if (completion.isEmpty()) {
                 return;
@@ -664,6 +693,13 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                     new IllegalStateException("Combat completion could not be dispatched to its owner.", failure)));
         }
 
+        private void resumeCompletion() {
+            if (!closed && completionDeferred && pendingToken != null && !bridge.paused()) {
+                completionDeferred = false;
+                ready();
+            }
+        }
+
         @Override
         public void close() {
             requireOwner();
@@ -690,6 +726,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
                 pendingActor = null;
                 pendingInput = null;
                 pendingToken = null;
+                completionDeferred = false;
                 budget = 0;
                 active = false;
                 bridge.close();

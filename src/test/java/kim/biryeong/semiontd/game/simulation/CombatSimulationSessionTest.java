@@ -341,6 +341,71 @@ final class CombatSimulationSessionTest {
         }, dispatcher);
     }
 
+    @Test
+    void freezeRetainsCompletedWorkerMailAndNativePrefixUntilAnOwnerFrameResumes() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        Dispatcher dispatcher = new Dispatcher();
+        bridge.afterApply = actor -> {
+            if (actor.equals("a")) {
+                bridge.events.add("kill");
+            }
+        };
+        try (var coordinator = coordinator(bridge, dispatcher, ignored -> {})) {
+            coordinator.beginFrame(2);
+            dispatcher.next().run();
+            dispatcher.next().run();
+            Runnable pending = dispatcher.next();
+            List<String> beforeFreeze = List.copyOf(bridge.events);
+            bridge.paused = true;
+            coordinator.input(() -> bridge.events.add("input"));
+            pending.run();
+            coordinator.beginFrame(2);
+            coordinator.endFrame();
+            assertEquals(beforeFreeze, bridge.events);
+            assertEquals(2, coordinator.pendingSteps());
+            assertEquals(0, coordinator.completedSteps());
+            assertEquals(List.of(0L), bridge.presentedTicks);
+            assertFalse(coordinator.isClosed());
+            bridge.paused = false;
+            coordinator.endFrame();
+            while (!coordinator.idle()) {
+                dispatcher.next().run();
+            }
+            assertEquals(2, coordinator.completedSteps());
+            assertEquals(2, bridge.events.stream().filter("kill"::equals).count());
+            assertEquals(1, bridge.events.stream().filter("prepare:a:1"::equals).count());
+            assertEquals(1, bridge.events.stream().filter("apply:b:1"::equals).count());
+            assertTrue(bridge.events.indexOf("complete:1") < bridge.events.indexOf("input"));
+            assertTrue(bridge.events.indexOf("input") < bridge.events.indexOf("begin:2"));
+        }
+    }
+
+    @Test
+    void closeDuringFreezeFinishesOnlyTheAcceptedStepAfterResume() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        Dispatcher dispatcher = new Dispatcher();
+        try (var coordinator = coordinator(bridge, dispatcher, ignored -> {})) {
+            coordinator.beginFrame(2);
+            dispatcher.next().run();
+            Runnable pending = dispatcher.next();
+            bridge.paused = true;
+            pending.run();
+            coordinator.close();
+            assertFalse(coordinator.isClosed());
+            coordinator.endFrame();
+            assertEquals(0, coordinator.completedSteps());
+            bridge.paused = false;
+            coordinator.endFrame();
+            while (!coordinator.isClosed()) {
+                dispatcher.next().run();
+            }
+            assertEquals(1, coordinator.completedSteps());
+            assertEquals(1, bridge.prefixes.get("a"));
+            assertEquals(1, bridge.prefixes.get("b"));
+            assertEquals(1, bridge.closes);
+        }
+    }
+
     private record Request(String actor, long tick) {
     }
 
@@ -371,12 +436,14 @@ final class CombatSimulationSessionTest {
         private Consumer<String> afterApply = ignored -> {};
         private RuntimeException presentationFailure;
         private boolean valid = true;
+        private boolean paused;
         private long tick;
         private long revision;
         private long committedTick;
         private int closes;
 
         public boolean valid() { return valid; }
+        public boolean paused() { return paused; }
         public long revision() { return revision; }
         public long logicalTick() { return tick; }
         public int round() { return 1; }
