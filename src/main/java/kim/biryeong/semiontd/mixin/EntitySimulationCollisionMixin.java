@@ -22,6 +22,14 @@ public abstract class EntitySimulationCollisionMixin {
         return CombatSimulationRuntime.controls(actor) ? 0 : invulnerableTime;
     }
 
+    @Redirect(method = "commonTick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/Entity;setOldPosAndRot()V"))
+    private void semiontd$logicalMovementHistory(Entity actor) {
+        if (!CombatSimulationRuntime.controls(actor) || CombatSimulationRuntime.stepping(actor)) {
+            actor.setOldPosAndRot();
+        }
+    }
+
     @Inject(method = "collide", at = @At("HEAD"), cancellable = true)
     private void semiontd$workerCollision(Vec3 movement, CallbackInfoReturnable<Vec3> callback) {
         Vec3 resolved = EntitySimulationBridge.collision((Entity) (Object) this, movement);

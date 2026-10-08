@@ -40,6 +40,109 @@ import net.minecraft.world.phys.Vec3;
 
 public final class EntitySimulationAmbientTest implements RuntimeArenaFixture {
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void logicalMovementHistoryMatchesNativeTicksDuringMoveStopAndWorkerWait(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        MotionHistoryMonster baseline = motionActor(context);
+        MotionHistoryMonster simulated = motionActor(context);
+        TestOwner owner = new TestOwner(simulated);
+        owner.logicalView = CombatSimulationRuntime.EntityView.capture(simulated);
+        CombatSimulationRuntime.register(world, owner);
+        try {
+            for (int frame = 0; frame < 20; frame++) {
+                if (frame != 1) {
+                    world.tickNonPassenger(simulated);
+                }
+                for (int substep = 0; substep < 2; substep++) {
+                    owner.age = frame * 2 + substep + 1;
+                    owner.logicalView.age(owner.age);
+                    world.tickNonPassenger(baseline);
+                    WorkerPhysics.Input[] prepared = new WorkerPhysics.Input[1];
+                    CombatSimulationRuntime.run(owner, () -> prepared[0] = EntitySimulationBridge.prepare(simulated));
+                    assertHistory(context, baseline, simulated, owner.age);
+                    if (owner.age == 2) {
+                        Vec3[] published = new Vec3[1];
+                        CombatSimulationRuntime.nativeAccess(() -> published[0] = simulated.position());
+                        context.assertTrue(simulated.oldPosition().distanceToSqr(published[0]) > 0.01,
+                                "The held prefix must have logical history ahead of the published body.");
+                        world.tickNonPassenger(simulated);
+                        assertHistory(context, baseline, simulated, owner.age);
+                    }
+                    CombatSimulationRuntime.run(owner, () -> {
+                        EntitySimulationBridge.apply(simulated, prepared[0], WorkerPhysics.advance(prepared[0]));
+                        EntitySimulationBridge.finish(simulated);
+                        assertHistory(context, baseline, simulated, owner.age);
+                        context.assertTrue(baseline.position().distanceToSqr(simulated.position()) < 1.0e-12
+                                        && baseline.getKnownMovement().distanceToSqr(simulated.getKnownMovement()) < 1.0e-12,
+                                "Logical movement must match native movement at step " + owner.age);
+                        if (owner.age == 4) {
+                            context.assertTrue(simulated.getKnownMovement().equals(Vec3.ZERO)
+                                            && Math.abs(simulated.getKnownSpeed().x - 0.25) < 1.0e-6,
+                                    "Stopping must retain the preceding logical displacement as known speed.");
+                        }
+                    });
+                }
+                owner.logicalView.publish(simulated);
+            }
+            context.assertTrue(baseline.tickCount == 40 && simulated.tickCount == 20,
+                    "Movement history must not replay or replace physical entity ticks.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            baseline.discard();
+            simulated.discard();
+        }
+        context.succeed();
+    }
+
+    private static MotionHistoryMonster motionActor(GameTestHelper context) {
+        MotionHistoryMonster actor = new MotionHistoryMonster(context.getLevel());
+        actor.configureFrom(new Monster("motion-history", TeamId.RED, 777, Optional.empty(), Optional.empty(),
+                10000, 0, 0, AttackKind.MELEE, "minecraft:zombie", 0), null);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(2, 4, 2))));
+        actor.setNoGravity(true);
+        actor.setYRot(0);
+        actor.setXRot(0);
+        actor.setYHeadRot(0);
+        actor.setYBodyRot(0);
+        actor.yHeadRotO = 0;
+        actor.yBodyRotO = 0;
+        actor.setOldPosAndRot();
+        return actor;
+    }
+
+    private static void assertHistory(GameTestHelper context, SemionMonsterEntity expected,
+                                      SemionMonsterEntity actual, int logicalAge) {
+        context.assertTrue(expected.oldPosition().distanceToSqr(actual.oldPosition()) < 1.0e-12
+                        && Math.abs(expected.xo - actual.xo) < 1.0e-6
+                        && Math.abs(expected.yo - actual.yo) < 1.0e-6
+                        && Math.abs(expected.zo - actual.zo) < 1.0e-6,
+                "Old position must describe the previous logical pose at step " + logicalAge);
+        context.assertTrue(expected.yRotO == actual.yRotO && expected.xRotO == actual.xRotO
+                        && expected.yHeadRotO == actual.yHeadRotO && expected.yBodyRotO == actual.yBodyRotO,
+                "Old rotations must match native logical history at step " + logicalAge);
+        context.assertTrue(expected.getKnownSpeed().distanceToSqr(actual.getKnownSpeed()) < 1.0e-12,
+                "Known speed must use consecutive logical positions at step " + logicalAge
+                        + ": native=" + expected.getKnownSpeed() + ", simulated=" + actual.getKnownSpeed());
+    }
+
+    private static final class MotionHistoryMonster extends SemionMonsterEntity {
+        private MotionHistoryMonster(ServerLevel world) { super(SemionEntityTypes.MONSTER, world); }
+        @Override protected void registerGoals() { }
+
+        @Override
+        protected void customServerAiStep(ServerLevel world) {
+            boolean moving = (tickCount & 1) == 1;
+            setDeltaMovement(moving ? new Vec3(0.25, 0, 0) : Vec3.ZERO);
+            setYRot(moving ? 30 : 0);
+            setXRot(moving ? 10 : 0);
+            setYHeadRot(moving ? 30 : 0);
+            setYBodyRot(moving ? 30 : 0);
+            xxa = 0;
+            yya = 0;
+            zza = 0;
+        }
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void capturedSupportNameDoesNotReadUnfinishedProgress(GameTestHelper context) {
         ServerLevel world = context.getLevel();
         SemionPlayer buyer = new SemionPlayer(UUID.randomUUID(), "지원 구매자", TeamId.BLUE, 1,
@@ -337,12 +440,13 @@ public final class EntitySimulationAmbientTest implements RuntimeArenaFixture {
     private static final class TestOwner implements CombatSimulationRuntime.Owner {
         private final Entity actor;
         private int age;
+        private CombatSimulationRuntime.EntityView logicalView;
 
         private TestOwner(Entity actor) { this.actor = actor; }
         @Override public boolean controls(Entity entity) { return entity == actor; }
         @Override public int entityTick(Entity entity) { return age; }
         @Override public long gameTime(ServerLevel world) { return age; }
-        @Override public CombatSimulationRuntime.EntityView view(Entity entity) { return null; }
+        @Override public CombatSimulationRuntime.EntityView view(Entity entity) { return entity == actor ? logicalView : null; }
         @Override public void changed(Entity entity) { }
         @Override public void animate(Entity entity, SemionAnimationState animation, Runnable presentation) { }
         @Override public void input(Runnable input) { input.run(); }

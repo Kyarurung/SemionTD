@@ -95,6 +95,7 @@ public final class EntitySimulationBridge {
         if (access.semiontd$invulnerableTime() > 0) {
             access.semiontd$invulnerableTime(access.semiontd$invulnerableTime() - 1);
         }
+        actor.setOldPosAndRot();
         actor.baseTick();
     }
 

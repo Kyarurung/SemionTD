@@ -44,7 +44,7 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
         return CombatSimulationRuntime.stepping(actor) ? CombatSimulationRuntime.entityTick(actor) : actor.tickCount;
     }
 
-    @Inject(method = {"updatingUsingItem", "detectEquipmentUpdates"}, at = @At("HEAD"), cancellable = true)
+    @Inject(method = {"updatingUsingItem", "detectEquipmentUpdates", "refreshDirtyAttributes"}, at = @At("HEAD"), cancellable = true)
     private void semiontd$logicalItemPhase(CallbackInfo callback) {
         Entity actor = (Entity) (Object) this;
         if (CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)) {
