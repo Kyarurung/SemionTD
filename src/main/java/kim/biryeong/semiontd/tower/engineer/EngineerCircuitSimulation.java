@@ -45,7 +45,7 @@ public final class EngineerCircuitSimulation {
             validatePort(target, edge.port());
             if (source.kind() == Kind.TERMINAL
                     || (source.kind() == Kind.REPEATER && source.orientation() != edge.direction())
-                    || (edge.port() == Port.REAR && target.orientation() != edge.direction())
+                    || (edge.port() == Port.REAR && target.orientation() != edge.inputDirection())
                     || (edge.port() == Port.SIDE && (source.kind() != Kind.REPEATER
                     || target.orientation().axis() == edge.direction().axis()))
                     || (source.kind() == Kind.WIRE && target.kind() == Kind.WIRE && edge.attenuation() == 0)) {
@@ -362,7 +362,7 @@ public final class EngineerCircuitSimulation {
         }
     }
 
-    public enum Priority { EXTREMELY_HIGH, VERY_HIGH, HIGH, NORMAL }
+    public enum Priority { EXTREMELY_HIGH, VERY_HIGH, HIGH, NORMAL, LOW, VERY_LOW, EXTREMELY_LOW }
 
     public enum TransitionKind { PLATE_RELEASE, REPEATER_TICK }
 
@@ -382,14 +382,20 @@ public final class EngineerCircuitSimulation {
         }
     }
 
-    public record Edge(UUID source, UUID target, Direction direction, Port port, int attenuation) {
+    public record Edge(UUID source, UUID target, Direction direction, Direction inputDirection,
+                       Port port, int attenuation) {
+        public Edge(UUID source, UUID target, Direction direction, Port port, int attenuation) {
+            this(source, target, direction, direction, port, attenuation);
+        }
+
         public Edge {
             Objects.requireNonNull(source);
             Objects.requireNonNull(target);
             Objects.requireNonNull(direction);
+            Objects.requireNonNull(inputDirection);
             Objects.requireNonNull(port);
             validateStrength(attenuation);
-            if (direction == Direction.NONE) {
+            if (direction == Direction.NONE || inputDirection == Direction.NONE) {
                 throw new IllegalArgumentException("Signal edge requires direction");
             }
         }

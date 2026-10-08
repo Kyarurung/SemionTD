@@ -665,7 +665,7 @@ public final class EngineerTrapTower extends EntityBackedTower {
                 .toList();
     }
 
-    private BlockPos signalPosition() {
+    BlockPos signalPosition() {
         return new BlockPos(originalPosition().x(), originalPosition().y() + 1, originalPosition().z());
     }
 

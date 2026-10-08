@@ -130,6 +130,13 @@ public final class EngineerCircuitTower extends Tower {
         if (plateKind() == null || lane == null || lane.arenaWorld() == null) {
             return false;
         }
+        EngineerCircuitWorld bridge = EngineerCircuitWorld.current(lane.arenaWorld());
+        if (bridge != null) {
+            Boolean activated = bridge.pressPlate(lane, this);
+            if (activated != null) {
+                return activated;
+            }
+        }
         BlockPos position = circuitPosition();
         BlockState state = lane.arenaWorld().getBlockState(position);
         BlockState pressed = state;
@@ -151,6 +158,14 @@ public final class EngineerCircuitTower extends Tower {
 
     long lastPressedGameTime() {
         return lastPressedGameTime;
+    }
+
+    void recordPressTime(long tick) {
+        lastPressedGameTime = tick;
+    }
+
+    boolean matchesPlacedBlock(BlockState state) {
+        return placedBlock != null && state.is(placedBlock);
     }
 
     public static boolean isEngineerPlate(Level level, BlockPos position) {

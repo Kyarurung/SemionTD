@@ -173,6 +173,19 @@ final class EngineerCircuitSimulationTest {
     }
 
     @Test
+    void strongConductorCanBendRepeaterOutputIntoAPerpendicularRearPort() {
+        var source = repeater(1, 0, 0, Direction.EAST, 2, false);
+        var target = repeater(2, 1, -1, Direction.NORTH, 2, false);
+        var bent = new Edge(source.id(), target.id(), Direction.EAST, Direction.NORTH, Port.REAR, 0);
+        var simulation = simulation(List.of(source, target), List.of(bent));
+        simulation.advanceTo(3, List.of(boundary(0, source, Port.REAR, 15)));
+        assertEquals(15, state(simulation, source).strength());
+        assertEquals(0, state(simulation, target).strength());
+        simulation.advanceTo(4, List.of());
+        assertEquals(15, state(simulation, target).strength());
+    }
+
+    @Test
     void scheduledPriorityPrecedesInsertionOrderAndEqualPriorityRetainsSequenceOrder() {
         var first = repeater(1, 0, 0, Direction.EAST, 2, false);
         var priority = repeater(2, 0, 2, Direction.EAST, 2, true);
