@@ -134,6 +134,14 @@ public final class ReplayCapture implements AutoCloseable {
             throw new IllegalStateException("Controlled entity ID is already occupied");
         }
         living.getRandom().setSeed(seed);
+        entity.setYRot(0F);
+        entity.setXRot(0F);
+        entity.yRotO = 0F;
+        entity.xRotO = 0F;
+        living.setYHeadRot(0F);
+        living.setYBodyRot(0F);
+        living.yHeadRotO = 0F;
+        living.yBodyRotO = 0F;
         entity.setId(entityId);
         entity.setUUID(identity("entity/" + id));
         if (entity instanceof SemionMonsterEntity monster && monster.runtimeMonster() != null) {
@@ -157,6 +165,12 @@ public final class ReplayCapture implements AutoCloseable {
         event.addProperty("uuid", entity.getUUID().toString());
         event.addProperty("entity_id", entity.getId());
         event.addProperty("rng_seed", Long.toString(seeds.get(entity)));
+        JsonArray rotation = new JsonArray();
+        rotation.add(entity.getYRot());
+        rotation.add(entity.getXRot());
+        rotation.add(living.getYHeadRot());
+        rotation.add(living.yBodyRot);
+        event.add("initial_rotation", rotation);
         add("spawns", event);
     }
 

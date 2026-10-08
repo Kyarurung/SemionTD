@@ -202,7 +202,7 @@ public final class ReplayOpeningCaptureTest {
             rules.add("summons", gson.toJsonTree(SummonConfig.defaultConfig()));
             rules.addProperty("traits", "none/none");
             rules.addProperty("augments", "none in round one");
-            rules.addProperty("rng_policy", "world1_game1_actorPlacement104729_wave1000001_ambient2000001_uuidv3_semiontd-replay/seed1/{RED|BLUE}/{entity|monster|tower}/{scenario-id}_entityIdsRED1000000BLUE2000000_placement100+seq16+ordinal_wave1000+ordinal_ambientOrdinal_all-before-insertion");
+            rules.addProperty("rng_policy", "world1_game1_actorPlacement104729_wave1000001_ambient2000001_uuidv3_semiontd-replay/seed1/{RED|BLUE}/{entity|monster|tower}/{scenario-id}_entityIdsRED1000000BLUE2000000_placement100+seq16+ordinal_wave1000+ordinal_ambientOrdinal_initial-yaw-pitch-head-body-and-previous-rotations0_all-before-insertion");
             metadata.addProperty("rules_sha256", hash(rules));
             metadata.addProperty("map_sha256", hash(gson.toJsonTree(layout)));
             metadata.addProperty("historical_catalog_version", scenario.get("historical_catalog_version").getAsString());
