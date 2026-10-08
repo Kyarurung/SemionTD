@@ -18,9 +18,40 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import org.junit.jupiter.api.Test;
 
 final class CombatSimulationSessionTest {
+    @Test
+    void unchangedIdleCannotEraseThePendingNativeHolderTransition() {
+        List<String> applied = new ArrayList<>();
+        var dirty = new CombatSimulationSession.AnimationFrame(SemionAnimationState.IDLE, () -> applied.add("idle"));
+        var unchanged = new CombatSimulationSession.AnimationFrame(SemionAnimationState.IDLE, () -> {});
+        dirty.merge(unchanged).merge(unchanged).presentation().run();
+        assertEquals(List.of("idle"), applied);
+    }
+
+    @Test
+    void finalAnimationStateReplacesAnEarlierPendingTransition() {
+        List<String> applied = new ArrayList<>();
+        var idle = new CombatSimulationSession.AnimationFrame(SemionAnimationState.IDLE, () -> applied.add("idle"));
+        var walk = new CombatSimulationSession.AnimationFrame(SemionAnimationState.WALK, () -> applied.add("walk"));
+        var attack = new CombatSimulationSession.AnimationFrame(SemionAnimationState.ATTACK, () -> applied.add("attack"));
+        idle.merge(walk).merge(attack).presentation().run();
+        assertEquals(List.of("attack"), applied);
+    }
+
+    @Test
+    void repeatedOneShotAnimationsPublishOnlyOncePerFrame() {
+        List<SemionAnimationState> applied = new ArrayList<>();
+        for (var state : List.of(SemionAnimationState.ATTACK, SemionAnimationState.HEAL, SemionAnimationState.SKILL)) {
+            var first = new CombatSimulationSession.AnimationFrame(state, () -> applied.add(state));
+            var second = new CombatSimulationSession.AnimationFrame(state, () -> applied.add(state));
+            first.merge(second).presentation().run();
+        }
+        assertEquals(List.of(SemionAnimationState.ATTACK, SemionAnimationState.HEAL, SemionAnimationState.SKILL), applied);
+    }
+
     @Test
     void circuitAndActorsCompleteInCanonicalOrderBeforeTheNextLogicalStep() throws Exception {
         FakeBridge bridge = new FakeBridge();

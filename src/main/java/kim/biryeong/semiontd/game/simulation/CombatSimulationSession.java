@@ -42,8 +42,8 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     private final Map<ServerLevel, EngineerCircuitSimulation.Snapshot> completedCircuits = new IdentityHashMap<>();
     private final Map<Entity, CombatSimulationRuntime.EntityView> views = new IdentityHashMap<>();
     private final Map<Entity, CombatSimulationRuntime.EntityView> completedViews = new IdentityHashMap<>();
-    private final Map<Entity, Runnable> animations = new IdentityHashMap<>();
-    private final Map<Entity, Runnable> completedAnimations = new IdentityHashMap<>();
+    private final Map<Entity, AnimationFrame> animations = new IdentityHashMap<>();
+    private final Map<Entity, AnimationFrame> completedAnimations = new IdentityHashMap<>();
     private final Coordinator<Entity, Work, WorkResult> coordinator;
     private long revision;
     private long logicalTick;
@@ -176,7 +176,8 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     @Override
     public void animate(Entity entity, SemionAnimationState animation, Runnable presentation) {
         requireOwner();
-        animations.put(entity, Objects.requireNonNull(presentation, "presentation"));
+        animations.merge(entity, new AnimationFrame(Objects.requireNonNull(animation, "animation"),
+                Objects.requireNonNull(presentation, "presentation")), AnimationFrame::merge);
     }
 
     @Override
@@ -206,7 +207,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
 
     private void captureCompletedState() {
         captureCompletedViews();
-        completedAnimations.putAll(animations);
+        animations.forEach((entity, frame) -> completedAnimations.merge(entity, frame, AnimationFrame::merge));
         animations.clear();
         completedClocks.putAll(clocks);
         circuits.forEach((world, circuit) -> completedCircuits.put(world, circuit.snapshot()));
@@ -229,7 +230,7 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
             }
             for (var entry : completedAnimations.entrySet()) {
                 if (!entry.getKey().isRemoved()) {
-                    entry.getValue().run();
+                    entry.getValue().presentation().run();
                 }
             }
             completedAnimations.clear();
@@ -271,6 +272,12 @@ public final class CombatSimulationSession implements CombatSimulationRuntime.Ow
     }
 
     private record CircuitResult(EngineerCircuitWorld.Result output) implements WorkResult {
+    }
+
+    record AnimationFrame(SemionAnimationState state, Runnable presentation) {
+        AnimationFrame merge(AnimationFrame next) {
+            return state == next.state ? this : next;
+        }
     }
 
     private final class NativeBridge implements Bridge<Entity, Work, WorkResult> {
