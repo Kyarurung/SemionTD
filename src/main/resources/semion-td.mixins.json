@@ -35,6 +35,7 @@
     "accessor.RabbitAccessor",
     "accessor.RangedAttributeAccessor",
     "accessor.SalmonAccessor",
+    "accessor.ServerGamePacketListenerAccessor",
     "accessor.SheepAccessor",
     "accessor.ShulkerAccessor",
     "accessor.SlimeAccessor",

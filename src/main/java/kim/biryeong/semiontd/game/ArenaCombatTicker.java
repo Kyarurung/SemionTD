@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import kim.biryeong.semiontd.mixin.accessor.ServerGamePacketListenerAccessor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -57,20 +58,27 @@ public final class ArenaCombatTicker {
                 ServerLevel world = player.level();
                 if (tickedWorlds.contains(world) && canTick(server, world) && !player.isRemoved()
                         && !player.hasDisconnected() && !world.tickRateManager().isEntityFrozen(player)) {
-                    double x = player.getX();
-                    double y = player.getY();
-                    double z = player.getZ();
-                    player.xo = x;
-                    player.yo = y;
-                    player.zo = z;
-                    player.doTick();
-                    if (player.level() == world && !player.isRemoved()) {
-                        player.absSnapTo(x, y, z, player.getYRot(), player.getXRot());
-                    }
+                    tickPlayer(player);
                 }
             }
         } finally {
             TICKING.remove(server);
+        }
+    }
+
+    static void tickPlayer(ServerPlayer player) {
+        ServerLevel world = player.level();
+        var connection = (ServerGamePacketListenerAccessor) player.connection;
+        int teleport = connection.semiontd$awaitingTeleport();
+        double x = player.getX();
+        double y = player.getY();
+        double z = player.getZ();
+        player.xo = x;
+        player.yo = y;
+        player.zo = z;
+        player.doTick();
+        if (player.level() == world && !player.isRemoved() && connection.semiontd$awaitingTeleport() == teleport) {
+            player.absSnapTo(x, y, z, player.getYRot(), player.getXRot());
         }
     }
 
