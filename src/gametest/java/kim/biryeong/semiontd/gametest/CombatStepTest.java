@@ -37,8 +37,8 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 
-public final class CombatStepTest {
-    @GameTest
+public final class CombatStepTest implements RuntimeArenaFixture {
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void pairedStepsPreserveSpawnsTimedDamageGasAndTowerMetrics(GameTestHelper context) {
         for (int interval : new int[] {1, 3}) {
             List<StepSnapshot> reference = simulate(context, interval, false);
@@ -55,7 +55,7 @@ public final class CombatStepTest {
         context.succeed();
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void preparationAndPayoutBoundariesCannotConsumeExtraSteps(GameTestHelper context) {
         SemionGame game = game(context, 1, List.of(entry("single", 1)));
         try {
@@ -88,7 +88,7 @@ public final class CombatStepTest {
         context.succeed();
     }
 
-    @GameTest
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void finalDefenseThresholdIsReachedOnTheSecondLogicalStep(GameTestHelper context) {
         SemionGame game = game(context, 3, List.of(entry("waiting", 4)));
         try {
