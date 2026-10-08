@@ -7,7 +7,7 @@ public record CombatSpeedConfig(
         Mode mode
 ) {
     public enum Mode {
-        ARENA,
+        MULTIPLIER,
         SERVER
     }
 
@@ -15,7 +15,7 @@ public record CombatSpeedConfig(
     private static final double DEFAULT_MAX_AVERAGE_TICK_TIME_MILLIS = 25.0;
 
     public CombatSpeedConfig {
-        mode = mode == null ? Mode.ARENA : mode;
+        mode = mode == null ? Mode.MULTIPLIER : mode;
         enabled = enabled != null && enabled;
         combatTickRate = combatTickRate != null && Float.isFinite(combatTickRate) && combatTickRate > 0.0F
                 ? Math.max(20.0F, Math.min(100.0F, combatTickRate))
@@ -28,7 +28,7 @@ public record CombatSpeedConfig(
     }
 
     public CombatSpeedConfig(Boolean enabled, Float combatTickRate, Double maxAverageTickTimeMillis) {
-        this(enabled, combatTickRate, maxAverageTickTimeMillis, Mode.ARENA);
+        this(enabled, combatTickRate, maxAverageTickTimeMillis, Mode.MULTIPLIER);
     }
 
     public float serverTickRate(float effectiveTickRate) {

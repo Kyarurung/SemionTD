@@ -24,7 +24,7 @@ final class SemionGameManagerCombatSpeedTest {
         CombatSpeedConfig arena = new CombatSpeedConfig(true, 40.0F, 25.0);
         CombatSpeedConfig legacy = new CombatSpeedConfig(true, 40.0F, 25.0, CombatSpeedConfig.Mode.SERVER);
 
-        assertEquals(CombatSpeedConfig.Mode.ARENA, arena.mode());
+        assertEquals(CombatSpeedConfig.Mode.MULTIPLIER, arena.mode());
         assertEquals(20.0F, arena.serverTickRate(40.0F));
         assertEquals(40.0F, legacy.serverTickRate(40.0F));
         assertEquals(20.0F, legacy.serverTickRate(20.0F));

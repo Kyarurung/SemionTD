@@ -37,6 +37,7 @@ public final class Events {
         DemonLordService.register(gameManager);
         FrostFullOperationService.register(gameManager);
 
+        ServerTickEvents.START_SERVER_TICK.register(gameManager::beginCombatTick);
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             gameManager.tick(server);
             gameManager.tickStartupLobbyLoad(server);

@@ -680,7 +680,7 @@ final class SemionConfigLoaderTest {
         assertFalse(configs.combatSpeed().enabled());
         assertEquals(40.0F, configs.combatSpeed().combatTickRate());
         assertEquals(25.0, configs.combatSpeed().maxAverageTickTimeMillis());
-        assertEquals(CombatSpeedConfig.Mode.ARENA, configs.combatSpeed().mode());
+        assertEquals(CombatSpeedConfig.Mode.MULTIPLIER, configs.combatSpeed().mode());
     }
 
     @Test
@@ -699,7 +699,7 @@ final class SemionConfigLoaderTest {
         assertTrue(configs.combatSpeed().enabled());
         assertEquals(60.0F, configs.combatSpeed().combatTickRate());
         assertEquals(20.0, configs.combatSpeed().maxAverageTickTimeMillis());
-        assertEquals(CombatSpeedConfig.Mode.ARENA, configs.combatSpeed().mode());
+        assertEquals(CombatSpeedConfig.Mode.MULTIPLIER, configs.combatSpeed().mode());
     }
 
     @Test

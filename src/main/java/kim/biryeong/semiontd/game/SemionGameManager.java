@@ -1814,13 +1814,26 @@ public final class SemionGameManager {
         this.matchMode = matchMode;
     }
 
+    public void beginCombatTick(MinecraftServer server) {
+        tickCombatSpeed(server);
+        boolean arenaSpeed = combatSpeedConfig.mode() == CombatSpeedConfig.Mode.MULTIPLIER
+                && combatSpeedAccelerated && server.tickRateManager().runsNormally();
+        int steps = combatSteps.steps(arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
+        CombatSpeedRuntime.configure(server, arenaSpeed ? activeGame : null,
+                arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE, steps);
+        if (arenaSpeed) {
+            for (var world : server.getAllLevels()) {
+                if (activeGame.arena().containsWorld(world)) {
+                    for (int step = 1; step < steps; step++) {
+                        ArenaCombatClock.advance(world);
+                    }
+                }
+            }
+        }
+    }
+
     public void tick(MinecraftServer server) {
         balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
-        tickCombatSpeed(server);
-        boolean arenaSpeed = combatSpeedConfig.mode() == CombatSpeedConfig.Mode.ARENA
-                && combatSpeedAccelerated && server.tickRateManager().runsNormally();
-        CombatSpeedRuntime.configure(server, arenaSpeed ? activeGame : null,
-                arenaSpeed ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
         IllusionCloneSpawnQueue.tick();
         musicService.tick(server, activeGame, java.util.stream.Stream
                 .concat(sandboxGames.values().stream(), tutorialGames.values().stream())
@@ -1869,28 +1882,29 @@ public final class SemionGameManager {
         int combatRound = combatGame.currentRound();
         boolean combatWave = combatGame.phase() == RoundPhase.LANE_WAVE
                 && !combatGame.isSandboxMode() && !combatGame.isTutorialMode();
-        int steps = combatSteps.steps(arenaSpeed && combatWave
-                ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
+        int steps = 1;
+        if (combatWave) {
+            for (var world : server.getAllLevels()) {
+                if (combatGame.arena().containsWorld(world)) {
+                    steps = CombatSpeedRuntime.logicalSteps(world);
+                    break;
+                }
+            }
+        }
         java.util.function.BooleanSupplier canContinueCombat = () -> activeGame == combatGame && combatWave
                 && combatGame.phase() == RoundPhase.LANE_WAVE
                 && combatGame.currentRound() == combatRound
                 && server.tickRateManager().runsNormally();
+        int[] logicalStep = {0};
         CombatStepRunner.run(steps, canContinueCombat,
                 () -> {
-                    if (!ArenaCombatTicker.tick(server, combatGame)) {
-                        if (canContinueCombat.getAsBoolean()) {
-                            blockCombatSpeedForWave();
+                    int step = logicalStep[0]++;
+                    CombatSpeedRuntime.runGameStep(step, () -> {
+                        if (step > 0) {
+                            IllusionCloneSpawnQueue.tick(combatGame.arena());
                         }
-                        return false;
-                    }
-                    if (!canContinueCombat.getAsBoolean()) {
-                        return false;
-                    }
-                    IllusionCloneSpawnQueue.tick(combatGame.arena());
-                    return canContinueCombat.getAsBoolean();
-                },
-                () -> {
-                    combatGame.tick(server);
+                        combatGame.tick(server);
+                    });
                     for (var world : server.getAllLevels()) {
                         if (combatGame.arena().containsWorld(world)) {
                             Scheduler.INSTANCE.runWorldTasks(world);
