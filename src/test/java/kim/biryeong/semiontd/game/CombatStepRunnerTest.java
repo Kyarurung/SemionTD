@@ -11,62 +11,49 @@ import org.junit.jupiter.api.Test;
 
 final class CombatStepRunnerTest {
     @Test
-    void normalWorldGroupIsNotRepeatedBeforeFirstGameStep() {
-        List<String> events = new ArrayList<>(List.of("red", "blue"));
-        CombatStepRunner.run(3, () -> true, () -> {
-            events.add("red");
-            events.add("blue");
-            return true;
-        }, () -> events.add("game"));
-        assertEquals(List.of("red", "blue", "game", "red", "blue", "game", "red", "blue", "game"), events);
+    void logicalStepsDoNotRepeatPhysicalWorldWork() {
+        List<String> events = new ArrayList<>(List.of("world"));
+        CombatStepRunner.run(3, () -> true, () -> events.add("game"));
+        assertEquals(List.of("world", "game", "game", "game"), events);
     }
 
     @Test
-    void exitingWaveOnEitherNormalOrExtraStepStopsFurtherWorldAndGameWork() {
+    void exitingWaveOnAnyLogicalStepStopsTheBatch() {
         for (int exitStep : new int[] {1, 2, 3}) {
             AtomicInteger games = new AtomicInteger();
-            AtomicInteger worlds = new AtomicInteger();
-            CombatStepRunner.run(5, () -> games.get() < exitStep, () -> {
-                worlds.incrementAndGet();
-                return true;
-            }, games::incrementAndGet);
+            CombatStepRunner.run(5, () -> games.get() < exitStep, games::incrementAndGet);
             assertEquals(exitStep, games.get());
-            assertEquals(exitStep - 1, worlds.get());
         }
     }
 
     @Test
-    void rejectedWorldStepDoesNotAdvanceGameOrRetryWithinTheBatch() {
+    void preparationEnteringWaveDoesNotGainExtraTicks() {
+        AtomicBoolean wave = new AtomicBoolean(false);
+        boolean initiallyEligible = wave.get();
         AtomicInteger games = new AtomicInteger();
-        AtomicInteger attempts = new AtomicInteger();
-        CombatStepRunner.run(5, () -> true, () -> {
-            attempts.incrementAndGet();
-            return false;
-        }, games::incrementAndGet);
+        CombatStepRunner.run(5, () -> initiallyEligible && wave.get(), () -> {
+            games.incrementAndGet();
+            wave.set(true);
+        });
         assertEquals(1, games.get());
-        assertEquals(1, attempts.get());
     }
 
     @Test
-    void worldStepChangingEligibilityCannotAdvanceTheStaleGame() {
-        AtomicBoolean wave = new AtomicBoolean(true);
+    void replacingTheActiveGameStopsExtraTicks() {
+        Object initialGame = new Object();
+        Object[] activeGame = {initialGame};
         AtomicInteger games = new AtomicInteger();
-        AtomicInteger worlds = new AtomicInteger();
-        CombatStepRunner.run(5, wave::get, () -> {
-            worlds.incrementAndGet();
-            wave.set(false);
-            return true;
-        }, games::incrementAndGet);
+        CombatStepRunner.run(5, () -> activeGame[0] == initialGame, () -> {
+            games.incrementAndGet();
+            activeGame[0] = new Object();
+        });
         assertEquals(1, games.get());
-        assertEquals(1, worlds.get());
     }
 
     @Test
     void disabledExtraWorkStillRunsTheNormalGameTick() {
         AtomicInteger games = new AtomicInteger();
-        CombatStepRunner.run(5, () -> false, () -> {
-            throw new AssertionError("An excluded game must not tick extra worlds");
-        }, games::incrementAndGet);
+        CombatStepRunner.run(5, () -> false, games::incrementAndGet);
         assertEquals(1, games.get());
     }
 
@@ -74,7 +61,7 @@ final class CombatStepRunnerTest {
     void invalidStepCountDoesNotExecuteCallbacks() {
         for (int steps : new int[] {-1, 0, 6, Integer.MAX_VALUE}) {
             assertThrows(IllegalArgumentException.class, () -> CombatStepRunner.run(steps, () -> true,
-                    () -> {throw new AssertionError();}, () -> {throw new AssertionError();}));
+                    () -> {throw new AssertionError();}));
         }
     }
 }
