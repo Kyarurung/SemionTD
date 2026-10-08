@@ -178,7 +178,7 @@ public final class CombatSimulationSessionRuntimeTest {
             PlayerLane lane = new PlayerLane(TeamId.RED, 1, UUID.randomUUID(), world,
                     game.arena().lane(TeamId.RED, 1).orElseThrow());
             game.teams().get(TeamId.RED).laneGroup().addLane(lane);
-            survivor = monster(world, new Vec3(1.5, 65, 1.5), "session_survivor");
+            survivor = monster(world, new Vec3(1.5, 65, 1.5), "session_survivor", fault);
             lane.activeMonsters().add(survivor.runtimeMonster());
             corpse = monster(world, new Vec3(6.5, 65, 1.5), "session_corpse");
             corpse.setHealth(0.0F);
@@ -280,6 +280,7 @@ public final class CombatSimulationSessionRuntimeTest {
             require(EngineerCircuitWorld.current(world) != null, "A failed match must also retain its circuit ownership");
             require(session.view(survivor).age() == startAge + 1,
                     "The real native actor prefix must already have advanced before calculation fails");
+            require(((CountingMonster) survivor).aiTicks == 1, "The injected failure must follow one real native AI prefix");
             require(session.logicalTickCount() == 0 && game.currentTick() == 0 && world.getGameTime() == startTime,
                     "An uncommitted native prefix cannot advance completed game work or the public clock");
             int fire = survivor.getRemainingFireTicks();
@@ -300,6 +301,7 @@ public final class CombatSimulationSessionRuntimeTest {
                     "A failed match cannot retry the uncommitted prefix or continue its logical clock");
             require(survivor.getRemainingFireTicks() == fire && session.entityTick(survivor) == startAge,
                     "Physical entity frames must not resume native ambient or logical ages while ownership is held");
+            require(((CountingMonster) survivor).aiTicks == 1, "Physical frames cannot re-run native AI in the failed match");
             session.close();
             session.close();
             require(session.isClosed() && !CombatSimulationRuntime.controls(world)
@@ -307,6 +309,7 @@ public final class CombatSimulationSessionRuntimeTest {
                     "Explicit disposal must release retained ownership and circuits once without repeating presentation");
             world.tickNonPassenger(survivor);
             require(survivor.getRemainingFireTicks() < fire, "Native base work may resume only after explicit disposal");
+            require(((CountingMonster) survivor).aiTicks == 2, "Native AI may resume only after explicit disposal");
         }
 
         @Override
@@ -334,17 +337,35 @@ public final class CombatSimulationSessionRuntimeTest {
     }
 
     private static SemionMonsterEntity monster(ServerLevel world, Vec3 position, String id) {
+        return monster(world, position, id, false);
+    }
+
+    private static SemionMonsterEntity monster(ServerLevel world, Vec3 position, String id, boolean countAi) {
         Monster monster = new Monster(id, TeamId.RED, 1, Optional.empty(), Optional.empty(),
                 1_000, 0, 0, AttackKind.MELEE, "minecraft:zombie", 0);
         monster.setOrigin(MonsterOrigin.NATURAL_WAVE);
-        SemionMonsterEntity entity = new SemionMonsterEntity(SemionEntityTypes.MONSTER, world);
+        SemionMonsterEntity entity = countAi ? new CountingMonster(world) : new SemionMonsterEntity(SemionEntityTypes.MONSTER, world);
         entity.configureFrom(monster, null);
-        entity.setNoAi(true);
+        entity.setNoAi(!countAi);
         entity.setNoGravity(true);
         entity.setPos(position);
         world.addFreshEntity(entity);
         monster.markMinecraftEntitySpawned(entity.getId(), position.x, position.y, position.z);
         return entity;
+    }
+
+    private static final class CountingMonster extends SemionMonsterEntity {
+        private int aiTicks;
+
+        private CountingMonster(ServerLevel world) {
+            super(SemionEntityTypes.MONSTER, world);
+        }
+
+        @Override
+        protected void customServerAiStep(ServerLevel world) {
+            aiTicks++;
+            super.customServerAiStep(world);
+        }
     }
 
     private static void require(boolean condition, String message) {
