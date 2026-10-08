@@ -189,6 +189,20 @@ flowchart LR
 
 추가 공격·광역·도트가 자신을 다시 충전하거나 같은 처치를 중복 반영할 수 있는지 설계한다. 공용 범위 API의 레인·팀·소유자 필터와 대상 수 제한을 사용한다. 타워마다 월드 전체 엔티티를 새로 검색하거나 직접 엔티티 피해만 호출해 귀속 경로를 건너뛰지 않는다.
 
+### 신규 빌더가 재사용할 API 경계
+
+배속·시뮬레이션 때문에 별도의 공격력 계산기나 피해 API를 만들지 않는다. 기존 타워·엔티티·범위 효과 경로를 같은 순서로 호출한다.
+
+| 기능 | 기존 공용 경로 | 새 계열의 책임 |
+|---|---|---|
+| 기본 공격 | `ProductionTower` → `TowerAttackMonsterGoal` → `damagePrimaryAttackTargetResult` → `recordAttack` | 타입·공격력 보정·목표 선택·결과 훅 구현 |
+| 스킬·추가 피해 | `Tower.damageTargetResult` / `damageResolvedTargetResult` | 피해 유형과 보정 완료 여부, 결과·처치 훅 전달 정책 선택 |
+| 광역 피해 | `TowerAreaDamage` → `SemionTdApi.areaEffects()` | 요청 범위·필터·대상 수·처치 전파 정책 구성 |
+| 버프·회복·상태 | 기존 타워·엔티티 효과/회복 API와 계열 상태 | 출처·중첩·만료·실제 회복·표시 일치 |
+| 전투 시간·외부 입력 | `CombatSpeedRuntime.gameTime` / 기존 `CombatSimulationRuntime.input` 경계 | 필요한 시계와 승인된 입력 진입점 재사용 |
+
+`CombatSimulationSession`, 워커 요청·토큰·공간 인덱스·가상 엔티티 상태, `finishSimulationStep`·`presentSimulationFrame`는 시뮬레이션의 실행 연결이다. 일반 신규 빌더가 직접 생성·호출하거나 계열마다 복제할 API가 아니다. 기존 공용 API로 표현되지 않는 동작은 그 API의 호출자와 계약을 먼저 확인하고, 필요한 공용 경계만 확장한다.
+
 ## 7. 상태 수명과 데이터 복사
 
 | 상태 종류 | 보관 위치와 처리 |
