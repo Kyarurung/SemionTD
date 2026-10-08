@@ -31,6 +31,7 @@
     "accessor.AgeableMobAccessor",
     "accessor.EntitySimulationAccessor",
     "accessor.LivingEntitySimulationAccessor",
+    "accessor.LivingEntitySwingStateAccessor",
     "accessor.AxolotlAccessor",
     "accessor.CatAccessor",
     "accessor.ChickenAccessor",
