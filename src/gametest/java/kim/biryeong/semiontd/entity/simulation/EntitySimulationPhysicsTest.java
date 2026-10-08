@@ -7,8 +7,6 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.game.TeamId;
 import kim.biryeong.semiontd.gametest.RuntimeArenaFixture;
-import kim.biryeong.semiontd.mixin.accessor.EntitySimulationAccessor;
-import kim.biryeong.semiontd.mixin.accessor.LivingEntitySimulationAccessor;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -27,9 +25,7 @@ public final class EntitySimulationPhysicsTest implements RuntimeArenaFixture {
                 for (int step = 1; step <= 24; step++) {
                     baseline.tickCount = step;
                     simulated.tickCount = step;
-                    ((EntitySimulationAccessor) (Object) baseline).semiontd$updateFluidInteraction();
-                    baseline.updateSwimming();
-                    ((LivingEntitySimulationAccessor) (Object) baseline).semiontd$tickEffects();
+                    baseline.baseTick();
                     baseline.aiStep();
                     WorkerPhysics.Input input = EntitySimulationBridge.prepare(simulated);
                     WorkerPhysics.Result result = WorkerPhysics.advance(input);

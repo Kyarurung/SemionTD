@@ -13,6 +13,4 @@ public interface LivingEntitySimulationAccessor {
     @Invoker("getFlyingSpeed")
     float semiontd$flyingSpeed();
 
-    @Invoker("tickEffects")
-    void semiontd$tickEffects();
 }

@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.mixin;
 
 import kim.biryeong.semiontd.entity.simulation.MobSimulationAccess;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import net.minecraft.core.Vec3i;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.EntityTypeTags;
@@ -11,9 +12,14 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gamerules.GameRules;
+import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Mob.class)
 public abstract class MobSimulationMixin extends LivingEntity implements MobSimulationAccess {
@@ -26,6 +32,29 @@ public abstract class MobSimulationMixin extends LivingEntity implements MobSimu
     @Shadow protected abstract Vec3i getPickupReach();
     @Shadow public abstract boolean wantsToPickUp(ServerLevel level, ItemStack stack);
     @Shadow protected abstract void pickUpItem(ServerLevel level, ItemEntity item);
+    @Shadow protected abstract void updateControlFlags();
+
+    @Redirect(method = "*", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/entity/Mob;tickCount:I", opcode = Opcodes.GETFIELD))
+    private int semiontd$logicalMobAge(Mob actor) {
+        return CombatSimulationRuntime.stepping(actor) ? CombatSimulationRuntime.entityTick(actor) : actor.tickCount;
+    }
+
+    @Inject(method = "baseTick", at = @At("HEAD"), cancellable = true)
+    private void semiontd$logicalBasePhase(CallbackInfo callback) {
+        Mob actor = (Mob) (Object) this;
+        if (CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)) {
+            callback.cancel();
+        }
+    }
+
+    @Inject(method = "updateControlFlags", at = @At("HEAD"), cancellable = true)
+    private void semiontd$logicalControlFlags(CallbackInfo callback) {
+        Mob actor = (Mob) (Object) this;
+        if (CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)) {
+            callback.cancel();
+        }
+    }
 
     @Override
     @Unique
@@ -49,6 +78,14 @@ public abstract class MobSimulationMixin extends LivingEntity implements MobSimu
                     pickUpItem(serverLevel, item);
                 }
             }
+        }
+    }
+
+    @Override
+    @Unique
+    public void semiontd$finishMobTick() {
+        if (tickCount % 5 == 0) {
+            updateControlFlags();
         }
     }
 }

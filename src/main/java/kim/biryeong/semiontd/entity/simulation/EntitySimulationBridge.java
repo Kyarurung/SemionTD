@@ -53,9 +53,8 @@ public final class EntitySimulationBridge {
         int physicalAge = actor.tickCount;
         actor.tickCount = CombatSimulationRuntime.entityTick(actor);
         try {
-            ((EntitySimulationAccessor) actor).semiontd$updateFluidInteraction();
-            actor.updateSwimming();
-            ((LivingEntitySimulationAccessor) actor).semiontd$tickEffects();
+            tickAmbient(actor);
+            ((LivingEntitySimulationAccess) actor).semiontd$prepareLivingTick();
             if (actor.isAlive() && actor.getY() < actor.level().getMinY()) {
                 if (actor instanceof SemionTowerEntity tower && tower.runtimeTower() != null) {
                     tower.runtimeTower().syncHealth(0.0);
@@ -63,7 +62,11 @@ public final class EntitySimulationBridge {
                 actor.setHealth(0.0F);
                 actor.die(actor.damageSources().fellOutOfWorld());
             }
-            ((MobSimulationAccess) actor).semiontd$prepareLivingAi();
+            if (actor.isRemoved()) {
+                capture.input = inactiveInput(actor);
+            } else {
+                ((MobSimulationAccess) actor).semiontd$prepareLivingAi();
+            }
         } finally {
             actor.tickCount = physicalAge;
             CAPTURE.remove();
@@ -73,6 +76,26 @@ public final class EntitySimulationBridge {
         }
         PREPARED.put(actor, capture.input);
         return capture.input;
+    }
+
+    public static void ambient(Mob actor) {
+        checkServerThread(actor);
+        int physicalAge = actor.tickCount;
+        actor.tickCount = CombatSimulationRuntime.entityTick(actor);
+        try {
+            tickAmbient(actor);
+        } finally {
+            actor.tickCount = physicalAge;
+        }
+        CombatSimulationRuntime.changed(actor);
+    }
+
+    private static void tickAmbient(Mob actor) {
+        EntitySimulationAccessor access = (EntitySimulationAccessor) actor;
+        if (access.semiontd$invulnerableTime() > 0) {
+            access.semiontd$invulnerableTime(access.semiontd$invulnerableTime() - 1);
+        }
+        actor.baseTick();
     }
 
     public static boolean capture(LivingEntity entity) {
@@ -140,6 +163,8 @@ public final class EntitySimulationBridge {
             } else if (actor instanceof SemionBossEntity boss) {
                 boss.finishSimulationStep();
             }
+            ((LivingEntitySimulationAccess) actor).semiontd$finishLivingTick();
+            ((MobSimulationAccess) actor).semiontd$finishMobTick();
         } finally {
             actor.tickCount = physicalAge;
         }
@@ -225,6 +250,13 @@ public final class EntitySimulationBridge {
         }
         return new WorkerPhysics.Input(travel, box(currentBox), actor.onGround(), actor.noPhysics, stepHeight,
                 vector(stuck), colliders);
+    }
+
+    private static WorkerPhysics.Input inactiveInput(Mob actor) {
+        WorkerPhysics.Travel travel = new WorkerPhysics.Travel(WorkerPhysics.Mode.NONE, vector(actor.getDeltaMovement()),
+                WorkerPhysics.Vector.ZERO, 0, 0, 1, false, 0, WorkerPhysics.Vector.ZERO, 0, 0);
+        return new WorkerPhysics.Input(travel, box(actor.getBoundingBox()), actor.onGround(), actor.noPhysics, 0,
+                WorkerPhysics.Vector.ZERO, List.of());
     }
 
     private static WorkerPhysics.Collider collider(WorkerPhysics.ColliderKind kind, VoxelShape shape) {

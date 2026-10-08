@@ -62,6 +62,9 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
 
     @Override
     public void baseTick() {
+        if (CombatSimulationRuntime.controls(this) && !CombatSimulationRuntime.stepping(this)) {
+            return;
+        }
         initializeDamageCooldown();
         super.baseTick();
         if (!Double.isNaN(damageCooldownExpiresAt)) {
