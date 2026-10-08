@@ -264,14 +264,8 @@ public final class DemonLordSkills {
         }
         for (SemionMonsterEntity monster : monstersNear(lane, state, vortex.centre(), vortex.radius())) {
             Vec3 toCentre = new Vec3(vortex.centre().x - monster.getX(), 0.0, vortex.centre().z - monster.getZ());
-            double distance = toCentre.length();
-            if (distance < 0.6) {
-                monster.setDeltaMovement(0.0, monster.getDeltaMovement().y, 0.0);
-            } else {
-                double edge = Math.min(1.0, distance / vortex.radius());
-                Vec3 pull = toCentre.normalize().scale(vortex.pullStrength() * (0.45 + 0.55 * edge));
-                monster.setDeltaMovement(pull.x, monster.getDeltaMovement().y, pull.z);
-            }
+            monster.setDeltaMovement(DemonLordVortexMotion.velocity(toCentre, monster.getDeltaMovement().y,
+                    vortex.radius(), vortex.pullStrength(), CombatSpeedRuntime.multiplier(monster.level())));
             monster.syncVelocity = true;
         }
         if (gameTime < vortex.nextDamageTick()) {
