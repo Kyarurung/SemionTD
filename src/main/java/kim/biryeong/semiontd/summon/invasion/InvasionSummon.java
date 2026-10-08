@@ -45,17 +45,19 @@ public final class InvasionSummon extends BasicIncomeSummon {
             }
             case "dark_priest" -> {
                 double splash = abilityValue("splashRadius", 2.5);
-                entity.setAttackStyle(InvasionAttacks.area(hit, splash,
+                entity.setAttackStyle(InvasionAttacks.area(hit, splash, abilityInt("maxTargets", 5),
                         InvasionAttacks.at(seed -> InvasionVfx.priestBlast(splash, seed))));
                 return List.of(new InvasionGoals.AreaHeal(entity,
                         abilityValue("healRadius", 6.0),
-                        abilityValue("healAmount", 16.0),
+                        abilityValue("healAmount", 16.0) * statGrowth(entity),
+                        abilityValue("healMaxHealthRatio", 0.04),
                         (int) abilityValue("healCooldownTicks", 60.0),
                         (int) abilityValue("healRetryTicks", 10.0)));
             }
             case "dwarf_gunner" -> entity.setAttackStyle(InvasionAttacks.pierce(hit,
                     profile.attackRange() + abilityValue("pierceOvershoot", 3.0),
-                    abilityValue("pierceWidth", 0.6)));
+                    abilityValue("pierceWidth", 0.6),
+                    abilityValue("pierceFalloff", 0.2)));
             case "troll_javelineer" -> {
                 entity.setAttackStyle(InvasionAttacks.javelin(hit, abilityValue("javelinBlocksPerTick", 1.2)));
                 return List.of(new InvasionGoals.Regeneration(entity, abilityValue("regenPerSecond", 0.02)));
@@ -92,12 +94,20 @@ public final class InvasionSummon extends BasicIncomeSummon {
             case "creaking" -> entity.setAttackStyle(InvasionAttacks.single(hit, null));
             case "ogre_champion" -> {
                 double splash = abilityValue("splashRadius", 2.8);
-                entity.setAttackStyle(InvasionAttacks.area(hit, splash,
+                entity.setAttackStyle(InvasionAttacks.area(hit, splash, abilityInt("maxTargets", 5),
                         InvasionAttacks.at(seed -> InvasionVfx.groundSlam(splash, seed))));
             }
             default -> {
             }
         }
         return List.of();
+    }
+
+    private double statGrowth(SemionMonsterEntity entity) {
+        Monster monster = entity.runtimeMonster();
+        if (monster == null || maxHealth() <= 0.0) {
+            return 1.0;
+        }
+        return Math.max(1.0, monster.maxHealth() / maxHealth());
     }
 }

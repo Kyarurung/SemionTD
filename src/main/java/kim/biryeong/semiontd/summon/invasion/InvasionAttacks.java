@@ -90,8 +90,11 @@ final class InvasionAttacks {
         };
     }
 
-    /** 맞는 자리 둘레 {@code radius}의 방어 대상을 모두 때리는 공격(암흑 신관·오우거). 대상이 먼저 죽어도 그 자리는 맞습니다. */
-    static MonsterAttackStyle area(int hitDelay, double radius, VfxAt vfx) {
+    /**
+     * 맞는 자리 둘레 {@code radius}의 방어 대상을 최대 {@code maxTargets}개까지 때리는 공격(암흑 신관·오우거).
+     * 노린 대상이 먼저, 나머지는 맞는 자리에 가까운 순서입니다. 대상이 먼저 죽어도 그 자리는 맞습니다.
+     */
+    static MonsterAttackStyle area(int hitDelay, double radius, int maxTargets, VfxAt vfx) {
         return new MonsterAttackStyle() {
             @Override
             public int hitDelayTicks() {
@@ -102,7 +105,7 @@ final class InvasionAttacks {
             public void hit(SemionMonsterEntity attacker, LivingEntity target) {
                 Vec3 center = target != null ? target.position() : attacker.position().add(attacker.getLookAngle().scale(2.0));
                 double damage = attacker.attackDamageAmount();
-                for (LivingEntity victim : defensesNear(attacker, center, radius)) {
+                for (LivingEntity victim : nearestFirst(defensesNear(attacker, center, radius), target, center, maxTargets)) {
                     MonsterAttackStyle.strike(attacker, victim, damage);
                 }
                 if (vfx != null) {
@@ -110,6 +113,14 @@ final class InvasionAttacks {
                 }
             }
         };
+    }
+
+    static List<LivingEntity> nearestFirst(List<LivingEntity> victims, LivingEntity primary, Vec3 center, int limit) {
+        return victims.stream()
+                .sorted(java.util.Comparator.<LivingEntity>comparingInt(victim -> victim == primary ? 0 : 1)
+                        .thenComparingDouble(victim -> horizontalDistanceSqr(victim.position(), center)))
+                .limit(Math.max(1, limit))
+                .toList();
     }
 
     /** 맞는 순간의 연출을 어디에 띄울지. */
@@ -168,8 +179,8 @@ final class InvasionAttacks {
 
     // ------------------------------------------------------------------ 드워프: 관통 탄환
 
-    /** 총구에서 대상 쪽으로 곧게 날아가 선 위의 모든 방어 대상을 꿰뚫는 탄환. */
-    static MonsterAttackStyle pierce(int hitDelay, double length, double width) {
+    /** 총구에서 대상 쪽으로 곧게 날아가 선 위의 모든 방어 대상을 꿰뚫는 탄환. 하나를 꿰뚫을 때마다 피해가 {@code falloff}씩 줄어듭니다. */
+    static MonsterAttackStyle pierce(int hitDelay, double length, double width, double falloff) {
         return new MonsterAttackStyle() {
             @Override
             public int hitDelayTicks() {
@@ -186,8 +197,13 @@ final class InvasionAttacks {
                 }
                 Vec3 end = muzzle.add(direction.normalize().scale(length));
                 double damage = attacker.attackDamageAmount();
-                for (LivingEntity victim : defensesOnLine(attacker, muzzle, end, width)) {
+                double keep = Mth.clamp(1.0 - falloff, 0.0, 1.0);
+                List<LivingEntity> victims = defensesOnLine(attacker, muzzle, end, width).stream()
+                        .sorted(java.util.Comparator.comparingDouble(victim -> victim.position().distanceToSqr(muzzle)))
+                        .toList();
+                for (LivingEntity victim : victims) {
                     MonsterAttackStyle.strike(attacker, victim, damage);
+                    damage *= keep;
                 }
                 Vec3 origin = attacker.position();
                 InvasionVfx.playAt(level(attacker), InvasionVfx.dwarfShot(

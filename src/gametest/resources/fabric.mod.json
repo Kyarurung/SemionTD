@@ -19,6 +19,7 @@
       "kim.biryeong.semiontd.game.GameParticipantLateJoinTest",
       "kim.biryeong.semiontd.map.RuntimeWorldDaylightTest",
       "kim.biryeong.semiontd.summon.invasion.InvasionSiegeTargetTest",
+      "kim.biryeong.semiontd.summon.invasion.InvasionAreaAttackTest",
       "kim.biryeong.semiontd.tower.adversary.AdversaryTowerCentralAttackTest",
       "kim.biryeong.semiontd.command.CommandCosmeticPointsTest",
       "kim.biryeong.semiontd.gametest.BugReportGameTest",
