@@ -1871,14 +1871,23 @@ public final class SemionGameManager {
                 && !combatGame.isSandboxMode() && !combatGame.isTutorialMode();
         int steps = combatSteps.steps(arenaSpeed && combatWave
                 ? combatSpeedConfig.combatTickRate() : NORMAL_TICK_RATE);
-        CombatStepRunner.run(steps,
-                () -> activeGame == combatGame && combatWave
-                        && combatGame.phase() == RoundPhase.LANE_WAVE
-                        && combatGame.currentRound() == combatRound
-                        && server.tickRateManager().runsNormally(),
+        java.util.function.BooleanSupplier canContinueCombat = () -> activeGame == combatGame && combatWave
+                && combatGame.phase() == RoundPhase.LANE_WAVE
+                && combatGame.currentRound() == combatRound
+                && server.tickRateManager().runsNormally();
+        CombatStepRunner.run(steps, canContinueCombat,
                 () -> {
-                    ArenaCombatTicker.tick(server, combatGame);
+                    if (!ArenaCombatTicker.tick(server, combatGame)) {
+                        if (canContinueCombat.getAsBoolean()) {
+                            blockCombatSpeedForWave();
+                        }
+                        return false;
+                    }
+                    if (!canContinueCombat.getAsBoolean()) {
+                        return false;
+                    }
                     IllusionCloneSpawnQueue.tick(combatGame.arena());
+                    return canContinueCombat.getAsBoolean();
                 },
                 () -> {
                     combatGame.tick(server);
