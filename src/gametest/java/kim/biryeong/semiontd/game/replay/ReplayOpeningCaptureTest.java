@@ -137,6 +137,7 @@ public final class ReplayOpeningCaptureTest {
         private final RuntimeLevelHandle blue;
         private final SemionGame game;
         private final ReplayCapture capture;
+        private final ReplayCapture opponentCapture;
         private final String mode = System.getProperty("semiontd.replay.capture", "fixture");
         private final float previousRate;
         private Object session;
@@ -201,7 +202,7 @@ public final class ReplayOpeningCaptureTest {
             rules.add("summons", gson.toJsonTree(SummonConfig.defaultConfig()));
             rules.addProperty("traits", "none/none");
             rules.addProperty("augments", "none in round one");
-            rules.addProperty("rng_policy", "world1_game1_actorPlacement104729_wave1000001_ambient2000001");
+            rules.addProperty("rng_policy", "world1_game1_actorPlacement104729_wave1000001_ambient2000001_uuidv3_semiontd-replay/seed1/{RED|BLUE}/{entity|monster|tower}/{scenario-id}_entityIdsRED1000000BLUE2000000_placement100+seq16+ordinal_wave1000+ordinal_ambientOrdinal_all-before-insertion");
             metadata.addProperty("rules_sha256", hash(rules));
             metadata.addProperty("map_sha256", hash(gson.toJsonTree(layout)));
             metadata.addProperty("historical_catalog_version", scenario.get("historical_catalog_version").getAsString());
@@ -210,6 +211,7 @@ public final class ReplayOpeningCaptureTest {
             metadata.addProperty("circuit_scope", "ORDERED_PLATE_PRESS_CALLBACKS_AND_EACH_LOGICAL_TICK_AUTHORITATIVE_PLATE_STATES");
             metadata.addProperty("cooldown_scope", "ACTUAL_TRAP_COUNTER_AND_MAX_1_GOAL_CALLS_UNTIL_READY");
             capture = new ReplayCapture(red.asLevel(), metadata);
+            opponentCapture = new ReplayCapture(blue.asLevel(), metadata, "BLUE");
             UUID owner = UUID.fromString("00000000-0000-0000-0000-000000000002");
             UUID opponent = UUID.fromString("00000000-0000-0000-0000-000000000003");
             require(game.selectJob(owner, Identifier.parse("semion-td:engineer_towers")), "Engineer job is selectable");
@@ -244,6 +246,8 @@ public final class ReplayOpeningCaptureTest {
             phaseTicks.set(game, ((Number) ReplayCapture.field(game, "currentPrepareDurationTicks")).intValue());
             game.tick(server);
             require(game.phase() == RoundPhase.LANE_WAVE, "Native preparation transitions to its real wave");
+            configureClock(server);
+            capture.setting("client_tick_ratio", 2);
             capture.start();
             if (mode.equals("simulation")) {
                 Class<?> type = Class.forName("kim.biryeong.semiontd.game.simulation.CombatSimulationSession");
@@ -257,6 +261,7 @@ public final class ReplayOpeningCaptureTest {
         }
 
         private void begin(MinecraftServer server) throws Exception {
+            configureClock(server);
             require(server.tickRateManager().tickrate() == (mode.equals("native") ? 40 : 20),
                     "The actual physical server rate must match the declared capture driver");
             if (session != null && !finishing && (boolean) call("idle")) {
@@ -265,6 +270,7 @@ public final class ReplayOpeningCaptureTest {
         }
 
         private void end(MinecraftServer server) throws Exception {
+            configureClock(server);
             if (session == null) {
                 game.tick(server);
                 capture.sample(++tick);
@@ -281,6 +287,22 @@ public final class ReplayOpeningCaptureTest {
 
         private Object call(String method) throws Exception {
             return session.getClass().getMethod(method).invoke(session);
+        }
+
+        private void configureClock(MinecraftServer server) throws Exception {
+            Class<?> scale = Class.forName("kim.biryeong.semiontd.game.ClientTickScale");
+            float ratio;
+            if (mode.equals("simulation")) {
+                Class<?> speed = Class.forName("kim.biryeong.semiontd.game.CombatSpeedRuntime");
+                var configure = speed.getDeclaredMethod("configure", MinecraftServer.class, SemionGame.class, float.class, int.class);
+                configure.setAccessible(true);
+                configure.invoke(null, server, game, 40F, 1);
+                ratio = ((Number) scale.getMethod("ratio", MinecraftServer.class, ServerLevel.class)
+                        .invoke(null, server, red.asLevel())).floatValue();
+            } else {
+                ratio = ((Number) scale.getMethod("ratio", MinecraftServer.class).invoke(null, server)).floatValue();
+            }
+            require(ratio == 2F, "The actual native/candidate arena client tick ratio must be two");
         }
 
         private Object call(String method, Class<?> parameter, Object value) throws Exception {
@@ -310,10 +332,16 @@ public final class ReplayOpeningCaptureTest {
                 if (session != null) {
                     call("close");
                 }
+                if (mode.equals("simulation")) {
+                    var clear = Class.forName("kim.biryeong.semiontd.game.CombatSpeedRuntime").getDeclaredMethod("clear");
+                    clear.setAccessible(true);
+                    clear.invoke(null);
+                }
             } catch (Exception failure) {
                 throw new IllegalStateException(failure);
             } finally {
                 capture.close();
+                opponentCapture.close();
                 game.close();
                 red.unload();
                 blue.unload();

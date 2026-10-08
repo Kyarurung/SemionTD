@@ -557,3 +557,19 @@ trace JSON은 `metadata`와 `samples`를 가진다. metadata 필수 항목은 `d
 sample은 초기 `tick=0`부터 매 논리 틱의 상태를 담는다. `actors`는 시나리오 ID를 키로 사용하고 `health`, `position=[x,y,z]`, `target`(시나리오 ID 또는 null), 정수 `cooldown`, boolean `alive`를 반드시 기록한다. 순서 있는 event 배열 `attacks`, `damage`, `deaths`, `spawns`, `rewards`, `projectiles`, `circuits`는 비어 있어도 필수다. 필요한 고유 상태를 actor/event 객체에 추가할 수 있다. 공격·피해·사망·보상·투사체 생성/피격·회로 변화는 실제 callback에서 순서대로 수집하고, 누적 DPS나 프레임 끝 차이만으로 대체하지 않는다. 제공되지 않는 채널을 빈 배열로 채워 완전한 캡처라고 표현하지 않는다. 위치의 기본 절대 허용 오차는 `1e-7`이며 다른 값과 이벤트 순서는 정확히 비교한다. 누락 채널·논리 틱 생략·비정상 수·캡처 길이 차이와 첫 분기 틱/필드를 검출한다.
 
 native driver는 별도 기준 checkout에서 실제 40 TPS 또는 명확히 정의한 완전한 native 논리 단계로 실행하고 simulation driver는 `CombatSimulationSession`의 `setStepObserver(LongConsumer)`에서 각 완료 논리 단계의 scoped pose와 실제 상태를 기록한다. `logicalTickCount()`와 `idle()`로 완료 여부를 판단하며 고정 sleep이나 server-thread join으로 동기화하지 않는다. session은 해당 arena world의 Semion 엔티티를 소유하므로 동시 GameTest와 공유하는 합성 world 대신 독립 Fantasy world를 사용한다. driver의 컴파일·실행·원본과의 비교를 실제로 완료하기 전에는 전투 정합성 통과로 보고하지 않는다.
+
+`ReplayOpeningCaptureTest`의 기본 모드는 실제 `ProductionTowerService`로 기술자의 다섯 배치와 131 다이아 지출을 확인하는 fixture 검사다. 별도 캡처 모드는 다음과 같이 실행한다. 원본 checkout에는 동일한 GameTest 코드·리소스·테스트용 mixin만 적용하고 `src/main`, `compat` 및 빌드 의존성 파일은 지정 revision과 같게 유지한다. 실행기는 생산 소스가 미커밋 상태이거나 simulation runtime이 커밋되어 있지 않으면 `source_revision`을 붙여 실행하지 않는다. 출력은 이전 캡처와 혼동하지 않도록 새 경로를 사용한다.
+
+```powershell
+python -B scripts/replay/run_capture.py native --root 'C:\path\to\reference-checkout' --output 'C:\path\to\captures\native40-a.json'
+python -B scripts/replay/run_capture.py native --root 'C:\path\to\reference-checkout' --output 'C:\path\to\captures\native40-b.json'
+python -B scripts/replay/compare_traces.py 'C:\path\to\captures\native40-a.json' 'C:\path\to\captures\native40-b.json' --repeat-reference --output build/replay-analysis/native-repeatability.json
+python -B scripts/replay/run_capture.py simulation --output build/replay-analysis/simulation20.json
+python -B scripts/replay/compare_traces.py 'C:\path\to\captures\native40-a.json' build/replay-analysis/simulation20.json --output build/replay-analysis/parity.json
+```
+
+실행기의 검증된 Fabric 26.3 filter는 `semion-td-gametest:replay_opening_capture_test*`다. 원본은 실제 서버 tick rate 40에서 아레나의 자연스러운 Minecraft world/entity tick을 실행하고 END 단계에 `game.tick`을 한 번 실행한다. simulation은 실제 서버 rate 20, START의 `beginFrame(2)`, 각 완료 논리 단계 observer, END의 presentation을 사용한다. 독립 driver는 `CombatSpeedRuntime.configure(server, game, 40F, 1)`을 반영하여 아레나의 실제 `ClientTickScale.ratio`가 2인지 확인하고 종료 시 정리한다. native reference에는 해당 새 runtime 클래스를 추가하지 않는다.
+
+GameTest 전용 collector는 대상 Fantasy world에만 등록된다. 공격, 공용 damage 결과와 사망, 실제 kill reward, native spawn, `EngineerTrapTower.fireDispenser`, `EngineerCircuitTower.pressPlate`에서 callback 순서를 수집한다. 이 opening의 dispenser는 즉시 피해와 연출을 발생시키므로 `projectiles`의 실제 범위는 `INSTANT_DISPENSER_SHOT`이며 탄도 엔티티의 비행 재현이라고 표현하지 않는다. 회로 범위는 두 발판의 실제 press callback과 논리 틱별 권위 상태이며 임의 회로의 틱 안 내부 전파 순서 전체를 증명하지 않는다. 모든 채널, 실제 발판 작동과 자연 몬스터 12회 spawn이 관측되지 않으면 완전한 trace 파일을 만들지 않는다.
+
+통제된 seed에는 world/game RNG뿐 아니라 placement sequence 및 native spawn order에 따른 actor RNG 스트림, 타워/몬스터 logical UUID, entity UUID와 native integer ID를 포함한다. UUID는 `UUID.nameUUIDFromBytes`의 UUID v3 규칙으로 생성하며 정수 ID와 함께 **world 삽입 전**에 지정한다. 삽입 뒤 UUID를 바꾸어 lookup을 깨뜨리지 않는다. 살아 있는 actor의 실제 UUID lookup을 매 sample에서 확인한다. UUID 기반 target tie와 `(tickCount + entityId) % 2`의 바닐라 goal 스케줄을 두 driver에 동일하게 공급하고, mapping 규칙을 rules fingerprint에 포함한다. original native 캡처를 독립 JVM에서 반복하여 동일 입력의 재현성을 먼저 확인한다. `--repeat-reference`의 성공 범위는 native 통제 시나리오의 반복성에 한정되며 native/simulation 전투 정합성 성공과 구분한다.

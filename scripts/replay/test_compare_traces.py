@@ -32,6 +32,19 @@ class ReplayTraceComparatorTest(unittest.TestCase):
     def test_comparator_accepts_compatible_capture_schema(self):
         self.assertEqual(3, comparator.compare(self.before, self.after)['samples_compared'])
 
+    def test_native_repeatability_is_a_distinct_scope_with_independent_captures(self):
+        repeat = copy.deepcopy(self.before)
+        repeat['metadata']['run_id'] = 'independent-native-repeat'
+        result = comparator.compare_repeated_reference(self.before, repeat)
+        self.assertTrue(result['equal'])
+        self.assertEqual('NATIVE_CONTROLLED_SCENARIO_REPEATABILITY_ONLY', result['scope'])
+        repeat['samples'][1]['actors']['p02/placement/2']['position'][0] += 0.1
+        self.assertFalse(comparator.compare_repeated_reference(self.before, repeat)['equal'])
+        with self.assertRaises(comparator.TraceError):
+            comparator.compare_repeated_reference(self.before, self.after)
+        with self.assertRaises(comparator.TraceError):
+            comparator.compare_repeated_reference(self.before, self.before)
+
     def test_first_divergence_is_intermediate_logical_tick_not_final_frame_only(self):
         self.after['samples'][1]['actors']['p02/placement/2']['health'] = 29.0
         result = comparator.compare(self.before, self.after)
@@ -122,6 +135,15 @@ class ReplayTraceComparatorTest(unittest.TestCase):
 
 
 class ReplayFixtureSanitizationTest(unittest.TestCase):
+    def test_native_capture_opening_contains_only_actual_selected_actions(self):
+        root = fetcher.ROOT
+        fixture = json.loads((root / 'src/test/resources/replay/match-893854454113494679.json').read_text(encoding='utf-8'))
+        opening = json.loads((root / 'src/gametest/resources/replay/engineer-opening.json').read_text(encoding='utf-8'))
+        self.assertEqual(fixture['participants'][2]['actions'][:5], opening['actions'])
+        self.assertEqual(fixture['catalog_version'], opening['historical_catalog_version'])
+        self.assertEqual('CONTROLLED_SCENARIO', opening['timing_origin'])
+        self.assertEqual(131, sum(int(action['cost']) for action in opening['actions']))
+
     def test_fixture_has_no_player_identifiers_encoded_cursors_or_assets(self):
         path = fetcher.ROOT / 'src/test/resources/replay/match-893854454113494679.json'
         fixture = json.loads(path.read_text(encoding='utf-8'))

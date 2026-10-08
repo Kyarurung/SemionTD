@@ -28,10 +28,12 @@ public final class ReplayCapture implements AutoCloseable {
     private static final Map<ServerLevel, ReplayCapture> ACTIVE = new IdentityHashMap<>();
     private static final String[] CHANNELS = {"attacks", "damage", "deaths", "spawns", "rewards", "projectiles", "circuits"};
     private final ServerLevel world;
+    private final String namespace;
     private final PlayerLane[] lane = new PlayerLane[1];
     private final JsonObject metadata;
     private final JsonArray samples = new JsonArray();
     private final Map<Entity, String> ids = new IdentityHashMap<>();
+    private final Map<Entity, Long> seeds = new IdentityHashMap<>();
     private final Map<String, LivingEntity> actors = new LinkedHashMap<>();
     private final Map<Tower, String> components = new LinkedHashMap<>();
     private final Map<String, JsonArray> events = new LinkedHashMap<>();
@@ -46,8 +48,13 @@ public final class ReplayCapture implements AutoCloseable {
     private boolean recording;
 
     public ReplayCapture(ServerLevel world, JsonObject metadata) {
+        this(world, metadata, "RED");
+    }
+
+    public ReplayCapture(ServerLevel world, JsonObject metadata, String namespace) {
         this.world = world;
         this.metadata = metadata;
+        this.namespace = namespace;
         for (String channel : CHANNELS) {
             events.put(channel, new JsonArray());
             totals.put(channel, 0L);
@@ -74,8 +81,22 @@ public final class ReplayCapture implements AutoCloseable {
         components.put(tower, "p02/component/" + sequence);
     }
 
+    public void prepareTower(Tower tower) {
+        if (placementSequence < 0) {
+            throw new IllegalStateException("Controlled towers require an explicit placement sequence");
+        }
+        component(tower, placementSequence);
+        tower.setData(kim.biryeong.semiontd.tower.TowerDataKey.of(
+                net.minecraft.resources.Identifier.parse("semiontd:augment_logical_id"), UUID.class),
+                identity("tower/" + components.get(tower)));
+    }
+
     public void bind(PlayerLane lane) {
         this.lane[0] = lane;
+    }
+
+    public void setting(String name, Number value) {
+        metadata.addProperty(name, value);
     }
 
     public void placement(int sequence, Runnable operation) {
@@ -88,29 +109,59 @@ public final class ReplayCapture implements AutoCloseable {
         }
     }
 
-    public void spawn(Entity entity, boolean accepted) {
-        if (!(entity instanceof LivingEntity living) || !accepted || ids.containsKey(entity)) {
+    public void prepareSpawn(Entity entity) {
+        if (!(entity instanceof LivingEntity living) || ids.containsKey(entity)) {
             return;
         }
         String id;
         long seed;
+        int entityId;
+        int idBase = namespace.equals("RED") ? 1000000 : 2000000;
         if (placementSequence >= 0) {
             id = "p02/placement/" + placementSequence + "/" + placementSpawn++;
             seed = 1L + 104729L * (placementSequence + 1) + placementSpawn;
+            entityId = idBase + 100 + placementSequence * 16 + placementSpawn;
         } else if (entity instanceof SemionMonsterEntity) {
             id = "wave/" + waveSpawn++;
             seed = 1000001L + waveSpawn;
+            entityId = idBase + 1000 + waveSpawn;
         } else {
             id = "ambient/" + ambientSpawn++;
             seed = 2000001L + ambientSpawn;
+            entityId = idBase + ambientSpawn;
+        }
+        if (world.getEntity(entityId) != null) {
+            throw new IllegalStateException("Controlled entity ID is already occupied");
         }
         living.getRandom().setSeed(seed);
+        entity.setId(entityId);
+        entity.setUUID(identity("entity/" + id));
+        if (entity instanceof SemionMonsterEntity monster && monster.runtimeMonster() != null) {
+            ((ReplayLogicalMonsterAccess) (Object) monster.runtimeMonster()).replay$logicalId(identity("monster/" + id));
+        }
         ids.put(entity, id);
+        seeds.put(entity, seed);
         actors.put(id, living);
+    }
+
+    public void spawn(Entity entity, boolean accepted) {
+        if (!(entity instanceof LivingEntity living)) {
+            return;
+        }
+        if (!accepted || !ids.containsKey(entity)) {
+            throw new IllegalStateException("Controlled native spawn was rejected or missed before-insertion identity seeding");
+        }
+        String id = ids.get(entity);
         JsonObject event = event("SPAWN", id);
         event.addProperty("type", net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString());
-        event.addProperty("rng_seed", Long.toString(seed));
+        event.addProperty("uuid", entity.getUUID().toString());
+        event.addProperty("entity_id", entity.getId());
+        event.addProperty("rng_seed", Long.toString(seeds.get(entity)));
         add("spawns", event);
+    }
+
+    private UUID identity(String id) {
+        return UUID.nameUUIDFromBytes(("semiontd-replay/seed1/" + namespace + "/" + id).getBytes(StandardCharsets.UTF_8));
     }
 
     public String id(Entity entity) {
@@ -225,6 +276,9 @@ public final class ReplayCapture implements AutoCloseable {
         }
         for (var entry : actors.entrySet()) {
             LivingEntity actor = entry.getValue();
+            if (!actor.isRemoved() && world.getEntity(actor.getUUID()) != actor) {
+                throw new IllegalStateException("Controlled UUID lookup became inconsistent after insertion");
+            }
             JsonObject state = new JsonObject();
             double health = actor instanceof SemionMonsterEntity monster && monster.runtimeMonster() != null
                     ? monster.runtimeMonster().health()

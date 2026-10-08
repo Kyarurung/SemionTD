@@ -10,6 +10,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerLevel.class)
 public abstract class ReplaySpawnMixin {
+    @Inject(method = "addFreshEntity", at = @At("HEAD"))
+    private void seedIdentity(Entity entity, CallbackInfoReturnable<Boolean> callback) {
+        ReplayCapture capture = ReplayCapture.current((ServerLevel) (Object) this);
+        if (capture != null) {
+            capture.prepareSpawn(entity);
+        }
+    }
+
     @Inject(method = "addFreshEntity", at = @At("RETURN"))
     private void recordSpawn(Entity entity, CallbackInfoReturnable<Boolean> callback) {
         ReplayCapture capture = ReplayCapture.current((ServerLevel) (Object) this);

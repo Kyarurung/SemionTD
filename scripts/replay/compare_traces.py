@@ -34,6 +34,9 @@ def validate_trace(trace):
         raise TraceError('Complete logical-tick controlled-scenario capture is required')
     if meta['logical_tps'] != 40:
         raise TraceError('logical_tps must be 40')
+    for field in ('physical_tps', 'logical_tps', 'logical_steps_per_frame'):
+        if type(meta[field]) is not int:
+            raise TraceError(f'metadata.{field}: expected integer clock setting')
     if not isinstance(meta['seed'], str) or not meta['seed']:
         raise TraceError('Seed must be an explicit string without floating-point conversion')
     for field in ('scenario_sha256', 'rules_sha256', 'map_sha256'):
@@ -127,6 +130,33 @@ def compare(reference, candidate, position_tolerance=1e-7):
             'scope': 'CONTROLLED_SCENARIO_NOT_EXACT_HISTORICAL_REPLAY'}
 
 
+def compare_repeated_reference(reference, repeated, position_tolerance=1e-7):
+    if not math.isfinite(position_tolerance) or position_tolerance < 0:
+        raise TraceError('position_tolerance must be finite and nonnegative')
+    for trace in (reference, repeated):
+        validate_trace(trace)
+        metadata = trace['metadata']
+        if (metadata['driver'], metadata['source_revision'], metadata['physical_tps'], metadata['logical_steps_per_frame']) != (
+                'NATIVE_REFERENCE', REFERENCE_REVISION, 40, 1):
+            raise TraceError('Repeatability requires two independently captured pinned native 40 TPS runs')
+    if reference['metadata']['run_id'] == repeated['metadata']['run_id']:
+        raise TraceError('Repeatability requires independent run IDs')
+    for field in CONTEXT:
+        if reference['metadata'][field] != repeated['metadata'][field]:
+            raise TraceError(f'Incompatible repeatability {field}')
+    for tick, (left, right) in enumerate(zip(reference['samples'], repeated['samples'])):
+        difference = first_difference(left, right, f'tick[{tick}]', position_tolerance)
+        if difference:
+            return {'equal': False, 'first_divergence': {'tick': tick, **difference},
+                    'scope': 'NATIVE_CONTROLLED_SCENARIO_REPEATABILITY_ONLY'}
+    if len(reference['samples']) != len(repeated['samples']):
+        return {'equal': False, 'first_divergence': {'tick': min(len(reference['samples']), len(repeated['samples'])),
+                'path': 'samples.length', 'expected': len(reference['samples']), 'actual': len(repeated['samples'])},
+                'scope': 'NATIVE_CONTROLLED_SCENARIO_REPEATABILITY_ONLY'}
+    return {'equal': True, 'samples_compared': len(reference['samples']),
+            'scope': 'NATIVE_CONTROLLED_SCENARIO_REPEATABILITY_ONLY'}
+
+
 def load_trace(path):
     with Path(path).open(encoding='utf-8') as stream:
         return json.load(stream, parse_constant=lambda value: (_ for _ in ()).throw(TraceError(f'Invalid {value}')))
@@ -138,9 +168,11 @@ def main():
     parser.add_argument('candidate', type=Path)
     parser.add_argument('--position-tolerance', type=float, default=1e-7)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--repeat-reference', action='store_true')
     args = parser.parse_args()
     try:
-        report = compare(load_trace(args.reference), load_trace(args.candidate), args.position_tolerance)
+        comparison = compare_repeated_reference if args.repeat_reference else compare
+        report = comparison(load_trace(args.reference), load_trace(args.candidate), args.position_tolerance)
     except (TraceError, OSError, json.JSONDecodeError) as error:
         report = {'equal': False, 'invalid_capture': str(error)}
     result = json.dumps(report, ensure_ascii=False, indent=2) + '\n'
