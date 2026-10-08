@@ -1165,6 +1165,10 @@ public final class DemonLordService {
         if (augmentState != null && lane != null) {
             amount *= augmentState.augments().damageMultiplier(lane.augmentSnapshot(), attacker.level().getGameTime());
         }
+        amount = DemonLordDamageScaling.apply(amount, type);
+        if (amount <= 0.0) {
+            return Tower.DamageResult.NONE;
+        }
         SemionTowerEntity source = altar == null ? null : altar.entity(lane);
         if (source != null) {
             Tower.DamageResult result = altar.damageTargetResult(source, monsterEntity, amount, type);

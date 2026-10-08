@@ -217,16 +217,18 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             DemonLordState state = DemonLordStates.getOrCreate(player.getUUID());
             state.setLaneId(1);
             state.enterCombat();
-            target = spawnTarget(context, lane, new BlockPos(5, 2, 5), 1000, 0);
+            target = spawnTarget(context, lane, new BlockPos(5, 2, 5), 10000, 0);
             state.startCooldown(first.skill(), 0, 500);
             state.startCooldown(second.skill(), 0, 500);
             state.augments().beginSpell(first);
-            DemonLordService.dealDamage(player, lane, first, target.entity(), 20, DamageType.MAGIC);
+            DemonLordService.dealDamage(player, lane, first, target.entity(), 200, DamageType.MAGIC);
             state.augments().finishSpell(player, lane, state, 0);
             state.augments().beginSpell(second);
-            DemonLordService.dealDamage(player, lane, second, target.entity(), 30, DamageType.MAGIC);
+            DemonLordService.dealDamage(player, lane, second, target.entity(), 300, DamageType.MAGIC);
             state.augments().finishSpell(player, lane, state, 1);
-            requireClose(875, target.runtime().health(), "Two original skills and their 150% replays must deal 125 total.");
+            double expected = 10000 - (100 + 50 * Math.log(3)) - 2 * (100 + 50 * Math.log(5))
+                    - (100 + 50 * Math.log(8));
+            requireClose(expected, target.runtime().health(), "Replays must scale the original raw amount times 150%, never scale an already reduced hit.");
             require(lane.towers().size() == 2, "Echoes must not register targetable combat towers or use tower slots.");
             require(state.remainingCooldownTicks(first.skill(), 1) == 499
                             && state.remainingCooldownTicks(second.skill(), 1) == 499,
@@ -236,9 +238,9 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             requireClose(0, state.augments().consumeFinisher(lane.augmentSnapshot(), 2),
                     "Replays must not grant extra finisher charges.");
             state.augments().beginSpell(first);
-            DemonLordService.dealDamage(player, lane, first, target.entity(), 20, DamageType.MAGIC);
+            DemonLordService.dealDamage(player, lane, first, target.entity(), 200, DamageType.MAGIC);
             state.augments().finishSpell(player, lane, state, 2);
-            requireClose(855, target.runtime().health(), "Throne cooldown must suppress another pair of replays.");
+            requireClose(expected - (100 + 50 * Math.log(3)), target.runtime().health(), "Throne cooldown must suppress another pair of replays.");
             var visuals = context.getLevel().getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
                     player.getBoundingBox().inflate(3), entity -> entity.entityTags().contains(SemionEntityTypes.RUNTIME_NO_SAVE_TAG));
             require(visuals.size() == 2 && visuals.stream().allMatch(net.minecraft.world.entity.decoration.ArmorStand::isMarker),
@@ -913,6 +915,156 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
         }
     }
 
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void pointScalingFollowsAugmentsBeforeDefenseAndPreservesTrueDamage(GameTestHelper context) {
+        TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        var altar = altar(context, player.getUUID(), DemonLordSkill.WAVE_OF_MALICE, 1, 3, 3);
+        var targets = new ArrayList<SpawnedTarget>();
+        try {
+            lane.addTower(altar);
+            lane.assignAugmentSnapshot(new AugmentSnapshot(AugmentConfig.defaults(), List.of(
+                    new PlayerAugmentState.Selection(5, AugmentRarity.PRISMATIC, "one_man_show",
+                            PlayerAugmentState.Outcome.SELECTED, null, AugmentChoice.none()),
+                    new PlayerAugmentState.Selection(15, AugmentRarity.PRISMATIC, "tactical_designation_3_assault",
+                            PlayerAugmentState.Outcome.SELECTED, null, AugmentChoice.none()))));
+            var state = DemonLordStates.getOrCreate(player.getUUID());
+            state.setLaneId(1);
+            state.enterCombat();
+            double expectedPhysical = (100 + 100 * Math.log(3.2)) / 2;
+            double expectedMagic = 100 + 50 * Math.log(5.4);
+            for (DemonLordSkillTower carrier : java.util.Arrays.asList(null, altar)) {
+                var target = spawnTarget(context, lane, new BlockPos(5, 2, 5), 10000, 100);
+                targets.add(target);
+                var physical = DemonLordService.dealDamage(player, lane, carrier, target.entity(), 200, DamageType.PHYSICAL);
+                var magic = DemonLordService.dealDamage(player, lane, carrier, target.entity(), 200, DamageType.MAGIC);
+                requireClose(expectedPhysical, physical.dealtDamage(), "Augments precede scaling, and armor follows it.");
+                requireClose(expectedMagic, magic.dealtDamage(), "Both carrier paths must scale magic once.");
+                requireClose(10000 - expectedPhysical - expectedMagic, target.runtime().health(), "Actual HP must match scaled damage.");
+            }
+            requireClose(expectedPhysical * 2, state.roundPhysicalDamageDealt(), "Physical statistics count each hit once.");
+            requireClose(expectedMagic * 2, state.roundMagicDamageDealt(), "Magic statistics count each hit once.");
+            var resistant = spawnTarget(context, lane, new BlockPos(6, 2, 6), 1, 10000, 0, AttackKind.MELEE, 100);
+            targets.add(resistant);
+            requireClose(expectedMagic / 2, DemonLordService.dealDamage(player, lane, null, resistant.entity(), 200, DamageType.MAGIC).dealtDamage(),
+                    "Magic resistance follows scaling even without a carrier.");
+            resistant.entity().applyTimedEffect(TimedEffectType.MONSTER_TOWER_DAMAGE_TAKEN_BONUS, .5, 100);
+            requireClose(expectedMagic * 1.5 / 2, DemonLordService.dealDamage(player, lane, altar, resistant.entity(), 200, DamageType.MAGIC).dealtDamage(),
+                    "Incoming vulnerability and resistance must follow the curve.");
+            var immune = spawnTarget(context, lane, new BlockPos(6, 2, 5), 1000, 0);
+            targets.add(immune);
+            immune.entity().applyTimedEffect(TimedEffectType.MONSTER_DAMAGE_REDUCTION, 1, 100);
+            requireClose(0, DemonLordService.dealDamage(player, lane, altar, immune.entity(), 500, DamageType.MAGIC).dealtDamage(),
+                    "Complete incoming damage reduction must still prevent damage.");
+            lane.assignAugmentSnapshot(AugmentSnapshot.none());
+            var executable = spawnTarget(context, lane, new BlockPos(7, 2, 5), 1000, 10000);
+            targets.add(executable);
+            var result = DemonLordService.dealDamage(player, lane, altar, executable.entity(), 1000, DamageType.TRUE);
+            require(result.killed(), "TRUE damage must bypass the new curve and armor.");
+            requireClose(1000, result.dealtDamage(), "Execution damage must not be logarithmically reduced.");
+            context.succeed();
+        } finally {
+            targets.forEach(target -> target.entity().discard());
+            lane.clearTowers();
+            DemonLordStates.clear(player.getUUID());
+            player.discard();
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void repeatedZonesScaleEachTargetOnceAndLifestealUsesActualDamage(GameTestHelper context) {
+        TowerBalanceRuntime.apply(TowerBalanceConfig.defaultConfig());
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        AreaEffectLaneIndex.register(lane);
+        var targets = new ArrayList<SpawnedTarget>();
+        try {
+            var state = DemonLordStates.getOrCreate(player.getUUID());
+            state.setLaneId(1);
+            state.enterCombat();
+            state.loadout().assign(DemonLordBinding.values()[0], DemonLordSkill.HELLFIRE_BRAND, 0);
+            DemonLordService.syncCarriers(lane, state);
+            var altar = DemonLordService.orderedAltars(lane, player.getUUID()).getFirst();
+            var first = spawnTarget(context, lane, new BlockPos(5, 2, 5), 10000, 0);
+            var second = spawnTarget(context, lane, new BlockPos(6, 2, 5), 10000, 0);
+            targets.add(first);
+            targets.add(second);
+            state.placeZone(new DemonLordState.HellfireZone(altar.type(), first.entity().position(), 3, 200, 0, 20, 100, 20));
+            DemonLordSkills.tickPending(player, lane, state, 20);
+            DemonLordSkills.tickPending(player, lane, state, 40);
+            double pulse = 154.93061443340548;
+            requireClose(10000 - 2 * pulse, first.runtime().health(), "First target must receive two independently scaled pulses.");
+            requireClose(10000 - 2 * pulse, second.runtime().health(), "Area targets must not share a damage budget.");
+            requireClose(200, state.zone().damage(), "Zone state must retain unscaled damage for the next pulse.");
+            state.applyDamage(200);
+            double before = state.health();
+            double actual = DemonLordService.dealDamage(player, lane, altar, first.entity(), 50, DamageType.PHYSICAL).dealtDamage();
+            second.entity().discard();
+            DemonLordPassives.bloodCleave(player, lane, state, altar, first.entity(), 50, actual);
+            requireClose(before + 7.5, state.health(), "Uncapped lifesteal must use actual damage.");
+            before = state.health();
+            actual = DemonLordService.dealDamage(player, lane, altar, first.entity(), 500, DamageType.PHYSICAL).dealtDamage();
+            DemonLordPassives.bloodCleave(player, lane, state, altar, first.entity(), 500, actual);
+            requireClose(before + state.maxHealth() * .04, state.health(), "The per-attack lifesteal cap remains unchanged.");
+            requireClose(pulse * .25, DemonLordSkills.soulDrainHealing(pulse, state.maxHealth(), .25, .12),
+                    "Soul drain uses post-scaling actual damage.");
+            context.succeed();
+        } finally {
+            targets.forEach(target -> target.entity().discard());
+            lane.clearTowers();
+            AreaEffectLaneIndex.unregister(lane);
+            DemonLordService.cleanupPlayer(player);
+            player.discard();
+        }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void soulDrainHealsFromScaledResistedDamageAndRetainsPerCastCap(GameTestHelper context) {
+        var defaults = TowerBalanceConfig.defaultConfig();
+        TowerBalanceRuntime.apply(new TowerBalanceConfig(Map.of(), Map.of(),
+                Map.of(DemonLordSkill.SOUL_DRAIN.towerId(1), Map.of("damage", 200.0))).withMissingDefaults(defaults));
+        ServerPlayer player = context.makeMockServerPlayerInLevel();
+        PlayerLane lane = testLane(context, player.getUUID());
+        prepareFloor(context);
+        AreaEffectLaneIndex.register(lane);
+        var altar = altar(context, player.getUUID(), DemonLordSkill.SOUL_DRAIN, 1, 3, 3);
+        var targets = new ArrayList<SpawnedTarget>();
+        try {
+            lane.addTower(altar);
+            var state = DemonLordStates.getOrCreate(player.getUUID());
+            state.setLaneId(1);
+            state.enterCombat();
+            state.applyDamage(200);
+            Vec3 start = Vec3.atCenterOf(context.absolutePos(new BlockPos(5, 2, 3)));
+            player.teleportTo(start.x, start.y, start.z);
+            player.setYRot(0);
+            player.setXRot(0);
+            var target = spawnTarget(context, lane, new BlockPos(5, 2, 6), 1, 10000, 0, AttackKind.MELEE, 100);
+            targets.add(target);
+            double before = state.health();
+            DemonLordSkills.cast(player, lane, state, DemonLordSkill.SOUL_DRAIN, altar, 0);
+            double actual = 154.93061443340548 / 2;
+            requireClose(10000 - actual, target.runtime().health(), "Soul drain must scale before resistance.");
+            requireClose(before + actual * .25, state.health(), "Soul drain healing must use actual post-defense damage.");
+            targets.add(spawnTarget(context, lane, new BlockPos(5, 2, 7), 10000, 0));
+            targets.add(spawnTarget(context, lane, new BlockPos(5, 2, 8), 10000, 0));
+            before = state.health();
+            DemonLordSkills.cast(player, lane, state, DemonLordSkill.SOUL_DRAIN, altar, 1);
+            requireClose(before + state.maxHealth() * .12, state.health(), "Multiple targets still share the existing healing cap per cast.");
+            context.succeed();
+        } finally {
+            targets.forEach(target -> target.entity().discard());
+            lane.clearTowers();
+            AreaEffectLaneIndex.unregister(lane);
+            DemonLordStates.clear(player.getUUID());
+            player.discard();
+            TowerBalanceRuntime.apply(defaults);
+        }
+    }
+
     private static SemionPlayer demonLordPlayer(ServerPlayer player) {
         SemionPlayer semionPlayer = new SemionPlayer(
                 player.getUUID(), player.getGameProfile().name(), TeamId.RED, 1,
@@ -959,6 +1111,13 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             GameTestHelper context, PlayerLane lane, BlockPos relative, int targetLaneId,
             double health, double armor, AttackKind attackKind
     ) {
+        return spawnTarget(context, lane, relative, targetLaneId, health, armor, attackKind, 0.0);
+    }
+
+    private static SpawnedTarget spawnTarget(
+            GameTestHelper context, PlayerLane lane, BlockPos relative, int targetLaneId,
+            double health, double armor, AttackKind attackKind, double resistance
+    ) {
         Monster runtime = new Monster(
                 "demon-lord-target-" + relative.toShortString(),
                 TeamId.RED,
@@ -970,6 +1129,11 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
                 1.0,
                 attackKind,
                 "minecraft:zombie",
+                null,
+                DamageType.PHYSICAL,
+                resistance,
+                null,
+                List.of(),
                 0L
         );
         SemionMonsterEntity entity = new SemionMonsterEntity(SemionEntityTypes.MONSTER, context.getLevel());
