@@ -44,9 +44,11 @@ world/game/actor RNG, tower/monster logical UUID, entity UUID/integer ID를 삽�
 | plate press / 상태 관측 | 8 / 784 | 8 / 784 | 8 / 784 |
 | kill reward diamond | 36 | 36 | 36 |
 
-세 실행은 서로 다른 JVM이다. native A/B 반복성과 native/candidate comparator는 모두 `equal=true`, `samples_compared=392`다. 위치 허용 오차는 `1e-7`이고 다른 수치와 event 순서는 정확히 비교했다. 추가로 전체 sample 배열의 `==`도 세 실행 모두 참이다. key 정렬·compact UTF-8 JSON sample array의 SHA-256은 모두 `ef212762c38173a763d68d65aaa4efc5b6bc869020c9c439e176305f8d379637`이다. 독립 run ID 때문에 원시 파일 byte hash는 다르며 [source review](../build/replay-analysis/source-review-final.json)에 각 파일 SHA-256과 metadata를 남겼다.
+세 실행은 서로 다른 JVM이다. native A/B 반복성과 native/candidate comparator는 모두 `equal=true`, `samples_compared=392`다. 위치 허용 오차는 `1e-7`이고 다른 수치와 event 순서는 정확히 비교했다. 메인 체크아웃에서는 위치 허용 오차를 0으로 지정한 비교도 통과했다. 추가로 전체 sample 배열의 `==`도 세 실행 모두 참이다. key 정렬·compact UTF-8 JSON sample array의 SHA-256은 모두 `ef212762c38173a763d68d65aaa4efc5b6bc869020c9c439e176305f8d379637`이다. 독립 run ID 때문에 원시 파일 byte hash는 다르며 [검증 증거](replay-simulation-evidence.json)에 각 파일 SHA-256과 metadata를 남겼다.
 
-실행한 검증은 fixture JUnit 10개 통과, Python tooling 검사 14개 통과, 최신 pinned native A/B 각각 필수 GameTest 1개 통과, 최종 candidate 필수 GameTest 1개 통과다. 최신 native 두 실행은 56초/30초, 최종 candidate는 1분 1초에 build/capture를 완료했다. 시작·컴파일을 포함한 시간이며 실제 TPS 성능 측정이 아니다. 모드 전체 release gate는 main session이 별도로 수행한다.
+실행한 검증은 fixture JUnit 10개 통과, Python tooling 검사 14개 통과, 최신 pinned native A/B 각각 필수 GameTest 1개 통과, 최종 candidate 필수 GameTest 1개 통과다. 최신 native 두 실행은 56초/30초, 최종 candidate는 1분 1초에 build/capture를 완료했다. 시작·컴파일을 포함한 시간이며 실제 TPS 성능 측정이 아니다.
+
+메인 체크아웃의 최종 `.\gradlew.bat test runGameTest remapJar --console=plain --no-daemon`도 3분 40초에 성공했다. JUnit 2,112개는 실패·오류 0건과 제외 2개이며 필수 GameTest 1,003개 전부 통과했고 배포 JAR을 생성했다. 최종 생산 코드는 위의 캡처 commit과 동일하며 그 이후에는 회귀 테스트와 검증 문서만 추가했다. 서버 START/END의 오류 격리, 입력 큐 256개 포화와 다음 틱의 밸런스 재시도, 구매·팀 재화·피해·회로·골렘 접촉·회전·스윙·풍화·아이템 줍기 검증을 포함한다. 배포 JAR에서 시뮬레이션 클래스와 필수 mixin을 확인하고 테스트용 캡처 클래스와 보호된 모델 자산은 제외했다.
 
 ## 검출 후 수정한 차이와 범위
 
