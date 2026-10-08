@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -60,7 +61,16 @@ public final class SemionGameManagerSimulationFaultTest {
         run(context, null);
     }
 
+    @GameTest(maxTicks = 200)
+    public void fullInputCapacityRejectsSafelyAndRetriesBalanceAtTheNextAvailableFrame(GameTestHelper context) {
+        run(context, null, true);
+    }
+
     private static void run(GameTestHelper context, Boolean start) {
+        run(context, start, false);
+    }
+
+    private static void run(GameTestHelper context, Boolean start, boolean capacity) {
         MinecraftServer server = context.getLevel().getServer();
         RuntimeLevelHandle handle = Fantasy.get(server).openTemporaryLevel(
                 Identifier.fromNamespaceAndPath("semion-td-gametest", "manager_fault_" + UUID.randomUUID()),
@@ -77,7 +87,7 @@ public final class SemionGameManagerSimulationFaultTest {
                         Fixture fixture = new Fixture(world, handle, !Boolean.TRUE.equals(start));
                         if (start == null) {
                             fixture.manager.beginCombatTick(server);
-                            waitForBalanceWorker(context, fixture, 0);
+                            waitForBalanceWorker(context, fixture, 0, capacity);
                         } else if (!start) {
                             fixture.manager.beginCombatTick(server);
                             waitForEndFaultWorker(context, fixture, 0);
@@ -110,25 +120,76 @@ public final class SemionGameManagerSimulationFaultTest {
         }
     }
 
-    private static void waitForBalanceWorker(GameTestHelper context, Fixture fixture, int elapsed) {
+    private static void waitForBalanceWorker(GameTestHelper context, Fixture fixture, int elapsed, boolean capacity) {
         try {
             if (!fixture.workerEntered.get()) {
                 require(elapsed < 120, "The native actor must reach the held worker calculation");
-                context.runAfterDelay(1, () -> waitForBalanceWorker(context, fixture, elapsed + 1));
+                context.runAfterDelay(1, () -> waitForBalanceWorker(context, fixture, elapsed + 1, capacity));
                 return;
             }
             int[] boundaries = {0};
             set(fixture.manager, "balanceBoundary", (java.util.function.Consumer<kim.biryeong.semiontd.balance.manage.BalanceChangeService.Boundary>)
                     boundary -> boundaries[0]++);
+            int[] accepted = {0};
+            int[] rejected = {0};
+            if (capacity) {
+                for (int input = 0; input < 256; input++) {
+                    fixture.session.input(() -> accepted[0]++);
+                }
+                boolean strictRejection = false;
+                try {
+                    fixture.session.input(() -> rejected[0]++);
+                } catch (RejectedExecutionException full) {
+                    strictRejection = true;
+                }
+                require(strictRejection, "Direct session input must retain its explicit capacity rejection contract");
+                require(CombatSimulationRuntime.input(fixture.world, () -> rejected[0]++),
+                        "Rejected external input must be consumed rather than leaking into synchronous gameplay fallback");
+            }
             for (int frame = 0; frame < 20; frame++) {
                 fixture.manager.tick(fixture.server);
             }
             require(boundaries[0] == 0 && fixture.game.currentTick() == 0,
                     "Physical END callbacks cannot apply balance while a native actor prefix is held");
             var inputs = (Deque<?>) get(get(fixture.session, "coordinator"), "inputs");
-            require(inputs.size() == 1, "Repeated physical balance ticks must coalesce into exactly one accepted input");
+            if (capacity) {
+                require(inputs.size() == 256 && accepted[0] == 0 && rejected[0] == 0,
+                        "A full queue cannot apply, replace or add rejected inputs during the held native prefix");
+                require(Boolean.FALSE.equals(get(fixture.manager, "balanceTickPending")) && fixture.session.failure() == null,
+                        "Capacity rejection must reset the pending balance flag for retry without faulting the match");
+            } else {
+                require(inputs.size() == 1, "Repeated physical balance ticks must coalesce into exactly one accepted input");
+            }
             fixture.releaseWorker.release();
-            waitForBalanceBoundary(context, fixture, boundaries, 0);
+            if (capacity) {
+                waitForCapacityBoundary(context, fixture, boundaries, accepted, rejected, 0);
+            } else {
+                waitForBalanceBoundary(context, fixture, boundaries, 0);
+            }
+        } catch (Throwable failure) {
+            closeFailure(context, fixture, failure);
+        }
+    }
+
+    private static void waitForCapacityBoundary(GameTestHelper context, Fixture fixture, int[] boundaries,
+            int[] accepted, int[] rejected, int elapsed) {
+        try {
+            if (!fixture.session.idle()) {
+                require(elapsed < 120 && fixture.session.failure() == null, "The full input queue must drain after the accepted logical step");
+                context.runAfterDelay(1, () -> waitForCapacityBoundary(context, fixture, boundaries, accepted, rejected, elapsed + 1));
+                return;
+            }
+            require(accepted[0] == 256 && rejected[0] == 0 && boundaries[0] == 0,
+                    "All accepted inputs must execute once and rejected external inputs must never mutate gameplay");
+            require(fixture.game.currentTick() == 1 && fixture.session.logicalTickCount() == 1,
+                    "Draining capacity cannot replay or add a logical combat step");
+            fixture.manager.tick(fixture.server);
+            require(boundaries[0] == 1 && Boolean.FALSE.equals(get(fixture.manager, "balanceTickPending")),
+                    "The next physical frame with available capacity must apply its deferred balance callback once");
+            require(fixture.session.failure() == null && rejected[0] == 0 && fixture.game.currentTick() == 1,
+                    "Balance retry must preserve a healthy owner without synchronous gameplay fallback");
+            fixture.close();
+            context.succeed();
         } catch (Throwable failure) {
             closeFailure(context, fixture, failure);
         }
