@@ -15,6 +15,7 @@
     "EntitySimulationCollisionMixin",
     "LivingEntitySimulationMixin",
     "MobSimulationMixin",
+    "CopperGolemSimulationMixin",
     "AbstractContainerMenuMixin",
     "AvatarRendererLifecycleMixin",
     "EngineerPressurePlateMixin",
