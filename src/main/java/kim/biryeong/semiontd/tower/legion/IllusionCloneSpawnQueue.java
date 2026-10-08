@@ -1,21 +1,14 @@
 package kim.biryeong.semiontd.tower.legion;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Queue;
-import java.util.TreeMap;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.game.PlayerLane;
+import kim.biryeong.semiontd.map.GameArena;
 import kim.biryeong.semiontd.tower.Tower;
 import net.minecraft.world.phys.Vec3;
 
 public final class IllusionCloneSpawnQueue {
-    private static final NavigableMap<Integer, Queue<PendingCloneSpawn>> PENDING_CLONE_SPAWNS = new TreeMap<>();
-    private static int currentTick;
+    private static final IllusionSpawnSchedule<PendingCloneSpawn> PENDING_CLONE_SPAWNS = new IllusionSpawnSchedule<>();
 
     public static void enqueue(
             IllusionSummonerTower owner,
@@ -32,55 +25,39 @@ public final class IllusionCloneSpawnQueue {
         for (int index = 0; index < profile.cloneCount(); index++) {
             Vec3 offset = offsets.get(index % offsets.size());
             int delayTicks = (int) Math.floor(index * (double) spreadTicks / profile.cloneCount());
-            int dueTick = currentTick + delayTicks + (delayTicks > 0 ? 1 : 0);
-            PENDING_CLONE_SPAWNS
-                    .computeIfAbsent(dueTick, ignored -> new ArrayDeque<>())
-                    .add(new PendingCloneSpawn(owner, lane, sourceTower, profile, offset));
+            PENDING_CLONE_SPAWNS.enqueue(new PendingCloneSpawn(owner, lane, sourceTower, profile, offset),
+                    delayTicks + (delayTicks > 0 ? 1 : 0));
         }
     }
 
     public static void tick() {
-        if (PENDING_CLONE_SPAWNS.isEmpty()) {
+        PENDING_CLONE_SPAWNS.tick(TowerBalanceRuntime.illusionCloneMaxSpawnsPerTick(),
+                IllusionCloneSpawnQueue::spawn);
+    }
+
+    public static void tick(GameArena arena) {
+        if (arena == null) {
             return;
         }
+        PENDING_CLONE_SPAWNS.tick(pending -> arena.containsWorld(pending.lane().arenaWorld()),
+                TowerBalanceRuntime.illusionCloneMaxSpawnsPerTick(), IllusionCloneSpawnQueue::spawn);
+    }
 
-        int maxSpawnsPerTick = TowerBalanceRuntime.illusionCloneMaxSpawnsPerTick();
-        int spawnedThisTick = 0;
-        while (spawnedThisTick < maxSpawnsPerTick && !PENDING_CLONE_SPAWNS.isEmpty()) {
-            Map.Entry<Integer, Queue<PendingCloneSpawn>> entry = PENDING_CLONE_SPAWNS.firstEntry();
-            if (entry.getKey() > currentTick) {
-                break;
-            }
-
-            Queue<PendingCloneSpawn> readySpawns = entry.getValue();
-            PendingCloneSpawn pending = readySpawns.poll();
-            if (readySpawns.isEmpty()) {
-                PENDING_CLONE_SPAWNS.pollFirstEntry();
-            }
-            if (!pending.isValid()) {
-                continue;
-            }
-            if (pending.child != null) {
-                pending.owner().spawnQueuedChild(pending.lane(), pending.sourceTower(), pending.child, pending.offset());
-            } else {
-                pending.owner().spawnQueuedClone(pending.lane(), pending.sourceTower(), pending.profile(), pending.offset());
-            }
-            spawnedThisTick++;
+    private static boolean spawn(PendingCloneSpawn pending) {
+        if (!pending.isValid()) {
+            return false;
         }
-        currentTick++;
+        if (pending.child != null) {
+            pending.owner().spawnQueuedChild(pending.lane(), pending.sourceTower(), pending.child, pending.offset());
+        } else {
+            pending.owner().spawnQueuedClone(pending.lane(), pending.sourceTower(), pending.profile(), pending.offset());
+        }
+        return true;
     }
 
     public static void cancel(IllusionSummonerTower owner) {
-        if (owner == null || PENDING_CLONE_SPAWNS.isEmpty()) {
-            return;
-        }
-        Iterator<Queue<PendingCloneSpawn>> iterator = PENDING_CLONE_SPAWNS.values().iterator();
-        while (iterator.hasNext()) {
-            Queue<PendingCloneSpawn> pendingSpawns = iterator.next();
-            pendingSpawns.removeIf(pending -> pending.owner() == owner && pending.child == null);
-            if (pendingSpawns.isEmpty()) {
-                iterator.remove();
-            }
+        if (owner != null) {
+            PENDING_CLONE_SPAWNS.removeIf(pending -> pending.owner() == owner && pending.child == null);
         }
     }
 
@@ -89,22 +66,16 @@ public final class IllusionCloneSpawnQueue {
         PendingCloneSpawn spawn = new PendingCloneSpawn(owner, lane, parent, null, position);
         spawn.child = material;
         spawn.wave = wave;
-        PENDING_CLONE_SPAWNS.computeIfAbsent(currentTick + 1, ignored -> new ArrayDeque<>()).add(spawn);
+        PENDING_CLONE_SPAWNS.enqueue(spawn, 1);
     }
 
     static void cancelAugmentChildren(PlayerLane lane, java.util.UUID original) {
-        Iterator<Queue<PendingCloneSpawn>> iterator = PENDING_CLONE_SPAWNS.values().iterator();
-        while (iterator.hasNext()) {
-            Queue<PendingCloneSpawn> pending = iterator.next();
-            pending.removeIf(spawn -> spawn.child != null && spawn.lane == lane
-                    && (original == null || original.equals(spawn.child.original)));
-            if (pending.isEmpty()) iterator.remove();
-        }
+        PENDING_CLONE_SPAWNS.removeIf(spawn -> spawn.child != null && spawn.lane == lane
+                && (original == null || original.equals(spawn.child.original)));
     }
 
     public static void clear() {
         PENDING_CLONE_SPAWNS.clear();
-        currentTick = 0;
     }
 
     private IllusionCloneSpawnQueue() throws IllegalAccessException {

@@ -196,7 +196,8 @@ public class PandaTower extends ProductionTower {
 
     /** 구르기 한 바퀴를 서버 틱으로. 배속이 아니면 32틱, 서버가 초당 40틱이면 64틱입니다. */
     static int dashTicks(SemionTowerEntity source) {
-        return Math.max(1, kim.biryeong.semiontd.game.ClientTickScale.toServerTicks(source.level().getServer(), ROLL_CLIENT_TICKS));
+        return Math.max(1, kim.biryeong.semiontd.game.ClientTickScale.toServerTicks(source.level().getServer(),
+                source.level(), ROLL_CLIENT_TICKS));
     }
 
     private void endDash() {

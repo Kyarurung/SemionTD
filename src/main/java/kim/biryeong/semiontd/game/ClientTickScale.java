@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.game;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 
 /**
  * 전투 배속(서버 틱 속도 상승) 때 클라이언트 쪽 시간과 맞추는 환산.
@@ -20,6 +21,10 @@ public final class ClientTickScale {
         return server == null ? 1.0F : ratio(server.tickRateManager().tickrate());
     }
 
+    public static float ratio(MinecraftServer server, ServerLevel level) {
+        return server == null ? 1.0F : ratio(CombatSpeedRuntime.effectiveTickRate(server, level));
+    }
+
     /** 서버 틱 속도(초당 틱)로 본 배속. 클라이언트는 20보다 빨라지지 않고 느려지는 쪽은 따라가므로 1 밑으로는 내려가지 않습니다. */
     public static float ratio(float serverTickRate) {
         return Float.isFinite(serverTickRate) ? Math.max(1.0F, serverTickRate / CLIENT_TICK_RATE) : 1.0F;
@@ -28,6 +33,10 @@ public final class ClientTickScale {
     /** 서버 틱 수를 같은 실제 시간의 클라이언트 틱 수로 바꿉니다. 0은 0으로 두고, 양수는 최소 1입니다. */
     public static int toClientTicks(MinecraftServer server, int serverTicks) {
         return toClientTicks(ratio(server), serverTicks);
+    }
+
+    public static int toClientTicks(MinecraftServer server, ServerLevel level, int serverTicks) {
+        return toClientTicks(ratio(server, level), serverTicks);
     }
 
     public static int toClientTicks(float ratio, int serverTicks) {
@@ -40,6 +49,10 @@ public final class ClientTickScale {
     /** 클라이언트 틱 수를 같은 실제 시간의 서버 틱 수로 바꿉니다. */
     public static int toServerTicks(MinecraftServer server, int clientTicks) {
         return toServerTicks(ratio(server), clientTicks);
+    }
+
+    public static int toServerTicks(MinecraftServer server, ServerLevel level, int clientTicks) {
+        return toServerTicks(ratio(server, level), clientTicks);
     }
 
     public static int toServerTicks(float ratio, int clientTicks) {
