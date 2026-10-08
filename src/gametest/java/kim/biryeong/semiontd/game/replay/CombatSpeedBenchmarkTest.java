@@ -152,6 +152,7 @@ public final class CombatSpeedBenchmarkTest {
                 if (done || !battle.loaded()) {
                     return;
                 }
+                if (!measuring && !battle.settled()) { return; }
                 if (!measuring) {
                     battle.populate();
                     battle.startWave();
@@ -349,6 +350,7 @@ public final class CombatSpeedBenchmarkTest {
         private final Map<TeamId, ReplayCapture> teamCaptures = new EnumMap<>(TeamId.class);
         private final JsonObject opening;
         private boolean populated;
+        private long readyAt;
 
         private Battle(MinecraftServer server, int laneCount) throws Exception {
             this.server = server;
@@ -416,6 +418,7 @@ public final class CombatSpeedBenchmarkTest {
 
         private void populate() throws Exception {
             if (populated) { return; }
+            handles.forEach(handle -> handle.asLevel().getRandom().setSeed(1L));
             for (AssignedParticipant player : engineers) {
                 require(game.selectJob(player.uuid(), Identifier.parse("semion-td:engineer_towers")), "Controlled engineer selection");
             }
@@ -448,6 +451,14 @@ public final class CombatSpeedBenchmarkTest {
                 }
             }
             return true;
+        }
+
+        private boolean settled() {
+            if (readyAt == 0) {
+                readyAt = System.nanoTime() + 1000000000L;
+                return false;
+            }
+            return System.nanoTime() >= readyAt;
         }
 
         private void startWave() throws Exception {
