@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.mixin;
 import kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge;
 import kim.biryeong.semiontd.entity.simulation.LivingEntitySimulationAccess;
 import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
+import kim.biryeong.semiontd.mixin.accessor.LivingEntitySwingStateAccessor;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.CombatTracker;
@@ -13,6 +14,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -38,6 +40,7 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
     @Shadow private boolean checkBedExists() { throw new AssertionError(); }
     @Shadow private void refreshDirtyAttributes() { throw new AssertionError(); }
     @Shadow protected int fallFlyTicks;
+    @Shadow @Final private LivingEntity.SwingState swingState;
     @Shadow private int currentImpulseContextResetGraceTime;
 
     @Redirect(method = "*", at = @At(value = "FIELD",
@@ -159,7 +162,7 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
             bodyRotation = 95.0F < facingDifference && facingDifference < 265.0F
                     ? walkDirection - 180.0F : walkDirection;
         }
-        if (actor.getSwingAnimation(1.0F) > 0.0F) {
+        if (((LivingEntitySwingStateAccessor) swingState).semiontd$animation() > 0.0F) {
             bodyRotation = getYRot();
         }
         tickHeadTurn(bodyRotation);

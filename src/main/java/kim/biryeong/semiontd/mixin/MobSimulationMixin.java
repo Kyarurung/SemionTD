@@ -48,6 +48,14 @@ public abstract class MobSimulationMixin extends LivingEntity implements MobSimu
         }
     }
 
+    @Inject(method = "aiStep", at = @At("HEAD"), cancellable = true)
+    private void semiontd$logicalMobAiPhase(CallbackInfo callback) {
+        Mob actor = (Mob) (Object) this;
+        if (CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)) {
+            callback.cancel();
+        }
+    }
+
     @Inject(method = "updateControlFlags", at = @At("HEAD"), cancellable = true)
     private void semiontd$logicalControlFlags(CallbackInfo callback) {
         Mob actor = (Mob) (Object) this;

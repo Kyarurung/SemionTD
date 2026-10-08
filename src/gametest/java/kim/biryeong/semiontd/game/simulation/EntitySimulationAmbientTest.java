@@ -26,6 +26,8 @@ import kim.biryeong.semiontd.game.PlayerEconomy;
 import kim.biryeong.semiontd.game.SemionPlayer;
 import kim.biryeong.semiontd.gametest.RuntimeArenaFixture;
 import kim.biryeong.semiontd.mixin.accessor.EntitySimulationAccessor;
+import kim.biryeong.semiontd.mixin.accessor.LivingEntitySimulationAccessor;
+import kim.biryeong.semiontd.mixin.accessor.LivingEntitySwingStateAccessor;
 import kim.biryeong.semiontd.vfx.DisplayEffect;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
@@ -39,12 +41,167 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 public final class EntitySimulationAmbientTest implements RuntimeArenaFixture {
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void registeredEngineerLootingRunsOnlyInLogicalMobTail(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        CopperGolem actor = EntityTypes.COPPER_GOLEM.create(world, EntitySpawnReason.TRIGGERED);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(6, 4, 6))));
+        actor.setNoAi(true);
+        actor.setNoGravity(true);
+        actor.setCanPickUpLoot(true);
+        context.assertTrue(world.addFreshEntity(actor), "Looting golem must enter the real world.");
+        EntitySimulationBridge.registerEngineerGolem(actor);
+        ItemStack stack = new ItemStack(Items.IRON_SWORD);
+        context.assertTrue(actor.wantsToPickUp(world, stack), "Native Copper Golem must accept the test loot.");
+        ItemEntity item = new ItemEntity(world, actor.getX(), actor.getY(), actor.getZ(), stack);
+        item.setNoPickUpDelay();
+        context.assertTrue(world.addFreshEntity(item), "Loot must enter the real world.");
+        ContactOwner owner = new ContactOwner(List.of(actor));
+        CombatSimulationRuntime.register(world, owner);
+        try {
+            world.tickNonPassenger(actor);
+            context.assertTrue(!item.isRemoved() && actor.getMainHandItem().isEmpty(),
+                    "A held physical Mob.aiStep must not run its looting tail.");
+            owner.age = 1;
+            owner.views.get(actor).age(1);
+            CombatSimulationRuntime.run(owner, () -> {
+                WorkerPhysics.Input input = EntitySimulationBridge.prepare(actor);
+                EntitySimulationBridge.apply(actor, input, WorkerPhysics.advance(input));
+                EntitySimulationBridge.finish(actor);
+            });
+            context.assertTrue(item.isRemoved() && actor.getMainHandItem().is(Items.IRON_SWORD),
+                    "The logical Mob tail must perform the actual native pickup once.");
+            world.tickNonPassenger(actor);
+            context.assertTrue(actor.getMainHandItem().getCount() == 1 && actor.tickCount == 2,
+                    "Physical ticks must retain the equipped native result without replaying the logical tail.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            item.discard();
+            actor.discard();
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void logicalHeadingUsesCurrentSwingAnimationAcrossRestartAndCompletion(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        SwingHeadingMonster baseline = swingHeadingActor(context);
+        SwingHeadingMonster simulated = swingHeadingActor(context);
+        TestOwner owner = new TestOwner(simulated);
+        owner.logicalView = CombatSimulationRuntime.EntityView.capture(simulated);
+        CombatSimulationRuntime.register(world, owner);
+        boolean restartedAtZero = false;
+        boolean completedAtZero = false;
+        boolean activeSwing = false;
+        try {
+            for (int frame = 0; frame < 10; frame++) {
+                if (frame != 3) {
+                    world.tickNonPassenger(simulated);
+                }
+                for (int substep = 0; substep < 2; substep++) {
+                    owner.age = frame * 2 + substep + 1;
+                    owner.logicalView.age(owner.age);
+                    world.tickNonPassenger(baseline);
+                    WorkerPhysics.Input[] prepared = new WorkerPhysics.Input[1];
+                    CombatSimulationRuntime.run(owner, () -> prepared[0] = EntitySimulationBridge.prepare(simulated));
+                    float current = swingAnimation(simulated);
+                    context.assertTrue(current == swingAnimation(baseline)
+                                    && simulated.getSwingAnimation(1.0F) == baseline.getSwingAnimation(1.0F)
+                                    && simulated.isSwinging() == baseline.isSwinging(),
+                            "The native swing clock must advance once per logical step " + owner.age);
+                    if (current == 0.0F && simulated.getSwingAnimation(1.0F) > 0.0F) {
+                        if (simulated.isSwinging()) {
+                            restartedAtZero = true;
+                        } else {
+                            completedAtZero = true;
+                        }
+                        List<Float> held = heading(simulated);
+                        if (owner.age == 6) {
+                            world.tickNonPassenger(simulated);
+                            context.assertTrue(swingAnimation(simulated) == current
+                                            && simulated.getSwingAnimation(1.0F) == baseline.getSwingAnimation(1.0F)
+                                            && heading(simulated).equals(held),
+                                    "A held physical tick must preserve restarted swing state and heading.");
+                        }
+                    }
+                    activeSwing |= current > 0.0F;
+                    CombatSimulationRuntime.run(owner, () -> {
+                        EntitySimulationBridge.apply(simulated, prepared[0], WorkerPhysics.advance(prepared[0]));
+                        EntitySimulationBridge.finish(simulated);
+                    });
+                    context.assertTrue(baseline.headTurnArgument == simulated.headTurnArgument
+                                    && heading(baseline).equals(heading(simulated)),
+                            "Head-turn dispatch must use native current swing animation at step " + owner.age
+                                    + ": native=" + baseline.headTurnArgument + ", simulated=" + simulated.headTurnArgument);
+                }
+                owner.logicalView.publish(simulated);
+            }
+            context.assertTrue(activeSwing && restartedAtZero && completedAtZero,
+                    "The regression must cover positive animation and both restarted and completed zero-animation states.");
+            context.assertTrue(baseline.tickCount == 20 && simulated.tickCount == 10,
+                    "Logical swing phases must retain actual physical tick counts.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            baseline.discard();
+            simulated.discard();
+        }
+        context.succeed();
+    }
+
+    private static float swingAnimation(Mob actor) {
+        return ((LivingEntitySwingStateAccessor) ((LivingEntitySimulationAccessor) actor).semiontd$swingState())
+                .semiontd$animation();
+    }
+
+    private static SwingHeadingMonster swingHeadingActor(GameTestHelper context) {
+        SwingHeadingMonster actor = new SwingHeadingMonster(context.getLevel());
+        actor.configureFrom(new Monster("swing-heading", TeamId.RED, 777, Optional.empty(), Optional.empty(),
+                10000, 0, 0, AttackKind.MELEE, "minecraft:zombie", 0), null);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(2, 4, 2))));
+        actor.setNoGravity(true);
+        actor.setYRot(45);
+        actor.setYHeadRot(45);
+        actor.setYBodyRot(45);
+        actor.setOldPosAndRot();
+        return actor;
+    }
+
+    private static final class SwingHeadingMonster extends SemionMonsterEntity {
+        private float headTurnArgument;
+        private SwingHeadingMonster(ServerLevel world) { super(SemionEntityTypes.MONSTER, world); }
+        @Override protected void registerGoals() { }
+
+        @Override
+        protected void customServerAiStep(ServerLevel world) {
+            setDeltaMovement(0.25, 0, 0);
+            setYRot(45);
+            setYHeadRot(45);
+            if (tickCount == 1 || tickCount == 5) {
+                swing(InteractionHand.MAIN_HAND, new SwingAnimation(SwingAnimation.DEFAULT.type(), 4), false);
+            }
+            xxa = 0;
+            yya = 0;
+            zza = 0;
+        }
+
+        @Override
+        protected void tickHeadTurn(float rotation) {
+            headTurnArgument = rotation;
+            super.tickHeadTurn(rotation);
+        }
+    }
+
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void logicalHeadingTailMatchesNativeMoveStopRotationWrapping(GameTestHelper context) {
         ServerLevel world = context.getLevel();
