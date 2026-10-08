@@ -95,6 +95,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private LivingEntity pendingHitTarget;
     private long pendingHitTick = -1;
     private long extraCombatTicks;
+    private long attackEventTick = -1;
+    private double attackEventGameTime = Double.NaN;
+    private double pendingHitGameTime;
     /** 은신 유닛: 공격 중이 아니면 타워가 고를 수 없고 모델도 숨습니다. */
     private boolean stealthCapable;
     private long revealedUntilTick;
@@ -351,7 +354,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         }
         if (pendingHitTick >= 0) {
             // 공격 속도가 올라 앞 공격의 타격 틱보다 먼저 다음 공격이 시작되면, 앞 타격을 지금 넣고 넘어갑니다.
-            pendingHitTick = combatTickCount();
+            pendingHitTick = combatEventTick();
+            pendingHitGameTime = combatDamageTime();
             tickPendingHit();
         }
         int delay = Math.max(0, attackStyle.hitDelayTicks());
@@ -361,7 +365,30 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         pendingHitTarget = target;
-        pendingHitTick = combatTickCount() + delay;
+        pendingHitTick = combatEventTick() + delay;
+        pendingHitGameTime = combatDamageTime() + delay;
+    }
+
+    public void startAttack(LivingEntity target, double logicalOffset) {
+        long previousTick = attackEventTick;
+        double previousTime = attackEventGameTime;
+        attackEventTick = combatTickCount() + (long) Math.ceil(logicalOffset - 1.0e-9);
+        attackEventGameTime = CombatSpeedRuntime.gameTime(level())
+                - (CombatSpeedRuntime.logicalSteps(level()) - 1) + logicalOffset;
+        try {
+            startAttack(target);
+        } finally {
+            attackEventTick = previousTick;
+            attackEventGameTime = previousTime;
+        }
+    }
+
+    public double combatDamageTime() {
+        return Double.isNaN(attackEventGameTime) ? CombatSpeedRuntime.gameTime(level()) : attackEventGameTime;
+    }
+
+    private long combatEventTick() {
+        return attackEventTick < 0 ? combatTickCount() : attackEventTick;
     }
 
     public boolean hasPendingHit() {
@@ -373,7 +400,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     private void tickPendingHit() {
-        if (pendingHitTick < 0 || combatTickCount() < pendingHitTick) {
+        if (pendingHitTick < 0 || combatEventTick() < pendingHitTick) {
             return;
         }
         LivingEntity target = pendingHitTarget;
@@ -381,7 +408,13 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         pendingHitTick = -1;
         // 휘두르는 도중 기절하면 헛손질입니다. 대상이 죽었으면 방식에 따라 주변만 맞을 수 있습니다.
         if (isAlive() && !isStunned() && !isDisarmed() && !schoolSpells.controlled() && attackStyle != null) {
-            attackStyle.hit(this, target);
+            double previousTime = attackEventGameTime;
+            attackEventGameTime = pendingHitGameTime;
+            try {
+                attackStyle.hit(this, target);
+            } finally {
+                attackEventGameTime = previousTime;
+            }
         }
     }
 
@@ -432,7 +465,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     public void revealFor(int ticks) {
-        revealedUntilTick = Math.max(revealedUntilTick, combatTickCount() + Math.max(0, ticks));
+        revealedUntilTick = Math.max(revealedUntilTick, combatEventTick() + Math.max(0, ticks));
     }
 
     private void tickStealthVisual() {
@@ -669,7 +702,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             level().broadcastEntityEvent(this, (byte) 4);
         }
         if (holder != null && (this.animationState != animationState || oneShot)) {
-            boolean oneShotRunning = combatTickCount() < oneShotEndTick;
+            boolean oneShotRunning = combatEventTick() < oneShotEndTick;
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 // 공격 직후 쿨다운 동안 대기·걷기로 돌아와도, 돌고 있는 공격·치유 동작은 끝까지 두어 위에 겹쳐 보이게 합니다.
                 // 예전에는 바로 다음 틱에 멈춰서 공격 모션이 한 틱만 보였습니다.
@@ -681,7 +714,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             holder.getAnimator().playAnimation(animationState.animationId(), oneShot ? 10 : 1, true);
             if (oneShot) {
                 de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
-                oneShotEndTick = combatTickCount() + (animation == null ? 0 : animation.duration());
+                oneShotEndTick = combatEventTick() + (animation == null ? 0 : animation.duration());
             }
         }
         this.animationState = animationState;

@@ -7,6 +7,20 @@ import org.junit.jupiter.api.Test;
 
 final class CombatCooldownTest {
     @Test
+    void batchedEventsKeepAlternatingGoalTimestampOffsets() {
+        CombatCooldown cooldown = new CombatCooldown();
+        cooldown.advance(5.0);
+        assertEquals(0.0, cooldown.eventOffset(2.0));
+        cooldown.restart(3.0);
+        assertEquals(6.0, cooldown.eventOffset(2.0));
+        cooldown.restart(3.0);
+        cooldown.advance(5.0);
+        assertEquals(2.0, cooldown.eventOffset(2.0));
+        cooldown.restart(3.0);
+        assertEquals(8.0, cooldown.eventOffset(2.0));
+    }
+
+    @Test
     void doubledProgressPreservesOddIntervalAttackCounts() {
         for (int interval : new int[]{1, 3, 7, 13, 21}) {
             assertEquals(attacks(400, 1.0, interval), attacks(200, 2.0, interval));

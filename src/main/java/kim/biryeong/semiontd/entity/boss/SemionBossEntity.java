@@ -3,11 +3,14 @@ package kim.biryeong.semiontd.entity.boss;
 import eu.pb4.polymer.core.api.entity.PolymerEntity;
 import kim.biryeong.semiontd.entity.boss.goal.BossAttackLaneMonsterGoal;
 import kim.biryeong.semiontd.entity.monster.Monster;
+import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
+import kim.biryeong.semiontd.game.CombatSpeedRuntime;
 import kim.biryeong.semiontd.game.TeamId;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.PathfinderMob;
@@ -25,6 +28,7 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
     private EntityType<?> polymerEntityType = net.minecraft.world.entity.EntityTypes.IRON_GOLEM;
     private Vec3 anchorPosition;
     private int currentRound = 1;
+    private double damageCooldownExpiresAt = Double.NaN;
 
     public SemionBossEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -42,6 +46,43 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
     public void aiStep() {
         super.aiStep();
         holdAnchorPosition();
+    }
+
+    @Override
+    public void baseTick() {
+        initializeDamageCooldown();
+        super.baseTick();
+        if (!Double.isNaN(damageCooldownExpiresAt)) {
+            updateDamageCooldown(CombatSpeedRuntime.gameTime(level()));
+        }
+    }
+
+    @Override
+    public boolean hurtServer(ServerLevel serverLevel, DamageSource source, float amount) {
+        if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) == 1.0) {
+            return super.hurtServer(serverLevel, source, amount);
+        }
+        double now = source.getEntity() instanceof SemionMonsterEntity monster
+                ? monster.combatDamageTime() : CombatSpeedRuntime.gameTime(level());
+        initializeDamageCooldown();
+        updateDamageCooldown(now);
+        boolean restartsCooldown = damageCooldownTime <= 10 || source.is(DamageTypeTags.BYPASSES_COOLDOWN);
+        boolean accepted = super.hurtServer(serverLevel, source, amount);
+        if (accepted && restartsCooldown) {
+            damageCooldownExpiresAt = now + damageCooldownTime;
+        }
+        return accepted;
+    }
+
+    private void updateDamageCooldown(double now) {
+        damageCooldownTime = (int) Math.max(0.0, Math.ceil(damageCooldownExpiresAt - now - 1.0e-9));
+    }
+
+    private void initializeDamageCooldown() {
+        if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) > 1.0) {
+            damageCooldownExpiresAt = CombatSpeedRuntime.gameTime(level())
+                    - CombatSpeedRuntime.logicalSteps(level()) + damageCooldownTime;
+        }
     }
 
     @Override

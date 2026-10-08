@@ -82,7 +82,7 @@ public final class MonsterAttackTargetGoal extends Goal {
             if (controlled && target instanceof SemionMonsterEntity ally) {
                 monster.schoolSpells().attackControlled(ally);
             } else {
-                monster.startAttack(target);
+                monster.startAttack(target, cooldown.eventOffset(2.0));
             }
             cooldown.restart(monster.attackIntervalTicks());
         }
