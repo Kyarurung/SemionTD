@@ -3,7 +3,7 @@ import json
 import math
 from pathlib import Path
 
-REFERENCE_REVISION = '7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13'
+REFERENCE_REVISION = 'f2f3c2e53babce83ac07f3ea4be364d4ce349bae'
 CHANNELS = ('actors', 'attacks', 'damage', 'deaths', 'spawns', 'rewards', 'projectiles', 'circuits')
 CONTEXT = ('scenario_sha256', 'rules_sha256', 'map_sha256', 'seed')
 

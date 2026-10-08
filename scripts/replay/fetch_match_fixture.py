@@ -78,7 +78,7 @@ def sanitize(match, catalog, metrics):
                                     for lane, monsters in wave['lanes'].items()}})
     return {
         'schema_version': 1, 'match_id': match['match_id'],
-        'reference_revision': '7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13',
+        'reference_revision': 'f2f3c2e53babce83ac07f3ea4be364d4ce349bae',
         'catalog_version': match['catalog_version'], 'augment_version': match['augment_version'],
         'balance_revision': match['start_balance_revision'], 'mixed_version': match['mixed_version'],
         'balance_patch_events': match['balance_patch_events'], 'final_round': match['final_round'],

@@ -192,7 +192,7 @@ public final class ReplayOpeningCaptureTest {
             metadata.addProperty("run_id", UUID.randomUUID().toString());
             String revision = System.getProperty("semiontd.replay.sourceRevision", "");
             if (!mode.equals("fixture") && (!revision.matches("[0-9a-f]{40}")
-                    || mode.equals("native") && !revision.equals("7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13"))) {
+                    || mode.equals("native") && !revision.equals("f2f3c2e53babce83ac07f3ea4be364d4ce349bae"))) {
                 throw new IllegalArgumentException("Capture requires a verified production source revision");
             }
             metadata.addProperty("source_revision", revision);

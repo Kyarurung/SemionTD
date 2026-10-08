@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from compare_traces import load_trace, validate_trace
 
-REFERENCE = '7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13'
+REFERENCE = 'f2f3c2e53babce83ac07f3ea4be364d4ce349bae'
 PRODUCTION_PATHS = ('src/main', 'compat', 'build.gradle', 'gradle.properties', 'settings.gradle')
 
 
@@ -20,7 +20,7 @@ def verify_source(root, mode):
         raise ValueError('Commit production/dependency changes before assigning a capture source_revision')
     if mode == 'native':
         if git(root, 'diff', '--name-only', REFERENCE, '--', *PRODUCTION_PATHS):
-            raise ValueError('Native capture production and dependencies must match pinned revision 7a389bf0')
+            raise ValueError('Native capture production and dependencies must match pinned revision f2f3c2e')
         return REFERENCE
     for name in ('CombatSimulationRuntime', 'CombatSimulationSession'):
         path = f'src/main/java/kim/biryeong/semiontd/game/simulation/{name}.java'

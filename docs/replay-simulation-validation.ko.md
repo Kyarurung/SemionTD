@@ -1,6 +1,6 @@
 # 공개 경기 입력 기반 전투 정합성 검증
 
-현재 완료된 독립 캡처의 정합성 결과는 **미통과**다. 동일한 통제 조건의 원본 native 두 실행은 전체 sample 배열이 정확히 일치했고, simulation 실행은 첫 차이를 논리 tick 107에서 검출했다. 이 문서는 고정된 검증 snapshot의 결과를 설명하며 전체 역사적 경기 재현이나 모든 빌더의 정합성을 의미하지 않는다.
+현재 기준 revision은 upstream `f2f3c2e53babce83ac07f3ea4be364d4ce349bae`이며 새 기준의 독립 캡처와 비교는 진행 중이다. 아래 결과는 이전 `7a389bf0` snapshot의 진단 증거다. 그 기준의 두 native 실행은 전체 sample 배열이 정확히 일치했고, simulation 실행은 첫 차이를 논리 tick 107에서 검출했다. 최신 upstream은 Demon Lord 성장 규칙 및 packaged default를 바꾸므로 이전 rules hash의 캡처를 새 candidate와 섞어 정합성 성공으로 보고하지 않는다. 전체 역사적 경기 재현이나 모든 빌더의 정합성을 의미하지 않는다.
 
 검증은 Java 25 / Minecraft 26.3의 headless Fabric GameTest에서 수행했다. `GameTestServer.waitUntilNextTick()`은 대기 없이 task를 실행하므로 `physical_tps=40/20`은 실제 설정한 서버 프레임 clock 값이다. 벽시계 기준의 40/20 TPS 처리율이나 성능 개선을 측정한 결과로 해석하지 않는다.
 
@@ -14,7 +14,7 @@
 
 world/game/actor RNG, 타워·몬스터 logical UUID, entity UUID/integer ID를 명시적으로 공급했다. entity identity는 삽입 전에 지정하며 UUID lookup을 확인했다. UUID 기반 target tie와 `(tickCount + entityId) % 2`의 native goal cadence를 동일하게 유지했다. 생성자에서 이미 뽑힌 회전값은 RNG 재설정만으로 복원되지 않으므로 초기 yaw/pitch/head/body 및 이전 회전을 0으로 지정하고 spawn event에 실제 값을 기록했다. 이 값들은 관측되지 않은 초기 상태에 대한 테스트 조건이며 생산 소스의 일반 규칙을 바꾸지 않는다.
 
-## 검증 snapshot과 context
+## 이전 진단 snapshot과 context
 
 | 항목 | 값 |
 |---|---|
@@ -30,7 +30,7 @@ world/game/actor RNG, 타워·몬스터 logical UUID, entity UUID/integer ID를 
 
 원본 checkout에는 GameTest helper/mixin만 추가했으며 `src/main`, `compat`, Gradle 의존성 파일은 지정 revision과 동일함을 확인했다. simulation은 clean commit의 실제 `source_revision`을 기록했다. `run_capture.py`는 생산 소스의 미커밋 변경, 누락된 committed runtime, 이전 출력 파일, incomplete/invalid trace를 거부한다.
 
-## 독립 캡처 결과
+## 이전 기준의 독립 캡처 결과
 
 | 항목 | Native E | Native F | Simulation |
 |---|---|---|---|

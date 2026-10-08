@@ -544,7 +544,7 @@ python -B -m unittest discover -s scripts/replay -p test_compare_traces.py -v
 
 `controlled-openings.json`은 기술자·흑마법사·우민의 실제 1라운드 배치 및 흑마법사 업그레이드를 사용한다. seed `1`, 충분한 초기 자원, 독립 합성 맵과 라인 원점, 자연 웨이브, 준비 경계 입력 순서는 통제된 테스트 조건이다. 다른 참가자, 소환, 생산 강화와 이후 증강/플레이어 조작은 제외 목록에 명시한다. 기술자 첫 라운드 구성은 공개 타워별 `start_count`와 비교한다. 이후 라운드는 알려진 생존자/수동 조작 상태를 추가로 공급해야 하며 이전 배치가 모두 생존했다고 가정하여 역사적 상태를 재구성하지 않는다.
 
-원본 모드의 기준은 지정 revision `7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13`이다. 공개 경기의 과거 catalog/augment/balance hash는 별도로 고정한다. 기준 revision과 현재 소스의 기본 catalog 차이뿐 아니라 과거 배포 설정과의 차이도 검사한다. `compareHistoricalCatalogWithActualCurrentFactoriesAndWriteCompatibilityEvidence`는 사용된 타워 핵심 수치와 방향별 업그레이드 가격의 차이를 `build/replay-analysis/current-catalog-differences.json`으로 생성한다. 같은 ID나 같은 게임 버전만으로 동일한 능력·증강·규칙이라고 판정하지 않는다. 공개 catalog에는 웨이브·경제·능력·소환·증강 규칙도 있지만 전체 런타임 설정, 과거 소스 revision, RNG 상태, 실제 맵·라인 원점, 엔티티 생성/사망 순서, 표적 선택 이력, 발사체·회로 입력과 플레이어 조작은 복원되지 않는다.
+원본 모드의 기준은 지정 revision `f2f3c2e53babce83ac07f3ea4be364d4ce349bae`이다. 공개 경기의 과거 catalog/augment/balance hash는 별도로 고정한다. 기준 revision과 현재 소스의 기본 catalog 차이뿐 아니라 과거 배포 설정과의 차이도 검사한다. `compareHistoricalCatalogWithActualCurrentFactoriesAndWriteCompatibilityEvidence`는 사용된 타워 핵심 수치와 방향별 업그레이드 가격의 차이를 `build/replay-analysis/current-catalog-differences.json`으로 생성한다. 같은 ID나 같은 게임 버전만으로 동일한 능력·증강·규칙이라고 판정하지 않는다. 공개 catalog에는 웨이브·경제·능력·소환·증강 규칙도 있지만 전체 런타임 설정, 과거 소스 revision, RNG 상태, 실제 맵·라인 원점, 엔티티 생성/사망 순서, 표적 선택 이력, 발사체·회로 입력과 플레이어 조작은 복원되지 않는다.
 
 독립 원본 40 TPS 캡처와 물리 20 TPS/논리 40 TPS 캡처를 얻은 뒤 다음 비교를 실행한다. 이 명령의 성공은 제공된 통제 시나리오 캡처의 일치를 뜻하며 원래 전체 경기의 일치나 성능 개선을 증명하지 않는다. comparator 단위 테스트의 인공 trace는 형식 및 차이 검출 검증이며 실제 전투 정합성 증거에 포함하지 않는다.
 
