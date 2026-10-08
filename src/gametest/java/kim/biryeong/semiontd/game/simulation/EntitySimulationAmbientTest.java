@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.game.simulation;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,15 +31,278 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 public final class EntitySimulationAmbientTest implements RuntimeArenaFixture {
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void logicalHeadingTailMatchesNativeMoveStopRotationWrapping(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        HeadingMonster baseline = headingActor(context);
+        HeadingMonster simulated = headingActor(context);
+        TestOwner owner = new TestOwner(simulated);
+        owner.logicalView = CombatSimulationRuntime.EntityView.capture(simulated);
+        CombatSimulationRuntime.register(world, owner);
+        try {
+            for (int frame = 0; frame < 20; frame++) {
+                if (frame != 1) {
+                    world.tickNonPassenger(simulated);
+                }
+                for (int substep = 0; substep < 2; substep++) {
+                    owner.age = frame * 2 + substep + 1;
+                    owner.logicalView.age(owner.age);
+                    world.tickNonPassenger(baseline);
+                    WorkerPhysics.Input[] prepared = new WorkerPhysics.Input[1];
+                    CombatSimulationRuntime.run(owner, () -> prepared[0] = EntitySimulationBridge.prepare(simulated));
+                    if (owner.age == 2) {
+                        List<Float> held = heading(simulated);
+                        world.tickNonPassenger(simulated);
+                        context.assertTrue(held.equals(heading(simulated)),
+                                "Physical ticks must preserve the held heading and all old rotation fields.");
+                    }
+                    CombatSimulationRuntime.run(owner, () -> {
+                        EntitySimulationBridge.apply(simulated, prepared[0], WorkerPhysics.advance(prepared[0]));
+                        EntitySimulationBridge.finish(simulated);
+                    });
+                    context.assertTrue(heading(baseline).equals(heading(simulated)),
+                            "Native body controller and rotation wrapping must match after logical step " + owner.age
+                                    + ": native=" + heading(baseline) + ", simulated=" + heading(simulated));
+                }
+                owner.logicalView.publish(simulated);
+            }
+            context.assertTrue(baseline.tickCount == 40 && simulated.tickCount == 20,
+                    "Heading phases must preserve physical tick counts.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            baseline.discard();
+            simulated.discard();
+        }
+        context.succeed();
+    }
+
+    private static List<Float> heading(Mob actor) {
+        return List.of(actor.getYRot(), actor.getXRot(), actor.yBodyRot, actor.yHeadRot,
+                actor.yRotO, actor.xRotO, actor.yBodyRotO, actor.yHeadRotO);
+    }
+
+    private static HeadingMonster headingActor(GameTestHelper context) {
+        HeadingMonster actor = new HeadingMonster(context.getLevel());
+        actor.configureFrom(new Monster("heading-tail", TeamId.RED, 777, Optional.empty(), Optional.empty(),
+                10000, 0, 0, AttackKind.MELEE, "minecraft:zombie", 0), null);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(2, 4, 2))));
+        actor.setNoGravity(true);
+        actor.setYRot(0);
+        actor.setXRot(0);
+        actor.setYHeadRot(0);
+        actor.setYBodyRot(0);
+        actor.setOldPosAndRot();
+        return actor;
+    }
+
+    private static final class HeadingMonster extends SemionMonsterEntity {
+        private HeadingMonster(ServerLevel world) { super(SemionEntityTypes.MONSTER, world); }
+        @Override protected void registerGoals() { }
+
+        @Override
+        protected void customServerAiStep(ServerLevel world) {
+            setDeltaMovement(tickCount == 1 ? new Vec3(0.25, 0, 0) : Vec3.ZERO);
+            if (tickCount <= 2) {
+                setYRot(tickCount == 1 ? 350 : 10);
+                setXRot(tickCount == 1 ? 200 : -200);
+                setYHeadRot(tickCount == 1 ? 350 : 10);
+            }
+            xxa = 0;
+            yya = 0;
+            zza = 0;
+        }
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void registeredEngineerWeatheringUsesLogicalTimeAndStatueChance(GameTestHelper context) throws Exception {
+        ServerLevel world = context.getLevel();
+        CopperGolem actor = EntityTypes.COPPER_GOLEM.create(world, EntitySpawnReason.TRIGGERED);
+        actor.setPos(Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(6, 4, 6))));
+        actor.setNoAi(true);
+        actor.setNoGravity(true);
+        context.assertTrue(world.addFreshEntity(actor), "Weathering golem must enter the real world.");
+        EntitySimulationBridge.registerEngineerGolem(actor);
+        var deadline = CopperGolem.class.getDeclaredField("nextWeatheringTick");
+        deadline.setAccessible(true);
+        deadline.setLong(actor, 2);
+        ContactOwner owner = new ContactOwner(List.of(actor));
+        CombatSimulationRuntime.register(world, owner);
+        try {
+            for (int physical = 0; physical < 3; physical++) {
+                world.tickNonPassenger(actor);
+            }
+            context.assertTrue(actor.getWeatherState() == WeatheringCopper.WeatherState.UNAFFECTED
+                            && deadline.getLong(actor) == 2,
+                    "Physical golem ticks must neither consume nor reschedule logical weathering.");
+            for (int age = 1; age <= 2; age++) {
+                owner.age = age;
+                owner.views.get(actor).age(age);
+                CombatSimulationRuntime.run(owner, () -> {
+                    WorkerPhysics.Input input = EntitySimulationBridge.prepare(actor);
+                    EntitySimulationBridge.apply(actor, input, WorkerPhysics.advance(input));
+                    EntitySimulationBridge.finish(actor);
+                });
+                context.assertTrue(actor.getWeatherState() == (age == 1
+                                ? WeatheringCopper.WeatherState.UNAFFECTED : WeatheringCopper.WeatherState.EXPOSED),
+                        "Weathering must fire at its exact logical deadline.");
+            }
+            context.assertTrue(deadline.getLong(actor) >= 504002 && deadline.getLong(actor) <= 552002,
+                    "The native weathering callback must retain its native rescheduling range.");
+            actor.setWeatherState(WeatheringCopper.WeatherState.OXIDIZED);
+            deadline.setLong(actor, 0);
+            long seed = 0;
+            while (RandomSource.create(seed).nextFloat() > 0.0058F) {
+                seed++;
+            }
+            world.getRandom().setSeed(seed);
+            world.tickNonPassenger(actor);
+            context.assertTrue(!actor.isRemoved(), "A held physical tick must not consume a statue conversion chance.");
+            world.getRandom().setSeed(seed);
+            owner.age = 3;
+            owner.views.get(actor).age(3);
+            CombatSimulationRuntime.run(owner, () -> {
+                WorkerPhysics.Input input = EntitySimulationBridge.prepare(actor);
+                EntitySimulationBridge.apply(actor, input, WorkerPhysics.advance(input));
+                EntitySimulationBridge.finish(actor);
+            });
+            context.assertTrue(actor.isRemoved() && !world.getBlockState(actor.blockPosition()).isAir(),
+                    "The native logical weathering phase must preserve actual statue placement and removal.");
+            context.assertTrue(actor.tickCount == 4, "Logical weathering must not replay physical golem ticks.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            actor.discard();
+            world.setBlock(actor.blockPosition(), Blocks.AIR.defaultBlockState(), 3);
+        }
+        context.succeed();
+    }
+
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void registeredEngineerGolemPreservesOrderedNativeContactPushes(GameTestHelper context) {
+        ServerLevel world = context.getLevel();
+        List<Mob> baseline = contactActors(context);
+        List<List<Vec3>> expectedVelocities = new ArrayList<>();
+        try {
+            context.assertTrue(!EntitySimulationBridge.supports(baseline.getFirst()),
+                    "Ordinary no-AI golems must remain outside combat ownership.");
+            for (int step = 0; step < 40; step++) {
+                baseline.forEach(world::tickNonPassenger);
+                expectedVelocities.add(baseline.stream().map(Entity::getDeltaMovement).toList());
+            }
+            context.assertTrue(expectedVelocities.getFirst().get(1).x < -0.05,
+                    "The native reference must include both ordered contact impulses.");
+            context.assertTrue(baseline.stream().allMatch(actor -> actor.tickCount == 40),
+                    "The native reference must execute forty real entity ticks.");
+        } finally {
+            baseline.forEach(Entity::discard);
+        }
+        List<Mob> simulated = contactActors(context);
+        EntitySimulationBridge.registerEngineerGolem(simulated.getFirst());
+        context.assertTrue(EntitySimulationBridge.supports(simulated.getFirst()),
+                "Explicitly registered engineer golems must join the ordered logical actors.");
+        ContactOwner owner = new ContactOwner(simulated);
+        CombatSimulationRuntime.register(world, owner);
+        try {
+            for (int frame = 0; frame < 20; frame++) {
+                if (frame != 1) {
+                    for (Mob actor : simulated) {
+                        Vec3[] physicalVelocity = new Vec3[1];
+                        CombatSimulationRuntime.nativeAccess(() -> physicalVelocity[0] = actor.getDeltaMovement());
+                        world.tickNonPassenger(actor);
+                        CombatSimulationRuntime.nativeAccess(() -> context.assertTrue(
+                                actor.getDeltaMovement().equals(physicalVelocity[0]),
+                                "Owned physical bodies must not emit duplicate contact impulses or damp velocity."));
+                    }
+                }
+                for (int substep = 0; substep < 2; substep++) {
+                    owner.age = frame * 2 + substep + 1;
+                    owner.views.values().forEach(view -> view.age(owner.age));
+                    for (Mob actor : simulated) {
+                        WorkerPhysics.Input[] prepared = new WorkerPhysics.Input[1];
+                        CombatSimulationRuntime.run(owner, () -> prepared[0] = EntitySimulationBridge.prepare(actor));
+                        if (owner.age == 2 && actor == simulated.getFirst()) {
+                            List<Vec3> heldVelocities = simulated.stream().map(owner.views::get)
+                                    .map(CombatSimulationRuntime.EntityView::velocity).toList();
+                            simulated.forEach(world::tickNonPassenger);
+                            for (int index = 0; index < simulated.size(); index++) {
+                                context.assertTrue(owner.views.get(simulated.get(index)).velocity()
+                                                .equals(heldVelocities.get(index)),
+                                        "Held physical ticks must not damp or push either logical receiver.");
+                            }
+                        }
+                        CombatSimulationRuntime.run(owner, () -> {
+                            EntitySimulationBridge.apply(actor, prepared[0], WorkerPhysics.advance(prepared[0]));
+                            EntitySimulationBridge.finish(actor);
+                        });
+                    }
+                    for (int index = 0; index < simulated.size(); index++) {
+                        Vec3 expected = expectedVelocities.get(owner.age - 1).get(index);
+                        Vec3 actual = owner.views.get(simulated.get(index)).velocity();
+                        context.assertTrue(expected.distanceToSqr(actual) < 1.0e-12,
+                                "Both ordered native push receivers must match at step " + owner.age
+                                        + ", actor " + index + ": native=" + expected + ", simulated=" + actual);
+                    }
+                }
+                simulated.forEach(actor -> owner.views.get(actor).publish(actor));
+            }
+            context.assertTrue(simulated.stream().allMatch(actor -> actor.tickCount == 20),
+                    "Forty logical contact phases must retain twenty physical entity ticks.");
+        } finally {
+            CombatSimulationRuntime.unregister(owner);
+            simulated.forEach(Entity::discard);
+        }
+        context.succeed();
+    }
+
+    private static List<Mob> contactActors(GameTestHelper context) {
+        Mob golem = EntityTypes.COPPER_GOLEM.create(context.getLevel(), EntitySpawnReason.TRIGGERED);
+        TraceMonster monster = monster(context, "contact");
+        Vec3 start = Vec3.atBottomCenterOf(context.absolutePos(new BlockPos(4, 4, 4)));
+        golem.setPos(start.add(0.491175028542816, 0, 0));
+        monster.setPos(start);
+        List<Mob> actors = List.of(golem, monster);
+        for (Mob actor : actors) {
+            actor.setNoAi(true);
+            actor.setNoGravity(true);
+            actor.setDeltaMovement(Vec3.ZERO);
+            context.assertTrue(context.getLevel().addFreshEntity(actor), "Contact actors must enter the real world.");
+        }
+        return actors;
+    }
+
+    private static final class ContactOwner implements CombatSimulationRuntime.Owner {
+        private final List<Mob> actors;
+        private final Map<Entity, CombatSimulationRuntime.EntityView> views = new IdentityHashMap<>();
+        private int age;
+
+        private ContactOwner(List<Mob> actors) {
+            this.actors = actors;
+            actors.forEach(actor -> views.put(actor, CombatSimulationRuntime.EntityView.capture(actor)));
+        }
+
+        @Override public boolean controls(Entity entity) { return views.containsKey(entity); }
+        @Override public int entityTick(Entity entity) { return age; }
+        @Override public long gameTime(ServerLevel world) { return age; }
+        @Override public CombatSimulationRuntime.EntityView view(Entity entity) { return views.get(entity); }
+        @Override public void changed(Entity entity) { }
+        @Override public void animate(Entity entity, SemionAnimationState animation, Runnable presentation) { }
+        @Override public void input(Runnable input) { input.run(); }
+        @Override public Iterable<Entity> entities(ServerLevel world) { return new ArrayList<>(actors); }
+    }
+
     @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
     public void logicalMovementHistoryMatchesNativeTicksDuringMoveStopAndWorkerWait(GameTestHelper context) {
         ServerLevel world = context.getLevel();

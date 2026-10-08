@@ -28,13 +28,22 @@ public final class EntitySimulationBridge {
     private static final ThreadLocal<Capture> CAPTURE = new ThreadLocal<>();
     private static final ThreadLocal<CollisionCommit> COLLISION = new ThreadLocal<>();
     private static final Map<Mob, WorkerPhysics.Input> PREPARED = new WeakHashMap<>();
+    private static final Map<Mob, Boolean> ENGINEER_GOLEMS = new WeakHashMap<>();
 
     private EntitySimulationBridge() {
     }
 
     public static boolean supports(Entity entity) {
         return entity instanceof SemionTowerEntity || entity instanceof SemionMonsterEntity
-                || entity instanceof SemionBossEntity;
+                || entity instanceof SemionBossEntity || ENGINEER_GOLEMS.containsKey(entity);
+    }
+
+    public static void registerEngineerGolem(Mob actor) {
+        checkServerThread(actor);
+        if (!actor.isNoAi()) {
+            throw new IllegalArgumentException("Engineer golems must use their tower's movement controller.");
+        }
+        ENGINEER_GOLEMS.put(actor, Boolean.TRUE);
     }
 
     public static WorkerPhysics.Input prepare(Mob actor) {
@@ -166,6 +175,9 @@ public final class EntitySimulationBridge {
             }
             ((LivingEntitySimulationAccess) actor).semiontd$finishLivingTick();
             ((MobSimulationAccess) actor).semiontd$finishMobTick();
+            if (actor instanceof CopperGolemSimulationAccess copperGolem) {
+                copperGolem.semiontd$finishCopperGolemTick();
+            }
         } finally {
             actor.tickCount = physicalAge;
         }

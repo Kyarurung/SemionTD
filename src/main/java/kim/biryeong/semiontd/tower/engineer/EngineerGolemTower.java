@@ -9,6 +9,7 @@ import java.util.UUID;
 import kim.biryeong.semiontd.game.GridPosition;
 import kim.biryeong.semiontd.game.PlayerLane;
 import kim.biryeong.semiontd.game.TeamId;
+import kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge;
 import kim.biryeong.semiontd.tower.Tower;
 import kim.biryeong.semiontd.tower.TowerType;
 import net.minecraft.core.BlockPos;
@@ -271,6 +272,7 @@ public final class EngineerGolemTower extends Tower {
         mob.setPersistenceRequired();
         if (lane.arenaWorld().addFreshEntity(mob)) {
             entityUuid = mob.getUUID();
+            EntitySimulationBridge.registerEngineerGolem(mob);
         }
     }
 

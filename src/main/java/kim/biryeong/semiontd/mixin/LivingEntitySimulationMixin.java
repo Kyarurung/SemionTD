@@ -4,6 +4,7 @@ import kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge;
 import kim.biryeong.semiontd.entity.simulation.LivingEntitySimulationAccess;
 import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.CombatTracker;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -31,6 +32,7 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
     @Shadow protected abstract void checkAutoSpinAttack(AABB before, AABB after);
     @Shadow protected abstract void pushEntities();
     @Shadow public abstract boolean isSensitiveToWater();
+    @Shadow protected abstract void tickHeadTurn(float bodyRotation);
     @Shadow private void updatingUsingItem() { throw new AssertionError(); }
     @Shadow private void detectEquipmentUpdates() { throw new AssertionError(); }
     @Shadow private boolean checkBedExists() { throw new AssertionError(); }
@@ -42,6 +44,42 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
             target = "Lnet/minecraft/world/entity/LivingEntity;tickCount:I", opcode = Opcodes.GETFIELD))
     private int semiontd$logicalLivingAge(LivingEntity actor) {
         return CombatSimulationRuntime.stepping(actor) ? CombatSimulationRuntime.entityTick(actor) : actor.tickCount;
+    }
+
+    @Redirect(method = "tick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/LivingEntity;tickHeadTurn(F)V"))
+    private void semiontd$logicalHeadTurn(LivingEntity actor, float rotation) {
+        if (!CombatSimulationRuntime.controls(actor) || CombatSimulationRuntime.stepping(actor)) {
+            tickHeadTurn(rotation);
+        }
+    }
+
+    @Redirect(method = "tick", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/entity/LivingEntity;yRotO:F", opcode = Opcodes.GETFIELD))
+    private float semiontd$logicalOldYaw(LivingEntity actor) {
+        return CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)
+                ? actor.getYRot() : actor.yRotO;
+    }
+
+    @Redirect(method = "tick", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/entity/LivingEntity;xRotO:F", opcode = Opcodes.GETFIELD))
+    private float semiontd$logicalOldPitch(LivingEntity actor) {
+        return CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)
+                ? actor.getXRot() : actor.xRotO;
+    }
+
+    @Redirect(method = "tick", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/entity/LivingEntity;yBodyRotO:F", opcode = Opcodes.GETFIELD))
+    private float semiontd$logicalOldBodyYaw(LivingEntity actor) {
+        return CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)
+                ? actor.yBodyRot : actor.yBodyRotO;
+    }
+
+    @Redirect(method = "tick", at = @At(value = "FIELD",
+            target = "Lnet/minecraft/world/entity/LivingEntity;yHeadRotO:F", opcode = Opcodes.GETFIELD))
+    private float semiontd$logicalOldHeadYaw(LivingEntity actor) {
+        return CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)
+                ? actor.yHeadRot : actor.yHeadRotO;
     }
 
     @Inject(method = {"updatingUsingItem", "detectEquipmentUpdates", "refreshDirtyAttributes"}, at = @At("HEAD"), cancellable = true)
@@ -76,6 +114,14 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
         }
     }
 
+    @Inject(method = "aiStep", at = @At("HEAD"), cancellable = true)
+    private void semiontd$logicalAiPhase(CallbackInfo callback) {
+        Entity actor = (Entity) (Object) this;
+        if (CombatSimulationRuntime.controls(actor) && !CombatSimulationRuntime.stepping(actor)) {
+            callback.cancel();
+        }
+    }
+
     @Inject(method = "aiStep", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
             ordinal = 0), cancellable = true)
@@ -103,6 +149,44 @@ public abstract class LivingEntitySimulationMixin extends Entity implements Livi
     @Unique
     public void semiontd$finishLivingTick() {
         LivingEntity actor = (LivingEntity) (Object) this;
+        double xd = getX() - xo;
+        double zd = getZ() - zo;
+        float sideDist = (float) (xd * xd + zd * zd);
+        float bodyRotation = actor.yBodyRot;
+        if (sideDist > 0.0025000002F) {
+            float walkDirection = (float) Mth.atan2(zd, xd) * (180.0F / (float) Math.PI) - 90.0F;
+            float facingDifference = Mth.abs(Mth.wrapDegrees(getYRot()) - walkDirection);
+            bodyRotation = 95.0F < facingDifference && facingDifference < 265.0F
+                    ? walkDirection - 180.0F : walkDirection;
+        }
+        if (actor.getSwingAnimation(1.0F) > 0.0F) {
+            bodyRotation = getYRot();
+        }
+        tickHeadTurn(bodyRotation);
+        while (getYRot() - yRotO < -180.0F) {
+            yRotO -= 360.0F;
+        }
+        while (getYRot() - yRotO >= 180.0F) {
+            yRotO += 360.0F;
+        }
+        while (actor.yBodyRot - actor.yBodyRotO < -180.0F) {
+            actor.yBodyRotO -= 360.0F;
+        }
+        while (actor.yBodyRot - actor.yBodyRotO >= 180.0F) {
+            actor.yBodyRotO += 360.0F;
+        }
+        while (getXRot() - xRotO < -180.0F) {
+            xRotO -= 360.0F;
+        }
+        while (getXRot() - xRotO >= 180.0F) {
+            xRotO += 360.0F;
+        }
+        while (actor.yHeadRot - actor.yHeadRotO < -180.0F) {
+            actor.yHeadRotO -= 360.0F;
+        }
+        while (actor.yHeadRot - actor.yHeadRotO >= 180.0F) {
+            actor.yHeadRotO += 360.0F;
+        }
         fallFlyTicks = actor.isFallFlying() ? fallFlyTicks + 1 : 0;
         if (actor.isSleeping()) {
             setXRot(0.0F);
