@@ -90,6 +90,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     private IgniteState ignite;
     private final Map<Tower, BeePoisonState> beePoisons = new IdentityHashMap<>();
     private LivingEntityHolder<SemionMonsterEntity> holder;
+    private Component simulationSupportProgressName;
     private EntityAttachment holderAttachment;
     /** 공격 방식(선딜·특수 타격). 없으면 공격을 트는 틱에 바로 한 번 때립니다. */
     private MonsterAttackStyle attackStyle;
@@ -193,6 +194,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     public void configureFrom(Monster monster, LaneRegionLayout laneLayout) {
         this.runtimeMonster = monster;
+        this.simulationSupportProgressName = null;
         this.laneLayout = laneLayout;
         this.blockbenchModelId = monster.blockbenchModelId().orElse(null);
         this.runtimeDimensions = monster.dimensions().toEntityDimensions();
@@ -307,10 +309,28 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     public void presentSimulationFrame() {
-        tickStealthVisual();
+        captureSimulationFrame().run();
+    }
+
+    public Runnable captureSimulationFrame() {
+        LivingEntityHolder<SemionMonsterEntity> capturedHolder = holder;
+        boolean appliesStealth = stealthCapable && capturedHolder != null;
+        boolean hidden = isStealthed();
         if (CombatSimulationRuntime.entityTick(this) % 20 == 0) {
-            refreshSupportProgressName();
+            Component updatedName = computeSupportProgressName();
+            if (updatedName != null) {
+                simulationSupportProgressName = updatedName.copy();
+            }
         }
+        Component capturedName = simulationSupportProgressName == null ? null : simulationSupportProgressName.copy();
+        return () -> {
+            if (capturedName != null) {
+                setCustomName(capturedName.copy());
+            }
+            if (appliesStealth && holder == capturedHolder) {
+                tickStealthVisual(hidden);
+            }
+        };
     }
 
     public boolean hasLanePath() {
@@ -495,10 +515,16 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     private void tickStealthVisual() {
-        if (!stealthCapable || holder == null) {
+        if (!stealthCapable) {
             return;
         }
-        boolean hidden = isStealthed();
+        tickStealthVisual(isStealthed());
+    }
+
+    private void tickStealthVisual(boolean hidden) {
+        if (holder == null) {
+            return;
+        }
         if (hidden == stealthVisualApplied) {
             return;
         }
@@ -576,19 +602,29 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     private void refreshSupportProgressName() {
+        Component name = computeSupportProgressName();
+        if (name != null) {
+            simulationSupportProgressName = name.copy();
+            if (!CombatSimulationRuntime.stepping(this)) {
+                setCustomName(name);
+            }
+        }
+    }
+
+    private Component computeSupportProgressName() {
         if (runtimeMonster == null || runtimeMonster.origin() != MonsterOrigin.NORMAL_PAID) {
-            return;
+            return null;
         }
         var progress = kim.biryeong.semiontd.augment.AugmentEconomyService.supportProgress(runtimeMonster);
         if (progress.isEmpty()) {
-            return;
+            return null;
         }
         String sender = runtimeMonster.senderName().orElse(null);
         TeamId team = runtimeMonster.senderTeam().orElse(null);
         var name = sender != null && team != null
                 ? Component.literal(sender).withStyle(teamColor(team))
                 : Component.literal(runtimeMonster.displayName());
-        setCustomName(name.append(Component.literal(" · " + progress.get())));
+        return name.append(Component.literal(" · " + progress.get()));
     }
 
     public boolean applyRuntimeDamage(DamageSource damageSource, double amount, DamageType damageType) {

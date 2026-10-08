@@ -177,12 +177,26 @@ public final class EntitySimulationBridge {
     }
 
     public static void present(Entity entity) {
+        capturePresentation(entity).run();
+    }
+
+    public static Runnable capturePresentation(Entity entity) {
         checkServerThread(entity);
+        Thread serverThread = Thread.currentThread();
+        Runnable presentation;
         if (entity instanceof SemionTowerEntity tower) {
-            tower.presentSimulationFrame();
+            presentation = tower::presentSimulationFrame;
         } else if (entity instanceof SemionMonsterEntity monster) {
-            monster.presentSimulationFrame();
+            presentation = monster.captureSimulationFrame();
+        } else {
+            presentation = () -> { };
         }
+        return () -> {
+            if (Thread.currentThread() != serverThread) {
+                throw new IllegalStateException("Combat presentation requires the capturing server thread.");
+            }
+            presentation.run();
+        };
     }
 
     private static WorkerPhysics.Input snapshot(Mob actor) {
