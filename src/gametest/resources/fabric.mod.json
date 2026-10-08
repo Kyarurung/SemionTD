@@ -21,6 +21,7 @@
       "kim.biryeong.semiontd.entity.simulation.EntitySimulationPhysicsTest",
       "kim.biryeong.semiontd.game.simulation.EntitySimulationAmbientTest",
       "kim.biryeong.semiontd.game.replay.ReplayOpeningCaptureTest",
+      "kim.biryeong.semiontd.game.replay.benchmark.CombatBenchmarkPacingTest",
       "kim.biryeong.semiontd.game.CombatMultiplierRuntimeTest",
       "kim.biryeong.semiontd.game.EntityCombatMultiplierTest",
       "kim.biryeong.semiontd.game.BossCombatImmunityTest",
