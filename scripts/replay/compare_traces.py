@@ -24,6 +24,8 @@ def validate_finite(value):
 
 
 def validate_trace(trace):
+    if trace.get('capture_complete') is False:
+        raise TraceError('An incomplete diagnostic capture is not parity evidence')
     validate_finite(trace)
     meta = trace.get('metadata', {})
     for field in ('driver', 'run_id', 'source_revision', 'physical_tps', 'logical_tps',

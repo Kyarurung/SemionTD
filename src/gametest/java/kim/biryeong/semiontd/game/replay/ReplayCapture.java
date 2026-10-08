@@ -389,6 +389,17 @@ public final class ReplayCapture implements AutoCloseable {
         Files.writeString(output, new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(trace) + "\n", StandardCharsets.UTF_8);
     }
 
+    public void diagnostic(Path output, JsonObject progress) throws java.io.IOException {
+        JsonObject diagnostic = new JsonObject();
+        diagnostic.addProperty("capture_complete", false);
+        diagnostic.addProperty("scope", "INCOMPLETE_DIAGNOSTIC_NOT_PARITY_EVIDENCE");
+        diagnostic.add("metadata", metadata);
+        diagnostic.add("progress", progress);
+        diagnostic.add("samples", samples);
+        Files.createDirectories(output.toAbsolutePath().getParent());
+        Files.writeString(output, new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(diagnostic) + "\n", StandardCharsets.UTF_8);
+    }
+
     private void add(String channel, JsonObject event) {
         if (recording) {
             events.get(channel).add(event);

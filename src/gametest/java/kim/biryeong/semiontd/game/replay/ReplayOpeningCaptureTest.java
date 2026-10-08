@@ -63,6 +63,7 @@ public final class ReplayOpeningCaptureTest {
         MinecraftServer server = context.getLevel().getServer();
         RuntimeLevelHandle red = world(server, "red");
         RuntimeLevelHandle blue = world(server, "blue");
+        int[] waiting = {0};
         for (RuntimeLevelHandle handle : List.of(red, blue)) {
             for (int x = -1; x <= 3; x++) {
                 for (int z = -1; z <= 1; z++) {
@@ -72,6 +73,11 @@ public final class ReplayOpeningCaptureTest {
             }
         }
         context.startSequence().thenWaitUntil(() -> {
+            if (++waiting[0] % 200 == 0) {
+                System.out.println("REPLAY waiting for loaded chunks; testTick=" + context.getTick()
+                        + " red=" + red.asLevel().areEntitiesActuallyLoadedAndTicking(new ChunkPos(0, 0))
+                        + " blue=" + blue.asLevel().areEntitiesActuallyLoadedAndTicking(new ChunkPos(0, 0)));
+            }
             for (RuntimeLevelHandle handle : List.of(red, blue)) {
                 for (int x = 0; x <= 2; x++) {
                     context.assertTrue(handle.asLevel().areEntitiesActuallyLoadedAndTicking(new ChunkPos(x, 0)),
@@ -144,6 +150,9 @@ public final class ReplayOpeningCaptureTest {
         private long tick;
         private boolean finishing;
         private boolean closed;
+        private long physicalFrames;
+        private long acceptedFrames;
+        private long startedAt;
 
         private Driver(GameTestHelper context, RuntimeLevelHandle red, RuntimeLevelHandle blue) throws Exception {
             this.context = context;
@@ -210,6 +219,7 @@ public final class ReplayOpeningCaptureTest {
             metadata.addProperty("projectile_scope", "ENGINEER_INSTANT_DISPENSER_SHOTS_NOT_BALLISTIC_ENTITIES");
             metadata.addProperty("circuit_scope", "ORDERED_PLATE_PRESS_CALLBACKS_AND_EACH_LOGICAL_TICK_AUTHORITATIVE_PLATE_STATES");
             metadata.addProperty("cooldown_scope", "ACTUAL_TRAP_COUNTER_AND_MAX_1_GOAL_CALLS_UNTIL_READY");
+            metadata.addProperty("test_server_pacing", "UNPACED_HEADLESS_GAME_TEST_CONFIGURED_FRAME_RATE_NOT_MEASURED_WALL_TPS");
             capture = new ReplayCapture(red.asLevel(), metadata);
             opponentCapture = new ReplayCapture(blue.asLevel(), metadata, "BLUE");
             UUID owner = UUID.fromString("00000000-0000-0000-0000-000000000002");
@@ -239,6 +249,7 @@ public final class ReplayOpeningCaptureTest {
         }
 
         private void start() throws Exception {
+            startedAt = System.nanoTime();
             MinecraftServer server = context.getLevel().getServer();
             server.tickRateManager().setTickRate(mode.equals("native") ? 40 : 20);
             var phaseTicks = SemionGame.class.getDeclaredField("phaseTicks");
@@ -258,6 +269,8 @@ public final class ReplayOpeningCaptureTest {
                     finishing = tick >= 400 || game.phase() != RoundPhase.LANE_WAVE;
                 });
             }
+            System.out.println("REPLAY driver started mode=" + mode + " phase=" + game.phase()
+                    + " gameTick=" + game.currentTick() + " physicalRate=" + server.tickRateManager().tickrate());
         }
 
         private void begin(MinecraftServer server) throws Exception {
@@ -266,10 +279,12 @@ public final class ReplayOpeningCaptureTest {
                     "The actual physical server rate must match the declared capture driver");
             if (session != null && !finishing && (boolean) call("idle")) {
                 call("beginFrame", int.class, 2);
+                acceptedFrames++;
             }
         }
 
         private void end(MinecraftServer server) throws Exception {
+            physicalFrames++;
             configureClock(server);
             if (session == null) {
                 game.tick(server);
@@ -277,8 +292,21 @@ public final class ReplayOpeningCaptureTest {
                 finishing = tick >= 400 || game.phase() != RoundPhase.LANE_WAVE;
             } else {
                 call("endFrame");
+                Throwable failure = (Throwable) call("failure");
+                if (failure != null) {
+                    throw new IllegalStateException("The capture session failed", failure);
+                }
+            }
+            if (physicalFrames % 100 == 0) {
+                System.out.println("REPLAY progress " + progress());
+            }
+            if (physicalFrames >= 1600 && !finishing) {
+                throw new IllegalStateException("Capture did not finish within its diagnostic frame bound: " + progress());
             }
             if (finishing && (session == null || (boolean) call("idle") || (boolean) call("isClosed"))) {
+                capture.setting("physical_end_callbacks", physicalFrames);
+                capture.setting("accepted_logical_frames", session == null ? tick : acceptedFrames);
+                capture.setting("completed_logical_ticks", tick);
                 capture.write(Path.of(System.getProperty("semiontd.replay.output")));
                 close();
                 context.succeed();
@@ -314,11 +342,46 @@ public final class ReplayOpeningCaptureTest {
                 operation.run();
             } catch (Throwable failure) {
                 try {
+                    String output = System.getProperty("semiontd.replay.output");
+                    if (output != null) {
+                        capture.diagnostic(Path.of(output + ".diagnostics.json"), progress());
+                    }
                     close();
+                } catch (Exception diagnosticFailure) {
+                    failure.addSuppressed(diagnosticFailure);
                 } finally {
                     context.fail(Component.literal("Independent replay capture failed at logical tick " + tick + ": " + failure));
                 }
             }
+        }
+
+        private JsonObject progress() throws Exception {
+            JsonObject result = new JsonObject();
+            result.addProperty("physical_end_callbacks", physicalFrames);
+            result.addProperty("accepted_frames", acceptedFrames);
+            result.addProperty("logical_observer_ticks", tick);
+            result.addProperty("game_tick", game.currentTick());
+            result.addProperty("phase", game.phase().name());
+            result.addProperty("elapsed_ms", (System.nanoTime() - startedAt) / 1000000);
+            if (session != null) {
+                result.addProperty("completed_steps", (long) call("logicalTickCount"));
+                result.addProperty("idle", (boolean) call("idle"));
+                result.addProperty("closed", (boolean) call("isClosed"));
+                result.addProperty("failure", String.valueOf(call("failure")));
+                Object coordinator = ReplayCapture.field(session, "coordinator");
+                for (String field : List.of("budget", "active", "actorIndex", "circuitIndex", "pendingToken")) {
+                    result.addProperty(field, String.valueOf(ReplayCapture.field(coordinator, field)));
+                }
+                result.addProperty("actors", ((List<?>) ReplayCapture.field(coordinator, "actors")).size());
+                result.addProperty("circuits", ((List<?>) ReplayCapture.field(coordinator, "circuits")).size());
+                Object executor = ReplayCapture.field(coordinator, "executor");
+                result.addProperty("worker_state", ((Thread) ReplayCapture.field(executor, "worker")).getState().name());
+                result.addProperty("unfinished", ((java.util.concurrent.atomic.AtomicReference<?>)
+                        ReplayCapture.field(executor, "unfinished")).get() != null);
+                result.addProperty("completed_mailbox", ((java.util.concurrent.atomic.AtomicReference<?>)
+                        ReplayCapture.field(executor, "completed")).get() != null);
+            }
+            return result;
         }
 
         @Override

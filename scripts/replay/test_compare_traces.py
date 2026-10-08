@@ -75,6 +75,10 @@ class ReplayTraceComparatorTest(unittest.TestCase):
         with self.assertRaises(comparator.TraceError):
             comparator.compare(self.before, candidate)
         candidate = copy.deepcopy(self.after)
+        candidate['capture_complete'] = False
+        with self.assertRaises(comparator.TraceError):
+            comparator.compare(self.before, candidate)
+        candidate = copy.deepcopy(self.after)
         candidate['samples'].pop()
         self.assertFalse(comparator.compare(self.before, candidate)['equal'])
         candidate = copy.deepcopy(self.after)
