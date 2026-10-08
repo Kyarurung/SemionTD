@@ -1,0 +1,1323 @@
+{
+  "scope": "DIAGNOSTIC_PROFILE_ONLY_NOT_AN_ABBA_PERFORMANCE_COMPARISON",
+  "profiling_enabled": true,
+  "source_revision": "d71732c34ea7c1378e33d5084e0156dccfce4ec1",
+  "production_revision": "2e8897a70aad893cf91284a0c936a90af9c15d3e",
+  "environment": {
+    "java_version": "25.0.3",
+    "vm_name": "OpenJDK 64-Bit Server VM",
+    "os_name": "Windows 11",
+    "os_version": "10.0",
+    "architecture": "amd64",
+    "logical_processors": 12,
+    "maximum_heap_bytes": 8346664960,
+    "vm_arguments": [
+      "-Dfabric-api.gametest.filter=semion-td-gametest:combat_speed_benchmark_test*",
+      "-Dsemiontd.benchmark.enabled=true",
+      "-Dsemiontd.benchmark.mode=simulation",
+      "-Dsemiontd.benchmark.sourceRevision=d71732c34ea7c1378e33d5084e0156dccfce4ec1",
+      "-Dsemiontd.benchmark.productionRevision=2e8897a70aad893cf91284a0c936a90af9c15d3e",
+      "-Dsemiontd.benchmark.lanes=22",
+      "-Dsemiontd.benchmark.warmups=3",
+      "-Dsemiontd.benchmark.measured=5",
+      "-Dsemiontd.benchmark.dry=false",
+      "-Dsemiontd.benchmark.order=B1",
+      "-Dsemiontd.benchmark.output=C:/Users/Jaeyun/.codex/worktrees/cf6f/semiontd-gemble/build/replay-analysis/diagnostic-jfr-retry-22.json",
+      "-Dsemiontd.benchmark.diagnosticJfrDirectory=C:/Users/Jaeyun/.codex/worktrees/cf6f/semiontd-gemble/build/replay-analysis/diagnostic-jfr-retry-22",
+      "-Dfabric-api.gametest",
+      "-Dfabric.dli.config=C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\.gradle\\loom-cache\\launch.cfg",
+      "-Dfabric.dli.env=server",
+      "-Dfabric.dli.main=net.fabricmc.loader.impl.launch.knot.KnotServer",
+      "--sun-misc-unsafe-memory-access=allow",
+      "--enable-native-access=ALL-UNNAMED",
+      "-Dfile.encoding=UTF-8",
+      "-Duser.country=KR",
+      "-Duser.language=ko",
+      "-Duser.variant"
+    ],
+    "gc_names": [
+      "G1 Young Generation",
+      "G1 Concurrent GC",
+      "G1 Old Generation"
+    ],
+    "jvm_tuning": []
+  },
+  "scenario_sha256": "77d588bd4044bda7d2ea65cc416082c7909b4c9d8e52acff92a714336c996b91",
+  "rules_sha256": "d85fca709da8f7e37f2330b4e8af9776707a1c04164e861f6d3045ffbae518cc",
+  "map_sha256": "ab958e8acedd7019bc57184db6b12159a57f4cf7952f06955162c79b59a48ff1",
+  "seed": "1",
+  "hash_algorithm": "SHA-256",
+  "settings": {
+    "configuration": "profile",
+    "jdk.ExecutionSample.period_ms": 10,
+    "jdk.NativeMethodSample.period_ms": 20,
+    "jdk.ThreadPark.threshold_ns": 0,
+    "jdk.ObjectAllocationSample": true,
+    "battle_window_event": "semiontd.BenchmarkWindow",
+    "window_filter": "Event timestamps within marker; overlapping parks clipped to marker boundaries; per-battle start before recorder.begin and stop/dump after recorder.end"
+  },
+  "successful_retry": {
+    "warmup_battles": 3,
+    "profiled_measured_battles": 5,
+    "all_391_ticks_and_baseline_work_digest": true,
+    "trials": [
+      {
+        "repetition": 0,
+        "warmup": true,
+        "window_start": "2026-10-08T21:54:55.724397300Z",
+        "window_end": "2026-10-08T21:55:03.582230100Z",
+        "window_duration_ns": 7857832800,
+        "metrics": {
+          "elapsed_ns": 7855109600,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 49.77651744031681,
+          "base_wait_calls": 164,
+          "physical_frames": 164,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 5250000000,
+          "main_allocated_bytes": 1069363976,
+          "worker_cpu_ns": 812500000,
+          "worker_allocated_bytes": 86246568,
+          "process_cpu_ns": 17593750000,
+          "gc_count": 1,
+          "gc_time_ms": 25,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-0.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 0,
+          "warmup": true,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 45,
+          "maximum_group_physical_frames": 16,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "JFR Periodic Tasks": {
+            "execution_samples": 2,
+            "native_method_samples": 5,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2835440,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "semion-td-combat-simulation": {
+            "execution_samples": 2,
+            "native_method_samples": 0,
+            "allocation_samples": 78,
+            "sampled_allocation_weight_bytes": 85400408,
+            "park_events": 96401,
+            "park_duration_ns_clipped_to_window": 7162809200
+          },
+          "C1 CompilerThread0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 76248,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 1,
+            "native_method_samples": 124,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 214752,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 124,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 1037656,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 194,
+            "native_method_samples": 0,
+            "allocation_samples": 514,
+            "sampled_allocation_weight_bytes": 1070556288,
+            "park_events": 96428,
+            "park_duration_ns_clipped_to_window": 2808242900
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 4008640,
+            "park_events": 53,
+            "park_duration_ns_clipped_to_window": 5978747800
+          },
+          "Keep-Alive-Timer": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 19632,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 1,
+        "warmup": true,
+        "window_start": "2026-10-08T21:55:06.261600500Z",
+        "window_end": "2026-10-08T21:55:11.735177500Z",
+        "window_duration_ns": 5473577000,
+        "metrics": {
+          "elapsed_ns": 5473286100,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 71.43788810893697,
+          "base_wait_calls": 110,
+          "physical_frames": 110,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3203125000,
+          "main_allocated_bytes": 987499184,
+          "worker_cpu_ns": 609375000,
+          "worker_allocated_bytes": 83581504,
+          "process_cpu_ns": 6546875000,
+          "gc_count": 3,
+          "gc_time_ms": 26,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-1.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 1,
+          "warmup": true,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 41,
+          "maximum_group_physical_frames": 4,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 59,
+            "sampled_allocation_weight_bytes": 83573168,
+            "park_events": 96407,
+            "park_duration_ns_clipped_to_window": 4996568900
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 1,
+            "native_method_samples": 2,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2842192,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 1,
+            "native_method_samples": 87,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 1038840,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 109,
+            "native_method_samples": 0,
+            "allocation_samples": 492,
+            "sampled_allocation_weight_bytes": 14758559792,
+            "park_events": 96460,
+            "park_duration_ns_clipped_to_window": 2486407700
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 87,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 215840,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 6,
+            "sampled_allocation_weight_bytes": 8358432,
+            "park_events": 56,
+            "park_duration_ns_clipped_to_window": 5200052200
+          },
+          "C1 CompilerThread0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 78952,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 2,
+        "warmup": true,
+        "window_start": "2026-10-08T21:55:14.364338100Z",
+        "window_end": "2026-10-08T21:55:19.833970700Z",
+        "window_duration_ns": 5469632600,
+        "metrics": {
+          "elapsed_ns": 5469340900,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 71.48941840505864,
+          "base_wait_calls": 110,
+          "physical_frames": 110,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3031250000,
+          "main_allocated_bytes": 985129000,
+          "worker_cpu_ns": 625000000,
+          "worker_allocated_bytes": 83559424,
+          "process_cpu_ns": 4812500000,
+          "gc_count": 1,
+          "gc_time_ms": 14,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-2.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 2,
+          "warmup": true,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 41,
+          "maximum_group_physical_frames": 4,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 95,
+            "sampled_allocation_weight_bytes": 82712048,
+            "park_events": 96421,
+            "park_duration_ns_clipped_to_window": 5028846900
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 2,
+            "native_method_samples": 0,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2848536,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "C1 CompilerThread0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 81016,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 1,
+            "native_method_samples": 89,
+            "allocation_samples": 3,
+            "sampled_allocation_weight_bytes": 1100120,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 101,
+            "native_method_samples": 0,
+            "allocation_samples": 492,
+            "sampled_allocation_weight_bytes": 984061120,
+            "park_events": 96486,
+            "park_duration_ns_clipped_to_window": 2646552300
+          },
+          "semion-td-vfx": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 10,
+            "sampled_allocation_weight_bytes": 12071512,
+            "park_events": 55,
+            "park_duration_ns_clipped_to_window": 5200776800
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 88,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 216656,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "ForkJoinPool-4-worker-1": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 16734536,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "ForkJoinPool-4-worker-2": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 0,
+            "sampled_allocation_weight_bytes": 0,
+            "park_events": 1,
+            "park_duration_ns_clipped_to_window": 30485900
+          },
+          "HttpClient-1-Worker-0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 2309088,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 3,
+        "warmup": false,
+        "window_start": "2026-10-08T21:55:22.475039Z",
+        "window_end": "2026-10-08T21:55:27.691629100Z",
+        "window_duration_ns": 5216590100,
+        "metrics": {
+          "elapsed_ns": 5216271700,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 74.95775191311449,
+          "base_wait_calls": 105,
+          "physical_frames": 105,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3109375000,
+          "main_allocated_bytes": 983839888,
+          "worker_cpu_ns": 468750000,
+          "worker_allocated_bytes": 83559456,
+          "process_cpu_ns": 4781250000,
+          "gc_count": 1,
+          "gc_time_ms": 15,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-3.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 3,
+          "warmup": false,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 38,
+          "maximum_group_physical_frames": 4,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 122,
+            "sampled_allocation_weight_bytes": 82875984,
+            "park_events": 96422,
+            "park_duration_ns_clipped_to_window": 4774480600
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 1,
+            "native_method_samples": 4,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2854880,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 82,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 1108384,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 108,
+            "native_method_samples": 0,
+            "allocation_samples": 489,
+            "sampled_allocation_weight_bytes": 17060957352,
+            "park_events": 96482,
+            "park_duration_ns_clipped_to_window": 2300651400
+          },
+          "semion-td-vfx": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 28,
+            "sampled_allocation_weight_bytes": 15707488,
+            "park_events": 55,
+            "park_duration_ns_clipped_to_window": 5008005100
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 82,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 221496,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 4,
+        "warmup": false,
+        "window_start": "2026-10-08T21:55:30.367397400Z",
+        "window_end": "2026-10-08T21:55:35.491830600Z",
+        "window_duration_ns": 5124433200,
+        "metrics": {
+          "elapsed_ns": 5124143800,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 76.30543077264927,
+          "base_wait_calls": 103,
+          "physical_frames": 103,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3062500000,
+          "main_allocated_bytes": 980679704,
+          "worker_cpu_ns": 515625000,
+          "worker_allocated_bytes": 83559232,
+          "process_cpu_ns": 5281250000,
+          "gc_count": 3,
+          "gc_time_ms": 21,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-4.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 4,
+          "warmup": false,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 37,
+          "maximum_group_physical_frames": 4,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 127,
+            "sampled_allocation_weight_bytes": 83145120,
+            "park_events": 96416,
+            "park_duration_ns_clipped_to_window": 4672793800
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 1,
+            "native_method_samples": 1,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2861088,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 101,
+            "native_method_samples": 0,
+            "allocation_samples": 491,
+            "sampled_allocation_weight_bytes": 18209596792,
+            "park_events": 96479,
+            "park_duration_ns_clipped_to_window": 2440625500
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 1,
+            "native_method_samples": 83,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 221880,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 81,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 1108768,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 46,
+            "sampled_allocation_weight_bytes": 19003056,
+            "park_events": 54,
+            "park_duration_ns_clipped_to_window": 4906722200
+          },
+          "JNA Cleaner": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 244704,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "C1 CompilerThread0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 82160,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 5,
+        "warmup": false,
+        "window_start": "2026-10-08T21:55:38.170072800Z",
+        "window_end": "2026-10-08T21:55:43.482867500Z",
+        "window_duration_ns": 5312794700,
+        "metrics": {
+          "elapsed_ns": 5312480700,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 73.60026738544198,
+          "base_wait_calls": 107,
+          "physical_frames": 107,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 2859375000,
+          "main_allocated_bytes": 981345312,
+          "worker_cpu_ns": 625000000,
+          "worker_allocated_bytes": 83559360,
+          "process_cpu_ns": 4046875000,
+          "gc_count": 2,
+          "gc_time_ms": 31,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-5.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 5,
+          "warmup": false,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 39,
+          "maximum_group_physical_frames": 3,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 147,
+            "sampled_allocation_weight_bytes": 82720984,
+            "park_events": 96420,
+            "park_duration_ns_clipped_to_window": 4859701500
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 1,
+            "native_method_samples": 4,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2867280,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 1,
+            "native_method_samples": 84,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 1109024,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 93,
+            "native_method_samples": 0,
+            "allocation_samples": 496,
+            "sampled_allocation_weight_bytes": 19356481392,
+            "park_events": 96483,
+            "park_duration_ns_clipped_to_window": 2475842900
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 70,
+            "sampled_allocation_weight_bytes": 22228320,
+            "park_events": 51,
+            "park_duration_ns_clipped_to_window": 5050790000
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 83,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 222136,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "C1 CompilerThread0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 82240,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "adventure-platform-mod-scheduler0": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 176328,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 6,
+        "warmup": false,
+        "window_start": "2026-10-08T21:55:46.163716400Z",
+        "window_end": "2026-10-08T21:55:51.488384200Z",
+        "window_duration_ns": 5324667800,
+        "metrics": {
+          "elapsed_ns": 5324396700,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 73.43554998447054,
+          "base_wait_calls": 107,
+          "physical_frames": 107,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3218750000,
+          "main_allocated_bytes": 981415752,
+          "worker_cpu_ns": 359375000,
+          "worker_allocated_bytes": 83558976,
+          "process_cpu_ns": 4062500000,
+          "gc_count": 2,
+          "gc_time_ms": 30,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-6.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 6,
+          "warmup": false,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 39,
+          "maximum_group_physical_frames": 4,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 146,
+            "sampled_allocation_weight_bytes": 83207608,
+            "park_events": 96408,
+            "park_duration_ns_clipped_to_window": 4830491000
+          },
+          "Server thread": {
+            "execution_samples": 106,
+            "native_method_samples": 0,
+            "allocation_samples": 494,
+            "sampled_allocation_weight_bytes": 20505519400,
+            "park_events": 96476,
+            "park_duration_ns_clipped_to_window": 2624110500
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 87,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 222520,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 85,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 1109408,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 93,
+            "sampled_allocation_weight_bytes": 25472752,
+            "park_events": 53,
+            "park_duration_ns_clipped_to_window": 5094430400
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 2874096,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "ForkJoinPool.commonPool-worker-1": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 47516528,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-1-Worker-1": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 1,
+            "sampled_allocation_weight_bytes": 1856,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      },
+      {
+        "repetition": 7,
+        "warmup": false,
+        "window_start": "2026-10-08T21:55:54.175330300Z",
+        "window_end": "2026-10-08T21:55:59.631194900Z",
+        "window_duration_ns": 5455864600,
+        "metrics": {
+          "elapsed_ns": 5455582800,
+          "logical_ticks": 391,
+          "configured_logical_tps": 160,
+          "observed_logical_tps": 71.66970318918081,
+          "base_wait_calls": 110,
+          "physical_frames": 110,
+          "worker_cutoff": "LAST_LOGICAL_OBSERVER_BEFORE_SESSION_AUTOCLOSE",
+          "main_cpu_ns": 3187500000,
+          "main_allocated_bytes": 981630432,
+          "worker_cpu_ns": 453125000,
+          "worker_allocated_bytes": 83558880,
+          "process_cpu_ns": 4093750000,
+          "gc_count": 1,
+          "gc_time_ms": 11,
+          "diagnostic_jfr": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-retry-22\\battle-7.jfr",
+          "diagnostic_profiled": true,
+          "repetition": 7,
+          "warmup": false,
+          "requested_eight_step_groups": 49,
+          "completed_eight_step_groups": 48,
+          "additional_three_step_requests": 49,
+          "last_group_completed_steps": 7,
+          "final_group_requested_steps": 8,
+          "groups_spanning_multiple_physical_frames": 42,
+          "maximum_group_physical_frames": 3,
+          "experimental_runtime": "TEST_ONLY_5_PLUS_3_EXISTING_MAX_5_BUDGET_PRODUCTION_8X_UNSUPPORTED",
+          "active_benchmark_worlds": 6,
+          "settling_before_each_new_setup_ms": 1000,
+          "matched_work_sha256": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722"
+        },
+        "thread_event_counts": {
+          "semion-td-combat-simulation": {
+            "execution_samples": 1,
+            "native_method_samples": 0,
+            "allocation_samples": 130,
+            "sampled_allocation_weight_bytes": 83034224,
+            "park_events": 96405,
+            "park_duration_ns_clipped_to_window": 4949677700
+          },
+          "JFR Periodic Tasks": {
+            "execution_samples": 0,
+            "native_method_samples": 1,
+            "allocation_samples": 3,
+            "sampled_allocation_weight_bytes": 2880104,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "HttpClient-2-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 91,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 1109792,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          },
+          "Server thread": {
+            "execution_samples": 108,
+            "native_method_samples": 0,
+            "allocation_samples": 490,
+            "sampled_allocation_weight_bytes": 21653763936,
+            "park_events": 96486,
+            "park_duration_ns_clipped_to_window": 2521822400
+          },
+          "semion-td-vfx": {
+            "execution_samples": 0,
+            "native_method_samples": 0,
+            "allocation_samples": 142,
+            "sampled_allocation_weight_bytes": 28684992,
+            "park_events": 52,
+            "park_duration_ns_clipped_to_window": 5194859000
+          },
+          "HttpClient-1-SelectorManager": {
+            "execution_samples": 0,
+            "native_method_samples": 90,
+            "allocation_samples": 2,
+            "sampled_allocation_weight_bytes": 222904,
+            "park_events": 0,
+            "park_duration_ns_clipped_to_window": 0
+          }
+        }
+      }
+    ],
+    "measured_event_aggregates": {
+      "Server thread": {
+        "counts": {
+          "execution_samples": 516,
+          "native_method_samples": 0,
+          "allocation_samples": 2460,
+          "sampled_allocation_weight_bytes": 96786318872,
+          "park_events": 482406,
+          "park_duration_ns_clipped_to_window": 12363052700
+        },
+        "execution_leaf": {
+          "java.util.IdentityHashMap.get": 60,
+          "java.lang.ThreadLocal$ThreadLocalMap.getEntry": 32,
+          "java.lang.ThreadLocal$ThreadLocalMap.getEntryAfterMiss": 24,
+          "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase.getCollisionShape": 21,
+          "java.util.HashMap.getNode": 13,
+          "it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap.get": 12,
+          "net.minecraft.server.MinecraftServer.runServer": 12,
+          "java.util.ImmutableCollections$ListN.indexOf": 11,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime.view": 10,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSpatialIndex.lambda$query$0": 10,
+          "java.util.WeakHashMap.containsKey": 9,
+          "net.minecraft.server.level.ChunkMap$$Lambda.0x000000008e7e0478.accept": 8,
+          "net.minecraft.world.level.BlockCollisions.computeNext": 7,
+          "net.minecraft.server.level.ServerChunkCache.pollTask": 6,
+          "it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap.get": 6,
+          "java.util.ImmutableCollections$SetN.probe": 6,
+          "net.minecraft.world.entity.Entity.setDeltaMovement": 6,
+          "kim.biryeong.semiontd.effect.TimedEffectSet.magnitude": 5,
+          "kim.biryeong.semiontd.game.replay.CombatSpeedBenchmarkTest$Driver.beforeFrame": 4,
+          "java.util.stream.AbstractPipeline.copyIntoWithCancel": 4,
+          "java.util.Spliterators$IteratorSpliterator.tryAdvance": 4,
+          "net.minecraft.server.MinecraftServer.processPacketsAndTick": 4,
+          "net.minecraft.world.level.entity.EntitySection.getEntities": 4,
+          "net.minecraft.server.level.ServerChunkCache.getChunk": 4,
+          "java.util.stream.MatchOps$1MatchSink.accept": 3,
+          "kim.biryeong.semiontd.map.LaneRegionLayout.progressAt": 3,
+          "net.minecraft.world.entity.Mob.asValidTarget": 3,
+          "java.util.IdentityHashMap.hash": 3,
+          "java.util.AbstractList$RandomAccessSpliterator.getFence": 3,
+          "net.minecraft.world.phys.shapes.BitSetDiscreteVoxelShape.forAllBoxes": 3
+        },
+        "execution_inclusive": {
+          "net.minecraft.server.MinecraftServer.runServer": 516,
+          "net.minecraft.server.MinecraftServer.lambda$spin$0": 516,
+          "net.minecraft.server.MinecraftServer$$Lambda.0x000000008e410000.run": 511,
+          "java.lang.Thread.run": 499,
+          "java.lang.Thread.runWith": 499,
+          "java.lang.invoke.LambdaForm$DMH.0x000000008e9bc000.invokeSpecial": 449,
+          "java.lang.invoke.LambdaForm$MH.0x000000008d045400.invokeExact_MT": 449,
+          "kim.biryeong.semiontd.game.replay.benchmark.CombatBenchmarkHooks.waitUntilNextTick": 449,
+          "net.minecraft.gametest.framework.GameTestServer.handler$zzi000$semion-td-gametest$semiontd$benchmarkNativeWait": 449,
+          "net.minecraft.server.MinecraftServer.waitUntilNextTick": 449,
+          "net.minecraft.gametest.framework.GameTestServer.waitUntilNextTick": 449,
+          "net.minecraft.util.thread.BlockableEventLoop.managedBlock": 448,
+          "net.minecraft.server.MinecraftServer.pollTask": 445,
+          "net.minecraft.server.MinecraftServer.pollTaskInternal": 445,
+          "net.minecraft.util.thread.BlockableEventLoop.pollTask": 430,
+          "net.minecraft.util.thread.ReentrantBlockableEventLoop.doRunTask": 427,
+          "net.minecraft.util.thread.BlockableEventLoop.doRunTask": 427,
+          "net.minecraft.server.TickTask.run": 427,
+          "net.minecraft.server.MinecraftServer.doRunTask": 427,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$Coordinator$$Lambda.0x000000008e94abe0.run": 426,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.lambda$notifyOwner$0": 426,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor$$Lambda.0x000000008e95e650.run": 426,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$Coordinator.ready": 424,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime.run": 379,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$Coordinator.drive": 302,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.prepare": 228,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.lambda$prepare$0": 225,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge$$Lambda.0x000000008e988ac8.run": 225,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.prepare": 222,
+          "net.minecraft.world.entity.LivingEntity$$Lambda.0x000000008e98a948.call": 184
+        },
+        "allocation_classes_weight_bytes": {
+          "java.util.ArrayList$Itr": 20681540136,
+          "net.minecraft.world.entity.ai.attributes.AttributeMap$$Lambda.0x000000008e920460": 19526606840,
+          "java.util.stream.ReferencePipeline$Head": 18680295464,
+          "net.minecraft.world.phys.shapes.OffsetDoubleList": 17361070200,
+          "java.util.ArrayList": 16198400880,
+          "net.minecraft.core.BlockPos": 494517264,
+          "[Ljava.lang.Object;": 425186560,
+          "net.minecraft.world.phys.AABB": 317781192,
+          "net.minecraft.world.phys.Vec3": 243941272,
+          "[B": 129569976,
+          "[J": 121380968,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Vector": 110160856,
+          "java.util.stream.ReferencePipeline$3": 101513752,
+          "java.util.stream.MatchOps$1MatchSink": 92760584,
+          "net.minecraft.core.BlockPos$MutableBlockPos": 90285192,
+          "java.util.AbstractList$RandomAccessSpliterator": 87517888,
+          "net.minecraft.world.phys.shapes.ArrayVoxelShape": 85554248,
+          "[D": 79727552,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box": 71464728,
+          "it.unimi.dsi.fastutil.doubles.DoubleArrayList": 70976408,
+          "java.util.stream.ReferencePipeline$2": 66575728,
+          "net.minecraft.world.level.BlockCollisions": 60802056,
+          "net.minecraft.core.Cursor3D": 59650144,
+          "java.lang.ThreadLocal$ThreadLocalMap$Entry": 59391352,
+          "net.minecraft.world.phys.shapes.CubePointRange": 54302840,
+          "org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable": 53518712,
+          "java.util.LinkedHashMap$Entry": 52504280,
+          "java.util.HashMap$Node": 48986888,
+          "java.lang.Double": 48793648,
+          "java.util.Optional": 47859200
+        },
+        "allocation_project_frame_weight_bytes": {
+          "NO_PROJECT_FRAME": 20742507936,
+          "kim.biryeong.semiontd.entity.monster.SemionMonsterEntity.configureFrom": 19526606840,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.valid": 18607022824,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.snapshot": 17716681192,
+          "kim.biryeong.semiontd.entity.monster.SemionMonsterEntity.<init>": 16089385928,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.finish": 662585952,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.collider": 488808264,
+          "kim.biryeong.semiontd.entity.monster.SemionMonsterEntity.travel": 422467400,
+          "kim.biryeong.semiontd.entity.monster.goal.LaneFollowGoal.tick": 160629048,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.tickAmbient": 152328672,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.prepare": 131473904,
+          "kim.biryeong.semiontd.tower.engineer.EngineerTowers.findKey": 129239224,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.apply": 117772336,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.paused": 108313456,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitTopology.stableId": 99217216,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime$EntityView.lambda$publish$0": 88965712,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.box": 71464728,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitTopology.capture": 71130784,
+          "kim.biryeong.semiontd.augment.AugmentSnapshot.has": 69535088,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.<init>": 65991152,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSpatialIndex.lambda$query$0": 64614000,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSpatialIndex.query": 62466840,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Collider.<init>": 62328576,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.vector": 62299256,
+          "kim.biryeong.semiontd.augment.AugmentCatalog.normalizeId": 42620216,
+          "kim.biryeong.semiontd.tower.engineer.EngineerGolemTower.choosePlate": 40674096,
+          "kim.biryeong.semiontd.map.LaneRegionLayout.pathPoints": 37506032,
+          "kim.biryeong.semiontd.tower.engineer.EngineerTrapTower.source": 37311512,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$Coordinator.submit": 34886856,
+          "kim.biryeong.semiontd.entity.monster.goal.AcquireLaneDefenseTargetGoal.findDemonLordTarget": 34804456
+        },
+        "allocation_project_frame_samples": {
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.finish": 327,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.snapshot": 245,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.collider": 243,
+          "kim.biryeong.semiontd.entity.monster.SemionMonsterEntity.travel": 209,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.valid": 117,
+          "kim.biryeong.semiontd.entity.monster.goal.LaneFollowGoal.tick": 78,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.tickAmbient": 78,
+          "kim.biryeong.semiontd.tower.engineer.EngineerTowers.findKey": 67,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.prepare": 66,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.apply": 59,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$NativeBridge.paused": 51,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitTopology.stableId": 49,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime$EntityView.lambda$publish$0": 47,
+          "NO_PROJECT_FRAME": 37,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.box": 37,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitTopology.capture": 37,
+          "kim.biryeong.semiontd.augment.AugmentSnapshot.has": 36,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Collider.<init>": 35,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSpatialIndex.lambda$query$0": 34,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.vector": 32,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.<init>": 32,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSpatialIndex.query": 30,
+          "kim.biryeong.semiontd.augment.AugmentCatalog.normalizeId": 21,
+          "kim.biryeong.semiontd.tower.engineer.EngineerGolemTower.choosePlate": 20,
+          "kim.biryeong.semiontd.tower.engineer.EngineerTrapTower.source": 19,
+          "kim.biryeong.semiontd.map.LaneRegionLayout.pathPoints": 19,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$Coordinator.submit": 18,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitTopology.captureInputs": 18,
+          "kim.biryeong.semiontd.entity.simulation.EntitySimulationBridge.vec3": 17,
+          "kim.biryeong.semiontd.entity.monster.goal.MonsterAttackTargetGoal.tick": 17
+        },
+        "park_stacks_duration_ns": {
+          "kim.biryeong.semiontd.game.replay.benchmark.CombatBenchmarkHooks.waitUntilNextTick": 12363052700
+        }
+      },
+      "semion-td-combat-simulation": {
+        "counts": {
+          "execution_samples": 2,
+          "native_method_samples": 0,
+          "allocation_samples": 672,
+          "sampled_allocation_weight_bytes": 414983920,
+          "park_events": 482071,
+          "park_duration_ns_clipped_to_window": 24087144600
+        },
+        "execution_leaf": {
+          "java.util.PriorityQueue$PriorityQueueSpliterator.getFence": 1,
+          "java.lang.Thread.getAndClearInterrupt": 1
+        },
+        "execution_inclusive": {
+          "java.lang.Thread.runWith": 2,
+          "java.lang.Thread.run": 2,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.runWorker": 2,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor$$Lambda.0x000000008e94b038.run": 2,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$$Lambda.0x000000008e94a530.apply": 1,
+          "java.util.stream.ReferencePipeline.toArray": 1,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession.lambda$new$1": 1,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession.calculate": 1,
+          "java.util.Spliterator.getExactSizeIfKnown": 1,
+          "java.util.stream.AbstractPipeline.evaluateToArrayNode": 1,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.snapshot": 1,
+          "java.util.PriorityQueue$PriorityQueueSpliterator.getFence": 1,
+          "java.util.stream.AbstractPipeline.evaluate": 1,
+          "java.util.PriorityQueue$PriorityQueueSpliterator.estimateSize": 1,
+          "java.util.stream.ReferencePipeline.toList": 1,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitWorld.calculate": 1,
+          "java.util.stream.AbstractPipeline.exactOutputSizeIfKnown": 1,
+          "java.lang.Thread.interrupted": 1,
+          "java.lang.Thread.getAndClearInterrupt": 1
+        },
+        "allocation_classes_weight_bytes": {
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box": 83962704,
+          "[Ljava.lang.Object;": 45637304,
+          "java.util.stream.ReferencePipeline$Head": 41241800,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Vector": 33717848,
+          "java.util.LinkedHashMap$Entry": 23932152,
+          "java.util.HashMap$Node": 22575104,
+          "java.util.ArrayList": 20302392,
+          "java.util.stream.MatchOps$1MatchSink": 16761912,
+          "java.util.Collections$2": 14860512,
+          "java.util.ImmutableCollections$ListItr": 14048512,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor$Completion": 11293784,
+          "net.minecraft.server.TickTask": 10903856,
+          "java.util.concurrent.locks.AbstractQueuedSynchronizer$SharedNode": 10699480,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation$NodeState": 9951680,
+          "java.util.concurrent.ConcurrentLinkedQueue$Node": 8997696,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor$$Lambda.0x000000008e95e650": 7475928,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Result": 7346824,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Collider$$Lambda.0x000000008e997498": 6889416,
+          "[Ljava.util.HashMap$Node;": 6722568,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$PhysicsResult": 5672320,
+          "java.util.HashMap": 3654912,
+          "java.util.PriorityQueue": 2022672,
+          "java.util.LinkedHashMap": 1155472,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation": 1155472,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation$Snapshot": 741056,
+          "java.util.HashSet": 688304,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitWorld$Result": 688304,
+          "java.util.PriorityQueue$PriorityQueueSpliterator": 688288,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$CircuitResult": 644336,
+          "java.util.ImmutableCollections$ListN": 551312
+        },
+        "allocation_project_frame_weight_bytes": {
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Collider.intersects": 78463296,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.<init>": 70369840,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box.move": 56629184,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.collidersFor": 53652944,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box.expand": 27333520,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.runWorker": 21993264,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$$Lambda.0x000000008e94a780.execute": 19901552,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.collideWithBoxes": 17910080,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.restore": 14730376,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Vector.add": 9799832,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.notifyOwner": 7475928,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.advance": 7346824,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.snapshot": 6495008,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession.calculate": 6316656,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.relativeInput": 6007936,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.reconcile": 3260536,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.lambda$new$0": 2866264,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.lambda$new$1": 2139512,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.advanceTo": 1603064,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitWorld.calculate": 688304
+        },
+        "allocation_project_frame_samples": {
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Collider.intersects": 127,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.<init>": 108,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box.move": 91,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.collidersFor": 88,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Box.expand": 45,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.runWorker": 39,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession$$Lambda.0x000000008e94a780.execute": 32,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.collideWithBoxes": 31,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.restore": 24,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics$Vector.add": 17,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.notifyOwner": 12,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.advance": 11,
+          "kim.biryeong.semiontd.entity.simulation.WorkerPhysics.relativeInput": 10,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.snapshot": 10,
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationSession.calculate": 9,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.reconcile": 5,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.lambda$new$0": 5,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.lambda$new$1": 4,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitSimulation.advanceTo": 3,
+          "kim.biryeong.semiontd.tower.engineer.EngineerCircuitWorld.calculate": 1
+        },
+        "park_stacks_duration_ns": {
+          "kim.biryeong.semiontd.game.simulation.CombatSimulationExecutor.runWorker": 24087144600
+        }
+      }
+    }
+  },
+  "first_attempt": {
+    "source_revision": "a65505cb6e4be5fbfa41b1fc2b7bc977bec24670",
+    "status": "FAILED_STRICT_REPEATED_WORK_DIGEST_AT_SECOND_WARMUP",
+    "exact_message": "Repeated battles do not perform identical controlled work",
+    "first_warmup_digest": "f405359852d212ad6316afb07b345bda7f95c80eccc8528e5413a2894779e722",
+    "second_warmup_final_state": "Not persisted before strict assertion in the first helper; cause unconfirmed. Both JFR files retained.",
+    "completed_recording_windows": [
+      {
+        "recording": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-22\\battle-0.jfr",
+        "repetition": 0,
+        "warmup": true,
+        "logical_ticks": 391,
+        "window_start": "2026-10-08T21:53:02.895928500Z",
+        "window_end": "2026-10-08T21:53:09.230345200Z",
+        "window_duration_ns": 6334416700
+      },
+      {
+        "recording": "C:\\Users\\Jaeyun\\.codex\\worktrees\\cf6f\\semiontd-gemble\\build\\replay-analysis\\diagnostic-jfr-22\\battle-1.jfr",
+        "repetition": 1,
+        "warmup": true,
+        "logical_ticks": 391,
+        "window_start": "2026-10-08T21:53:11.924725300Z",
+        "window_end": "2026-10-08T21:53:16.980619700Z",
+        "window_duration_ns": 5055894400
+      }
+    ]
+  },
+  "qualifications": [
+    "Recording overhead prevents mixing this run with baseline timing or cost comparisons.",
+    "Execution counts are statistical samples, not exact call counts or CPU times; inclusive stack membership overlaps.",
+    "Only two measured worker execution samples; no defensible worker hotspot/share inference.",
+    "Allocation weights are retained but disagree sharply with MXBean window totals; not used as exact bytes or cost proportions. Unweighted stack counts describe recorded allocation samples only.",
+    "Park durations describe blocked time and overlap across threads; not CPU or exact handoff counts.",
+    "Initial strict work-digest failure remains unresolved; successful retry does not erase it.",
+    "No production gameplay changes; no operational server, clients or GPUs started."
+  ],
+  "artifacts": [
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22.json",
+      "bytes": 552419,
+      "sha256": "89a4f2c9ae42be145dd23ced7a189fe7eab771b8ed671c733d219803e01897e9"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22.log",
+      "bytes": 66174,
+      "sha256": "91448cb0b1901feb364f55556a8df83695708d5755cf9bac073405df664a9ede"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-22.log",
+      "bytes": 43704,
+      "sha256": "a1b22d30378f250b4ec035601e07201e55c5b2ba37df362882cbdb407a7029f0"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-events.json",
+      "bytes": 308844,
+      "sha256": "a64acd2ae3fe1cc2583d7e21dab7a07bf49d0cf2255e7f63f29c7deea2a1dee0"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-failed-events.json",
+      "bytes": 77895,
+      "sha256": "fd6f901a470ea0501dbdfbbd2bcccf74801538d898e790c8f0790b87b74831bc"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-0.jfr",
+      "bytes": 7571067,
+      "sha256": "33dec0f66c4ce1c46548afe47e1ce16dbe114f5b8914a9b8da10257da88017f1"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-0.json",
+      "bytes": 74841,
+      "sha256": "d21aa427445c8ec421fe1392e93d0546f91013576fd8c908a75f74969280af74"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-1.jfr",
+      "bytes": 7389829,
+      "sha256": "5998c4955d7f48dcdb6a6e245f43e2e67389222105bb9c9c635ea01cbd539486"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-1.json",
+      "bytes": 58539,
+      "sha256": "192b0d2ab57690e6e1865a0c1bde8920a337c3d019e71365c0b027fdf85ff58d"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-2.jfr",
+      "bytes": 7385082,
+      "sha256": "ee368e059b80705a7f536a64344bb18249dd119d66916f064a9363f501d0766f"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-2.json",
+      "bytes": 58440,
+      "sha256": "4b07dc982f39f20ffaa3a3f1d08ddfe3dbb192dd4d7b1e6224cd45def4717782"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-3.jfr",
+      "bytes": 7366700,
+      "sha256": "f47e8e969c0b945b0bef0a3b2d90ab0f6a6de5f5765e29f57332f4eaf48cafd9"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-3.json",
+      "bytes": 57033,
+      "sha256": "d51766625060c71dc6d61f208bfed8556f037a68da62b64a913c3d88111625df"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-4.jfr",
+      "bytes": 7359290,
+      "sha256": "4601388adcd7d5b63b6ff409e30d397a2433127f1f86518bcaadb1430c73bf3b"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-4.json",
+      "bytes": 56378,
+      "sha256": "0d17a3fcf67868f7b8a3ba4822301511d71200b1bf3fd6a1ea065a2e7bb50bcf"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-5.jfr",
+      "bytes": 7327377,
+      "sha256": "e9e6c8db24701266167bf9d2c84f1fa0b101c9663e366e1c91a5c0b91ee76381"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-5.json",
+      "bytes": 57462,
+      "sha256": "67cf3aca7f8ae513c6842c76633d31c8ab95c0afee45c930728300aa63fed0e6"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-6.jfr",
+      "bytes": 7380244,
+      "sha256": "553a96545cfa4464ed6f7fe6c70a0f29f8d1ff5852b2166f10b999d4864c07dc"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-6.json",
+      "bytes": 57574,
+      "sha256": "f089d7c8e839045add752ce5587866ab4d89fe128cf1819ecb564fab10393298"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-7.jfr",
+      "bytes": 7376034,
+      "sha256": "16b90fcff81266fa2cecb76895d924aa7d02afb9ff56e96b1e2c92e34b97f1fe"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-retry-22/battle-7.json",
+      "bytes": 58410,
+      "sha256": "dfe828896f21d8c204c2b043043f40ff095d17c406f355ff93da1a6ca47c7c63"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-22/battle-0.jfr",
+      "bytes": 7474055,
+      "sha256": "e3ff0d77ed544464ca8ef888cb765b5135ce32b91b0b44a1a40046250d9a629b"
+    },
+    {
+      "path": "build/replay-analysis/diagnostic-jfr-22/battle-1.jfr",
+      "bytes": 6881197,
+      "sha256": "6062801eaea20eb06e41dd4bc7bd47b70a5d4827ac835eee1d45e90c4e5998ee"
+    }
+  ],
+  "analysis_reader": {
+    "path": "scripts/replay/ProfileDiagnostics.java",
+    "sha256": "30871a2bdf8daf53ff6784ed2ed3d9993514fead42e5fb6c0669a565bbc8e3bb",
+    "per_record_map_limit": 100,
+    "inclusive_frames": "Each method counted at most once per execution stack; different methods overlap.",
+    "allocation_stack": "First project frame, unweighted event count and unmodified original weight retained."
+  }
+}
