@@ -272,6 +272,14 @@ public final class CombatSpeedBenchmarkTest {
             metrics.addProperty("settling_before_each_new_setup_ms", 1000);
             JsonObject workload = battle.digest(logicalTicks);
             String hash = hash(workload);
+            if (diagnosticDirectory != null) {
+                JsonObject diagnostic = metrics.deepCopy();
+                diagnostic.addProperty("matched_work_sha256", hash);
+                diagnostic.addProperty("matches_previous_trial", baselineWorkHash == null || baselineWorkHash.equals(hash));
+                diagnostic.add("workload", workload);
+                Files.writeString(Path.of(diagnosticDirectory).resolve("battle-" + repetition + ".json"),
+                        new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(diagnostic) + "\n", StandardCharsets.UTF_8);
+            }
             require(baselineWorkHash == null || baselineWorkHash.equals(hash), "Repeated battles do not perform identical controlled work");
             baselineWorkHash = hash;
             metrics.addProperty("matched_work_sha256", hash);
