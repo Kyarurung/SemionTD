@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.concurrent.RejectedExecutionException;
 import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import kim.biryeong.semiontd.mixin.accessor.CombatSimulationServerLevelAccessor;
 import net.minecraft.server.level.ServerLevel;
@@ -163,7 +164,11 @@ public final class CombatSimulationRuntime {
         if (owner == null || ACTIVE.get() == owner) {
             return false;
         }
-        owner.input(input);
+        try {
+            owner.input(input);
+        } catch (RejectedExecutionException full) {
+            return true;
+        }
         return true;
     }
 

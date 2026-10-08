@@ -2227,10 +2227,14 @@ public final class SemionGameManager {
         }
         if (!balanceTickPending) {
             balanceTickPending = true;
-            combatSimulation.input(() -> {
+            try {
+                combatSimulation.input(() -> {
+                    balanceTickPending = false;
+                    balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
+                });
+            } catch (java.util.concurrent.RejectedExecutionException full) {
                 balanceTickPending = false;
-                balanceBoundary.accept(BalanceChangeService.Boundary.TICK);
-            });
+            }
         }
     }
 

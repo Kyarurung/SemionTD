@@ -127,6 +127,11 @@ public final class CombatSimulationRuntimeTest implements RuntimeArenaFixture {
             owner.views.get(actor).publish(actor);
             context.assertTrue(actor.getDeltaMovement().equals(impulse),
                     "The next completed frame must publish the accepted impulse");
+            owner.rejectInputs = true;
+            actor.push(impulse);
+            context.assertTrue(owner.inputs.isEmpty() && actor.getDeltaMovement().equals(impulse)
+                            && owner.views.get(actor).velocity().equals(impulse),
+                    "A saturated boundary must reject an external impulse without physical or logical fallback");
         } finally {
             CombatSimulationRuntime.unregister(owner);
             actor.discard();
@@ -138,6 +143,7 @@ public final class CombatSimulationRuntimeTest implements RuntimeArenaFixture {
         private final Map<Entity, CombatSimulationRuntime.EntityView> views = new IdentityHashMap<>();
         private final List<Runnable> inputs = new ArrayList<>();
         private final long clock;
+        private boolean rejectInputs;
 
         private TestOwner(long clock) { this.clock = clock; }
         public boolean controls(Entity entity) { return views.containsKey(entity); }
@@ -146,7 +152,12 @@ public final class CombatSimulationRuntimeTest implements RuntimeArenaFixture {
         public CombatSimulationRuntime.EntityView view(Entity entity) { return views.get(entity); }
         public void changed(Entity entity) { views.get(entity).changed(); }
         public void animate(Entity entity, SemionAnimationState animation, Runnable presentation) { inputs.add(presentation); }
-        public void input(Runnable input) { inputs.add(input); }
+        public void input(Runnable input) {
+            if (rejectInputs) {
+                throw new java.util.concurrent.RejectedExecutionException("Injected full input boundary");
+            }
+            inputs.add(input);
+        }
         public Iterable<Entity> entities(ServerLevel world) { return world.getAllEntities(); }
     }
 }
