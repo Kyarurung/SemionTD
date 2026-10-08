@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.entity.monster;
 
 import kim.biryeong.semiontd.entity.EntityCombatSpeed;
 import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 
 import de.tomalbrc.bil.api.AnimatedEntity;
 import de.tomalbrc.bil.api.AnimatedEntityHolder;
@@ -250,6 +251,9 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     @Override
     public void aiStep() {
+        if (CombatSimulationRuntime.controls(this)) {
+            return;
+        }
         if (isAlive() && level() instanceof ServerLevel serverLevel && getY() < serverLevel.getMinY()) {
             setHealth(0.0F);
             die(serverLevel.damageSources().fellOutOfWorld());
@@ -286,6 +290,27 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
         tickBeePoisons();
         schoolSpells.tick();
         timedEffects.tick();
+    }
+
+    public void finishSimulationStep() {
+        tickCombatEffects();
+        if (runtimeMonster != null) {
+            runtimeMonster.expireShields(CombatSpeedRuntime.gameTime(level()));
+        }
+        if (getTarget() instanceof LaneDefenseEntity defenseEntity && runtimeMonster != null) {
+            if (!getTarget().isAlive() || !defenseEntity.defendsLane(runtimeMonster.targetLaneId())) {
+                setTarget(null);
+            }
+        } else if (getTarget() != null && !getTarget().isAlive()) {
+            setTarget(null);
+        }
+    }
+
+    public void presentSimulationFrame() {
+        tickStealthVisual();
+        if (CombatSimulationRuntime.entityTick(this) % 20 == 0) {
+            refreshSupportProgressName();
+        }
     }
 
     public boolean hasLanePath() {
@@ -396,7 +421,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
     }
 
     public long combatTickCount() {
-        return tickCount + extraCombatTicks;
+        return CombatSimulationRuntime.controls(this) ? CombatSimulationRuntime.entityTick(this)
+                : tickCount + extraCombatTicks;
     }
 
     private void tickPendingHit() {
@@ -697,12 +723,24 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
             return;
         }
         boolean oneShot = isOneShot(animationState);
+        boolean changed = this.animationState != animationState || oneShot;
+        boolean oneShotRunning = combatEventTick() < oneShotEndTick;
+        if (holder != null && changed && oneShot) {
+            de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
+            oneShotEndTick = combatEventTick() + (animation == null ? 0 : animation.duration());
+        }
+        CombatSimulationRuntime.animate(this, animationState,
+                () -> displayAnimation(animationState, oneShot, changed, oneShotRunning));
+        this.animationState = animationState;
+    }
+
+    private void displayAnimation(SemionAnimationState animationState, boolean oneShot, boolean changed,
+                                  boolean oneShotRunning) {
         if (holder == null && animationState == SemionAnimationState.ATTACK && polymerEntityType == net.minecraft.world.entity.EntityTypes.CREAKING) {
             // 바닐라 모습의 크리킹은 엔티티 이벤트 4로 팔 휘두르기 동작을 봅니다.
             level().broadcastEntityEvent(this, (byte) 4);
         }
-        if (holder != null && (this.animationState != animationState || oneShot)) {
-            boolean oneShotRunning = combatEventTick() < oneShotEndTick;
+        if (holder != null && changed) {
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 // 공격 직후 쿨다운 동안 대기·걷기로 돌아와도, 돌고 있는 공격·치유 동작은 끝까지 두어 위에 겹쳐 보이게 합니다.
                 // 예전에는 바로 다음 틱에 멈춰서 공격 모션이 한 틱만 보였습니다.
@@ -712,12 +750,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
                 holder.getAnimator().pauseAnimation(state.animationId());
             }
             holder.getAnimator().playAnimation(animationState.animationId(), oneShot ? 10 : 1, true);
-            if (oneShot) {
-                de.tomalbrc.bil.core.model.Animation animation = holder.getModel().animations().get(animationState.animationId());
-                oneShotEndTick = combatEventTick() + (animation == null ? 0 : animation.duration());
-            }
         }
-        this.animationState = animationState;
     }
 
     private static boolean isOneShot(SemionAnimationState state) {

@@ -2,6 +2,7 @@ package kim.biryeong.semiontd.entity.tower;
 
 import kim.biryeong.semiontd.entity.EntityCombatSpeed;
 import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 
 import kim.biryeong.semiontd.tower.magicschool.MagicSchoolTowers;
 import de.tomalbrc.bil.api.AnimatedEntity;
@@ -309,6 +310,9 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
 
     @Override
     public void aiStep() {
+        if (CombatSimulationRuntime.controls(this)) {
+            return;
+        }
         if (isAlive() && level() instanceof ServerLevel serverLevel && getY() < serverLevel.getMinY()) {
             if (runtimeTower != null) {
                 runtimeTower.syncHealth(0.0);
@@ -330,6 +334,21 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         returnToFinalDefenseAreaIfNeeded();
         syncEndCoreFlightPhysics();
         applyLockedDragonRotation();
+    }
+
+    public void finishSimulationStep() {
+        damageCooldownTime = 0;
+        tickCombatEffects();
+        returnToFinalDefenseAreaIfNeeded();
+        syncEndCoreFlightPhysics();
+        applyLockedDragonRotation();
+    }
+
+    public void presentSimulationFrame() {
+        refreshAugmentNameplate();
+        syncMoobloomVisualEntity();
+        syncBlockDisplayVisual();
+        syncEndCoreInteractionHitbox();
     }
 
     private void tickCombatEffects() {
@@ -956,8 +975,14 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         if (animationState == null) {
             return;
         }
-        if (holder != null && (this.animationState != animationState || animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
-                || animationState == SemionAnimationState.SKILL)) {
+        boolean changed = this.animationState != animationState || animationState == SemionAnimationState.ATTACK
+                || animationState == SemionAnimationState.HEAL || animationState == SemionAnimationState.SKILL;
+        CombatSimulationRuntime.animate(this, animationState, () -> displayAnimation(animationState, changed));
+        this.animationState = animationState;
+    }
+
+    private void displayAnimation(SemionAnimationState animationState, boolean changed) {
+        if (holder != null && changed) {
             for (SemionAnimationState state : SemionAnimationState.values()) {
                 if (state != animationState) {
                     holder.getAnimator().pauseAnimation(state.animationId());
@@ -966,7 +991,6 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
             holder.getAnimator().playAnimation(animationState.animationId(), animationState == SemionAnimationState.ATTACK || animationState == SemionAnimationState.HEAL
                     || animationState == SemionAnimationState.SKILL ? 10 : 1, true);
         }
-        this.animationState = animationState;
     }
 
     public void syncTowerState(Tower tower) {

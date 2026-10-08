@@ -5,6 +5,7 @@ import kim.biryeong.semiontd.entity.boss.goal.BossAttackLaneMonsterGoal;
 import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.game.CombatSpeedRuntime;
+import kim.biryeong.semiontd.game.simulation.CombatSimulationRuntime;
 import kim.biryeong.semiontd.game.TeamId;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -44,7 +45,18 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
 
     @Override
     public void aiStep() {
+        if (CombatSimulationRuntime.controls(this)) {
+            return;
+        }
         super.aiStep();
+        holdAnchorPosition();
+    }
+
+    public void finishSimulationStep() {
+        initializeDamageCooldown();
+        if (!Double.isNaN(damageCooldownExpiresAt)) {
+            updateDamageCooldown(CombatSpeedRuntime.gameTime(level()));
+        }
         holdAnchorPosition();
     }
 
@@ -59,7 +71,8 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
 
     @Override
     public boolean hurtServer(ServerLevel serverLevel, DamageSource source, float amount) {
-        if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) == 1.0) {
+        if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) == 1.0
+                && !CombatSimulationRuntime.controls(this)) {
             return super.hurtServer(serverLevel, source, amount);
         }
         double now = source.getEntity() instanceof SemionMonsterEntity monster
@@ -79,7 +92,9 @@ public class SemionBossEntity extends PathfinderMob implements PolymerEntity {
     }
 
     private void initializeDamageCooldown() {
-        if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) > 1.0) {
+        if (Double.isNaN(damageCooldownExpiresAt) && CombatSimulationRuntime.controls(this)) {
+            damageCooldownExpiresAt = CombatSpeedRuntime.gameTime(level()) + damageCooldownTime;
+        } else if (Double.isNaN(damageCooldownExpiresAt) && CombatSpeedRuntime.multiplier(level()) > 1.0) {
             damageCooldownExpiresAt = CombatSpeedRuntime.gameTime(level())
                     - CombatSpeedRuntime.logicalSteps(level()) + damageCooldownTime;
         }

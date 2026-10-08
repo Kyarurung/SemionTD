@@ -13,6 +13,7 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.entity.simulation.EntitySimulationPhysicsTest",
       "kim.biryeong.semiontd.game.CombatMultiplierRuntimeTest",
       "kim.biryeong.semiontd.game.EntityCombatMultiplierTest",
       "kim.biryeong.semiontd.game.BossCombatImmunityTest",
