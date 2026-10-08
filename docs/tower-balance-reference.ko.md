@@ -523,3 +523,37 @@
 흑마법사의 골드 증강 `job_warlock_towers_g1`(폭발형 제물)은 영구 성장량을 추가 증폭하지 않는다. 동일한 제물을 흡수할 때 증강 유무와 관계없이 기본·원거리·근거리의 영구 체력/피해 비율은 각각 2%/2%, 4%/7%, 7%/4%이며 라운드 성장분도 같다. 제물 최대 체력 100%의 마법 폭발, 반경 3블록, 최대 12대상 기본값과 해당 폭발의 사용자 설정은 유지한다.
 
 기존 증강 설정에 남아 있는 이 증강의 `growthBonus`만 로드 시 무시한다. 증강 ID와 다른 폭발 파라미터는 유지하며, 운영 파일을 직접 변경할 필요 없이 구버전 설정을 읽을 수 있다.
+
+## 공개 경기 입력을 이용한 재현 및 시뮬레이션 비교
+
+공개 [경기 상세 API](https://semiontd.biryeong.kim/api/v1/matches/893854454113494679)의 `build_actions`는 참가자별 `sequence`, `round`, 배치·업그레이드·판매·소환·에메랄드 생산 강화, 좌표와 `position_mode`, 실제 비용·환불·수입 증가·예약 라운드·대상 팀/라인을 제공한다. 실행 틱과 참가자 사이의 전역 순서는 제공하지 않는다. 일반 타워 배치·업그레이드·판매는 `ProductionTowerService`의 준비 단계 제한을 따르므로 참가자별 순서를 유지한 라운드 준비 경계의 **통제 시나리오**를 구성할 수 있다. 이를 원래 경기의 정확한 전투 재생으로 표현하지 않는다.
+
+`src/test/resources/replay/match-893854454113494679.json`은 해당 경기의 전체 입력과 타워별 라운드 결과를 보존한다. 닉네임·플레이어 UUID·빌드 공유 코드·외형/모델 자산은 제외하고 참가자를 `p00` 등의 슬롯으로 바꾼다. match ID, 비용, 환불과 BIGINT 통계는 정수 또는 십진 문자열로 읽으며 부동소수점을 거치지 않는다. `sources[].canonical_json_sha256`은 키 정렬·UTF-8·공백 없는 JSON의 SHA-256이고 원시 HTTP 바이트의 해시나 catalog 자체 버전 해시와 구분한다.
+
+수집기는 기존 live-balance-analysis skill의 조회 함수를 사용해 `/stats`, `/patches`, `/matches/{id}`, 해당 경기 버전의 `/catalog`, `/participant-metrics`, `/round-metrics`를 읽는다. 반환된 round cursor가 거부되는 경우 각 라운드를 `fromRound=toRound`, `limit=1000`으로 나누고, 모든 파티션에 후속 cursor가 없는지와 중복 키가 없는지를 검증한다. 일부 페이지만 읽고 완료로 표시하지 않는다. 공개 원본 응답은 생성 디렉터리 `build/replay-analysis`에만 저장한다.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+python -B scripts/replay/fetch_match_fixture.py
+python -B scripts/replay/fetch_match_fixture.py --offline
+python -B -m unittest discover -s scripts/replay -p test_compare_traces.py -v
+.\gradlew.bat test --tests 'kim.biryeong.semiontd.game.replay.MatchReplayFixtureTest' --console=plain --no-daemon
+```
+
+`MatchReplayFixture`는 실제 `BuildAction`으로 변환하고, 명시적으로 주어진 시작 배치에 타워 입력을 적용한다. 좌표는 원래 모드와 xyz를 유지하며 `lane_relative`를 절대 좌표로 바꾸려면 테스트 맵의 라인 원점을 반드시 제공한다. 업그레이드는 이전 타워에서 `catalog.upgrades[].id`로 향하는 edge의 가격과 대상 ID를 조회한다. 판매 환불은 `income_gain`을 사용한다. 실제 지출은 관측 비용 그대로 합산하고 catalog 기본 가격과의 차이는 진단으로 남긴다. 점유 위치 재배치·원본 없는 업그레이드·불일치 판매·알 수 없는 edge·타워 이외 입력은 거부한다. 사망·이동·생성 ID를 추정하여 빈 위치를 만들지 않는다. `scenarioId`는 테스트에서 부여한 식별자이며 원래 타워 UUID를 의미하지 않는다.
+
+`controlled-openings.json`은 기술자·흑마법사·우민의 실제 1라운드 배치 및 흑마법사 업그레이드를 사용한다. seed `1`, 충분한 초기 자원, 독립 합성 맵과 라인 원점, 자연 웨이브, 준비 경계 입력 순서는 통제된 테스트 조건이다. 다른 참가자, 소환, 생산 강화와 이후 증강/플레이어 조작은 제외 목록에 명시한다. 기술자 첫 라운드 구성은 공개 타워별 `start_count`와 비교한다. 이후 라운드는 알려진 생존자/수동 조작 상태를 추가로 공급해야 하며 이전 배치가 모두 생존했다고 가정하여 역사적 상태를 재구성하지 않는다.
+
+원본 모드의 기준은 지정 revision `7a389bf04a5a81a5d1a84c2c36fcf1beb5bafe13`이다. 공개 경기의 과거 catalog/augment/balance hash는 별도로 고정한다. 기준 revision과 현재 소스의 기본 catalog 차이뿐 아니라 과거 배포 설정과의 차이도 검사한다. `compareHistoricalCatalogWithActualCurrentFactoriesAndWriteCompatibilityEvidence`는 사용된 타워 핵심 수치와 방향별 업그레이드 가격의 차이를 `build/replay-analysis/current-catalog-differences.json`으로 생성한다. 같은 ID나 같은 게임 버전만으로 동일한 능력·증강·규칙이라고 판정하지 않는다. 공개 catalog에는 웨이브·경제·능력·소환·증강 규칙도 있지만 전체 런타임 설정, 과거 소스 revision, RNG 상태, 실제 맵·라인 원점, 엔티티 생성/사망 순서, 표적 선택 이력, 발사체·회로 입력과 플레이어 조작은 복원되지 않는다.
+
+독립 원본 40 TPS 캡처와 물리 20 TPS/논리 40 TPS 캡처를 얻은 뒤 다음 비교를 실행한다. 이 명령의 성공은 제공된 통제 시나리오 캡처의 일치를 뜻하며 원래 전체 경기의 일치나 성능 개선을 증명하지 않는다. comparator 단위 테스트의 인공 trace는 형식 및 차이 검출 검증이며 실제 전투 정합성 증거에 포함하지 않는다.
+
+```powershell
+python -B scripts/replay/compare_traces.py build/replay-analysis/native40.json build/replay-analysis/simulation20.json --output build/replay-analysis/parity.json
+```
+
+trace JSON은 `metadata`와 `samples`를 가진다. metadata 필수 항목은 `driver`(`NATIVE_REFERENCE` / `ASYNC_LOGICAL_SIMULATION`), 독립 `run_id`, 실제 `source_revision`, `physical_tps`(40 / 20), `logical_tps`(40), `logical_steps_per_frame`(1 / 2), `trace_scope=PER_LOGICAL_TICK`, `timing_origin=CONTROLLED_SCENARIO`, 십진 문자열 `seed`, 동일한 `scenario_sha256`·`rules_sha256`·`map_sha256`이다. rules hash에는 실제 적용한 tower/upgrade/ability/trait/augment/economy/wave/summon 규칙과 RNG 스트림 배정 방식을 포함한다. 서로 다른 규칙이나 입력을 캡처한 경우 비교 전에 거부한다.
+
+sample은 초기 `tick=0`부터 매 논리 틱의 상태를 담는다. `actors`는 시나리오 ID를 키로 사용하고 `health`, `position=[x,y,z]`, `target`(시나리오 ID 또는 null), 정수 `cooldown`, boolean `alive`를 반드시 기록한다. 순서 있는 event 배열 `attacks`, `damage`, `deaths`, `spawns`, `rewards`, `projectiles`, `circuits`는 비어 있어도 필수다. 필요한 고유 상태를 actor/event 객체에 추가할 수 있다. 공격·피해·사망·보상·투사체 생성/피격·회로 변화는 실제 callback에서 순서대로 수집하고, 누적 DPS나 프레임 끝 차이만으로 대체하지 않는다. 제공되지 않는 채널을 빈 배열로 채워 완전한 캡처라고 표현하지 않는다. 위치의 기본 절대 허용 오차는 `1e-7`이며 다른 값과 이벤트 순서는 정확히 비교한다. 누락 채널·논리 틱 생략·비정상 수·캡처 길이 차이와 첫 분기 틱/필드를 검출한다.
+
+native driver는 별도 기준 checkout에서 실제 40 TPS 또는 명확히 정의한 완전한 native 논리 단계로 실행하고 simulation driver는 `CombatSimulationSession`의 `setStepObserver(LongConsumer)`에서 각 완료 논리 단계의 scoped pose와 실제 상태를 기록한다. `logicalTickCount()`와 `idle()`로 완료 여부를 판단하며 고정 sleep이나 server-thread join으로 동기화하지 않는다. session은 해당 arena world의 Semion 엔티티를 소유하므로 동시 GameTest와 공유하는 합성 world 대신 독립 Fantasy world를 사용한다. driver의 컴파일·실행·원본과의 비교를 실제로 완료하기 전에는 전투 정합성 통과로 보고하지 않는다.

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source_fixture": "match-893854454113494679.json",
+  "timing_origin": "CONTROLLED_SCENARIO",
+  "schedule": "APPLY_ORDERED_TOWER_INPUTS_DURING_ROUND_1_PREPARE_BEFORE_NATIVE_WAVE_START",
+  "seed": "1",
+  "seed_origin": "EXPLICIT_TEST_INPUT_NOT_OBSERVED_SEED",
+  "map": "ISOLATED_SYNTHETIC_ARENA_WITH_EXPLICIT_LANE_ORIGIN_AND_UNCHANGED_RELATIVE_XYZ",
+  "initial_economy": {"diamond": "10000", "emerald": "10000", "income": "0", "emerald_per_second": "1"},
+  "natural_wave": {"catalog_round": 1, "count": 12, "health": 10, "spawn_interval_ticks": 1},
+  "rules_policy": "BOTH_DRIVERS_USE_IDENTICAL_RULES_FINGERPRINT_AND_SEED_STREAM_ASSIGNMENT",
+  "excluded_inputs": ["SUMMON", "EMERALD_PRODUCTION_UPGRADE", "OTHER_PARTICIPANTS", "AUGMENT_SELECTION", "PLAYER_MOTION"],
+  "scenarios": [
+    {"id": "engineer-opening", "slot": "p02", "action_sequences": [0, 1, 2, 3, 4], "tower_count": 5, "recorded_diamond_spend": "131"},
+    {"id": "warlock-opening", "slot": "p00", "action_sequences": [1, 2, 3, 4], "tower_count": 3, "recorded_diamond_spend": "110"},
+    {"id": "illager-opening", "slot": "p01", "action_sequences": [0, 1, 2, 3], "tower_count": 4, "recorded_diamond_spend": "140"}
+  ]
+}
