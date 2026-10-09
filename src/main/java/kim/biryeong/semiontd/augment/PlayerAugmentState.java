@@ -480,7 +480,7 @@ public final class PlayerAugmentState {
     }
 
     private Optional<List<String>> replacement(Offer offer, Predicate<AugmentDefinition> eligible) {
-        Set<String> shown = seen.getOrDefault(offer.milestoneRound(), Set.copyOf(offer.cardIds()));
+        Set<String> shown = Set.copyOf(offer.cardIds());
         List<AugmentDefinition> candidates = normalCandidates(offer.milestoneRound(), offer.rarity(), eligible);
         boolean needsDiamonds = candidates.stream().noneMatch(AugmentDefinition::safe);
         candidates.removeIf(card -> shown.contains(card.id()));

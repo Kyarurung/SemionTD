@@ -22,7 +22,7 @@ final class AugmentCardFramesTest {
             }
         }
         assertEquals(344, AugmentCardDialog.CONTENT_WIDTH);
-        assertEquals(198, AugmentCardDialog.TOTAL_ROWS * 9);
+        assertEquals(207, AugmentCardDialog.TOTAL_ROWS * 9);
     }
 
     @Test
@@ -53,9 +53,9 @@ final class AugmentCardFramesTest {
     }
 
     @Test
-    void compactButtonsKeepDistinctStatesLegibleCountersAndTwoPixelHitPadding() {
+    void compactButtonsKeepDistinctStatesAndLeaveNormalFontCounterAreaEmpty() {
         var buttons = AugmentCardFrames.buttons();
-        assertEquals(108, buttons.getHeight());
+        assertEquals(27, buttons.getHeight());
         assertEquals(240, buttons.getWidth());
         assertEquals(40, AugmentCardFrames.BUTTON_WIDTH);
         assertEquals(34, AugmentCardFrames.BUTTON_INSET);
@@ -63,20 +63,15 @@ final class AugmentCardFramesTest {
             assertNotEquals(buttons.getRGB(rarity * 80, 2), buttons.getRGB(rarity * 80 + 40, 2),
                     "An exhausted reroll needs a visibly different inactive border");
         }
-        for (int remaining = 0; remaining <= 5; remaining++) {
-            for (int variant = 0; variant < 6; variant++) {
-                for (int y = 0; y < 18; y++) {
-                    assertEquals(y >= 2 && y < 16 ? 255 : 0,
-                            buttons.getRGB(variant * 40 + 39, remaining * 18 + y) >>> 24);
+        for (int variant = 0; variant < 6; variant++) {
+            for (int y = 0; y < 27; y++) {
+                assertEquals(y >= 2 && y <= 23 ? 255 : 0, buttons.getRGB(variant * 40 + 39, y) >>> 24);
+            }
+            for (int y = 3; y < 23; y++) {
+                for (int x = 25; x < 31; x++) {
+                    assertEquals(buttons.getRGB(variant * 40 + 35, y), buttons.getRGB(variant * 40 + x, y),
+                            "Remaining counts must not be baked into the image");
                 }
-                boolean counterVisible = false;
-                for (int y = 5; y < 13; y++) {
-                    for (int x = 25; x < 31; x++) {
-                        counterVisible |= buttons.getRGB(variant * 40 + x, remaining * 18 + y)
-                                != buttons.getRGB(variant * 40 + 35, remaining * 18 + y);
-                    }
-                }
-                assertTrue(counterVisible, "Every enabled and disabled button needs a legible remaining count");
             }
         }
     }

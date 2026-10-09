@@ -7,7 +7,6 @@ import eu.pb4.polymer.resourcepack.api.ResourcePackBuilder;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.GradientPaint;
-import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
@@ -28,7 +27,7 @@ public final class AugmentCardFrames {
     public static final int BUTTON_INSET = (WIDTH - BUTTON_WIDTH) / 2;
     public static final int ROW_HEIGHT = 9;
     public static final int CARD_ROWS = 19;
-    public static final int BUTTON_ROWS = 2;
+    public static final int BUTTON_ROWS = 3;
     public static final Identifier FONT = Identifier.fromNamespaceAndPath("semion-td", "augment_card_dialog");
     public static final int CARD_COLUMNS = AugmentRarity.values().length * AugmentIconCategory.values().length;
     private static final int FIRST_CARD = 0xE000;
@@ -48,7 +47,7 @@ public final class AugmentCardFrames {
 
     public static Component button(AugmentRarity rarity, boolean enabled, int remaining, int row) {
         if (remaining < 0 || remaining > 5) throw new IllegalArgumentException("Invalid reroll count");
-        return glyph(FIRST_BUTTON + (remaining * BUTTON_ROWS + row) * 6 + rarity.ordinal() * 2 + (enabled ? 0 : 1));
+        return glyph(FIRST_BUTTON + row * 6 + rarity.ordinal() * 2 + (enabled ? 0 : 1));
     }
 
     private static Component glyph(int codePoint) {
@@ -139,29 +138,22 @@ public final class AugmentCardFrames {
 
     static BufferedImage buttons() {
         int height = BUTTON_ROWS * ROW_HEIGHT;
-        var image = new BufferedImage(BUTTON_WIDTH * 6, height * 6, BufferedImage.TYPE_INT_ARGB);
+        var image = new BufferedImage(BUTTON_WIDTH * 6, height, BufferedImage.TYPE_INT_ARGB);
         var graphics = image.createGraphics();
         try {
-            graphics.setFont(new Font(Font.MONOSPACED, Font.BOLD, 8));
-            for (int remaining = 0; remaining <= 5; remaining++) {
-                graphics.translate(0, remaining * height);
-                for (int variant = 0; variant < 6; variant++) {
-                    int x = variant * BUTTON_WIDTH;
-                    boolean enabled = variant % 2 == 0;
-                    Color accent = enabled ? new Color(color(AugmentRarity.values()[variant / 2])) : new Color(0x65738A);
-                    graphics.setPaint(new GradientPaint(x, 2, new Color(enabled ? 0x37415A : 0x192333), x, 16, new Color(0x101827)));
-                    graphics.fillRect(x, 2, BUTTON_WIDTH, 14);
-                    graphics.setStroke(new BasicStroke(1));
-                    graphics.setColor(accent);
-                    graphics.drawRect(x, 2, BUTTON_WIDTH - 1, 13);
-                    graphics.setPaint(AugmentCategoryIcons.gradient(accent, 4, 12));
-                    graphics.setStroke(new BasicStroke(1.5F));
-                    graphics.drawArc(x + 8, 5, 7, 7, 40, 285);
-                    graphics.fillPolygon(new int[]{x + 16, x + 12, x + 16}, new int[]{4, 6, 9}, 3);
-                    graphics.setColor(accent);
-                    graphics.drawString(Integer.toString(remaining), x + 25, 12);
-                }
-                graphics.translate(0, -remaining * height);
+            for (int variant = 0; variant < 6; variant++) {
+                int x = variant * BUTTON_WIDTH;
+                boolean enabled = variant % 2 == 0;
+                Color accent = enabled ? new Color(color(AugmentRarity.values()[variant / 2])) : new Color(0x65738A);
+                graphics.setPaint(new GradientPaint(x, 2, new Color(enabled ? 0x37415A : 0x192333), x, 23, new Color(0x101827)));
+                graphics.fillRect(x, 2, BUTTON_WIDTH, 22);
+                graphics.setStroke(new BasicStroke(1));
+                graphics.setColor(accent);
+                graphics.drawRect(x, 2, BUTTON_WIDTH - 1, 21);
+                graphics.setPaint(AugmentCategoryIcons.gradient(accent, 8, 16));
+                graphics.setStroke(new BasicStroke(1.5F));
+                graphics.drawArc(x + 8, 9, 7, 7, 40, 285);
+                graphics.fillPolygon(new int[]{x + 16, x + 12, x + 16}, new int[]{8, 10, 13}, 3);
             }
         } finally {
             graphics.dispose();
@@ -172,7 +164,7 @@ public final class AugmentCardFrames {
     private static void resources(ResourcePackBuilder builder) {
         var providers = new JsonArray();
         add(builder, providers, "cards", cards(), CARD_ROWS, CARD_COLUMNS, FIRST_CARD);
-        add(builder, providers, "buttons", buttons(), BUTTON_ROWS * 6, 6, FIRST_BUTTON);
+        add(builder, providers, "buttons", buttons(), BUTTON_ROWS, 6, FIRST_BUTTON);
         var font = new JsonObject();
         font.add("providers", providers);
         builder.addData("assets/semion-td/font/augment_card_dialog.json", font.toString().getBytes(StandardCharsets.UTF_8));

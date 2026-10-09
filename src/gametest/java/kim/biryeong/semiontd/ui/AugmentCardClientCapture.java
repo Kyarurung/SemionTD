@@ -91,9 +91,9 @@ final class AugmentCardClientCapture {
                 });
                 move(context, 2, AugmentCardFrames.WIDTH / 2, 144);
                 context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
-                context.waitTicks(10);
+                awaitClosed(context);
                 context.runOnClient(client -> client.getConnection().sendCommand(clickedCommand[0].substring(1)));
-                context.waitTicks(5);
+                awaitClosed(context);
                 System.out.println("SEMION_NATIVE_SELECTION_CALLBACK_REPLAY rarity=" + rarity);
                 command(context, "semioncapture checkselection");
                 context.waitFor(client -> client.player.experienceLevel == 2042, 200);
@@ -105,6 +105,7 @@ final class AugmentCardClientCapture {
                 context.waitFor(client -> client.player.experienceLevel == 2143, 200);
                 System.out.println("SEMION_BARE_COMMAND_AFTER_SELECTION rarity=" + rarity + " history=true");
             }
+            verifyMouseMatrix(context);
             command(context, "semioncapture dedicated");
             context.waitFor(client -> client.player.experienceLevel == 2142 && client.gui.screen() instanceof DialogScreen<?>, 200);
             context.waitTicks(5);
@@ -150,6 +151,45 @@ final class AugmentCardClientCapture {
                 screenshot(context, "augment-card-category-preview-" + (page + 1) + "-scale" + scale);
             }
         }
+    }
+
+    private static void awaitClosed(ClientGameTestContext context) {
+        context.waitFor(client -> client.gui.screen() == null, 200);
+        context.waitTicks(25);
+        context.runOnClient(client -> {
+            if (client.gui.screen() != null) throw new AssertionError("Confirmed selection must stay closed");
+        });
+        System.out.println("SEMION_NATIVE_SELECTION_CLOSED stable=true");
+    }
+
+    private static void verifyMouseMatrix(ClientGameTestContext context) {
+        int[][] views = {{1600, 1000, 3}, {2560, 1369, 3}};
+        int[][] points = {{0, 0}, {54, 36}, {54, 76}, {54, 120}, {106, 170}};
+        for (var view : views) {
+            context.getInput().resizeWindow(view[0], view[1]);
+            context.runOnClient(client -> {
+                client.options.guiScale().set(view[2]);
+                client.resizeGui();
+            });
+            for (int slot = 0; slot < 3; slot++) {
+                for (var point : points) {
+                    open(context, "silver");
+                    move(context, slot, point[0], point[1]);
+                    context.getInput().pressMouse(SDLMouse.SDL_BUTTON_LEFT);
+                    awaitClosed(context);
+                    command(context, "semioncapture checkslotselection " + slot);
+                    int expected = 2200 + slot;
+                    context.waitFor(client -> client.player.experienceLevel == expected, 200);
+                    System.out.println("SEMION_NATIVE_MOUSE_MATRIX scale=" + view[2] + " width=" + view[0]
+                            + " height=" + view[1] + " slot=" + slot + " x=" + point[0] + " y=" + point[1]);
+                }
+            }
+        }
+        context.getInput().resizeWindow(1600, 1000);
+        context.runOnClient(client -> {
+            client.options.guiScale().set(3);
+            client.resizeGui();
+        });
     }
 
     private static void closeAndReopen(ClientGameTestContext context, int scale) {
@@ -244,7 +284,7 @@ final class AugmentCardClientCapture {
     private static void hitRegions(Minecraft client, FocusableTextWidget widget) {
         for (int row = 0; row < AugmentCardDialog.TOTAL_ROWS; row++) {
             for (int slot = 0; slot < 3; slot++) {
-                for (int x : new int[]{1, AugmentCardFrames.WIDTH / 2, AugmentCardFrames.WIDTH - 2}) {
+                for (int x = 0; x < AugmentCardFrames.WIDTH - 1; x++) {
                     var style = styleAt(client, widget, slot * (AugmentCardDialog.CARD_WIDTH + AugmentCardDialog.GAP) + x, row * 9 + 4);
                     var click = style == null ? null : style.getClickEvent();
                     if (row < AugmentCardFrames.CARD_ROWS) {

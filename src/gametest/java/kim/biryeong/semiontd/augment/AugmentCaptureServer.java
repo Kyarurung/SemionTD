@@ -159,6 +159,22 @@ public final class AugmentCaptureServer implements DedicatedServerModInitializer
                 player.setExperienceLevels(2142);
                 return 1;
             }));
+            command.then(Commands.literal("checkslotselection")
+                    .then(Commands.argument("slot", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 2))
+                            .executes(context -> {
+                                var player = context.getSource().getPlayerOrException();
+                                var state = captureState(player);
+                                int slot = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "slot");
+                                String expected = checkedCards.get(slot);
+                                if (state.selections().size() != 1 || state.currentOffer().isPresent()
+                                        || !state.selections().getFirst().augmentId().equals(expected)
+                                        || !state.rerollsRemainingBySlot().equals(checkedRerolls)) {
+                                    throw new IllegalStateException("Actual mouse selection must preserve the displayed slot identity");
+                                }
+                                player.setExperienceLevels(2200 + slot);
+                                System.out.println("SEMION_NATIVE_SLOT_ID_CONFIRMED slot=" + slot + " card=" + expected);
+                                return 1;
+                            })));
             command.then(Commands.literal("checkselection").executes(context -> {
                 var player = context.getSource().getPlayerOrException();
                 verifySelectedState(player);

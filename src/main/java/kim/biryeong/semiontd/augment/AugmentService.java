@@ -789,12 +789,15 @@ public final class AugmentService {
                         : game.currentTick() >= offer.deadlineTickExclusive() ? "EXPIRED" : "REVEAL_LOCKED");
                 if (offer != null && game.currentTick() >= offer.deadlineTickExclusive()) {
                     expireOffer(game, player, game.currentTick());
-                    showHistory(game, online, player);
+                    error(online, "선택 시간이 끝난 요청입니다. 현재 증강은 /증강에서 확인하세요.");
+                    if (state.currentOffer().isEmpty()) {
+                        closeDialog(online, player);
+                    }
                     return 0;
                 }
                 error(online, "현재 변경할 수 있는 제안이 없습니다. 공개 시간과 선택 마감을 확인하세요.");
                 if (offer == null) {
-                    showHistory(game, online, player);
+                    closeDialog(online, player);
                 }
                 return 0;
             }
@@ -943,6 +946,7 @@ public final class AugmentService {
             }
             game.playerLane(player.uuid()).ifPresent(lane -> lane.assignAugmentSnapshot(state.snapshot()));
             if (selectionConfirmed) {
+                closeDialog(online, player);
                 activateTargetTool(game, online, player);
                 announceSelection(game, online, player);
                 return 1;
@@ -1307,6 +1311,11 @@ public final class AugmentService {
         return settings.isEmpty() ? "" : String.join(" · ", settings) + " · /증강 설정";
     }
 
+    private void closeDialog(ServerPlayer online, SemionPlayer player) {
+        clearTargetPreview(player.uuid());
+        online.connection.send(net.minecraft.network.protocol.common.ClientboundClearDialogPacket.INSTANCE);
+    }
+
     private void openView(SemionGame game, ServerPlayer online, SemionPlayer player, String view) {
         switch (view) {
             case "target-tool" -> {
@@ -1316,10 +1325,7 @@ public final class AugmentService {
             case "current", "offer" -> showOffer(game, online, player);
             case "history" -> showHistory(game, online, player);
             case "reroll" -> showReroll(game, online, player);
-            case "close", "skip" -> {
-                clearTargetPreview(player.uuid());
-                online.connection.send(net.minecraft.network.protocol.common.ClientboundClearDialogPacket.INSTANCE);
-            }
+            case "close", "skip" -> closeDialog(online, player);
             case "contracts" -> showContracts(game, online, player);
             case "help" -> show(online, "증강 도움말",
                     "R5·R15·R25에 같은 등급의 세 장 중 하나를 고릅니다.\n경기마다 등급 순서는 모두 같고 카드 후보는 개인마다 다릅니다.\n"
@@ -1771,6 +1777,7 @@ public final class AugmentService {
             var server = lane == null || lane.arenaWorld() == null ? null : lane.arenaWorld().getServer();
             ServerPlayer online = server == null ? null : server.getPlayerList().getPlayer(player.uuid());
             if (online != null) {
+                closeDialog(online, player);
                 activateTargetTool(game, online, player);
                 online.sendSystemMessage(SemionText.prefixed(Component.literal("선택 시간이 끝나 ")
                         .append(cardWithHover(AugmentCatalog.find(selected.augmentId()).orElseThrow(), game.augmentConfig(), player))

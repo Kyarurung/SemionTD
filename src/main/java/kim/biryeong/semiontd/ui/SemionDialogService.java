@@ -1894,7 +1894,12 @@ public final class SemionDialogService {
             }
         }
         List<ActionButton> actions = screen.buttons().stream()
-                .map(button -> actionButton(Component.literal(button.label()), button.command(), Component.literal(button.description()), screen.cards().size() == 3 ? UiAugmentOfferView.CARD_WIDTH : COMPACT_BUTTON_WIDTH))
+                .map(button -> new ActionButton(new net.minecraft.server.dialog.CommonButtonData(
+                        Component.literal(button.label()), Optional.empty(),
+                        screen.cards().size() == 3 ? UiAugmentOfferView.CARD_WIDTH : COMPACT_BUTTON_WIDTH),
+                        button.command() == null || button.command().isBlank() ? Optional.empty()
+                                : Optional.of(new net.minecraft.server.dialog.action.StaticAction(
+                                        new net.minecraft.network.chat.ClickEvent.RunCommand(button.command())))))
                 .toList();
         showActions(player, miniMessage(screen.title()), bodies, actions, screen.columns());
     }

@@ -55,7 +55,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
     private static final String COMMAND = "/semiontd augment ";
 
     @GameTest
-    public void threeColumnGuiPacketsKeepLiveCommandsTooltipsAndStaleInputGuards(GameTestHelper context) {
+    public void threeColumnGuiPacketsKeepLiveCommandsAndStaleInputGuardsWithoutTooltips(GameTestHelper context) {
         for (String schedule : List.of("SSS", "GGG", "PPP")) {
             var online = context.makeMockServerPlayerInLevel();
             var game = prepare(context, online, schedule);
@@ -98,9 +98,15 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                         require(lore != null && lore.lines().stream().map(net.minecraft.network.chat.Component::getString)
                                         .collect(java.util.stream.Collectors.joining("\n"))
                                         .contains(AugmentDescriptions.describe(card, game.augmentConfig())),
-                                "The card hit area retains its complete configured tooltip.");
+                                "The card metadata retains the complete configured description.");
                     }
                     for (int slot = 0; slot < 45; slot++) require(gui.getGuiElement(slot) != null, "Every card pixel region needs a click target.");
+                    for (int slot = 0; slot < 54; slot++) {
+                        var element = gui.getGuiElement(slot);
+                        if (element == null) continue;
+                        var tooltip = element.getItemStack().get(DataComponents.TOOLTIP_DISPLAY);
+                        require(tooltip != null && tooltip.hideTooltip(), "Augment slots suppress hover tooltips.");
+                    }
                     gui.click(0, ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
                     require(state.selections().size() == 1, "The real SGUI slot callback must invoke the live service selection.");
                     gui.click(0, ClickType.MOUSE_LEFT, ContainerInput.PICKUP);
@@ -205,7 +211,7 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
     }
 
     @GameTest
-    public void nativeDialogBodyKeepsCardIdentitySharedRerollTooltipsAndStaleGuards(GameTestHelper context) {
+    public void nativeDialogBodyKeepsCardIdentityNormalFontCounterAndStaleGuardsWithoutTooltips(GameTestHelper context) {
         for (String schedule : List.of("SSS", "GGG", "PPP")) {
             var online = context.makeMockServerPlayerInLevel();
             var game = prepare(context, online, schedule);
@@ -222,6 +228,27 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                     require(dialog.common().body().size() == 1
                                     && dialog.common().body().getFirst() instanceof net.minecraft.server.dialog.body.PlainMessage,
                             "The production dialog exposes cards through a clickable text body.");
+                    require(dialog.common().title().getStyle().getHoverEvent() == null,
+                            "The augment title has no hover tooltip.");
+                    require(dialog.actions().stream().allMatch(action -> action.button().tooltip().isEmpty()),
+                            "Navigation controls have no hover tooltips.");
+                    for (int count : List.of(5, 0)) {
+                        var counted = new AugmentService.Screen(screen.title(), screen.body(), screen.cards(),
+                                screen.buttons(), screen.columns(), count, count > 0);
+                        var found = new java.util.concurrent.atomic.AtomicInteger();
+                        kim.biryeong.semiontd.ui.augment.AugmentCardDialog.body(counted).visit((style, text) -> {
+                            require(style.getHoverEvent() == null, "All augment body spans are tooltip-free.");
+                            if (text.equals(Integer.toString(count))) {
+                                require(style.getFont().equals(net.minecraft.network.chat.Style.EMPTY.getFont()),
+                                        "The remaining count uses the normal UI font.");
+                                require(style.getClickEvent() == null,
+                                        "The ordinary-font counter cannot override its aligned reroll hit region.");
+                                found.incrementAndGet();
+                            }
+                            return java.util.Optional.empty();
+                        }, net.minecraft.network.chat.Style.EMPTY);
+                        require(found.get() == 1, "The remaining count appears exactly once as normal text.");
+                    }
                     var styles = new java.util.HashMap<String, net.minecraft.network.chat.Style>();
                     kim.biryeong.semiontd.ui.augment.AugmentCardDialog.body(screen).visit((style, text) -> {
                         if (style.getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.RunCommand click) {
@@ -233,10 +260,8 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
                         String command = screen.buttons().get(cardSlot).command();
                         require(styles.containsKey(command) && command.contains(" " + offer.cardIds().get(cardSlot) + " "),
                                 "Every card slice carries the current card identity and session-scoped action.");
-                        var hover = styles.get(command).getHoverEvent();
-                        require(hover instanceof net.minecraft.network.chat.HoverEvent.ShowText tooltip
-                                        && tooltip.value().getString().equals(screen.buttons().get(cardSlot).description()),
-                                "Sliced cards must retain their complete production tooltip.");
+                        require(styles.get(command).getHoverEvent() == null,
+                                "Card controls must not expose hover tooltips.");
                     }
                     String reroll = screen.buttons().get(3).command();
                     require(screen.canReroll() && styles.containsKey(reroll), "The shared reroll is clickable in the body.");
@@ -274,6 +299,134 @@ public final class AugmentOfferPresentationTest extends AugmentControllerFixture
             } finally {game.close();}
         }
         context.succeed();
+    }
+
+    @GameTest
+    public void cardInteractionLayersKeepAllThreeIdentitiesAndVisualsCannotOverrideThem(GameTestHelper context) {
+        for (int selectedSlot = 0; selectedSlot < 3; selectedSlot++) {
+            var online = context.makeMockServerPlayerInLevel();
+            var game = prepare(context, online);
+            var originalConnection = online.connection;
+            var packets = collectPackets(online);
+            try {
+                addTarget(game, online);
+                force(game, online, "finishing_fire_1 tactical_designation_1_cover beneficial_effect_1");
+                advance(game, online, 20);
+                var player = game.players().get(online.getUUID());
+                var state = player.augments();
+                var offer = state.currentOffer().orElseThrow();
+                var screen = game.augmentService().offerScreen(game, player, offer, true);
+                int[] actionCharacters = {0};
+                kim.biryeong.semiontd.ui.augment.AugmentCardDialog.body(screen).visit((style, text) -> {
+                    if (style.getClickEvent() != null) {
+                        require(style.getFont() instanceof net.minecraft.network.chat.FontDescription.Resource font
+                                        && kim.biryeong.semiontd.ui.rp.SemionUiFont.usesFont(font.id()),
+                                "Only card-aligned spacing regions carry commands; artwork and labels cannot override them.");
+                        text.codePoints().forEach(codePoint -> {
+                            require(kim.biryeong.semiontd.ui.rp.SemionUiFont.preciseAdvance(codePoint) > 0,
+                                    "An interactive span never moves the cursor backwards.");
+                            actionCharacters[0]++;
+                        });
+                    }
+                    return java.util.Optional.empty();
+                }, net.minecraft.network.chat.Style.EMPTY);
+                require(actionCharacters[0] > 0, "The full cards remain interactive.");
+                String selectedId = offer.cardIds().get(selectedSlot);
+                String command = screen.buttons().get(selectedSlot).command();
+                packets.clear();
+                require(game.augmentService().handle(game, online, command.substring(COMMAND.length()), false) == 1,
+                        "Each card region dispatches its live selection action.");
+                require(state.selections().size() == 1 && state.selections().getFirst().augmentId().equals(selectedId)
+                                && state.currentOffer().isEmpty() && state.rerollsRemaining() == 5,
+                        "The selected card identity is preserved for every slot without spending a reroll.");
+                require(clearPackets(packets) == 1 && showPackets(packets) == 0,
+                        "A committed selection closes the dialog without reopening it.");
+                packets.clear();
+                require(game.augmentService().handle(game, online, command.substring(COMMAND.length()), false) == 0,
+                        "Replaying a card cannot grant another augment.");
+                advance(game, online, 25);
+                require(clearPackets(packets) == 1 && showPackets(packets) == 0 && state.selections().size() == 1,
+                        "Duplicate callbacks and scheduled updates cannot reopen the dialog or grant twice.");
+            } finally {
+                online.connection = originalConnection;
+                game.close();
+            }
+        }
+        context.succeed();
+    }
+
+    @GameTest
+    public void dialogClosePreservesOfferAndRerollFailuresWhileExpiryRejectsLateSelection(GameTestHelper context) {
+        var online = context.makeMockServerPlayerInLevel();
+        var game = prepare(context, online);
+        var originalConnection = online.connection;
+        var packets = collectPackets(online);
+        try {
+            force(game, online, "beneficial_effect_1 reserve_income_silver reserve_production_silver");
+            advance(game, online, 20);
+            var player = game.players().get(online.getUUID());
+            var state = player.augments();
+            var offer = state.currentOffer().orElseThrow();
+            var screen = game.augmentService().offerScreen(game, player, offer, true);
+            String staleCard = screen.buttons().getFirst().command().substring(COMMAND.length());
+            packets.clear();
+            require(handle(game, online, "ui close") == 1, "Explicit close succeeds.");
+            require(clearPackets(packets) == 1 && state.currentOffer().isPresent()
+                            && state.selections().isEmpty() && state.rerollsRemaining() == 5,
+                    "Closing a dialog consumes neither selection nor reroll.");
+            packets.clear();
+            require(game.augmentService().handle(game, online,
+                    screen.buttons().get(3).command().substring(COMMAND.length()), false) == 1,
+                    "Reroll succeeds through its actual command.");
+            require(clearPackets(packets) == 0 && showPackets(packets) > 0
+                            && state.selections().isEmpty() && state.rerollsRemaining() == 4,
+                    "Reroll keeps the offer dialog open without selecting.");
+            packets.clear();
+            require(game.augmentService().handle(game, online, staleCard, false) == 0,
+                    "An old card command is rejected after reroll.");
+            require(clearPackets(packets) == 0 && state.currentOffer().isPresent()
+                            && state.selections().isEmpty() && state.rerollsRemaining() == 4,
+                    "Stale input cannot close an active offer or spend another action.");
+            var current = state.currentOffer().orElseThrow();
+            String lateCard = game.augmentService().offerScreen(game, player, current, true)
+                    .buttons().getFirst().command().substring(COMMAND.length());
+            setField(game, "tickCounter", current.deadlineTickExclusive());
+            packets.clear();
+            require(game.augmentService().handle(game, online, lateCard, false) == 0,
+                    "An expired click is rejected rather than acknowledged as a successful selection.");
+            require(clearPackets(packets) > 0 && showPackets(packets) == 0
+                            && state.currentOffer().isEmpty() && state.selections().size() == 1
+                            && state.rerollsRemaining() == 4,
+                    "The existing timeout policy resolves the offer once and leaves the dialog closed.");
+        } finally {
+            online.connection = originalConnection;
+            game.close();
+        }
+        context.succeed();
+    }
+
+    private static ArrayList<Packet<?>> collectPackets(net.minecraft.server.level.ServerPlayer online) {
+        var packets = new ArrayList<Packet<?>>();
+        online.connection = new net.minecraft.server.network.ServerGamePacketListenerImpl(online.level().getServer(),
+                new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND), online,
+                net.minecraft.server.network.CommonListenerCookie.createInitial(online.getGameProfile(), false)) {
+            @Override public void send(Packet<?> packet) {
+                packets.add(packet);
+            }
+        };
+        eu.pb4.polymer.common.api.PolymerCommonUtils.setHasResourcePack(online,
+                eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils.getMainUuid(), true);
+        require(eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils.hasMainPack(online),
+                "The packet fixture represents a client that loaded the card resource pack.");
+        return packets;
+    }
+
+    private static long clearPackets(List<Packet<?>> packets) {
+        return packets.stream().filter(net.minecraft.network.protocol.common.ClientboundClearDialogPacket.class::isInstance).count();
+    }
+
+    private static long showPackets(List<Packet<?>> packets) {
+        return packets.stream().filter(net.minecraft.network.protocol.common.ClientboundShowDialogPacket.class::isInstance).count();
     }
 
     private static long revealed() {

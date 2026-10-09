@@ -15,6 +15,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.resources.Identifier;
 
 public final class AugmentOfferGui extends SimpleGui {
+    private static final net.minecraft.world.item.component.TooltipDisplay HIDDEN_TOOLTIP =
+            new net.minecraft.world.item.component.TooltipDisplay(true, new java.util.LinkedHashSet<>());
     private final AugmentService.Screen screen;
     private final BooleanSupplier valid;
     private final ToIntFunction<String> execute;
@@ -50,6 +52,7 @@ public final class AugmentOfferGui extends SimpleGui {
                     .setName(SemionText.mini(screen.cards().get(card).definition().rarity()
                             .markup(screen.cards().get(card).definition().displayName())))
                     .setComponent(DataComponents.ITEM_MODEL, Identifier.withDefaultNamespace("air"))
+                    .setComponent(DataComponents.TOOLTIP_DISPLAY, HIDDEN_TOOLTIP)
                     .setCallback((index, type, action, gui) -> activate(card));
             for (String line : button.description().split("\n")) element.addLoreLine(Component.literal(line));
             element.addLoreLine(Component.literal("카드 영역을 클릭하여 선택").withStyle(ChatFormatting.YELLOW));
@@ -58,7 +61,8 @@ public final class AugmentOfferGui extends SimpleGui {
         var reroll = screen.buttons().get(3);
         var rerollElement = new GuiElementBuilder(canReroll ? Items.SUNFLOWER : Items.BARRIER)
                 .setName(Component.literal(reroll.label()).withStyle(canReroll ? ChatFormatting.GOLD : ChatFormatting.GRAY))
-                .addLoreLine(Component.literal(reroll.description()));
+                .addLoreLine(Component.literal(reroll.description()))
+                .setComponent(DataComponents.TOOLTIP_DISPLAY, HIDDEN_TOOLTIP);
         if (canReroll) rerollElement.setCallback((slot, type, action, gui) -> activate(3));
         setSlot(AugmentOfferLayout.REROLL_SLOT, rerollElement);
         int[] navigationSlots = {45, 47, 53};
@@ -67,6 +71,7 @@ public final class AugmentOfferGui extends SimpleGui {
             var button = screen.buttons().get(i);
             setSlot(navigationSlots[i - 4], new GuiElementBuilder(i == 6 ? Items.BARRIER : Items.BOOK)
                     .setName(Component.literal(button.label()))
+                    .setComponent(DataComponents.TOOLTIP_DISPLAY, HIDDEN_TOOLTIP)
                     .setCallback((slot, type, input, gui) -> activate(action)));
         }
         updateTitle();

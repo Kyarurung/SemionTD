@@ -419,6 +419,38 @@ class AugmentCatalogStateTest {
     }
 
     @Test
+    void smallPoolCanReusePastCardsForFiveAtomicRerolls() {
+        var state = state(2, SILVER);
+        Set<String> pool = Set.of("semiontd:beneficial_effect_1", "semiontd:finishing_fire_1",
+                "semiontd:triangle_formation");
+        Predicate<AugmentDefinition> eligible = card -> pool.contains(card.id());
+        var shown = new HashSet<String>();
+        boolean reused = false;
+        state.offer(5, 5, 600, eligible);
+        for (int used = 1; used <= 5; used++) {
+            var before = state.currentOffer().orElseThrow();
+            shown.addAll(before.cardIds());
+            UUID request = UUID.randomUUID();
+            assertEquals(SUCCESS, state.reroll(5, before.revision(), request, 20, eligible).status());
+            var after = state.currentOffer().orElseThrow();
+            assertTrue(java.util.Collections.disjoint(before.cardIds(), after.cardIds()));
+            assertEquals(3, new HashSet<>(after.cardIds()).size());
+            assertTrue(after.cardIds().stream().allMatch(id -> pool.contains(id)
+                    || AugmentCatalog.find(id).orElseThrow().reserve()));
+            reused |= after.cardIds().stream().anyMatch(shown::contains);
+            assertEquals(5 - used, state.rerollsRemaining());
+            assertEquals(before.deadlineTickExclusive(), after.deadlineTickExclusive());
+            assertEquals(before.revision() + 1, after.revision());
+            assertEquals(INVALID_REQUEST, state.reroll(5, after.revision(), request, 20, eligible).status());
+            assertEquals(after, state.currentOffer().orElseThrow());
+        }
+        assertTrue(reused);
+        assertEquals(6, state.offerEvents().size());
+        var last = state.currentOffer().orElseThrow();
+        assertEquals(REROLL_SPENT, state.reroll(5, last.revision(), UUID.randomUUID(), 20, eligible).status());
+    }
+
+    @Test
     void legacyBudgetsMigrateToTheLowestRemainingBalanceAndCannotRefill() throws Exception {
         var state = state(2, GOLD);
         var field = PlayerAugmentState.class.getDeclaredField("rerollsUsedBySlot");

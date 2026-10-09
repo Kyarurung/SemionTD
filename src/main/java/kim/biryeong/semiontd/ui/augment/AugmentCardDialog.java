@@ -13,7 +13,6 @@ import kim.biryeong.semiontd.util.TextUncenterer;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.protocol.common.ClientboundShowDialogPacket;
@@ -45,12 +44,11 @@ public final class AugmentCardDialog {
         if (screen.cards().size() != 3 || screen.buttons().size() != 7) {
             throw new IllegalArgumentException("Three cards and one shared reroll control required");
         }
-        var common = new CommonDialogData(SemionText.mini(screen.title()).copy().withStyle(style -> style
-                .withHoverEvent(new HoverEvent.ShowText(SemionText.mini(screen.body())))), Optional.empty(), true,
+        var common = new CommonDialogData(SemionText.mini(screen.title()), Optional.empty(), true,
                 false, DialogAction.NONE, List.of(new PlainMessage(body(screen), CONTENT_WIDTH + 8)), List.of());
         List<ActionButton> navigation = screen.buttons().subList(4, screen.buttons().size()).stream()
                 .map(button -> new ActionButton(new CommonButtonData(Component.literal(button.label()),
-                        Optional.of(Component.literal(button.description())), 100),
+                        Optional.empty(), 100),
                         Optional.of(new StaticAction(new ClickEvent.RunCommand(button.command()))))).toList();
         return new MultiActionDialog(common, navigation, Optional.empty(), 3);
     }
@@ -66,6 +64,7 @@ public final class AugmentCardDialog {
         var result = Component.empty();
         for (int row = 0; row < TOTAL_ROWS; row++) {
             if (row > 0) result.append("\n");
+            result.append(hitRow(screen, row)).append(SemionUiFont.offset(-CONTENT_WIDTH));
             for (int slot = 0; slot < 3; slot++) {
                 if (slot > 0) result.append(SemionUiFont.space(GAP));
                 var card = screen.cards().get(slot);
@@ -78,7 +77,7 @@ public final class AugmentCardDialog {
                     if (row >= 8 && row < 10) text = titles.get(slot).get(row - 8);
                     if (row >= 11 && row < 18) text = descriptions.get(slot).get(row - 11);
                     overlay(cell, text, CARD_WIDTH);
-                    cell.withStyle(actionStyle(screen.buttons().get(slot)));
+                    cell.withStyle(Style.EMPTY.withShadowColor(0));
                 } else if (row == AugmentCardFrames.CARD_ROWS) {
                     cell.append(SemionUiFont.space(CARD_WIDTH));
                 } else if (slot != 1) {
@@ -86,12 +85,19 @@ public final class AugmentCardDialog {
                 } else {
                     boolean enabled = screen.canReroll();
                     int buttonRow = row - AugmentCardFrames.CARD_ROWS - 1;
-                    var button = screen.buttons().get(3);
                     cell.append(SemionUiFont.space(AugmentCardFrames.BUTTON_INSET));
-                    cell.append(AugmentCardFrames.button(rarity, enabled, screen.rerollsRemaining(), buttonRow)
-                            .copy().withStyle(enabled ? actionStyle(button) : Style.EMPTY.withHoverEvent(
-                                    new HoverEvent.ShowText(Component.literal(button.description())))));
-                    cell.append(SemionUiFont.offset(-1));
+                    var control = Component.empty()
+                            .append(AugmentCardFrames.button(rarity, enabled, screen.rerollsRemaining(), buttonRow))
+                            .append(SemionUiFont.offset(-1));
+                    if (buttonRow == 1) {
+                        var count = Component.literal(Integer.toString(screen.rerollsRemaining()))
+                                .withColor(enabled ? AugmentCardFrames.color(rarity) : 0x65738A);
+                        control.append(SemionUiFont.offset(-AugmentCardFrames.BUTTON_WIDTH))
+                                .append(SemionUiFont.space(25)).append(count)
+                                .append(fill(AugmentCardFrames.BUTTON_WIDTH - 25 - TextUncenterer.preciseWidth(count)));
+                    }
+                    control.withStyle(Style.EMPTY.withShadowColor(0));
+                    cell.append(control);
                     cell.append(SemionUiFont.space(AugmentCardFrames.BUTTON_INSET));
                 }
                 result.append(cell);
@@ -100,9 +106,28 @@ public final class AugmentCardDialog {
         return result;
     }
 
+    private static Component hitRow(AugmentService.Screen screen, int row) {
+        var result = Component.empty();
+        if (row < AugmentCardFrames.CARD_ROWS) {
+            for (int slot = 0; slot < 3; slot++) {
+                if (slot > 0) result.append(SemionUiFont.space(GAP));
+                result.append(Component.empty().append(SemionUiFont.space(CARD_WIDTH))
+                        .withStyle(actionStyle(screen.buttons().get(slot))));
+            }
+        } else if (row > AugmentCardFrames.CARD_ROWS && screen.canReroll()) {
+            int inset = CARD_WIDTH + GAP + AugmentCardFrames.BUTTON_INSET;
+            result.append(SemionUiFont.space(inset));
+            result.append(Component.empty().append(SemionUiFont.space(AugmentCardFrames.BUTTON_WIDTH))
+                    .withStyle(actionStyle(screen.buttons().get(3))));
+            result.append(SemionUiFont.space(inset));
+        } else {
+            result.append(SemionUiFont.space(CONTENT_WIDTH));
+        }
+        return result;
+    }
+
     private static Style actionStyle(AugmentService.Button button) {
         return Style.EMPTY.withClickEvent(new ClickEvent.RunCommand(button.command()))
-                .withHoverEvent(new HoverEvent.ShowText(Component.literal(button.description())))
                 .withShadowColor(0);
     }
 
