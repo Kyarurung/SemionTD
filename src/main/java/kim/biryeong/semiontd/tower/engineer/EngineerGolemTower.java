@@ -201,13 +201,12 @@ public final class EngineerGolemTower extends Tower {
                 .filter(tower -> tower.plateKind() != null)
                 .filter(tower -> !plateCooldowns.containsKey(tower.originalPosition()))
                 .filter(tower -> !tower.originalPosition().equals(lastPressedPlate))
-                .sorted(Comparator
+                .min(Comparator
                         .comparingInt((EngineerCircuitTower tower) -> tower.plateKind().priority()).reversed()
                         .thenComparingDouble(tower -> plateCenter(tower).distanceToSqr(origin))
                         .thenComparingInt(tower -> tower.originalPosition().x())
                         .thenComparingInt(tower -> tower.originalPosition().z()))
                 .map(Tower::originalPosition)
-                .findFirst()
                 .orElse(null);
     }
 

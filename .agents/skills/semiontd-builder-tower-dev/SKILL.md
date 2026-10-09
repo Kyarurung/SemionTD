@@ -48,7 +48,7 @@ Inspect every caller before changing a shared hook or service.
 
 ### 3. Choose the closest complete sibling
 
-Use the current Warlock and End packages as the responsibility-separation references: runtime hook orchestration, typed config, state/snapshots, mechanic controllers, combat and detail assembly/view. Preserve the distinction between Warlock sacrifice commit and End partial-transfer rollback. Do not require their class count or copy their game rules into another family. Compare at least one simple family and one family with similar state, targeting, support, or resource behavior. Copy structure, not stale values. Reuse current helpers for damage, timed effects, area effects, VFX, descriptions, state transfer, and config merging.
+Use the [registered-builder implementation comparison](../../../docs/production-tower-catalog.ko.md#빌더별-구현-방식-선택) to choose a family with matching state ownership, lifetime and trigger, then compare a simpler family. The comparison covers every registered builder and Default, with actual code, tests and limitations. No family is the default model for every responsibility. Reuse current helpers for damage, timed effects, area effects, VFX, descriptions, state transfer and config merging. Preserve the chosen family's ordering, reset/copy and failure contracts; do not copy its class count, stale values or unrelated game rules. Responsibility separation is a design choice, and performance claims require measurements under identical inputs.
 
 ### 4. Keep responsibilities and tests together
 

@@ -44,36 +44,21 @@ The main package is `src/main/java/kim/biryeong/semiontd`.
 | Unit tests | `src/test/java/kim/biryeong/semiontd` | pure state, config, catalog, damage, descriptions, export |
 | Fabric GameTests | `src/gametest/java/kim/biryeong/semiontd` | live entity, lane, lifecycle, placement, upgrade, dialog, VFX behavior |
 
-Use `OceanTowers` / `OceanTowerCatalogs` as a family with placement/resource behavior, `VillagerAdvTowerJob` / `VillagerAdvStates` as keyed state examples, and the closest current family for the mechanic being added. Never assume a family is exemplary in every dimension.
+### Choose references by the actual contract
 
-### Warlock and End as responsibility references
+Use the [registered-builder implementation comparison](../../../../docs/production-tower-catalog.ko.md#빌더별-구현-방식-선택) as the single detailed map of all registered builders and Default. It links current implementations and regression tests and distinguishes reusable boundaries from family-specific rules and unfinished work. Select a family with similar state ownership, lifetime and trigger, and compare a simpler family before introducing another abstraction. No builder is exemplary for every responsibility.
 
-Read `tower/warlock` and `tower/end` together before restructuring a family. Their common strength is a runtime tower that connects lifecycle hooks to explicit configuration, mutable state, mechanic controllers, combat calculations and detail presentation. This is a responsibility map, not a required file count.
+Keep these decisions explicit:
 
-| Boundary | Warlock reference | End reference |
-|---|---|---|
-| runtime orchestration | `WarlockTower` | `EndTower` |
-| typed configuration | `WarlockConfig`, `WarlockConfigReader`, `WarlockRules` | `EndConfig`, `EndAbilityKey` |
-| mutable state and snapshots | `WarlockState`, `WarlockProgressionSnapshot` | `EndTransferState`, `EndTransferSnapshot`, `EndTransferStacks` |
-| mechanic execution | `WarlockSacrificeController`, `WarlockAwakeningController` | `EndTransferController`, `EndEvolutionController` |
-| combat calculation | `WarlockCombat` | `EndCombat` |
-| runtime data to display | `WarlockStatsAssembler`, `WarlockStatsView` | `EndStatsAssembler`, `EndStatsView` |
+- Ownership: distinguish tower-local state, player/match services, target/source contributions and account persistence. Mutable objects with entity or lane references are not detached snapshots.
+- Lifetime: inspect placement, upgrade copy, round preparation, wave start/end, death, reconnect and match shutdown. Reset only the fields whose lifetime ends at that boundary.
+- Execution: preserve RNG consumption, encounter-order ties, callback membership checks, source attribution and failure/rollback ordering. Warlock's successful-sacrifice commit and End's partial-transfer rollback remain distinct contracts; other families retain their own rules.
+- Presentation and configuration: views must not consume RNG or execute combat. Preserve inherited detail lines, typed values and reload semantics.
+- Verification and cost: put pure state/geometry tests beside the implementation and keep server-backed tests for actual callers. Include collection construction, invalidation and memory costs when measuring; a controller, queue, cache or class extraction alone proves no performance improvement.
 
-Preserve their differences. `WarlockSacrifice` separates snapshot/calculation from committing a gain after a successful kill. End transfer tracks partial contributions over ticks and can roll them back when interrupted; permanent and round contributions have distinct lifetimes. These are not interchangeable progression algorithms. Do not introduce a universal controller or cache just to make other families look identical.
+Family-local helpers are implementation details, not a public API for unrelated builders. Use common placement, damage, timed-effect and area-effect services first. Keep trivial hooks in the tower and extract only responsibilities with distinct callers, independently testable behavior or lifetimes. Follow the package/category/responsibility naming rule without forcing every family to have the same files.
 
-Use a small family-local helper when its behavior can be tested independently or has a separate lifecycle. Keep trivial hooks in the tower. Mirror real boundaries in tests: `WarlockSacrificeTest` / `WarlockStateTest`, `EndTransferDomainTest` / `EndTransferLifecycleTest`, then family-local server `*TowerIntegrationTest` / `*TowerRuntimeTest`. Follow the package/category/responsibility naming rule for new classes, even when a reference retains a shorter legacy name. This separation improves testability and ownership; it does not itself establish a performance gain.
-
-### Family-local examples after responsibility extraction
-
-The existing Warlock/End boundaries remain the reference. Other existing separations such as `MageTowerRuntime` / `MageTowerLifecycle`, `AtlantisPressure` / `AtlantisStates` and `IllagerRaidState` / `IllagerTargetPolicy` remain useful without forcing every builder into an identical structure. The current extractions illustrate narrower choices:
-
-- Presentation: `ArmyTowerStatsView.create`, `PetTowerStatsView.create`, `PlantTowerStatsView.create`, `AdversaryTowerFormStatsView.append` and `GambleTowerStatsView.upgradeTooltipLines` / `runtimeDetailLines` read configuration and current state without consuming RNG or executing combat. Preserve inherited lines when the view accepts them.
-- Support cadence: `HeroCompanionSupportController.tick` owns support execution; `copyFrom` preserves upgrade progress, while `resetRound` clears pulses but retains cooldown. `HeroCompanionStatsView.abilities` presents abilities and `HeroCompanionAbilityDefaults` holds the shared fallback values.
-- Deterministic calculation: `BodyTowerTargetGeometry.eyeDirection` / `insideEyeRay`, `DemonLordLaneGeometry.laneCentre` and `DeveloperTowerPatchEfficiency.resolve` isolate family-specific spatial or modifier rules without creating another placement or targeting framework.
-- Owned state: `NetherBloodChargeController` preserves the FIFO charge values and residual natural loss; `OceanCurrentController` owns tide ticks, spent water and charges. Both expose `snapshot` / `restore`; test independent copying and configuration boundaries. `FrostFullOperationState` owns per-wave activation state. `SuccubusDreamState` is mutable and retains entity/lane references; it is not an immutable snapshot.
-- World/collection orchestration: `BlueprintTowerSummonController.summon` / `expire` / `dismiss`, `EngineerTrapSignalController.select` and `ResonanceTowerLinkController.refresh` retain their distinct entity-lifetime, circuit-ordering and connection-update contracts.
-
-These helpers are package-private family implementations, not a public API for unrelated builders. Put focused state/view/geometry tests in the same family package, and retain server-backed tests for the callers. For example, `HeroCompanionSupportControllerTest` covers distinct reset/copy lifetimes, `NetherBloodChargeControllerTest` covers threshold changes and snapshot independence, and `BlueprintTowerModuleTest` covers actual summon behavior and lifetime after summoner death. The detailed current mapping is in [the production catalog guide](../../../../docs/production-tower-catalog.ko.md). A class extraction alone does not justify a cache or a performance claim.
+The [hypercarry contract](#하이퍼-캐리형-빌더-공통-계약) below continues to apply, including trait/augment restrictions, actual-damage lifesteal and linear/logarithmic scaling. The comparison does not make unfinished common lifesteal integration complete.
 
 ## 2. Discovery and preflight
 
@@ -142,7 +127,7 @@ There is no deselection hook. Reconnect does not replay selection or match-start
 
 ### Event implementation and ordered cleanup
 
-`SemionJob` keeps the eight existing public event entrypoints. Each delegates through `JobBuilderLifecycle` to the job ID's `JobLifecycle` implementation. Built-in job classes keep metadata, permissions and economy modifiers; put event behavior in `Job<Builder>Lifecycle`, not job overrides. The registry explicitly includes every built-in job and Default: currently 22 family implementations and 11 `JobLifecycle.NONE` entries. Use the no-op entry for a job with no event behavior instead of making an empty class.
+`SemionJob` keeps the eight existing public event entrypoints. Each delegates through `JobBuilderLifecycle` to the job ID's `JobLifecycle` implementation. Built-in job classes keep metadata, permissions and economy modifiers; put event behavior in `Job<Builder>Lifecycle`, not job overrides. The registry explicitly includes every built-in job and Default: currently 23 family implementations and 11 `JobLifecycle.NONE` entries. Use the no-op entry for a job with no event behavior instead of making an empty class.
 
 Register a new job in both `JobRegistry` and `JobBuilderLifecycle`. Lifecycle implementations are shared, so mutable player/match fields still belong in keyed family services. Family mechanics remain in their tower/services; the lifecycle implementation connects those operations at the right boundary. For example, `JobPlantLifecycle.onRoundEnded` pays surviving owned towers' income, `JobArmyLifecycle` completes service and discharge refunds, and `JobWarlockLifecycle.onMonsterKilled` records awakening progress once. End retains a no-op job lifecycle; its tower transfer lifecycle remains separate.
 

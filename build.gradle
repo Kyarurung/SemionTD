@@ -217,6 +217,21 @@ loom.runConfigs.named('gameTest') {
     runDirectory.set(isolatedGameTestDirectory)
 }
 tasks.named('runGameTest') {
+    if (providers.gradleProperty('semiontd.algorithmProfile').getOrElse('false').toBoolean()) {
+        systemProperty 'semiontd.algorithmProfile', 'true'
+        systemProperty 'fabric-api.gametest.filter',
+                'semion-td-gametest:game_algorithm_performance_test_measures_deterministic_algorithms'
+        ['profileVariant', 'profileRevision', 'profileSeed', 'profileWorldSeed',
+         'profileWarmupTicks', 'profileSampleTicks', 'profileRepetitions'].each { key ->
+            def value = providers.gradleProperty('semiontd.' + key).orNull
+            if (value != null) systemProperty 'semiontd.' + key, value
+        }
+        doFirst {
+            def fixture = file('src/gametest/java/kim/biryeong/semiontd/entity/goal/GameAlgorithmPerformanceTest.java')
+            systemProperty 'semiontd.profileFixtureSha256', java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance('SHA-256').digest(fixture.bytes))
+        }
+    }
     doFirst {
         File isolatedRun = isolatedGameTestDirectory.get().asFile
         if (new File(isolatedRun, 'world').exists()) {

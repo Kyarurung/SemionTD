@@ -163,20 +163,89 @@ public final class TimedEffectSet {
 
     public double multiplicativeMagnitude(TimedEffectType type, int maxSources) {
         if (type == null || maxSources <= 0) return 0.0;
-        var contributions = new java.util.ArrayList<Double>();
         ActiveTimedEffect active = effects.get(type);
-        if (active != null) contributions.add(active.magnitude);
         var timed = sourcedEffects.get(type);
-        if (timed != null) timed.values().forEach(effect -> contributions.add(effect.magnitude));
         var persistent = persistentEffects.get(type);
-        if (persistent != null) contributions.addAll(persistent.values());
-        contributions.removeIf(value -> !Double.isFinite(value));
-        contributions.sort(java.util.Comparator.reverseOrder());
+        if (timed == null && persistent == null) {
+            return active == null || !Double.isFinite(active.magnitude)
+                    ? 0.0 : 1.0 - (1.0 - Math.clamp(active.magnitude, 0.0, 1.0));
+        }
+        return sourcedMultiplicativeMagnitude(active, timed, persistent, maxSources);
+    }
+
+    private static double sourcedMultiplicativeMagnitude(ActiveTimedEffect active,
+            Map<Identifier, ActiveTimedEffect> timed, Map<Identifier, Double> persistent, int maxSources) {
+        int count = (active == null ? 0 : 1) + (timed == null ? 0 : timed.size())
+                + (persistent == null ? 0 : persistent.size());
+        int capacity = Math.min(count, maxSources);
+        if (capacity == 0) return 0.0;
+        if (capacity == 1) return singleSourceMagnitude(active, timed, persistent);
+        double[] strongest = new double[capacity];
+        int size = active == null ? 0 : includeStrongest(strongest, 0, active.magnitude);
+        if (timed != null) {
+            for (ActiveTimedEffect effect : timed.values()) {
+                size = includeStrongest(strongest, size, effect.magnitude);
+            }
+        }
+        if (persistent != null) {
+            for (double magnitude : persistent.values()) {
+                size = includeStrongest(strongest, size, magnitude);
+            }
+        }
+        java.util.Arrays.sort(strongest, 0, size);
         double remaining = 1.0;
-        for (int i = 0; i < Math.min(maxSources, contributions.size()); i++) {
-            remaining *= 1.0 - Math.clamp(contributions.get(i), 0.0, 1.0);
+        for (int i = size - 1; i >= 0; i--) {
+            remaining *= 1.0 - Math.clamp(strongest[i], 0.0, 1.0);
         }
         return 1.0 - remaining;
+    }
+
+    private static double singleSourceMagnitude(ActiveTimedEffect active,
+            Map<Identifier, ActiveTimedEffect> timed, Map<Identifier, Double> persistent) {
+        double strongest = active == null || !Double.isFinite(active.magnitude)
+                ? Double.NEGATIVE_INFINITY : active.magnitude;
+        if (timed != null) {
+            for (ActiveTimedEffect effect : timed.values()) {
+                if (Double.isFinite(effect.magnitude) && Double.compare(effect.magnitude, strongest) > 0) {
+                    strongest = effect.magnitude;
+                }
+            }
+        }
+        if (persistent != null) {
+            for (double magnitude : persistent.values()) {
+                if (Double.isFinite(magnitude) && Double.compare(magnitude, strongest) > 0) {
+                    strongest = magnitude;
+                }
+            }
+        }
+        return strongest == Double.NEGATIVE_INFINITY ? 0.0 : 1.0 - (1.0 - Math.clamp(strongest, 0.0, 1.0));
+    }
+
+    private static int includeStrongest(double[] values, int size, double magnitude) {
+        if (!Double.isFinite(magnitude)) return size;
+        if (size < values.length) {
+            int index = size;
+            while (index > 0) {
+                int parent = (index - 1) >>> 1;
+                if (Double.compare(values[parent], magnitude) <= 0) break;
+                values[index] = values[parent];
+                index = parent;
+            }
+            values[index] = magnitude;
+            return size + 1;
+        }
+        if (Double.compare(magnitude, values[0]) <= 0) return size;
+        int index = 0;
+        int half = size >>> 1;
+        while (index < half) {
+            int child = index * 2 + 1;
+            if (child + 1 < size && Double.compare(values[child + 1], values[child]) < 0) child++;
+            if (Double.compare(magnitude, values[child]) <= 0) break;
+            values[index] = values[child];
+            index = child;
+        }
+        values[index] = magnitude;
+        return size;
     }
 
     public boolean hasSource(TimedEffectType type, Identifier sourceId) {

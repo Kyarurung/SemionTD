@@ -14,7 +14,7 @@ Minecraft 26.3 / Java 25를 기준으로 구현과 테스트를 함께 작성합
 | 전투와 범위 효과 | `ProductionTower`, `onAttackResolved`, `SemionTdApi.areaEffects()`, `TowerAreaDamage` | 피해 유형·출처·통계·처치 전달과 대상 필터를 함께 유지합니다. |
 | 수치와 표시 | `TowerBalanceRuntime`, `TowerDescriptionRegistry`, `runtimeDetailLines()`, `TowerVfxService` | 로드된 수치, 동적 상세 정보, 전용 빌더 팔레트를 같은 제작 흐름에서 연결합니다. |
 
-1. 가장 가까운 기존 계열의 정의·등록·런타임·테스트를 함께 읽습니다. 일반 공격 타워는 `ProductionTower`를 우선하며, 다른 수명이나 동작이 있을 때만 별도 책임으로 분리합니다.
+1. [전체 등록 빌더의 구현 비교](production-tower-catalog.ko.md#빌더별-구현-방식-선택)에서 상태 소유권·수명·트리거가 가까운 계열과 단순한 계열을 골라 정의·등록·런타임·테스트를 함께 읽습니다. 일반 공격 타워는 `ProductionTower`를 우선하며, 다른 수명이나 동작이 있을 때만 별도 책임으로 분리합니다. 특정 빌더의 파일 수나 고유 규칙을 공통 틀로 강제하지 않습니다.
 2. `TowerBalanceRuntime.resolve(...)`로 타입을 등록하고 모든 끝점을 등록한 뒤 업그레이드를 연결합니다. 비용은 `upgradeCost(from, upgradeId)`에서 읽습니다. 배치 가격을 업그레이드 가격으로 대신하지 않습니다.
 3. `canUseTower`는 실제 배치 허용, `includesTowerInCatalog`는 안정적인 카탈로그 소유권입니다. 상태에 따라 허용 여부가 달라져도 공개 타워의 소유 빌더는 하나여야 합니다.
 4. 계열별 구현과 테스트는 `tower/<family>`에 둡니다. 새 이름은 패키지·상위 책임·하위 책임 순서로 짓고 테스트는 `Test`로 끝냅니다. 예: `OceanTowerRuntimeTest`, `VillagerTowerAugmentCombatTest`, `BlueprintTowerModuleTest`.
@@ -34,7 +34,7 @@ JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest
 
 레인 등록·제거·교체 API를 사용해 순서와 멤버십을 함께 유지합니다. `PlayerLane`의 틱 스냅샷과 멤버십 확인은 콜백 중 제거·추가를 처리하므로 임의로 생략하지 않습니다. 범위 효과는 공용 API의 레인/소유자 필터를 재사용하고, 계열마다 월드 전체를 다시 검색하지 않습니다. 같은 입력을 공유할 수 있는 집계만 재사용하며 이동·업그레이드·사망·리로드 등 값이 변하는 지점의 갱신을 함께 설계합니다.
 
-책임 분리는 검증 범위를 명확히 하는 장점이고, 실행시간 단축은 별도 측정 결과입니다. 입력 수·호출 빈도·스냅샷/색인 비용을 포함해 동일 조건에서 비교하며, 합성 측정을 실제 전투 MSPT나 20 TPS 보장으로 확대하지 않습니다.
+책임 분리는 검증 범위를 명확히 하는 장점이고, 실행시간 단축은 별도 측정 결과입니다. 입력 수·호출 빈도·스냅샷/색인 비용을 포함해 동일 조건에서 비교하며, 합성 측정을 실제 전투 MSPT나 20 TPS 보장으로 확대하지 않습니다. 기준 소스·환경·재현 명령·측정값과 한계는 [성능 분석 보고서](performance-optimization-report.ko.md)에서 확인합니다.
 
 ## 빌더 목록
 
