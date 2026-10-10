@@ -1,6 +1,5 @@
 package kim.biryeong.semiontd.tower.magicschool;
 
-import java.util.Arrays;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +46,7 @@ public enum MagicSchoolSpell {
     IMPERIO("imperio", 6, "임페리오", 1,
             "대상은 {controlTicks:s}초간 타워 대신 자신의 아군을 공격력 100%로 공격합니다.\n아군이 없으면 자신을 공격합니다. 재사용 대기시간이 없습니다.\n조종당하는 적은 공격 대상의 최하순위가 됩니다.", Map.of("controlTicks", 40.0, "controlVersion", 1.0));
 
+    private static final Map<String, MagicSchoolSpell> BY_ID = indexById();
     private static final Pattern PARAMETER = Pattern.compile("\\{([a-zA-Z]+)(?::([ps]))?}");
     private static final Pattern ATTACK_COEFFICIENT = Pattern.compile("(?:공격력(?:의)?|대상 최대 체력의) [+-]?\\d+(?:\\.\\d+)?%");
     private final String id;
@@ -122,7 +122,15 @@ public enum MagicSchoolSpell {
         return ATTACK_COEFFICIENT.matcher(text).replaceAll("<color:#ffb86c>$0</color>");
     }
 
+    private static Map<String, MagicSchoolSpell> indexById() {
+        Map<String, MagicSchoolSpell> spells = new LinkedHashMap<>();
+        for (MagicSchoolSpell spell : values()) {
+            spells.putIfAbsent(spell.id, spell);
+        }
+        return Map.copyOf(spells);
+    }
+
     public static Optional<MagicSchoolSpell> find(String id) {
-        return Arrays.stream(values()).filter(spell -> spell.id.equals(id)).findFirst();
+        return id == null ? Optional.empty() : Optional.ofNullable(BY_ID.get(id));
     }
 }

@@ -240,7 +240,19 @@ public final class DeveloperTowerData {
     }
 
     public static boolean hasBug(Tower tower, DeveloperBug bug) {
-        return bug != null && bugs(tower).contains(bug);
+        if (bug == null) {
+            return false;
+        }
+        String encoded = tower == null ? "" : tower.getDataOrDefault(BUGS, "");
+        if (encoded == null || encoded.isBlank()) {
+            return false;
+        }
+        for (String token : encoded.split(",")) {
+            if (DeveloperBug.fromKey(token).orElse(null) == bug) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean addBug(Tower tower, DeveloperBug bug) {

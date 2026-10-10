@@ -4,6 +4,7 @@ import static kim.biryeong.semiontd.tower.hero.HeroCompanionAbilityDefaults.*;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import kim.biryeong.semiontd.api.SemionTdApi;
 import kim.biryeong.semiontd.api.area.AreaEffectOutcome;
 import kim.biryeong.semiontd.api.area.AreaTowerTarget;
@@ -77,12 +78,7 @@ final class HeroCompanionSupportController {
     }
 
     private void healParty(PlayerLane lane) {
-        List<Tower> wounded = lane.towers().stream()
-                .filter(tower -> tower.ownerPlayer().equals(companion.ownerPlayer()))
-                .filter(tower -> HeroPartyTowers.isHeroPartyTower(tower.type()))
-                .filter(tower -> tower.health() > 0.0 && tower.health() < tower.currentMaxHealth())
-                .sorted(Comparator.comparingDouble(tower -> tower.health() / Math.max(1.0, tower.currentMaxHealth())))
-                .toList();
+        List<Tower> wounded = lowestWoundedTargets(lane.towers(), companion.ownerPlayer());
         if (wounded.isEmpty()) {
             return;
         }
@@ -98,6 +94,30 @@ final class HeroCompanionSupportController {
                     lane, wounded.get(1), heal * secondRatio, reduction, reductionTicks
             ));
         }
+    }
+
+    static List<Tower> lowestWoundedTargets(List<Tower> towers, UUID owner) {
+        Tower first = null;
+        Tower second = null;
+        double firstRatio = 0.0;
+        double secondRatio = 0.0;
+        for (Tower tower : towers) {
+            if (!tower.ownerPlayer().equals(owner) || !HeroPartyTowers.isHeroPartyTower(tower.type())
+                    || !(tower.health() > 0.0 && tower.health() < tower.currentMaxHealth())) {
+                continue;
+            }
+            double ratio = tower.health() / Math.max(1.0, tower.currentMaxHealth());
+            if (first == null || Double.compare(ratio, firstRatio) < 0) {
+                second = first;
+                secondRatio = firstRatio;
+                first = tower;
+                firstRatio = ratio;
+            } else if (second == null || Double.compare(ratio, secondRatio) < 0) {
+                second = tower;
+                secondRatio = ratio;
+            }
+        }
+        return first == null ? List.of() : second == null ? List.of(first) : List.of(first, second);
     }
 
     private double healTower(PlayerLane lane, Tower target, double amount, double reduction, int reductionTicks) {

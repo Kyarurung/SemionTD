@@ -193,12 +193,18 @@ public final class OceanWaterTower extends EntityBackedTower {
 
     static Map<OceanTower, Double> supplyAllocations(List<OceanTower> targets, double amount, boolean recycle) {
         Map<OceanTower, Double> allocations = new LinkedHashMap<>();
+        OceanTower recycledRecipient = null;
+        boolean recycledRecipientResolved = false;
         for (OceanTower target : targets) {
             OceanTower recipient = target;
             if (recycle && target.water() + EPSILON >= target.waterSoftCap()) {
-                recipient = targets.stream().filter(candidate -> candidate.water() + EPSILON < candidate.waterSoftCap())
-                        .min(Comparator.comparingDouble(OceanTower::water).thenComparing(Tower::logicalId))
-                        .orElse(null);
+                if (!recycledRecipientResolved) {
+                    recycledRecipient = targets.stream().filter(candidate -> candidate.water() + EPSILON < candidate.waterSoftCap())
+                            .min(Comparator.comparingDouble(OceanTower::water).thenComparing(Tower::logicalId))
+                            .orElse(null);
+                    recycledRecipientResolved = true;
+                }
+                recipient = recycledRecipient;
             }
             if (recipient != null) {
                 allocations.merge(recipient, amount, Double::sum);

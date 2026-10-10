@@ -1065,6 +1065,92 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
         }
     }
 
+    @GameTest(maxTicks = 120, structure = "semion-td-gametest:combat_arena")
+    public void summonFreePositionsMatchNestedScanAfterTowerChanges(GameTestHelper context) {
+        UUID owner = stableUuid("demon-lord-column-owner");
+        PlayerLane lane = testLane(context, owner);
+        PlayerLane otherLane = testLane(context, stableUuid("demon-lord-column-other-lane"));
+        prepareFloor(context);
+        try {
+            List<GridPosition> empty = assertFreePositionsMatch(lane);
+            require(!empty.isEmpty(), "The fixture must offer summon positions.");
+            DemonLordSkillTower low = altar(context, owner, DemonLordSkill.WAVE_OF_MALICE, 1, 0, 0);
+            DemonLordSkillTower high = altar(context, owner, DemonLordSkill.WAVE_OF_MALICE, 1, 16, 16);
+            DemonLordSkillTower foreign = altar(context, stableUuid("demon-lord-column-foreign"),
+                    DemonLordSkill.WAVE_OF_MALICE, 1, 4, 4);
+            DemonLordSkillTower duplicate = altar(context, owner, DemonLordSkill.WAVE_OF_MALICE, 1, 4, 4);
+            lane.addTower(low);
+            lane.addTower(high);
+            lane.addTower(foreign);
+            lane.addTower(duplicate);
+            GridPosition foreignAt = foreign.position();
+            duplicate.syncPosition(new GridPosition(foreignAt.x(), foreignAt.y() + 9, foreignAt.z()));
+            foreign.syncHealth(0.0);
+            List<GridPosition> occupied = assertFreePositionsMatch(lane);
+            require(occupied.size() == empty.size() - 3,
+                    "Both boundary columns and the shared foreign/dead column must be excluded once.");
+            require(assertFreePositionsMatch(otherLane).equals(empty), "Occupancy must remain local to each lane.");
+            lane.removeTower(duplicate);
+            require(assertFreePositionsMatch(lane).equals(occupied),
+                    "Removing a duplicate must not free a column still occupied by a dead foreign tower.");
+            GridPosition moved = grid(context, new BlockPos(7, 5, 8));
+            foreign.syncPosition(moved);
+            List<GridPosition> afterMove = assertFreePositionsMatch(lane);
+            require(afterMove.stream().anyMatch(position -> position.x() == foreignAt.x() && position.z() == foreignAt.z()),
+                    "The previous column must be available immediately after movement.");
+            require(afterMove.stream().noneMatch(position -> position.x() == moved.x() && position.z() == moved.z()),
+                    "The moved column must be occupied regardless of height or health.");
+            lane.removeTower(foreign);
+            require(assertFreePositionsMatch(lane).size() == empty.size() - 2,
+                    "Removing the moved tower must free its column on the next call.");
+            lane.removeTower(low);
+            lane.removeTower(high);
+            require(assertFreePositionsMatch(lane).equals(empty),
+                    "Removing all towers must restore the original ordered positions.");
+            context.succeed();
+        } finally {
+            lane.clearTowers();
+            otherLane.clearTowers();
+            AreaEffectLaneIndex.unregister(lane);
+            AreaEffectLaneIndex.unregister(otherLane);
+        }
+    }
+
+    private static List<GridPosition> assertFreePositionsMatch(PlayerLane lane) {
+        List<GridPosition> expected = legacyFreePositions(lane);
+        List<GridPosition> actual = DemonLordPassives.freePositions(lane);
+        require(actual.equals(expected), "Summon positions must equal the nested scan in the same order.");
+        java.util.Random expectedRandom = new java.util.Random(7159);
+        java.util.Random actualRandom = new java.util.Random(7159);
+        List<GridPosition> expectedShuffled = new ArrayList<>(expected);
+        List<GridPosition> actualShuffled = new ArrayList<>(actual);
+        java.util.Collections.shuffle(expectedShuffled, expectedRandom);
+        java.util.Collections.shuffle(actualShuffled, actualRandom);
+        require(actualShuffled.equals(expectedShuffled) && actualRandom.nextLong() == expectedRandom.nextLong(),
+                "The same seed must preserve placement choices and following random draws.");
+        return actual;
+    }
+
+    private static List<GridPosition> legacyFreePositions(PlayerLane lane) {
+        BlockBounds bounds = lane.laneLayout().laneArea();
+        List<GridPosition> free = new ArrayList<>();
+        for (int x = bounds.min().getX(); x <= bounds.max().getX(); x++) {
+            for (int z = bounds.min().getZ(); z <= bounds.max().getZ(); z++) {
+                Optional<BlockPos> floor = kim.biryeong.semiontd.tower.TowerPlacementPositions.resolve(
+                        lane, new BlockPos(x, bounds.max().getY(), z));
+                if (floor.isEmpty()) {
+                    continue;
+                }
+                GridPosition position = GridPosition.from(floor.get());
+                if (lane.towers().stream().noneMatch(tower -> tower.position().x() == position.x()
+                        && tower.position().z() == position.z())) {
+                    free.add(position);
+                }
+            }
+        }
+        return free;
+    }
+
     private static SemionPlayer demonLordPlayer(ServerPlayer player) {
         SemionPlayer semionPlayer = new SemionPlayer(
                 player.getUUID(), player.getGameProfile().name(), TeamId.RED, 1,

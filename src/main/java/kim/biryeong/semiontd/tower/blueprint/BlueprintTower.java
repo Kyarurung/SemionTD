@@ -313,9 +313,10 @@ public class BlueprintTower extends ProductionTower {
                         && monster.runtimeMonster() != null
                         && towerEntity.defendsLane(monster.runtimeMonster().targetLaneId())
                         && towerEntity.distanceToSqr(monster) <= range * range));
-        candidates.sort(Comparator.comparingDouble(primary::distanceToSqr));
+        candidates = kim.biryeong.semiontd.tower.area.AreaTargetSelection.sortedFirst(
+                candidates, Comparator.comparingDouble(primary::distanceToSqr), count);
         double shotDamage = baseDamage * ratio;
-        for (SemionMonsterEntity extra : candidates.subList(0, Math.min(count, candidates.size()))) {
+        for (SemionMonsterEntity extra : candidates) {
             Tower.DamageResult result = towerEntity.damageBasicAttackSecondaryTargetResult(extra, shotDamage);
             TowerVfxService.showSecondaryAttack(towerEntity, extra);
             if (result.killed()) {

@@ -69,11 +69,9 @@ public final class AreaEffectService implements AreaEffectApi {
                 .map(SemionMonsterEntity.class::cast)
                 .toList();
         if (request.maxTargets() != Integer.MAX_VALUE && candidates.size() > request.maxTargets()) {
-            candidates = candidates.stream()
-                    .sorted(Comparator.comparingDouble((SemionMonsterEntity monster) -> monster.position().distanceToSqr(request.center()))
-                            .thenComparing(monster -> monster.runtimeMonster().logicalId()))
-                    .limit(request.maxTargets())
-                    .toList();
+            candidates = AreaTargetSelection.sortedFirst(candidates,
+                    Comparator.comparingDouble((SemionMonsterEntity monster) -> monster.position().distanceToSqr(request.center()))
+                            .thenComparing(monster -> monster.runtimeMonster().logicalId()), request.maxTargets());
         }
         return apply(request.source(), request.effectId(), request.center(), request.radius(), request.vfx(), candidates,
                 SemionMonsterEntity::position, action);

@@ -78,14 +78,13 @@ public final class GambleRoundEffects {
                         .orElse(false))
                 .filter(tower -> spectatorLinkCount(lane, owner, tower.originalPosition())
                         < GambleBalance.maxSpectatorsPerGambler())
-                .sorted(Comparator.comparingDouble(GamblerTower::gambleScore).reversed()
+                .min(Comparator.comparingDouble(GamblerTower::gambleScore).reversed()
                         .thenComparingDouble(tower -> towerEntity(tower, lane)
                                 .map(entity -> entity.position().distanceToSqr(source.position()))
                                 .orElse(Double.MAX_VALUE))
                         .thenComparingInt(tower -> tower.originalPosition().x())
                         .thenComparingInt(tower -> tower.originalPosition().y())
-                        .thenComparingInt(tower -> tower.originalPosition().z()))
-                .findFirst();
+                        .thenComparingInt(tower -> tower.originalPosition().z()));
         selected.ifPresent(tower -> SPECTATOR_LINKS
                 .computeIfAbsent(lane, ignored -> new LinkedHashMap<>())
                 .computeIfAbsent(owner, ignored -> new LinkedHashMap<>())

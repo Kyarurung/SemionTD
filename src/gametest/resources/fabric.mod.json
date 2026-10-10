@@ -5,6 +5,7 @@
   "name": "semion-td-gametest",
   "environment": "*",
   "mixins": [
+    {"config": "semiontd-runtime-fixture.mixins.json", "environment": "server"},
     {"config": "semiontd-card-dialog-poc.mixins.json", "environment": "server"}
   ],
   "entrypoints": {
@@ -13,6 +14,8 @@
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest"
     ],
     "fabric-gametest": [
+      "kim.biryeong.semiontd.gametest.RuntimeNetworkThreadingTest",
+      "kim.biryeong.semiontd.game.GameBuilderPerformanceTest",
       "kim.biryeong.semiontd.tower.demonlord.DemonLordSwapInputTest",
       "kim.biryeong.semiontd.augment.AugmentOfferPresentationTest",
       "kim.biryeong.semiontd.augment.AugmentDescriptionLayoutTest",
@@ -94,6 +97,7 @@
       "kim.biryeong.semiontd.tower.atlantis.AtlantisTowerIntegrationTest",
       "kim.biryeong.semiontd.tower.frost.FrostGameTest",
       "kim.biryeong.semiontd.tower.gamble.GambleGameTest",
+      "kim.biryeong.semiontd.tower.gamble.GambleSpectatorSelectionTest",
       "kim.biryeong.semiontd.tower.developer.DeveloperGameTest",
       "kim.biryeong.semiontd.tower.succubus.SuccubusGameTest",
       "kim.biryeong.semiontd.tower.pet.PetGameTest",

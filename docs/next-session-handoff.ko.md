@@ -2,6 +2,20 @@
 
 이 문서는 Minecraft 26.3 이식의 빌드·검증 및 명시적으로 승인된 배포의 인수인계 절차를 다룬다. 공유 소스는 `C:\steve-td`, 운영 설치는 `C:\SemionTD`다. 빌드 완료와 운영 배포·기동 승인은 별개이며 운영 월드를 개발 테스트에 사용하지 않는다.
 
+## Builder performance verification
+
+Resolve the actual Git source root and verify the operational installation and configuration separately. Folder names and legacy startup examples are not authorization to run an operating server. Read `reference_order.md` first when it is available; if it is absent, state that limitation and use the existing performance and builder maintenance documents. Record when a benchmark uses bundled defaults because an active server configuration is unavailable.
+
+Use [the performance report](performance-optimization-report.ko.md#current-all-builder-optimization-and-controlled-measurements) for the measured scope, baseline and limitations. Run `python tools/builder-performance/run.py prepare` only in a fresh evidence workspace after reviewing its baseline commit and restored production files. `sync` updates the isolated copies; `suite --warmup 128 --samples 32 --batch 16` runs sequential fresh JVM comparisons. Keep Spark/JFR diagnostic runs separate with `run --mode profile --tag <fresh-tag> --spark --jfr`. Logs, manifests, profiles and generated worlds stay under ignored build/temporary paths. These commands do not authorize starting the operational installation.
+
+The lane tick snapshot caches membership in a private array only. Never expose or mutate that array; replace it after invalidation. Invalidate it immediately after add, replace, successful removal and clear, before the callbacks that follow those mutations. Preserve the outer iteration snapshot and check identity membership before invoking each tower. Do not reuse combat calculations across intervening movement, deaths, healing, upgrades or callbacks.
+
+Distinguish a local validation JAR containing owned private resources from a public release artifact. Check local private entries against their source bytes and preserve them; do not publish them or force-add them to source control. Comparison checkouts exclude private assets, so their setup/rendering costs do not represent the licensed models in a local installation.
+
+Bounded selection must preserve encounter ties and duplicate slots, the original comparator and the complete selected list before damage callbacks. The common area API retains encounter order when candidates do not exceed its cap. Deterministic fixture inputs must include fixed world coordinates and explicit Queen cards; do not strip tooltip fields or weaken result comparisons to obtain a percentage. The opt-in performance GameTest returning success in a normal release gate does not constitute a performance measurement.
+
+The GameTest-only `RuntimeNetworkConnectionMixin` hands background sends for embedded play connections to their GameTest server thread before Netty accesses its outbound buffers. Keep real socket/client channels outside this hook. Preserve every packet, its flush flag and completion listener; do not replace packet capture with a discard sink or disable HUD updates. `RuntimeNetworkThreadingTest` checks deferred delivery, packet order, listener completion and immediate server-thread delivery. The test mixin and its configuration must remain absent from the production JAR.
+
 ## 운영 기준
 
 | 항목 | 현재 값 |

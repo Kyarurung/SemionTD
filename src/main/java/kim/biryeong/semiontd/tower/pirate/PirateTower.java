@@ -179,7 +179,32 @@ public final class PirateTower extends ProductionTower {
     void advanceChestTimer(PlayerLane lane, int rounds, int round) { if (!PirateTowers.isChest(type()) || rounds <= 0 || chestReady || chestCashedOut || !lane.towers().contains(this)) return; chestRoundsReduced += rounds; if (chestRoundProgress(round) >= abilityInt("rounds", 5)) { chestReady = true; cashOutChest(lane, round); } }
     private double economyHealthBonus() { long spent = PirateTowers.matches(type(), PirateTowers.GUIDE) ? PirateStates.emeraldSpent(ownerPlayer()) : PirateStates.diamondSpent(ownerPlayer()); if (!PirateTowers.isHelmsman(type())) return 0; return Math.floor(spent / ability("spendStep", 100)) * ability("healthPerStep", PirateTowers.matches(type(), PirateTowers.HELMSMAN) ? 2 : PirateTowers.matches(type(), PirateTowers.GUIDE) ? 3 : PirateTowers.matches(type(), PirateTowers.NAVIGATOR) ? 3 : 5); }
     private double economyDamageBonus() { if (!PirateTowers.isHelmsman(type()) || PirateTowers.matches(type(), PirateTowers.GUIDE)) return 0; return Math.floor(PirateStates.diamondSpent(ownerPlayer()) / ability("spendStep", PirateTowers.matches(type(), PirateTowers.NAVIGATOR) ? 75 : PirateTowers.matches(type(), PirateTowers.FIRST_NAVIGATOR) ? 75 : 100)) * ability("damagePerStep", .5); }
-    private boolean isSelectedAnchorFor(PlayerLane lane, Tower recipient) { return lane.towers().stream().filter(PirateTower.class::isInstance).map(PirateTower.class::cast).filter(anchor -> PirateTowers.isAnchor(anchor.type()) && anchor.teamId() == teamId() && distanceSquared(anchor, recipient) <= anchor.ability("radius", 2) * anchor.ability("radius", 2)).sorted((left, right) -> Double.compare(right.ability("damageReduction", 0) + right.anchorBonus, left.ability("damageReduction", 0) + left.anchorBonus)).limit(abilityInt("maxStacks", 2)).anyMatch(anchor -> anchor == this); }
+    boolean isSelectedAnchorFor(PlayerLane lane, Tower recipient) {
+        int maxStacks = abilityInt("maxStacks", 2);
+        if (maxStacks == 0) {
+            return false;
+        }
+        double strength = ability("damageReduction", 0) + anchorBonus;
+        int preceding = 0;
+        boolean found = false;
+        for (Tower tower : lane.towers()) {
+            if (!(tower instanceof PirateTower anchor)
+                    || !PirateTowers.isAnchor(anchor.type())
+                    || anchor.teamId() != teamId()
+                    || !(distanceSquared(anchor, recipient) <= anchor.ability("radius", 2) * anchor.ability("radius", 2))) {
+                continue;
+            }
+            if (anchor == this) {
+                found = true;
+                continue;
+            }
+            int comparison = Double.compare(anchor.ability("damageReduction", 0) + anchor.anchorBonus, strength);
+            if (comparison > 0 || comparison == 0 && !found) {
+                preceding++;
+            }
+        }
+        return found && preceding < maxStacks;
+    }
     private net.minecraft.resources.Identifier anchorGuardSource() { GridPosition origin = originalPosition(); return net.minecraft.resources.Identifier.fromNamespaceAndPath("semion-td", "pirate/anchor/" + ownerPlayer() + "/" + origin.x() + "_" + origin.y() + "_" + origin.z()); }
     private double ability(String key, double fallback) { return TowerBalanceRuntime.ability(type().id(), key, fallback); }
     private int abilityInt(String key, int fallback) { return TowerBalanceRuntime.abilityInt(type().id(), key, fallback); }

@@ -279,11 +279,12 @@ abstract class AnimalStackTower extends EntityBackedTower {
     private void refreshLeaderState(PlayerLane lane) {
         double previousMaxHealth = currentMaxHealth();
         List<String> previousUnion = unionLeaders;
-        List<String> livingLeaders = lane.towers().stream()
+        boolean unionEnabled = augmentSnapshot().has(UNION);
+        List<String> livingLeaders = unionEnabled ? lane.towers().stream()
                 .filter(AnimalStackTower.class::isInstance).map(AnimalStackTower.class::cast)
                 .filter(other -> ownerPlayer().equals(other.ownerPlayer()) && other.health() > 0 && other.isLeader())
-                .map(other -> other.type().id()).distinct().sorted().toList();
-        unionLeaders = augmentSnapshot().has(UNION)
+                .map(other -> other.type().id()).distinct().sorted().toList() : List.of();
+        unionLeaders = unionEnabled
                 && livingLeaders.size() >= (int) augmentSnapshot().parameter(UNION, "requiredLeaderKinds", 3)
                 ? livingLeaders : List.of();
         boolean previousLeaderExists = livingLeaderExists;

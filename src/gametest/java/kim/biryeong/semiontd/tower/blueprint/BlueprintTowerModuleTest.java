@@ -416,6 +416,118 @@ public final class BlueprintTowerModuleTest {
         }
     }
 
+    @GameTest
+    public void multishotMatchesStableNearestSelectionAtTheCap(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-stable-cap".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            for (int level : new int[] {1, 3}) {
+                BlueprintStats stats = new BlueprintStats(300, 50, 20, 6, 25, DamageType.PHYSICAL)
+                        .withModules(Map.of(BlueprintModule.MULTISHOT, level), BlueprintTargetPriority.FIRST);
+                var created = BlueprintStates.create(owner, "Stable cap " + level, stats,
+                        BlueprintVisuals.options().getFirst().sourceTowerId());
+                require(created.success(), created.message());
+                BlueprintTower tower = (BlueprintTower) ProductionTowerCatalog.find(created.blueprint().towerId())
+                        .orElseThrow().create(owner, TeamId.RED, 1, position(context, 2, 1, 3));
+                lane.addTower(tower);
+                SemionTowerEntity source = (SemionTowerEntity) context.getLevel().getEntity(tower.entityId().orElseThrow());
+                Monster primary = spawnMonster(context, lane, "stable-primary", position(context, 3, 1, 3));
+                SemionMonsterEntity target = entity(context, primary);
+                java.util.ArrayList<SemionMonsterEntity> spawned = new java.util.ArrayList<>();
+                for (int index = 0; index < 6; index++) {
+                    spawned.add(entity(context, spawnMonster(context, lane, "stable-extra-" + index,
+                            position(context, 4 + index / 2, 1, 3))));
+                }
+                double range = source.attackRange();
+                List<SemionMonsterEntity> candidates = source.level().getEntitiesOfClass(SemionMonsterEntity.class,
+                        source.targetSearchBox(), monster -> monster.isAlive() && monster != target && !monster.isDominated()
+                                && monster.runtimeMonster() != null && source.defendsLane(monster.runtimeMonster().targetLaneId())
+                                && source.distanceToSqr(monster) <= range * range);
+                List<SemionMonsterEntity> expected = candidates.stream()
+                        .sorted(java.util.Comparator.comparingDouble(target::distanceToSqr))
+                        .limit((int) BlueprintModule.MULTISHOT.value("extraTargets", level)).toList();
+                require(expected.size() > 0 && expected.size() < candidates.size(), "The fixture must exercise truncation.");
+                tower.onAttackResolved(source, target, 50, 50, 50, false);
+                double damage = 50 * BlueprintModule.MULTISHOT.value("damageRatio", level);
+                for (SemionMonsterEntity monster : spawned) {
+                    double expectedHealth = 1000 - (expected.contains(monster) ? damage : 0);
+                    require(Math.abs(monster.runtimeMonster().health() - expectedHealth) < 1.0e-9,
+                            "Multishot must preserve the exact nearest membership and encounter tie order.");
+                    monster.discard();
+                    lane.activeMonsters().remove(monster.runtimeMonster());
+                }
+                target.discard();
+                lane.activeMonsters().remove(primary);
+                lane.removeTower(tower);
+            }
+            context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
+    @GameTest
+    public void cappedAreaSelectionKeepsUuidOrderingAndCallbackSnapshot(GameTestHelper context) {
+        UUID owner = UUID.nameUUIDFromBytes("blueprint-area-cap".getBytes(StandardCharsets.UTF_8));
+        PlayerLane lane = testLane(context, owner);
+        TeamLaneGroup group = new TeamLaneGroup(TeamId.RED, BossMonster.defaultBoss(TeamId.RED));
+        group.addLane(lane);
+        try {
+            fillFloor(context);
+            var created = BlueprintStates.create(owner, "Area cap", new BlueprintStats(300, 50, 20, 6, 25, DamageType.PHYSICAL),
+                    BlueprintVisuals.options().getFirst().sourceTowerId());
+            require(created.success(), created.message());
+            BlueprintTower tower = (BlueprintTower) ProductionTowerCatalog.find(created.blueprint().towerId()).orElseThrow()
+                    .create(owner, TeamId.RED, 1, position(context, 2, 1, 3));
+            lane.addTower(tower);
+            SemionTowerEntity source = (SemionTowerEntity) context.getLevel().getEntity(tower.entityId().orElseThrow());
+            java.util.Set<SemionMonsterEntity> spawned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            for (int index = 0; index < 6; index++) {
+                spawned.add(entity(context, spawnMonster(context, lane, "area-cap-" + index,
+                        position(context, 3 + index / 2, 1, 3))));
+            }
+            var request = kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest.aroundTower(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("semion-td", "gametest/stable_cap"), source, 6,
+                    kim.biryeong.semiontd.api.area.AreaVfxSpec.none()).withFilter(spawned::contains);
+            java.util.ArrayList<SemionMonsterEntity> encounter = new java.util.ArrayList<>();
+            kim.biryeong.semiontd.api.SemionTdApi.areaEffects().applyToMonsters(request, monster -> {
+                encounter.add(monster);
+                return kim.biryeong.semiontd.api.area.AreaEffectOutcome.UNCHANGED;
+            });
+            require(encounter.size() == 6, "All six candidates must be present.");
+            var order = java.util.Comparator.comparingDouble((SemionMonsterEntity monster) ->
+                    monster.position().distanceToSqr(request.center())).thenComparing(monster -> monster.runtimeMonster().logicalId());
+            for (int limit : new int[] {1, 3, 6}) {
+                List<SemionMonsterEntity> expected = limit < encounter.size()
+                        ? encounter.stream().sorted(order).limit(limit).toList() : List.copyOf(encounter);
+                java.util.ArrayList<SemionMonsterEntity> actual = new java.util.ArrayList<>();
+                var result = kim.biryeong.semiontd.api.SemionTdApi.areaEffects().applyToMonsters(request.nearestTargets(limit), monster -> {
+                    actual.add(monster);
+                    return kim.biryeong.semiontd.api.area.AreaEffectOutcome.UNCHANGED;
+                });
+                require(actual.equals(expected) && result.candidateCount() == limit,
+                        "Capped targets must retain distance/UUID order; below the cap must retain encounter order.");
+            }
+            List<SemionMonsterEntity> expected = encounter.stream().sorted(order).limit(3).toList();
+            java.util.ArrayList<SemionMonsterEntity> callbacks = new java.util.ArrayList<>();
+            var result = kim.biryeong.semiontd.api.SemionTdApi.areaEffects().applyToMonsters(request.nearestTargets(3), monster -> {
+                callbacks.add(monster);
+                if (callbacks.size() == 1) expected.getLast().discard();
+                return kim.biryeong.semiontd.api.area.AreaEffectOutcome.APPLIED;
+            });
+            require(callbacks.equals(expected) && result.candidateCount() == 3 && result.appliedCount() == 3,
+                    "An earlier callback must not replace or omit targets selected in the original snapshot.");
+            context.succeed();
+        } finally {
+            BlueprintStates.clear(owner);
+            group.closeRuntime();
+        }
+    }
+
     private static PlayerLane testLane(GameTestHelper context, UUID owner) {
         BlockPos min = context.absolutePos(new BlockPos(0, 1, 0));
         BlockPos max = context.absolutePos(new BlockPos(7, 4, 7));

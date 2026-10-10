@@ -77,6 +77,7 @@ public final class PlayerLane {
     private Double naturalWaveStartingHealth;
     private final List<Tower> towers = new ArrayList<>();
     private final List<Tower> towerView = Collections.unmodifiableList(towers);
+    private Tower[] towerSnapshot;
     private final Set<Tower> towerMembership = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<TowerRoundMetricsTracker> roundTowerTrackers =
             Collections.newSetFromMap(new IdentityHashMap<>());
@@ -428,6 +429,7 @@ public final class PlayerLane {
         if (towerMembership.contains(tower)) {return;}
         tower.attachToLane(this, traitLoadout);
         towers.add(tower);
+        towerSnapshot = null;
         towerMembership.add(tower);
         trackTowerDuringWave(tower, false);
         tower.onPlaced(this);
@@ -468,6 +470,7 @@ public final class PlayerLane {
         existing.detachFromLane(this);
         replacement.attachToLane(this, traitLoadout);
         towers.set(index, replacement);
+        towerSnapshot = null;
         towerMembership.remove(existing);
         towerMembership.add(replacement);
         replacement.onPlaced(this);
@@ -479,6 +482,7 @@ public final class PlayerLane {
         if (!towers.remove(tower)) {
             return false;
         }
+        towerSnapshot = null;
         towerMembership.remove(tower);
         kim.biryeong.semiontd.tower.legion.LegionAugments.onRemoved(tower, this);
         kim.biryeong.semiontd.tower.undead.UndeadAugments.onRemoved(this, tower);
@@ -615,7 +619,7 @@ public final class PlayerLane {
     }
 
     void tickTowers() {
-        for (Tower tower : List.copyOf(towers)) {
+        for (Tower tower : towerSnapshot()) {
             if (towerMembership.contains(tower)) {
                 tower.tick(this);
             }
@@ -629,6 +633,13 @@ public final class PlayerLane {
         kim.biryeong.semiontd.tower.insect.InsectAugments.flush(this);
     }
 
+    private Tower[] towerSnapshot() {
+        if (towerSnapshot == null) {
+            towerSnapshot = towers.toArray(new Tower[towers.size()]);
+        }
+        return towerSnapshot;
+    }
+
     public void clearTowers() {
         JobLaneLifecycle.beforeTowersCleared(this);
         for (Tower tower : List.copyOf(towers)) {
@@ -640,6 +651,7 @@ public final class PlayerLane {
             tower.detachFromLane(this);
         }
         towers.clear();
+        towerSnapshot = null;
         towerMembership.clear();
     }
 

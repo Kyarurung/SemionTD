@@ -2,6 +2,8 @@ package kim.biryeong.semiontd.tower.futureagency;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -181,6 +183,105 @@ public final class FutureAgencyGameTest implements kim.biryeong.semiontd.gametes
             FutureAgencyStates.clear(owner);
             FutureAgencyStates.clear(opponent);
         }
+    }
+
+    @GameTest(structure = "semion-td-gametest:combat_arena")
+    public void denseControlCountMatchesSortedReferenceAcrossLiveLaneChanges(GameTestHelper context) {
+        UUID owner = UUID.randomUUID();
+        FutureAgencyStates.clear(owner);
+        PlayerLane lane = testLane(context, owner);
+        PlayerLane otherLane = testLane(context, owner, 2);
+        GridPosition origin = floor(context, 4, 2, 4);
+        prepareFloor(context, origin);
+        ArrayList<SemionMonsterEntity> entities = new ArrayList<>();
+        try {
+            FutureAgencyAgentTower suppression = agent(owner, FutureAgencyRole.SUPPRESSION, origin);
+            lane.addTower(suppression);
+            Vec3 center = towerEntity(lane, suppression).position().add(0, 0, 2);
+            double radius = FutureAgencyBalance.suppressionDenseRadius();
+            SemionMonsterEntity primary = spawnRootTarget(context, lane, center);
+            entities.add(primary);
+            require(FutureAgencyAgentTower.nearbyTargetCount(lane, center, radius, primary) == 0,
+                    "The primary must not count itself.");
+            SemionMonsterEntity inside = spawnRootTarget(context, lane, center.add(radius / 2, 0, 0));
+            entities.add(inside);
+            entities.add(spawnRootTarget(context, lane, center.add(radius, 0, 0)));
+            entities.add(spawnRootTarget(context, lane, center.add(radius + 0.0001, 0, 0)));
+            SemionMonsterEntity dead = spawnRootTarget(context, lane, center);
+            entities.add(dead);
+            dead.setHealth(0);
+            SemionMonsterEntity removed = spawnRootTarget(context, lane, center);
+            entities.add(removed);
+            removed.discard();
+            entities.add(spawnRootTarget(context, otherLane, center));
+            require(FutureAgencyAgentTower.nearbyTargetCount(lane, center, radius, primary) == 2,
+                    "Include the exact radius boundary; exclude outside, dead, removed, and other-lane targets.");
+            lane.activeMonsters().add(inside.runtimeMonster());
+            lane.activeMonsters().add(new Monster("unspawned-dense-target", TeamId.RED, 1,
+                    Optional.empty(), Optional.empty(), 500, 0, 10, AttackKind.MELEE, "minecraft:zombie", 0L));
+            inside.runtimeMonster().syncHealth(0);
+            require(FutureAgencyAgentTower.nearbyTargetCount(lane, center, radius, primary) == 3,
+                    "Count duplicate lane entries and preserve live-entity eligibility independently of runtime health.");
+            inside.runtimeMonster().syncHealth(500);
+            for (int order = 0; order < 6; order++) {
+                for (SemionMonsterEntity excluded : List.of(primary, inside)) {
+                    assertDenseCountMatchesReference(lane, excluded.position(), radius, excluded);
+                }
+                Collections.rotate(lane.activeMonsters(), 1);
+                if (order % 2 == 0) Collections.reverse(lane.activeMonsters());
+            }
+            FutureAgencyStates.PlayerState state = FutureAgencyStates.state(owner);
+            state.reconstruct();
+            int selectionBound = java.util.Arrays.stream(FutureAgencyPolicy.values())
+                    .mapToInt(FutureAgencyPolicy::maxStacks).sum() + 1;
+            for (int round = 1; round <= selectionBound; round++) {
+                state.openRound(round);
+                if (state.offers().contains(FutureAgencyPolicy.DENSE_CONTROL)) break;
+                require(!state.offers().isEmpty() && state.choose(state.offers().getFirst()),
+                        "Exhausting other policies must eventually offer dense control.");
+            }
+            double baseline = suppression.modifyAttackDamage(null, primary, 100);
+            require(state.choose(FutureAgencyPolicy.DENSE_CONTROL), "Dense control must be selectable.");
+            double bonus = Math.min(FutureAgencyBalance.suppressionDenseCap(),
+                    sortedDenseCountReference(lane, center, radius, primary)
+                            * FutureAgencyBalance.policy(FutureAgencyPolicy.DENSE_CONTROL));
+            require(close(suppression.modifyAttackDamage(null, primary, 100), baseline + 100 * bonus),
+                    "Actual suppression damage must use the equivalent neighbor count.");
+            inside.setPos(center.add(radius + 1, 0, 0));
+            assertDenseCountMatchesReference(lane, center, radius, primary);
+            primary.discard();
+            assertDenseCountMatchesReference(lane, inside.position(), radius, inside);
+            lane.activeMonsters().clear();
+            assertDenseCountMatchesReference(lane, center, radius, primary);
+            require(FutureAgencyAgentTower.nearbyTargetCount(null, center, radius, primary) == 0
+                            && FutureAgencyAgentTower.nearbyTargetCount(lane, null, radius, primary) == 0,
+                    "Missing lane or center must retain the empty result.");
+            context.succeed();
+        } finally {
+            entities.forEach(SemionMonsterEntity::discard);
+            lane.activeMonsters().clear();
+            otherLane.activeMonsters().clear();
+            lane.clearTowers();
+            FutureAgencyStates.clear(owner);
+        }
+    }
+
+    private static void assertDenseCountMatchesReference(PlayerLane lane, Vec3 center, double radius,
+                                                         SemionMonsterEntity excluded) {
+        require(FutureAgencyAgentTower.nearbyTargetCount(lane, center, radius, excluded)
+                        == sortedDenseCountReference(lane, center, radius, excluded),
+                "Dense control must match the previous sorted-count result after lane or target changes.");
+    }
+
+    private static long sortedDenseCountReference(PlayerLane lane, Vec3 center, double radius,
+                                                  SemionMonsterEntity excluded) {
+        return lane.activeMonsters().stream().filter(monster -> monster.hasMinecraftEntity())
+                .map(monster -> lane.arenaWorld().getEntity(monster.minecraftEntityId()))
+                .filter(SemionMonsterEntity.class::isInstance).map(SemionMonsterEntity.class::cast)
+                .filter(entity -> entity.isAlive() && entity.position().distanceToSqr(center) <= radius * radius)
+                .sorted(Comparator.comparingDouble((SemionMonsterEntity entity) -> -entity.runtimeMonster().laneProgress())
+                        .thenComparing(entity -> entity.getUUID().toString())).toList().stream()
+                .filter(target -> target != excluded).count();
     }
 
     @GameTest(structure = "semion-td-gametest:combat_arena")

@@ -1,7 +1,6 @@
 package kim.biryeong.semiontd.tower.legion;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
@@ -115,19 +114,23 @@ public class LegionGoatTower extends SupportTower {
     }
 
     private OptionalInt stackIndexFor(Tower target, PlayerLane lane) {
-        List<LegionGoatTower> stackProviders = lane.towers().stream()
-                .filter(LegionGoatTower.class::isInstance)
-                .map(LegionGoatTower.class::cast)
-                .filter(goat -> goat.canBuff(target))
-                .sorted(STACK_ORDER)
-                .limit(maxStacks())
-                .toList();
-        for (int index = 0; index < stackProviders.size(); index++) {
-            if (stackProviders.get(index) == this) {
-                return OptionalInt.of(index);
+        int maximum = maxStacks();
+        int index = 0;
+        boolean found = false;
+        for (Tower tower : lane.towers()) {
+            if (!(tower instanceof LegionGoatTower goat) || !goat.canBuff(target)) {
+                continue;
+            }
+            if (goat == this) {
+                found = true;
+            } else {
+                int order = STACK_ORDER.compare(goat, this);
+                if (order < 0 || order == 0 && !found) {
+                    index++;
+                }
             }
         }
-        return OptionalInt.empty();
+        return found && index < maximum ? OptionalInt.of(index) : OptionalInt.empty();
     }
 
     private boolean canBuff(Tower target) {
