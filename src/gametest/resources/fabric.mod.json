@@ -15,7 +15,6 @@
     ],
     "fabric-gametest": [
       "kim.biryeong.semiontd.gametest.RuntimeNetworkThreadingTest",
-      "kim.biryeong.semiontd.game.GameBuilderPerformanceTest",
       "kim.biryeong.semiontd.tower.demonlord.DemonLordSwapInputTest",
       "kim.biryeong.semiontd.augment.AugmentOfferPresentationTest",
       "kim.biryeong.semiontd.augment.AugmentDescriptionLayoutTest",
@@ -120,10 +119,7 @@
       "kim.biryeong.semiontd.gametest.SemionTeamMoneyTransferGameTest",
       "kim.biryeong.semiontd.compat.NightlightsCompatibilityTest",
       "kim.biryeong.semiontd.compat.AvatarRendererLifecycleTest",
-      "kim.biryeong.semiontd.game.GameCombatPerformanceTest",
       "kim.biryeong.semiontd.game.GameMatchPerformanceTest",
-      "kim.biryeong.semiontd.game.GameLaneTickPerformanceTest",
-      "kim.biryeong.semiontd.entity.goal.GameAlgorithmPerformanceTest",
       "kim.biryeong.semiontd.tower.resonance.ResonanceTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.ocean.OceanTowerRuntimeTest",
       "kim.biryeong.semiontd.tower.illager.IllagerTowerRuntimeTest",

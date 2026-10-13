@@ -168,4 +168,4 @@ spark의 26.3용 Fabric JAR 경로를 넣는다. 결과는 로그의 `MATCH_PROF
 
 - 커밋 `2b431d1c`(효과 합산, 기술자 발판 선택)와 `f40e745c`(빌더별 정렬·순회 축소, 라인 타워 스냅숏)의 변경은 코드에 그대로 있다. 대조 서버에도 들어 있으므로 위 수치에는 들어 있지 않다.
 - 그때는 적이 없는 보드에서 라인 틱만 쟀다. 호출당 수 µs 단위여서 잡음이 컸고, 빌더 33종 가운데 15종은 빨라지고 18종은 느려진 것으로 나왔다. 이 문서가 그 기록을 대신한다. 예전 기록은 커밋 `f40e745c`의 같은 파일에 있다.
-- 그 측정에 쓴 도구(`tools/builder-performance/run.py`, `GameBuilderPerformanceTest` 등)는 저장소에 남아 있다. 이 문서의 수치는 그 도구로 잰 것이 아니다.
+- 그 측정에 쓴 도구(`tools/builder-performance/run.py`, `GameBuilderPerformanceTest` 등)는 저장소에서 지웠다. 커밋 `f40e745c`에 남아 있다.
