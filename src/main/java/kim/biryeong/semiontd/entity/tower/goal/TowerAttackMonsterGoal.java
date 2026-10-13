@@ -15,12 +15,16 @@ import kim.biryeong.semiontd.augment.AugmentCombat;
 import kim.biryeong.semiontd.tower.augment.AugmentTowerService;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 
 public final class TowerAttackMonsterGoal extends Goal {
     private static final int TARGET_RECHECK_INTERVAL_TICKS = 5;
     private static final double ENCOUNTER_RANGE_BONUS = 1.0;
+    private static final EntityTypeTest<Entity, SemionMonsterEntity> MONSTERS =
+            EntityTypeTest.forClass(SemionMonsterEntity.class);
 
     private final SemionTowerEntity tower;
     private int cooldownTicks;
@@ -285,14 +289,11 @@ public final class TowerAttackMonsterGoal extends Goal {
     private List<SemionMonsterEntity> targetCandidates() {
         AABB searchBox = tower.targetSearchBox();
         return tower.level().getEntities(
-                        tower,
+                        MONSTERS,
                         searchBox,
-                        entity -> entity instanceof SemionMonsterEntity monster
-                                && tower.isValidAttackTarget(monster)
+                        monster -> tower.isValidAttackTarget(monster)
                                 && !monster.isStealthed() && !monster.isDominated()
                 ).stream()
-                .filter(SemionMonsterEntity.class::isInstance)
-                .map(SemionMonsterEntity.class::cast)
                 .filter(monster -> tower.runtimeTower() == null || tower.runtimeTower().canAttackTarget(tower, monster))
                 .filter(this::isInTargetSearchRange)
                 .toList();

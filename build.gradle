@@ -240,6 +240,21 @@ tasks.named('runGameTest') {
                     java.security.MessageDigest.getInstance('SHA-256').digest(fixture.bytes))
         }
     }
+    if (providers.gradleProperty('semiontd.matchProfile').getOrElse('false').toBoolean()) {
+        systemProperty 'semiontd.matchProfile', 'true'
+        systemProperty 'fabric-api.gametest.filter',
+                'semion-td-gametest:game_match_performance_test_measures_match_combat'
+        systemProperty 'spark.backgroundProfiler', 'false'
+        minHeapSize = '4g'
+        maxHeapSize = '4g'
+        jvmArgs '-XX:+UseG1GC', '-XX:ActiveProcessorCount=4'
+        ['profileVariant', 'matchSpark', 'matchRound', 'matchSummons', 'matchTicks', 'matchBuilders'].each { key ->
+            def value = providers.gradleProperty('semiontd.' + key).orNull
+            if (value != null) systemProperty 'semiontd.' + key, value
+        }
+        def sparkJar = providers.gradleProperty('semiontd.sparkJar').orNull
+        if (sparkJar != null) classpath = classpath + files(sparkJar)
+    }
     doFirst {
         File isolatedRun = isolatedGameTestDirectory.get().asFile
         if (new File(isolatedRun, 'world').exists()) {

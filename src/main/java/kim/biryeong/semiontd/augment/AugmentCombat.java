@@ -41,6 +41,8 @@ import net.minecraft.world.phys.Vec3;
 
 /** Normal-tower augment effects. Selection state remains owned by the player. */
 public final class AugmentCombat {
+    private static final String[] BENEFICIAL_EFFECTS = {"beneficial_effect_1", "beneficial_effect_2",
+            "beneficial_effect_3"};
     private static final TowerDataKey<Wave> WAVE = key("wave", Wave.class);
     private static final TowerDataKey<Integer> HEAT = key("heat", Integer.class);
     private static final TowerDataKey<Integer> MASTERY = key("mastery", Integer.class);
@@ -352,7 +354,7 @@ public final class AugmentCombat {
     public static double beneficialBonus(AugmentSnapshot snapshot, String parameter) {
         double bonus = 0;
         for (int tier = 1; tier <= 3; tier++) {
-            String id = "beneficial_effect_" + tier;
+            String id = BENEFICIAL_EFFECTS[tier - 1];
             if (snapshot.has(id)) bonus += snapshot.parameter(id, parameter, tier / 20.0);
         }
         return bonus;

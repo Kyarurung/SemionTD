@@ -16,6 +16,7 @@ public final class AugmentCatalog {
     public static final int OFFER_RULES_VERSION = 6;
     public static final List<Integer> MILESTONES = List.of(5, 15, 25);
     private static final Set<Integer> ALL_ROUNDS = Set.of(5, 15, 25);
+    private static final String NAMESPACE = "semiontd:";
     private static final Map<String, List<String>> STANCES = Map.of(
             "semiontd:tactical_designation_1", List.of("ASSAULT", "COVER"),
             "semiontd:tactical_designation_2", List.of("ASSAULT", "COVER"),
@@ -29,8 +30,18 @@ public final class AugmentCatalog {
     private AugmentCatalog() {}
 
     public static String normalizeId(String id) {
+        requireId(id);
+        return id.contains(":") ? id : NAMESPACE + id;
+    }
+
+    static void requireId(String id) {
         if (id == null || id.isBlank()) {throw new IllegalArgumentException("Augment ID is required.");}
-        return id.contains(":") ? id : "semiontd:" + id;
+    }
+
+    private static boolean sameId(String id, String normalized) {
+        return id.contains(":") ? id.equals(normalized)
+                : normalized.length() == NAMESPACE.length() + id.length() && normalized.startsWith(NAMESPACE)
+                        && normalized.endsWith(id);
     }
 
     public static List<AugmentDefinition> definitions() {return DEFINITIONS;}
@@ -43,8 +54,8 @@ public final class AugmentCatalog {
     }
     public static boolean matchesSelection(String requestedId, String selectedId) {
         if (selectedId == null) {return false;}
-        String requested = normalizeId(requestedId);
-        return requested.equals(selectedId) || requested.equals(effectId(selectedId));
+        requireId(requestedId);
+        return sameId(requestedId, selectedId) || sameId(requestedId, effectId(selectedId));
     }
     public static List<AugmentDefinition> normalDefinitions() {
         return LOOKUP.normalDefinitions();

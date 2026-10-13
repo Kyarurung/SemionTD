@@ -56,6 +56,28 @@ class AugmentCatalogLookupTest {
     }
 
     @Test
+    void selectionMatchingEqualsNormalizedComparisonForPrefixedAndBareIds() {
+        List<String> ids = new ArrayList<>();
+        AugmentCatalog.definitions().forEach(card -> ids.add(card.id()));
+        ids.addAll(STANCES.keySet());
+        ids.addAll(List.of("semiontd:unknown", "other:biased_armor", "semiontd:biased_armor_physicalx"));
+        for (String selected : ids) {
+            for (String requested : ids) {
+                for (String form : List.of(requested, requested.substring(requested.indexOf(':') + 1))) {
+                    String normalized = AugmentCatalog.normalizeId(form);
+                    boolean expected = normalized.equals(selected)
+                            || normalized.equals(AugmentCatalog.effectId(selected));
+                    assertEquals(expected, AugmentCatalog.matchesSelection(form, selected), form + " vs " + selected);
+                }
+            }
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> AugmentCatalog.matchesSelection(" ", "semiontd:biased_armor"));
+        assertThrows(IllegalArgumentException.class, () -> AugmentSnapshot.none().has(null));
+        assertThrows(IllegalArgumentException.class, () -> AugmentSnapshot.none().has(" "));
+    }
+
+    @Test
     void unknownAndInvalidIdsKeepTheirExistingContracts() {
         for (String id : List.of("", " ", "\t", "unknown", "semiontd:unknown", "semiontd:decisive_delivery")) {
             assertTrue(AugmentCatalog.find(id).isEmpty());

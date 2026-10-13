@@ -68,6 +68,8 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
      */
     public static final double DEMON_LORD_AGGRO_KEEP_RANGE = 16.0;
     private static final double DEFENSE_SEARCH_VERTICAL_PADDING = 3.0;
+    private static final java.util.concurrent.atomic.AtomicInteger DOMINATED =
+            new java.util.concurrent.atomic.AtomicInteger();
 
     private EntityType<?> polymerEntityType = net.minecraft.world.entity.EntityTypes.ZOMBIE;
     private Monster runtimeMonster;
@@ -139,6 +141,7 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
 
     /** 지배당해 편을 바꾼 동안, 지키는 레인 id. -1이면 지배당하지 않았습니다. */
     private int dominatedLaneId = -1;
+    private boolean dominatedCounted;
 
     public boolean isDominated() {
         return dominatedLaneId >= 0;
@@ -150,9 +153,27 @@ public class SemionMonsterEntity extends PathfinderMob implements AnimatedEntity
      */
     public void setDominatedFor(int laneId) {
         dominatedLaneId = laneId;
+        countDominated(laneId >= 0 && !isRemoved());
         if (laneId >= 0) {
             setTarget(null);
         }
+    }
+
+    public static boolean anyDominated() {
+        return DOMINATED.get() > 0;
+    }
+
+    private void countDominated(boolean dominated) {
+        if (dominated != dominatedCounted) {
+            dominatedCounted = dominated;
+            DOMINATED.addAndGet(dominated ? 1 : -1);
+        }
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        countDominated(false);
+        super.remove(reason);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package kim.biryeong.semiontd.entity.monster.goal;
 
 import java.util.EnumSet;
+import kim.biryeong.semiontd.entity.goal.EntityGoalStraightPath;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.visual.SemionAnimationState;
 import kim.biryeong.semiontd.tower.succubus.SuccubusDreams;
@@ -10,6 +11,7 @@ import net.minecraft.world.entity.ai.goal.Goal;
 public final class MonsterAttackTargetGoal extends Goal {
     private final SemionMonsterEntity monster;
     private final double speedModifier;
+    private final EntityGoalStraightPath chasePath = new EntityGoalStraightPath();
     private int cooldownTicks;
 
     public MonsterAttackTargetGoal(SemionMonsterEntity monster, double speedModifier) {
@@ -65,7 +67,7 @@ public final class MonsterAttackTargetGoal extends Goal {
         if (distanceSqr > attackRangeSqr) {
             monster.playAnimation(SemionAnimationState.WALK);
             double adjustedSpeed = speedModifier * monster.movementSpeedMultiplier();
-            monster.getNavigation().moveTo(target, adjustedSpeed);
+            chasePath.moveTo(monster, target.getX(), target.getY(), target.getZ(), adjustedSpeed);
             monster.getMoveControl().setWantedPosition(target.getX(), target.getY(), target.getZ(), adjustedSpeed);
             return;
         }

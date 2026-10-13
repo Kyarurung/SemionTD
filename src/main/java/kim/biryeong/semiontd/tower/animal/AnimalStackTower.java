@@ -3,9 +3,11 @@ package kim.biryeong.semiontd.tower.animal;
 import java.util.UUID;
 import java.util.List;
 import kim.biryeong.semiontd.augment.AugmentCombat;
+import kim.biryeong.semiontd.augment.AugmentSnapshot;
 import kim.biryeong.semiontd.api.area.AreaVfxSpec;
 import kim.biryeong.semiontd.api.area.AreaVfxStyles;
 import kim.biryeong.semiontd.api.area.MonsterAreaEffectRequest;
+import kim.biryeong.semiontd.config.TowerBalanceConfig;
 import kim.biryeong.semiontd.config.TowerBalanceRuntime;
 import kim.biryeong.semiontd.entity.monster.SemionMonsterEntity;
 import kim.biryeong.semiontd.entity.tower.SemionTowerEntity;
@@ -35,6 +37,15 @@ abstract class AnimalStackTower extends EntityBackedTower {
     private boolean leaderAuraActive;
     private boolean livingLeaderExists;
     private List<String> unionLeaders = List.of();
+    private PlayerLane packLane;
+    private int packRevision;
+    private TowerBalanceConfig packBalance;
+    private TowerType packType;
+    private AugmentSnapshot packAugments;
+    private boolean packAlive;
+    private double packX;
+    private double packY;
+    private double packZ;
 
     protected AnimalStackTower(TowerType type, UUID ownerPlayer, TeamId teamId, int laneId, GridPosition position) {
         super(type, ownerPlayer, teamId, laneId, position);
@@ -261,7 +272,7 @@ abstract class AnimalStackTower extends EntityBackedTower {
     }
 
     static void refreshAnimalStacks(PlayerLane lane) {
-        if (lane == null) {
+        if (lane == null || !packInputsChanged(lane)) {
             return;
         }
         for (Tower tower : lane.towers()) {
@@ -274,6 +285,40 @@ abstract class AnimalStackTower extends EntityBackedTower {
                 animalTower.refreshLeaderState(lane);
             }
         }
+    }
+
+    private static boolean packInputsChanged(PlayerLane lane) {
+        boolean changed = false;
+        for (Tower tower : lane.towers()) {
+            if (tower instanceof AnimalStackTower animalTower && animalTower.recordPackInputs(lane)) {
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private boolean recordPackInputs(PlayerLane lane) {
+        int revision = lane.towerRevision();
+        TowerBalanceConfig balance = TowerBalanceRuntime.current();
+        TowerType type = type();
+        AugmentSnapshot augments = augmentSnapshot();
+        boolean alive = health() > 0.0;
+        Vec3 center = center(lane);
+        if (packLane == lane && packRevision == revision && packBalance == balance && packType == type
+                && packAugments == augments && packAlive == alive && Double.compare(packX, center.x) == 0
+                && Double.compare(packY, center.y) == 0 && Double.compare(packZ, center.z) == 0) {
+            return false;
+        }
+        packLane = lane;
+        packRevision = revision;
+        packBalance = balance;
+        packType = type;
+        packAugments = augments;
+        packAlive = alive;
+        packX = center.x;
+        packY = center.y;
+        packZ = center.z;
+        return true;
     }
 
     private void refreshLeaderState(PlayerLane lane) {

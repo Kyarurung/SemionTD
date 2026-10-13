@@ -7,6 +7,8 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import kim.biryeong.semiontd.config.TowerBalanceConfig;
 import kim.biryeong.semiontd.entity.visual.CatVisual;
@@ -348,6 +350,10 @@ public final class VillagerTowers {
             ADV_T3_ANTI_TANKER_CAT_TOWER,
             ADV_T3_LANE_CLEAR_CAT_TOWER
     );
+    private static final Set<String> BASE_TOWER_IDS = BASE_TOWERS.stream().map(TowerType::id)
+            .collect(Collectors.toUnmodifiableSet());
+    private static final Set<String> ADV_TOWER_IDS = ADV_TOWERS.stream().map(TowerType::id)
+            .collect(Collectors.toUnmodifiableSet());
 
     static {
         registerAdvTemplate(ADV_T1_SPLASH_TOWER, T1_SPLASH_TOWER.description(), List.of(
@@ -472,11 +478,11 @@ public final class VillagerTowers {
     }
 
     public static boolean isBaseVillagerTower(TowerType type) {
-        return type != null && BASE_TOWERS.stream().anyMatch(base -> type.id().equals(base.id()));
+        return type != null && BASE_TOWER_IDS.contains(type.id());
     }
 
     public static boolean isAdvVillagerTower(TowerType type) {
-        return type != null && ADV_TOWERS.stream().anyMatch(adv -> type.id().equals(adv.id()));
+        return type != null && ADV_TOWER_IDS.contains(type.id());
     }
 
     public static boolean isVillagerTower(TowerType type) {

@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import kim.biryeong.semiontd.augment.AugmentChoice;
 import kim.biryeong.semiontd.augment.AugmentConfig;
@@ -133,6 +135,85 @@ final class AnimalTowerRefreshOrderingTest {
         receiver.tick(lane);
         assertFalse(receiver.hasLeaderAura());
         assertTrue(receiver.currentMaxHealth() < buffedMaxHealth);
+    }
+
+    @Test
+    void unchangedPackIsNotRecountedUntilAnInputChanges() {
+        PlayerLane lane = lane(AugmentSnapshot.none());
+        CountingPig first = new CountingPig(new GridPosition(0, 0, 0));
+        PigTower second = new PigTower(AnimalTowers.T1_PIG_TOWER, OWNER, TeamId.RED, 1, new GridPosition(2, 0, 0));
+        lane.addTower(first);
+        lane.addTower(second);
+        int recounts = first.recounts;
+
+        first.tick(lane);
+        second.tick(lane);
+        first.tick(lane);
+        assertEquals(recounts, first.recounts);
+
+        second.syncHealth(0.0);
+        first.tick(lane);
+        assertEquals(recounts + 1, first.recounts);
+        first.tick(lane);
+        assertEquals(recounts + 1, first.recounts);
+
+        second.syncHealth(second.currentMaxHealth());
+        second.tick(lane);
+        assertEquals(recounts + 2, first.recounts);
+
+        second.syncPosition(new GridPosition(3, 0, 0));
+        second.tick(lane);
+        assertEquals(recounts + 3, first.recounts);
+
+        second.syncAugments(snapshot(AnimalStackTower.FRIENDSHIP), lane);
+        first.tick(lane);
+        assertEquals(recounts + 4, first.recounts);
+
+        lane.addTower(new WolfTower(AnimalTowers.T1_WOLF_TOWER, OWNER, TeamId.RED, 1, new GridPosition(4, 0, 0)));
+        assertEquals(recounts + 5, first.recounts);
+        first.tick(lane);
+        second.tick(lane);
+        assertEquals(recounts + 5, first.recounts);
+    }
+
+    @Test
+    void laterAnimalTickObservesABalanceReload() {
+        PlayerLane lane = lane(AugmentSnapshot.none());
+        PigTower leader = new PigTower(AnimalTowers.T4_PIG_LEADER_TOWER, OWNER, TeamId.RED, 1,
+                new GridPosition(0, 0, 0));
+        PigTower receiver = new PigTower(AnimalTowers.T1_PIG_TOWER, OWNER, TeamId.RED, 1,
+                new GridPosition(1, 0, 0));
+        lane.addTower(leader);
+        lane.addTower(receiver);
+        for (int i = 1; i < leader.maxStacks(); i++) {
+            lane.addTower(new PigTower(AnimalTowers.T1_PIG_TOWER, OWNER, TeamId.RED, 1,
+                    new GridPosition(100 + i, 0, 0)));
+        }
+        assertTrue(receiver.hasLeaderAura());
+
+        TowerBalanceConfig defaults = TowerBalanceConfig.defaultConfig();
+        Map<String, Map<String, Double>> abilities = new HashMap<>(defaults.abilities());
+        Map<String, Double> leaderAbilities = new HashMap<>(abilities.get(AnimalTowers.T4_PIG_LEADER_TOWER.id()));
+        leaderAbilities.put("leaderAuraRadius", 0.0);
+        abilities.put(AnimalTowers.T4_PIG_LEADER_TOWER.id(), leaderAbilities);
+        TowerBalanceRuntime.apply(new TowerBalanceConfig(defaults.towers(), defaults.upgradeCosts(), abilities));
+        assertTrue(receiver.hasLeaderAura());
+        receiver.tick(lane);
+        assertFalse(receiver.hasLeaderAura());
+    }
+
+    private static final class CountingPig extends PigTower {
+        private int recounts;
+
+        private CountingPig(GridPosition position) {
+            super(AnimalTowers.T1_PIG_TOWER, OWNER, TeamId.RED, 1, position);
+        }
+
+        @Override
+        protected void onStacksChanged(PlayerLane lane, int previousStacks, int currentStacks) {
+            recounts++;
+            super.onStacksChanged(lane, previousStacks, currentStacks);
+        }
     }
 
     private static PlayerLane lane(AugmentSnapshot augments) {

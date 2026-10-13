@@ -24,6 +24,7 @@ import kim.biryeong.semiontd.tower.augment.AugmentTowerService;
 import kim.biryeong.semiontd.tower.augment.AugmentTowers;
 import kim.biryeong.semiontd.entity.SemionEntityTypes;
 import kim.biryeong.semiontd.entity.defender.LaneDefenseEntity;
+import kim.biryeong.semiontd.entity.goal.EntityGoalStraightPath;
 import kim.biryeong.semiontd.entity.healing.HealingTarget;
 import kim.biryeong.semiontd.entity.model.BilDeathVisual;
 import kim.biryeong.semiontd.entity.model.SemionBilModelCache;
@@ -117,6 +118,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
     private SemionAnimationState animationState = SemionAnimationState.IDLE;
     private EntityType<?> polymerEntityType = net.minecraft.world.entity.EntityTypes.ARMOR_STAND;
     private final TimedEffectSet timedEffects = new TimedEffectSet();
+    private final EntityGoalStraightPath chasePath = new EntityGoalStraightPath();
     private LivingEntityHolder<SemionTowerEntity> holder;
     private boolean deathVisualShown;
     private EntityAttachment holderAttachment;
@@ -1713,7 +1715,7 @@ public final class SemionTowerEntity extends PathfinderMob implements AnimatedEn
         }
 
         playAnimation(SemionAnimationState.WALK);
-        getNavigation().moveTo(targetPosition.x, targetPosition.y, targetPosition.z, speedModifier);
+        chasePath.moveTo(this, targetPosition.x, targetPosition.y, targetPosition.z, speedModifier);
         getMoveControl().setWantedPosition(targetPosition.x, targetPosition.y, targetPosition.z, speedModifier);
         getLookControl().setLookAt(targetPosition.x, targetPosition.y, targetPosition.z);
         move(MoverType.SELF, step);

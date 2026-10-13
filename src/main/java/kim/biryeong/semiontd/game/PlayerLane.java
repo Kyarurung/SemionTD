@@ -77,6 +77,7 @@ public final class PlayerLane {
     private final List<Tower> towers = new ArrayList<>();
     private final List<Tower> towerView = Collections.unmodifiableList(towers);
     private Tower[] towerSnapshot;
+    private int towerRevision;
     private final Set<Tower> towerMembership = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<TowerRoundMetricsTracker> roundTowerTrackers =
             Collections.newSetFromMap(new IdentityHashMap<>());
@@ -251,6 +252,10 @@ public final class PlayerLane {
 
     public List<Tower> towers() {
         return towerView;
+    }
+
+    public int towerRevision() {
+        return towerRevision;
     }
 
     public AugmentSnapshot augmentSnapshot() {
@@ -443,6 +448,7 @@ public final class PlayerLane {
         tower.attachToLane(this, traitLoadout);
         towers.add(tower);
         towerSnapshot = null;
+        towerRevision++;
         towerMembership.add(tower);
         trackTowerDuringWave(tower, false);
         tower.onPlaced(this);
@@ -484,6 +490,7 @@ public final class PlayerLane {
         replacement.attachToLane(this, traitLoadout);
         towers.set(index, replacement);
         towerSnapshot = null;
+        towerRevision++;
         towerMembership.remove(existing);
         towerMembership.add(replacement);
         replacement.onPlaced(this);
@@ -496,6 +503,7 @@ public final class PlayerLane {
             return false;
         }
         towerSnapshot = null;
+        towerRevision++;
         towerMembership.remove(tower);
         kim.biryeong.semiontd.tower.legion.LegionAugments.onRemoved(tower, this);
         kim.biryeong.semiontd.tower.undead.UndeadAugments.onRemoved(this, tower);
@@ -685,6 +693,7 @@ public final class PlayerLane {
         }
         towers.clear();
         towerSnapshot = null;
+        towerRevision++;
         towerMembership.clear();
     }
 
