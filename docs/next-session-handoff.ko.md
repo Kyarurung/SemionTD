@@ -189,7 +189,7 @@ git status --ignored --short src/main/resources/assets/semion-td
 
 ## 호환 모듈과 저장 경로
 
-`compat/`의 danta, Friends & Foes, Polymer 패치와 Nightlights는 메인 배포 JAR의 중첩 의존성이다. ChatHeads, WorldEdit Hang Fix, HoloDisplays, Sylcurity는 각각 별도 JAR로 설치한다. 각 모듈의 원본 라이선스와 `SOURCE_NOTICE`를 유지하고 메인 JAR만 교체하여 외부 모드 세트 검증을 생략하지 않는다.
+danta, Friends & Foes, Polymer 패치와 Nightlights는 메인 배포 JAR의 중첩 의존성이다. Friends & Foes와 그 Polymer 패치는 Modrinth 공식 배포본을 받고, danta shader와 Nightlights, Nightlights Polymer 패치는 `libs/`의 로컬 JAR을 받는다(준비 방법은 README의 서버 의존성). 타 모드의 소스는 이 저장소에 두지 않는다. ChatHeads, WorldEdit Hang Fix, HoloDisplays, Sylcurity는 각각 별도 JAR로 설치한다. 로컬 JAR을 다시 만들 때는 각 모듈의 원본 라이선스와 출처 고지를 유지하고, 메인 JAR만 교체하여 외부 모드 세트 검증을 생략하지 않는다.
 
 Avatar 렌더러의 작업 스레드는 종료 이벤트에서 정리한다. 실제 서버가 저장을 끝낸 뒤 JVM까지 정상 종료되는지 확인한다. headless 검증 환경의 SessionService 부재는 ChatHeads 기본 아이콘으로 처리하며 실제 서버의 프로필 조회 동작과 구분한다.
 

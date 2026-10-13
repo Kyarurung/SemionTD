@@ -33,9 +33,9 @@
     "placeholder-api": ">=3.2.0+26.3",
     "sidebar-api": ">=0.6.0+26.1",
     "factorytools": ">=0.12.1+26.3",
-    "friendsandfoes": ">=4.0.27",
+    "friendsandfoes": ">=5.0.2",
     "flowerymooblooms": ">=3.0.3",
-    "friendsandfoes-polymer-patch": ">=4.0.26-0+26.2",
+    "friendsandfoes-polymer-patch": ">=5.0.1-0+26.3",
     "nightlights": ">=1.3.0+26.3-local",
     "night-lights-patch": ">=1.3.0+26.3-local"
   }

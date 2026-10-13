@@ -23,8 +23,9 @@ Fabric Loader와 Fabric API는 서로 다른 의존성입니다. Minecraft 26.3�
 
 - 별도로 준비할 런타임 의존성은 Fabric API, Polymer 모듈, FactoryTools, Flowery Mooblooms와 이들의 전이 의존성입니다. 현재 빌드는 Resourceful Lib과 YACL도 사용합니다. 실제 서버에서는 각 모드의 메타데이터도 함께 검사합니다.
 - SGUI, BIL, Fabric Permissions API, Placeholder API, Sidebar API 등 `include(...)` 의존성은 빌드된 JAR에 중첩됩니다. 최종 JAR의 메타데이터와 중첩 파일을 확인하고 같은 모드를 다른 버전으로 중복 설치하지 않습니다.
-- danta shader, Friends & Foes와 Polymer patch, Nightlights와 Polymer patch는 `compat/`의 로컬 26.3 모듈을 빌드해 함께 포함합니다. Flowery Mooblooms는 현재 선언된 배포본과 Friends Polymer patch의 조합을 사용합니다. 파일명에 다른 Minecraft 버전이 남아 있다는 이유만으로 임의 교체하지 않습니다.
-- ChatHeads, WorldEdit Hang Fix, HoloDisplays, Sylcurity 호환 모듈도 `compat/`에서 따로 빌드합니다. 이들은 Semion TD 기본 GameTest에 무관한 운영 기능이며, 메인 JAR의 중첩 모드로 취급하지 않습니다.
+- Friends & Foes와 Polymer patch는 Modrinth 공식 배포본을 의존성으로 받아 함께 포함합니다(`gradle.properties`의 `friends_and_foes_version`, `friends_and_foes_polymer_version`). Flowery Mooblooms는 현재 선언된 배포본과 Friends Polymer patch의 조합을 사용합니다. 파일명에 다른 Minecraft 버전이 남아 있다는 이유만으로 임의 교체하지 않습니다.
+- danta shader, Nightlights, Nightlights Polymer patch는 Minecraft 26.3용 배포본이 없어 로컬 JAR로 받아 함께 포함합니다. 빌드 전에 `libs/`에 `danta-shader-1.0.2+26.3-local.jar`, `nightlights-fabric-1.3.0+26.3-local.jar`, `night-lights-patch-1.3.0+26.3-local.jar`를 둡니다. 버전은 `gradle.properties`의 `danta_shader_version`, `nightlights_version`, `nightlights_patch_version`과 같아야 합니다. `libs/`는 저장소에 올리지 않으며, 세 JAR이 없으면 빌드는 의존성을 찾지 못해 실패합니다.
+- 타 모드의 소스는 이 저장소에 두지 않습니다. ChatHeads, WorldEdit Hang Fix, HoloDisplays, Sylcurity는 Semion TD 빌드와 기본 GameTest에 무관한 운영 기능이며, 메인 JAR의 중첩 모드로 취급하지 않고 각각 별도 JAR로 설치합니다.
 
 의존성 다운로드에는 해당 Maven/배포 서비스에 대한 네트워크 접근이 필요합니다. 비공개 모델·텍스처의 준비 조건은 아래 [비공개 리소스](#비공개-리소스)를 확인합니다.
 
@@ -54,7 +55,7 @@ Fabric Loader와 Fabric API는 서로 다른 의존성입니다. Minecraft 26.3�
 | `src/main/resources` | 모드 메타데이터·맵·패키지 기본값·리소스 |
 | `src/test/java` | 책임 패키지별 JUnit |
 | `src/gametest/java`, `src/gametest/resources/fabric.mod.json` | 서버 GameTest와 구체 테스트 클래스 등록 |
-| `compat/` | 로컬 호환 모듈과 원본 라이선스·출처 |
+| `libs/` | 26.3 배포본이 없는 모드의 로컬 JAR(저장소 제외) |
 | `docs/`, `.agents/skills/` | 유지 문서와 작업별 제작 지침 |
 
 게임 구현과 테스트는 같은 책임 경계로 구성합니다. 빌더별 순수 계산과 상태는 JUnit, 실제 엔티티·전투·업그레이드·정리는 GameTest로 확인합니다. 흑마법사·엔드의 책임 분리 방식과 공통 fixture 사용법은 [제작 가이드](docs/production-tower-catalog.ko.md)를 따릅니다. `build/`, `run/`, `logs/`는 생성 상태이며 소스 커밋 대상이 아닙니다.

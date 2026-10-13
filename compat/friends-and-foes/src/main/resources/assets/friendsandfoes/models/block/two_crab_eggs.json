@@ -1,6 +1,0 @@
-{
-	"parent": "friendsandfoes:block/template_two_crab_eggs",
-	"textures": {
-		"all": "friendsandfoes:block/crab_egg"
-	}
-}

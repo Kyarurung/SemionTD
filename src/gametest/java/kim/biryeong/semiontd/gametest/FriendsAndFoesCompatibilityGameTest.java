@@ -2,8 +2,6 @@ package kim.biryeong.semiontd.gametest;
 
 import com.faboslav.friendsandfoes.common.init.FriendsAndFoesItems;
 import com.faboslav.friendsandfoes.common.init.FriendsAndFoesPotions;
-import com.faboslav.friendsandfoes.common.util.LegacyBlockPositions;
-import java.util.HashSet;
 import java.util.List;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
@@ -46,15 +44,11 @@ public final class FriendsAndFoesCompatibilityGameTest {
         helper.succeed();
     }
     @GameTest
-    public void reachingPotionMixesAndContainersStillWork(GameTestHelper helper) {
+    public void reachingPotionMixesStillWork(GameTestHelper helper) {
         for (Item bottle : List.of(Items.POTION, Items.SPLASH_POTION, Items.LINGERING_POTION)) {
             assertBrew(helper, bottle, Potions.AWKWARD, FriendsAndFoesItems.CRAB_CLAW.get(), bottle, FriendsAndFoesPotions.REACHING.holder());
             assertBrew(helper, bottle, FriendsAndFoesPotions.REACHING.holder(), Items.REDSTONE, bottle, FriendsAndFoesPotions.LONG_REACHING.holder());
             assertBrew(helper, bottle, FriendsAndFoesPotions.REACHING.holder(), Items.GLOWSTONE_DUST, bottle, FriendsAndFoesPotions.STRONG_REACHING.holder());
-        }
-        for (Holder<Potion> potion : List.of(FriendsAndFoesPotions.REACHING.holder(), FriendsAndFoesPotions.LONG_REACHING.holder(), FriendsAndFoesPotions.STRONG_REACHING.holder())) {
-            assertBrew(helper, Items.POTION, potion, Items.GUNPOWDER, Items.SPLASH_POTION, potion);
-            assertBrew(helper, Items.SPLASH_POTION, potion, Items.DRAGON_BREATH, Items.LINGERING_POTION, potion);
         }
         helper.succeed();
     }
@@ -97,19 +91,8 @@ public final class FriendsAndFoesCompatibilityGameTest {
     }
 
     @GameTest
-    public void buttercupAndBoundedSearchRetainBehavior(GameTestHelper helper) {
+    public void buttercupRemainsCompostable(GameTestHelper helper) {
         helper.assertTrue(FriendsAndFoesItems.BUTTERCUP.get().components().has(DataComponents.COMPOSTABLE), Component.literal("Buttercup must remain compostable"));
-        var positions = new HashSet<BlockPos>();
-        BlockPos origin = new BlockPos(10, 20, 30);
-        int previousDistance = -1;
-        for (BlockPos pos : LegacyBlockPositions.withinManhattan(origin, 3, 1, 2)) {
-            int distance = Math.abs(pos.getX() - origin.getX()) + Math.abs(pos.getY() - origin.getY()) + Math.abs(pos.getZ() - origin.getZ());
-            helper.assertTrue(distance >= previousDistance, Component.literal("Search must remain nearest Manhattan distance first"));
-            helper.assertTrue(Math.abs(pos.getX() - origin.getX()) <= 3 && Math.abs(pos.getY() - origin.getY()) <= 1 && Math.abs(pos.getZ() - origin.getZ()) <= 2, Component.literal("Search must retain independent horizontal and vertical bounds"));
-            helper.assertTrue(positions.add(pos), Component.literal("Search must not visit any position twice"));
-            previousDistance = distance;
-        }
-        helper.assertTrue(positions.size() == 105, Component.literal("Search must retain the full bounded box"));
         helper.succeed();
     }
 }
