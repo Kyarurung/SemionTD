@@ -6,7 +6,7 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 
 | 책임 | 현재 코드 | 제작 시 재사용하는 부분 |
 |---|---|---|
-| 빌더 정의·수명 | `job/SemionJob`, `job/JobRegistry`, `job/JobBuilderLifecycle`, `job/JobLaneLifecycle` | 직업 정의와 이벤트 실행 분리, 공통 dispatch, 단계별 정리 |
+| 빌더 정의·수명 | `job/SemionJob`, `job/JobRegistry`, 각 `job/*TowerJob` | 직업 정의와 경기 이벤트 훅, 단계별 정리 |
 | 타워 정의 | `tower/TowerType`, `tower/catalog/ProductionTowerDefinitions` | 안정적인 ID·기본 스탯·외형·설명 |
 | 계열 등록 | `tower/<family>/*TowerCatalogs`, `ProductionTowerCatalogs.reloadBuiltIns` | 팩토리·티어·스타터·업그레이드 그래프 |
 | 배치·거래 | `tower/ProductionTowerService` | 단계·권한·좌표·점유·한도·지출 검사와 행동 기록 |
@@ -27,7 +27,7 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 
 | 등록 항목: 표시명·직업 클래스 | 확인된 구현과 검증 근거 | 재사용에 적합한 경우 | 보존할 조건·개선 필요 |
 |---|---|---|---|
-| 무직 ([DefaultJob](../src/main/java/kim/biryeong/semiontd/job/DefaultJob.java)) | [SemionJob.canUseTower](../src/main/java/kim/biryeong/semiontd/job/SemionJob.java)의 기본 불허 계약과 명시적 `JobLifecycle.NONE`을 사용한다. 회귀 근거: [JobBuilderLifecycleTest](../src/test/java/kim/biryeong/semiontd/job/JobBuilderLifecycleTest.java). | 이벤트와 전용 타워가 없는 직업의 최소 구성. | 전용 상태·전투 구현이 없어 전투 구조의 모범으로 인용할 근거는 없다. |
+| 무직 ([DefaultJob](../src/main/java/kim/biryeong/semiontd/job/DefaultJob.java)) | [SemionJob.canUseTower](../src/main/java/kim/biryeong/semiontd/job/SemionJob.java)의 기본 불허 계약과 빈 기본 훅을 사용한다. 회귀 근거: [JobLifecycleTest](../src/test/java/kim/biryeong/semiontd/job/JobLifecycleTest.java). | 이벤트와 전용 타워가 없는 직업의 최소 구성. | 전용 상태·전투 구현이 없어 전투 구조의 모범으로 인용할 근거는 없다. |
 | 주민 빌더 ([VillagerTowerJob](../src/main/java/kim/biryeong/semiontd/job/VillagerTowerJob.java)) | [AllayTower.execute / supportRequest / canApply](../src/main/java/kim/biryeong/semiontd/tower/villager/AllayTower.java)가 지원 주기·공통 영역 API·대상별 재적용 차단을 연결한다. 회귀 근거: [VillagerTowerRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/tower/villager/VillagerTowerRuntimeTest.java). | 주기적 치유와 같은 종류의 지원 효과. | 효과 source는 시전자별이 아닌 지원 종류별이다. 골렘 업그레이드의 생존 스택 이전·최대 체력 회복은 계열 고유 계약이다. |
 | 주민 ADV 빌더 ([VillagerAdvTowerJob](../src/main/java/kim/biryeong/semiontd/job/VillagerAdvTowerJob.java)) | [VillagerAdvStates.calculateExperienceGains / applyPending](../src/main/java/kim/biryeong/semiontd/tower/villager/VillagerAdvStates.java)가 스냅샷 계산과 현재 직업·lane·타워 소속을 재검증한 반영을 구분한다. 회귀 근거: [VillagerAdvancedTowerRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/tower/villager/VillagerAdvancedTowerRuntimeTest.java). | 타워별 경험치와 플레이어 공통 평판을 함께 관리하는 성장. | 종료 전 대기열 제거와 늦은 결과 검증을 함께 보존한다. 비동기 계산이라는 이유만으로 성능 우위를 주장하지 않는다. |
 | 언데드 빌더 ([UndeadTowerJob](../src/main/java/kim/biryeong/semiontd/job/UndeadTowerJob.java)) | [UndeadDrownedTower.applyLastStand](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadDrownedTower.java)가 일반 피해·방어 무시 피해의 생존 조건을 공유한다. [UndeadRangedSkeletonTower.onNearbyMonsterDeath / copyRuntimeStateFrom](../src/main/java/kim/biryeong/semiontd/tower/undead/UndeadRangedSkeletonTower.java)는 사망 알림 성장과 상한 있는 복사를 연결한다. 회귀 근거: [UndeadTowerRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/tower/undead/UndeadTowerRuntimeTest.java). | 여러 피해 경로의 공통 생존 판정과 주변 사망 성장. | 개선 필요: 좀비·원거리 해골 흡혈은 `onAttack`의 시도 피해 기준이며, 원거리 해골 `pickExtraTargets`는 직접 엔티티 검색이다. 실제 피해 흡혈·공통 탐색의 모범으로 쓰지 않는다. |
@@ -39,7 +39,7 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 | 네더 빌더 ([NetherTowerJob](../src/main/java/kim/biryeong/semiontd/job/NetherTowerJob.java)) | [NetherBloodChargeController.recordNaturalLoss / consume / snapshot / restore](../src/main/java/kim/biryeong/semiontd/tower/nether/NetherBloodChargeController.java)는 생성 당시 충전 값의 FIFO와 잔여 손실을 보존하며 독립 복사를 제공한다. 회귀 근거: [NetherBloodChargeControllerTest](../src/test/java/kim/biryeong/semiontd/tower/nether/NetherBloodChargeControllerTest.java). | 충전마다 가치가 달라질 수 있는 소모 자원. | 자연 체력 손실만 입력한다. 임계값 변경 뒤 기존 충전을 새 값으로 재계산하지 않으며 부활 상태와 라운드 초기화는 별도로 보존한다. |
 | 엔드 빌더 ([EndTowerJob](../src/main/java/kim/biryeong/semiontd/job/EndTowerJob.java)) | [EndTransferController.resolveCompletions / rollbackIncomplete / copyCommittedFrom](../src/main/java/kim/biryeong/semiontd/tower/end/EndTransferController.java)와 [EndTransferState.committedSnapshot](../src/main/java/kim/biryeong/semiontd/tower/end/EndTransferState.java)가 미완료 기여 롤백과 원본 불변의 확정 상태 복사를 제공한다. 회귀 근거: [EndTransferLifecycleTest](../src/test/java/kim/biryeong/semiontd/tower/end/EndTransferLifecycleTest.java). | 여러 tick에 걸쳐 부분 반영되며 중단 가능한 전이. | 진화·현재 체력·설정 리로드를 롤백과 함께 검증한다. 흑마법사의 즉시 확정과 합치지 않고 하이퍼 캐리 계약을 유지한다. |
 | 바다 빌더 ([OceanTowerJob](../src/main/java/kim/biryeong/semiontd/job/OceanTowerJob.java)) | [OceanCurrentController.recordSpent / snapshot / restore](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanCurrentController.java)는 소비 잔여·파도 시계·충전을, [OceanWaterTower.captureSupplyTargets / restoreWater](../src/main/java/kim/biryeong/semiontd/tower/ocean/OceanWaterTower.java)는 공급 대상과 소유 블록 복원을 관리한다. 회귀 근거: [OceanTowerRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/tower/ocean/OceanTowerRuntimeTest.java). | 저장 자원 공급과 임시 월드 표현을 함께 갖는 타워. | 저장 물과 라운드 충전의 수명, 공급 UUID 스냅샷·분배 순서·이동 후 공급 유지를 보존한다. 컨트롤러 주기·임계값의 유효 입력 조건도 확인한다. |
-| 고대 도시 빌더 ([AncientCityTowerJob](../src/main/java/kim/biryeong/semiontd/job/AncientCityTowerJob.java)) | [AncientCityStates.onWaveStarted / recordAttributedDeath](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityStates.java)가 소유자별 영역·웨이브 성장·성공한 사망 성장 한도를 분리한다. 회귀 근거: [JobBuilderLifecycleRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/job/JobBuilderLifecycleRuntimeTest.java). | 소유자 단위 지형과 라운드 예산. | 본진과 최종방어 영역은 별도다. 보상 귀속 경로와 `closeBeforeLanes` 정리 순서를 보존한다. |
+| 고대 도시 빌더 ([AncientCityTowerJob](../src/main/java/kim/biryeong/semiontd/job/AncientCityTowerJob.java)) | [AncientCityStates.onWaveStarted / recordAttributedDeath](../src/main/java/kim/biryeong/semiontd/tower/ancientcity/AncientCityStates.java)가 소유자별 영역·웨이브 성장·성공한 사망 성장 한도를 분리한다. 회귀 근거: [JobLifecycleRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/job/JobLifecycleRuntimeTest.java). | 소유자 단위 지형과 라운드 예산. | 본진과 최종방어 영역은 별도다. 보상 귀속 경로와 `closeBeforeLanes` 정리 순서를 보존한다. |
 | 히어로 빌더 ([AdversaryTowerJob](../src/main/java/kim/biryeong/semiontd/job/AdversaryTowerJob.java)) | [AdversaryProgressStates.recordFoxKill](../src/main/java/kim/biryeong/semiontd/tower/adversary/AdversaryProgressStates.java)와 [AdversaryProgressState.reconcileRivals](../src/main/java/kim/biryeong/semiontd/tower/adversary/AdversaryProgressState.java)가 정확한 처치 관계·중복 지급 검사와 설치 기여 원장·진화·강등을 분리한다. 회귀 근거: [AdversaryRivalLedgerTest](../src/test/java/kim/biryeong/semiontd/tower/adversary/AdversaryRivalLedgerTest.java). | 제거 가능한 기여원으로 성장하는 타워. | 라이벌 제거 콜백이 원장을 재조정하므로 `closeAfterLanes` 정리를 앞당기지 않는다. 모든 성장 모델에 강등 규칙을 적용하지 않는다. |
 | 마도사 빌더 ([MageTowerJob](../src/main/java/kim/biryeong/semiontd/job/MageTowerJob.java)) | [MageTowerLifecycle.finishRound](../src/main/java/kim/biryeong/semiontd/tower/mage/MageTowerLifecycle.java)는 소유자·생존·코어 조건으로 자원을 정산하고, [MageTowerRuntime.restoreTemporaryTowers](../src/main/java/kim/biryeong/semiontd/tower/mage/MageTowerRuntime.java)는 catalog·두 위치·공통 복사로 임시형을 복구한다. 회귀 근거: [MageTowerCatalogTest](../src/test/java/kim/biryeong/semiontd/tower/mage/MageTowerCatalogTest.java). | 생존 조건부 정산과 선택형 임시 타워 복구. | 영속 시전 횟수와 초기화할 주문 실행 상태의 수명을 구분하며 라운드 종료 순서를 유지한다. |
 | 기술자 ([EngineerTowerJob](../src/main/java/kim/biryeong/semiontd/job/EngineerTowerJob.java)) | [EngineerTrapSignalController.select / distances](../src/main/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapSignalController.java)는 방향성 회로 스냅샷에서 최근 입력→거리→좌표 선택을 계산한다. 회귀 근거: [EngineerTrapSignalControllerTest](../src/test/java/kim/biryeong/semiontd/tower/engineer/EngineerTrapSignalControllerTest.java). | 월드 실행과 분리해 시험할 회로·연결 선택. | `EngineerTrapTower.plateActivation`의 소유자 필터·실제 전원·최종방어 조건을 함께 유지한다. 스냅샷 구성 비용을 제외한 성능 우위는 주장하지 않는다. |
@@ -48,7 +48,7 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 | 붉은 여왕 빌더 ([QueenTowerJob](../src/main/java/kim/biryeong/semiontd/job/QueenTowerJob.java)) | 직업의 `canUseTower / includesTowerInCatalog`는 배치 권한과 소유권을 구분한다. [QueenPoker.snapshot](../src/main/java/kim/biryeong/semiontd/tower/queen/QueenPoker.java)은 웨이브 시작 배치 조합을 확정한다. 회귀 근거: [QueenGameTest](../src/gametest/java/kim/biryeong/semiontd/tower/queen/QueenGameTest.java). | 문맥 의존 해금과 배치 조합 스냅샷. | 전투 중 카드 변경과 다음 웨이브 반영을 구분한다. 조커 최적 족보·행 순서·중첩 창은 계열 전용 규칙이다. |
 | 용사 빌더 ([HeroPartyTowerJob](../src/main/java/kim/biryeong/semiontd/job/HeroPartyTowerJob.java)) | [HeroCompanionSupportController.tick / copyFrom / resetRound](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroCompanionSupportController.java)는 지원 실행·진행 복사·초기화를, [HeroCompanionStatsView.abilities](../src/main/java/kim/biryeong/semiontd/tower/hero/HeroCompanionStatsView.java)는 표시를 맡는다. 회귀 근거: [HeroCompanionSupportControllerTest](../src/test/java/kim/biryeong/semiontd/tower/hero/HeroCompanionSupportControllerTest.java). | 지원 cooldown과 라운드 pulse의 수명이 다른 동료. | 승급에는 둘 다 복사하되 라운드에는 pulse만 초기화한다. 영웅의 지정 증강 효율 예외는 하이퍼 캐리 분류와 별도로 유지한다. |
 | 아틀란티스 빌더 ([AtlantisTowerJob](../src/main/java/kim/biryeong/semiontd/job/AtlantisTowerJob.java)) | [AtlantisPressure.addStacks / consumeForBurst / Chain](../src/main/java/kim/biryeong/semiontd/tower/atlantis/AtlantisPressure.java)는 소유자·몬스터별 압력과 원래 격자 source를 보존하고 연쇄의 중복 대상·깊이·고유 대상 수를 제한한다. 회귀 근거: [AtlantisPressureTest](../src/test/java/kim/biryeong/semiontd/tower/atlantis/AtlantisPressureTest.java). | 타워 교체 뒤 유지되는 대상별 누적과 재귀 처치 AoE. | `monstersFrom`은 전체 압력 맵을 순회한다. 소유자별 독립 상태를 몬스터 단일 상태로 합치지 않으며 `finally`의 활성 연쇄 해제를 유지한다. |
-| 식물 빌더 ([PlantTowerJob](../src/main/java/kim/biryeong/semiontd/job/PlantTowerJob.java)) | [PlantSoilStates.releaseFrom / restore](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantSoilStates.java)는 원래 블록·생성원 위치를 보존해 자기 토양만 복구한다. [JobPlantLifecycle.onRoundEnded](../src/main/java/kim/biryeong/semiontd/job/JobPlantLifecycle.java)는 생존 타워 수입을 별도 정산한다. 회귀 근거: [PlantTowerIntegrationTest](../src/gametest/java/kim/biryeong/semiontd/tower/plant/PlantTowerIntegrationTest.java). | 가역적인 지형 점유와 환경·정산 수명 분리. | `clear(owner)`의 맵 제거는 블록 복원이 아니다. 타워 제거→복구→새 타워 배치 순서를 유지한다. |
+| 식물 빌더 ([PlantTowerJob](../src/main/java/kim/biryeong/semiontd/job/PlantTowerJob.java)) | [PlantSoilStates.releaseFrom / restore](../src/main/java/kim/biryeong/semiontd/tower/plant/PlantSoilStates.java)는 원래 블록·생성원 위치를 보존해 자기 토양만 복구한다. [PlantTowerJob.onRoundEnded](../src/main/java/kim/biryeong/semiontd/job/PlantTowerJob.java)는 생존 타워 수입을 별도 정산한다. 회귀 근거: [PlantTowerIntegrationTest](../src/gametest/java/kim/biryeong/semiontd/tower/plant/PlantTowerIntegrationTest.java). | 가역적인 지형 점유와 환경·정산 수명 분리. | `clear(owner)`의 맵 제거는 블록 복원이 아니다. 타워 제거→복구→새 타워 배치 순서를 유지한다. |
 | 군대 빌더 ([ArmyTowerJob](../src/main/java/kim/biryeong/semiontd/job/ArmyTowerJob.java)) | [ArmyTower.onWaveStarted / completeServiceWave / completeDischarge](../src/main/java/kim/biryeong/semiontd/tower/army/ArmyTower.java)는 웨이브 참여분을 종료 시 정산하고 판매·자동 전역을 한 번만 지급하는 경로로 모은다. 회귀 근거: [ArmyTowerRuntimeTest](../src/gametest/java/kim/biryeong/semiontd/tower/army/ArmyTowerRuntimeTest.java). | 사망 뒤에도 참여를 정산하는 성장과 여러 처분 경로. | 근속은 타워, 훈장·퇴역 기록은 플레이어 상태다. 정산 전 참여 스냅샷 삭제나 lane 제거 실패 시 지급을 허용하지 않는다. |
 | 람쥐썬더 빌더 ([ThunderTowerJob](../src/main/java/kim/biryeong/semiontd/job/ThunderTowerJob.java)) | [ThunderStates.rollStorm](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderStates.java)의 라운드 공유 난수와 [ThunderPower.snapshot](../src/main/java/kim/biryeong/semiontd/tower/thunder/ThunderPower.java)의 공급·소비 계산을 분리한다. 회귀 근거: [ThunderPowerTest](../src/test/java/kim/biryeong/semiontd/tower/thunder/ThunderPowerTest.java). | 여러 타워가 같은 라운드 난수를 공유하는 자원망. | `ThunderTower.refreshGrid`는 결과를 10틱 주기로 보관하고 웨이브 시작에 강제 갱신한다. 항상 즉시 최신이거나 공유 캐시 최적화가 끝났다고 설명하지 않는다. |
 | 마왕 빌더 ([DemonLordTowerJob](../src/main/java/kim/biryeong/semiontd/job/DemonLordTowerJob.java)) | [DemonLordStates.clear / getOrCreate / resetProgression](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordStates.java)는 전투 상태 정리와 경기 성장 복원을 구분한다. [DemonLordService.dealDamage](../src/main/java/kim/biryeong/semiontd/tower/demonlord/DemonLordService.java)는 대상별 피해 계산 순서를 모은다. 회귀 근거: [DemonLordGameTest](../src/gametest/java/kim/biryeong/semiontd/tower/demonlord/DemonLordGameTest.java). | 플레이어 직접 조작 전투체, 재접속 성장 복원. | 공통 `DamageLifeSteal` 이행은 미완료다. 레벨 배율 0.5/0.5와 본체 피해 포인트 100/100·100/50을 구분하고 TRUE·별도 소환수 예외, 재시전 원시 피해, 기존 회복 상한을 유지한다. |
@@ -70,26 +70,26 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 
 ## 직업 이벤트와 레인 생명주기
 
-직업 클래스는 ID·이름·설명·타워 권한·경제 보정에 집중합니다. 이벤트는 `SemionJob`의 기존 8개 훅 → `JobBuilderLifecycle`의 ID별 등록 → `JobLifecycle` 구현으로 전달합니다. 계열 고유 처리는 `Job<Builder>Lifecycle`에 둡니다. 현재 `JobRegistry`와 `JobBuilderLifecycle`의 기본 직업 포함 34개 등록 중 23개는 전용 구현, 11개는 `JobLifecycle.NONE`을 사용합니다. 동작이 없는 직업에 빈 전용 클래스를 만들 필요는 없습니다.
+직업 클래스는 ID·이름·설명·타워 권한·경제 보정과 경기 이벤트 훅을 함께 가집니다. 이벤트는 `SemionJob`의 기존 8개 훅을 각 `*TowerJob`이 직접 override해 처리합니다. 현재 `JobRegistry`의 기본 직업 포함 34개 중 23개가 훅을 override하고, 11개는 `SemionJob`의 빈 기본 메서드를 그대로 씁니다.
 
-새 직업은 `JobRegistry`와 생명주기 등록을 함께 갱신합니다. production 직업 클래스에 이벤트 override를 다시 추가하지 않고, 필요한 `JobLifecycle` 메서드만 구현합니다. 등록된 생명주기 구현도 공유 객체이므로 플레이어별 가변 상태를 필드에 두지 않습니다. 실제 상태와 전투 규칙은 기존 계열 서비스·타워에 남기고, 생명주기 구현은 호출 순서를 연결합니다.
+새 직업은 `JobRegistry`에 등록하고, 필요한 이벤트 훅만 자신의 `*TowerJob`에서 override합니다. 직업은 공유 객체이므로 플레이어별 가변 상태를 필드에 두지 않습니다. 실제 상태와 전투 규칙은 기존 계열 서비스·타워에 남기고, 직업의 훅은 호출 순서를 연결합니다.
 
 | 훅 | 이전 실행 위치 | 현재 실행 경로 | 보존할 고유 동작·조건 |
 |---|---|---|---|
-| `onSelected` | `SemionJob`의 빈 기본 훅 | 공통 dispatch → `JobLifecycle` 기본 동작 | 시작 자원 적용 후, `team.addPlayer` 이전. 현재 별도 선택 동작 없음 |
+| `onSelected` | `SemionJob`의 빈 기본 훅 | override한 직업 없음 | 시작 자원 적용 후, `team.addPlayer` 이전. 현재 별도 선택 동작 없음 |
 | `onMatchStarted` | 각 직업의 override | 공통 dispatch → 각 `Job<Builder>Lifecycle` | 초기화와 팀 등록, 설계도 설치, 해적 경기 상태 개설, 마왕 경기 성장 초기화 |
 | `onRoundStarted` | 각 직업의 override | 동일한 공통 경로 | 번개 공유 추첨, 개발자 예산, 용사 퀘스트, 고대 도시 라운드 처리. 활성·비탈락 팀만 호출 |
 | `onRoundEnded` | 각 직업의 override | 동일한 공통 경로 | 군인 전역·환급, 식물 수입, 마법사 라운드 종료, 해적 타워 처리, 퀘스트 완료·다음 선택 한도 |
 | `onEliminated` | 각 직업의 override | 동일한 공통 경로 | 온라인 참가자의 선행 정리·관전 전환 후, 모든 팀원의 소유자 상태와 팀 효과 정리 |
-| `onMatchClosed` | 일부 직업 override와 경기 종료 정리 | 전용 구현 후 경기 전체의 단계별 정리 | 반복 호출 가능. 우민 습격·번개 폭풍도 종료 시 해제 |
-| `onSummonedMonster` | `SemionJob`의 빈 기본 훅 | 공통 dispatch → `JobLifecycle` 기본 동작 | 기존 소환 인자 전달, 현재 별도 동작 없음 |
-| `onMonsterKilled` | 고대 도시·흑마법사·마왕 override | 각 전용 구현으로 dispatch | 영토 확장·각성 진척·전투 중 경험치 처리, 한 처치의 중복 반영 방지 |
+| `onMatchClosed` | 일부 직업 override와 경기 종료 정리 | 직업의 override 후 경기 전체의 단계별 정리 | 반복 호출 가능. 우민 습격·번개 폭풍도 종료 시 해제 |
+| `onSummonedMonster` | `SemionJob`의 빈 기본 훅 | override한 직업 없음 | 기존 소환 인자 전달, 현재 별도 동작 없음 |
+| `onMonsterKilled` | 고대 도시·흑마법사·마왕 override | 각 `*TowerJob`의 override | 영토 확장·각성 진척·전투 중 경험치 처리, 한 처치의 중복 반영 방지 |
 
-선택 해제 훅은 현재 없습니다. 재접속도 선택·경기 시작 훅을 다시 실행하지 않습니다. 레인이 필요한 초기화는 실제 연결 이후 훅에서 처리합니다. 연결 종료 시에는 `JobBuilderLifecycle.onPlayerDisconnected`가 도박 표시·마왕·냉기 플레이어 정리의 기존 순서를 담당합니다.
+선택 해제 훅은 현재 없습니다. 재접속도 선택·경기 시작 훅을 다시 실행하지 않습니다. 레인이 필요한 초기화는 실제 연결 이후 훅에서 처리합니다. 연결 종료 시에는 `Events`의 연결 종료 처리가 도박 표시·마왕·냉기 플레이어 정리의 기존 순서를 담당합니다.
 
-팀 탈락 시 `JobBuilderLifecycle.onPlayerEliminated(ServerPlayer)`는 기존 온라인 마왕 정리 1회를 담당합니다. 관전 팀 배정·이동 전에 호출하며, 이후 모든 팀원의 직업 `onEliminated`를 호출하는 순서를 유지합니다. 새 탈락 동작이나 오프라인 플레이어 훅을 추가한 것은 아닙니다.
+팀 탈락 시 `SemionGame`은 온라인 플레이어마다 기존 마왕 정리(`DemonLordService.cleanupPlayer`)를 1회 실행합니다. 관전 팀 배정·이동 전에 호출하며, 이후 모든 팀원의 직업 `onEliminated`를 호출하는 순서를 유지합니다.
 
-`JobLaneLifecycle`은 `PlayerLane` 내부의 경계별 작업을 묶습니다. 플레이어 라운드 훅과 타워 웨이브 훅을 하나로 합치지 않습니다.
+`PlayerLane`의 `resetForRound`·`markWaveStarted`·`clearTowers`는 경계별 작업을 순서대로 실행합니다. 플레이어 라운드 훅과 타워 웨이브 훅을 하나로 합치지 않습니다.
 
 | 공통 진입점 | 유지해야 할 경계 |
 |---|---|
@@ -102,9 +102,9 @@ Minecraft 26.3 / Java 25의 현재 공통 API를 사용하는 제작 가이드�
 
 마왕의 전투 진입은 실제 웨이브 시작 이후에 유지합니다. 준비 단계의 `onRoundStarted`로 옮기면 상점·핫바 동작이 달라집니다. 경기 전체의 주민 ADV 웨이브 시작·완료도 `JobBuilderLifecycle.onWaveStarted`·`onWaveCleared`를 통해 기존 위치에서 호출합니다.
 
-경기 종료 순서는 참가자별 `onMatchClosed` → `JobBuilderLifecycle.closePlayerRuntime(game)`의 마왕 온라인/오프라인 정리 → `closeBeforeLanes` → 팀·레인·타워 종료 → `closeAfterLanes`입니다. 두 정리 단계는 `JobBuilderLifecycle`에 있으며 선택 직업과 무관한 모든 참가자 UUID를 대상으로 합니다. 전행 단계는 주민 ADV·고대 도시·기술자, 후행 단계는 모든 참가자의 아틀란티스 상태·압력을 먼저 정리한 뒤 대적자·마법사·미래 기관·여왕·용사·군인 상태를 정리합니다. 대적자 설치 점수는 타워 제거 도중 조정되므로 후행 정리를 앞당기지 않습니다.
+경기 종료 순서는 참가자별 `onMatchClosed` → 마왕 온라인/오프라인 정리 → 레인 제거 전 정리 → 팀·레인·타워 종료 → 레인 제거 후 정리입니다. 두 정리 단계는 `SemionGame.closeRuntimeState()`에 있으며 선택 직업과 무관한 모든 참가자 UUID를 대상으로 합니다. 전행 단계는 주민 ADV·고대 도시·기술자, 후행 단계는 모든 참가자의 아틀란티스 상태·압력을 먼저 정리한 뒤 대적자·마법사·미래 기관·여왕·용사·군인 상태를 정리합니다. 대적자 설치 점수는 타워 제거 도중 조정되므로 후행 정리를 앞당기지 않습니다.
 
-`JobBuilderLifecycleTest`로 등록·공통 위임·소유자 범위·반복 종료를 검사합니다. `JobBuilderLifecycleRuntimeTest`는 고대 도시 처치 상한·라운드 초기화·종료 정리와 대적자 타워 제거 후 정리 순서를 실제 서버에서 검사하며, 계열 GameTest도 유지합니다. 우민·번개의 종료 정리 보완을 제외한 본문 이동은 게임 규칙 변경의 근거가 되지 않습니다.
+`JobLifecycleTest`로 소유자 범위·반복 종료·처치 1회 반영을 검사합니다. `JobLifecycleRuntimeTest`는 고대 도시 처치 상한·라운드 초기화·종료 정리와 대적자 타워 제거 후 정리 순서를 실제 서버에서 검사하며, 계열 GameTest도 유지합니다. 우민·번개의 종료 정리 보완을 제외한 본문 이동은 게임 규칙 변경의 근거가 되지 않습니다.
 
 ## 등록과 업그레이드
 
@@ -148,7 +148,7 @@ ProductionTowerCatalog.linkUpgrade(
 | 웨이브 시작의 명단/연결 캡처 | `onWaveStarted` |
 | 동적 설명 | `runtimeDetailLines()`와 공용 timed-effect 표시 |
 | 변경된 엔티티 외형 동기화 | `visual()`과 `onStateChanged()` |
-| 경기 종료·취소 시 상태 정리 | `JobLifecycle.onMatchClosed`와 `JobBuilderLifecycle`의 레인 제거 전후 정리 |
+| 경기 종료·취소 시 상태 정리 | 각 `*TowerJob`의 `onMatchClosed`와 `SemionGame.closeRuntimeState()`의 레인 제거 전후 정리 |
 
 직접 엔티티 피해를 주면 출처·물리/마법 통계·처치 전달을 빠뜨릴 수 있으므로 공통 경로를 사용합니다. `aggroPriority`는 몬스터가 타워를 고르는 우선순위입니다. 타워의 적 선택 규칙은 `selectAttackTarget`과 공용 goal에서 다룹니다.
 

@@ -3,6 +3,7 @@ package kim.biryeong.semiontd.job;
 import java.util.List;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
+import kim.biryeong.semiontd.tower.villager.VillagerAdvStates;
 import kim.biryeong.semiontd.tower.villager.VillagerTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import net.minecraft.network.chat.Component;
@@ -25,5 +26,15 @@ public final class VillagerAdvTowerJob extends SemionJob {
     @Override
     public boolean canUseTower(JobContext context, TowerType towerType) {
         return VillagerTowers.isAdvVillagerTower(towerType);
+    }
+
+    @Override
+    public void onMatchStarted(JobContext context) {
+        VillagerAdvStates.clear(context.player().uuid());
+    }
+
+    @Override
+    public void onEliminated(JobContext context) {
+        VillagerAdvStates.clear(context.player().uuid());
     }
 }

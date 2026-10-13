@@ -118,7 +118,9 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
                 server.tickRateManager().setTickRate(40.0F);
                 DemonLordService.tick(testLane(context, player.getUUID()), Map.of(player.getUUID(), demonLordPlayer(player)));
                 requireClose(originalMovement * 2.0, movement.getValue(), "The cleanup regression must start accelerated.");
-                kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
+                kim.biryeong.semiontd.ui.GambleRevealService.clear(player.getUUID());
+                kim.biryeong.semiontd.tower.demonlord.DemonLordService.disconnectPlayer(player);
+                kim.biryeong.semiontd.tower.frost.FrostFullOperationService.cleanupPlayer(player);
                 requireClose(originalMovement, movement.getValue(), "Disconnect must remove the demon lord movement modifier.");
                 context.succeed();
             } finally {
@@ -715,7 +717,9 @@ public final class DemonLordGameTest implements kim.biryeong.semiontd.gametest.R
             try (var first = kim.biryeong.semiontd.gametest.RuntimePlayerFixture.connect(context, context.getLevel(),
                     position, GameType.ADVENTURE, owner, "demon-rejoin")) {
                 DemonLordService.tick(lane, Map.of(owner, demonLordPlayer(first.player())));
-                kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(first.player());
+                kim.biryeong.semiontd.ui.GambleRevealService.clear(first.player().getUUID());
+                kim.biryeong.semiontd.tower.demonlord.DemonLordService.disconnectPlayer(first.player());
+                kim.biryeong.semiontd.tower.frost.FrostFullOperationService.cleanupPlayer(first.player());
                 require(DemonLordStates.get(owner) == state && state.inCombat(),
                         "A temporary disconnect must preserve the active combat state until the match ends.");
             }

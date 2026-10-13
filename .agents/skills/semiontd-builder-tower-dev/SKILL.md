@@ -37,7 +37,7 @@ State the mechanic, affected builders/towers, required persistence, player-visib
 
 Follow the relevant path end to end:
 
-- builder lifecycle: `SemionGame` / `EconomyService` -> `SemionJob` hooks -> `JobBuilderLifecycle` registry -> `JobLifecycle` family implementations; lane boundaries use `JobLaneLifecycle`;
+- builder lifecycle: `SemionGame` / `EconomyService` -> `SemionJob` hooks overridden in each `*TowerJob`; lane boundaries live in `PlayerLane` (`resetForRound`, `markWaveStarted`, `clearTowers`);
 - tower availability: family constants -> family catalog -> `ProductionTowerCatalogs` -> `ProductionTowerService`;
 - combat: `SemionTowerEntity` / `TowerAttackMonsterGoal` -> `Tower` hooks -> shared damage and area-effect APIs;
 - balance: `TowerBalanceConfig` -> `SemionConfigLoader` -> `TowerBalanceRuntime` -> resolved catalog entries;
@@ -62,7 +62,7 @@ Keep catalog data, family state, combat hooks and UI presentation separate where
 
 For a new builder family, normally cover:
 
-- immutable `SemionJob` definition, `JobRegistry` registration and explicit `JobBuilderLifecycle` entry (`JobLifecycle.NONE` when no event behavior is needed);
+- immutable `SemionJob` definition and `JobRegistry` registration (override only the event hooks the builder needs);
 - stable tower IDs, tier/role grouping, visuals, descriptions, and upgrade graph;
 - runtime tower classes only where behavior differs from the base classes;
 - family catalog registration and top-level `ProductionTowerCatalogs` wiring;
@@ -94,8 +94,8 @@ Prefix with `rtk` where required. Run `runGameTest` for entity, placement, upgra
 
 ## Non-negotiable invariants
 
-- Treat jobs and registered lifecycle implementations as shared objects. Keep job metadata, permissions and economy modifiers in the job; implement event behavior in a family-specific `JobLifecycle`, reached through the eight existing `SemionJob` hooks and `JobBuilderLifecycle`. Do not restore lifecycle overrides in production job classes. Keep mutable match/player state in keyed services and preserve the all-participant pre/post-lane shutdown phases.
-- Do not assume the lane is attached inside `SemionJob.onSelected`; selection runs before `team.addPlayer`. There is no deselection hook, and reconnect does not replay selection or match-start hooks. Preserve the six `JobLaneLifecycle` boundaries around temporary-copy removal, tower wave callbacks and tower teardown; do not move actual wave-start behavior into the preparation-phase round hook.
+- Treat jobs as shared objects. Keep job metadata, permissions, economy modifiers and event hook overrides together in the `*TowerJob`; do not add a separate lifecycle class per builder. Keep mutable match/player state in keyed services and preserve the all-participant pre/post-lane shutdown phases.
+- Do not assume the lane is attached inside `SemionJob.onSelected`; selection runs before `team.addPlayer`. There is no deselection hook, and reconnect does not replay selection or match-start hooks. Preserve the six `PlayerLane` boundaries around temporary-copy removal, tower wave callbacks and tower teardown; do not move actual wave-start behavior into the preparation-phase round hook.
 - Make every exported tower belong to exactly one builder through `includesTowerInCatalog`; context-sensitive jobs must not rely only on `canUseTower`.
 - Register only tier-one choices as starters. Register all entries before linking upgrade edges.
 - Resolve catalog types through `TowerBalanceRuntime` and price upgrades through `TowerBalanceRuntime.upgradeCost(from, upgradeId)`, not the target tower's placement cost.

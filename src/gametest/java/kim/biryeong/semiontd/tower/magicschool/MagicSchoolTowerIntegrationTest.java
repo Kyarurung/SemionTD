@@ -105,7 +105,9 @@ public final class MagicSchoolTowerIntegrationTest implements kim.biryeong.semio
             activeGame.setAccessible(true);
             activeGame.set(manager, game);
             manager.handlePlayerDisconnect(player);
-            kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(player);
+            kim.biryeong.semiontd.ui.GambleRevealService.clear(player.getUUID());
+            kim.biryeong.semiontd.tower.demonlord.DemonLordService.disconnectPlayer(player);
+            kim.biryeong.semiontd.tower.frost.FrostFullOperationService.cleanupPlayer(player);
             require(game.restorePlayerPlacement(player.level().getServer(), player), "The join path must restore the existing participant.");
             requireClose(.3998375, MagicSchoolSpellCombat.protection(entity), "Reconnect placement preserves the existing protection sources.");
             manager.dialogService().showTowerDetails(player, game, protectedWizard);

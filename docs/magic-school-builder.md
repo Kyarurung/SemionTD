@@ -1,6 +1,6 @@
 # 마법학교 빌더
 
-Minecraft 26.3 / Java 25 기준이다. 빌더의 경기 상태 정리는 `JobBuilderLifecycle`에 등록한 `JobMagicSchoolLifecycle`에서 처리하고, 라운드 정리와 전투 시작은 `JobLaneLifecycle`의 공통 호출 순서를 따른다. 스킨은 현재 프로필 조회 API와 공통 입력 화면을 사용하며 기존 용사 스킨·설계도·계정 성장 데이터를 보존한다.
+Minecraft 26.3 / Java 25 기준이다. 빌더의 경기 상태 정리는 `MagicSchoolTowerJob`의 경기 시작·탈락·경기 종료 훅에서 처리하고, 라운드 정리와 전투 시작은 `PlayerLane`의 공통 호출 순서를 따른다. 스킨은 현재 프로필 조회 API와 공통 입력 화면을 사용하며 기존 용사 스킨·설계도·계정 성장 데이터를 보존한다.
 
 창작 빌더 목록에서 **마법학교 빌더**를 선택할 수 있다. 빌더 ID는 `semion-td:magic_school`이다.
 

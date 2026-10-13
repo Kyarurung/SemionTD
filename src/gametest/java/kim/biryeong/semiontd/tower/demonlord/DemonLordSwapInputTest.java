@@ -165,7 +165,9 @@ public final class DemonLordSwapInputTest implements RuntimeArenaFixture {
             int remaining = f.state.remainingCooldownTicks(DemonLordSkill.DEMON_BARRIER, f.now());
             f.state.clearShield();
             f.manager.handlePlayerDisconnect(f.player);
-            kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(f.player);
+            kim.biryeong.semiontd.ui.GambleRevealService.clear(f.player.getUUID());
+            kim.biryeong.semiontd.tower.demonlord.DemonLordService.disconnectPlayer(f.player);
+            kim.biryeong.semiontd.tower.frost.FrostFullOperationService.cleanupPlayer(f.player);
             f.connected.close();
             try (var replacement = RuntimePlayerFixture.connect(context, context.getLevel(), f.player.position(),
                     GameType.ADVENTURE, f.player.getUUID(), "demon-return")) {

@@ -418,13 +418,7 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
     public void singleClickSelectionChecksSessionRevealAndDuplicateRequests(GameTestHelper context) {
         ServerPlayer online = context.makeMockServerPlayerInLevel();
         SemionGame game = prepare(context, online);
-        var displayed = new java.util.ArrayList<kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture>();
-        AugmentService.OfferGuiFactory guiFactory = (viewer, screen, started, valid, execute, canReroll) -> {
-            var fixture = new kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture(
-                    viewer, screen, started, valid, execute, canReroll);
-            displayed.add(fixture);
-            return fixture.gui;
-        };
+        var originalConnection = online.connection;
         try {
             force(game, online, "reserve_diamonds_silver reserve_income_silver reserve_production_silver");
             SemionPlayer player = game.players().get(online.getUUID());
@@ -443,14 +437,14 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
             require(player.augmentTelemetry().snapshot().guiEvents().stream()
                             .noneMatch(event -> event.eventType().equals("SHOWN")),
                     "An unavailable renderer must not record an offer as displayed.");
-            game.augmentService().showOffer(game, online, player, guiFactory);
-            require(displayed.getLast().gui.isOpen(), "The prepared renderer must open the actual offer container.");
-            require(handle(game, online, "ui offer back") == 1, "Returning to candidates must remain a read-only dialog action.");
+            var packets = collectPackets(online);
             game.augmentService().reopen(game, online);
-            game.augmentService().showOffer(game, online, player, guiFactory);
-            require(displayed.size() == 2 && displayed.getLast().gui.isOpen(),
-                    "Restoring a prepared renderer must open the actual offer again.");
-            require(pending.equals(state.currentOffer().orElseThrow()), "Reopening the offer GUI must not change its stored offer or draft.");
+            require(showPackets(packets) == 1, "A client with the card pack must receive the actual offer dialog.");
+            require(handle(game, online, "ui offer back") == 1, "Returning to candidates must remain a read-only dialog action.");
+            packets.clear();
+            game.augmentService().reopen(game, online);
+            require(showPackets(packets) == 1, "Restoring a client with the card pack must show the actual offer again.");
+            require(pending.equals(state.currentOffer().orElseThrow()), "Reopening the offer dialog must not change its stored offer or draft.");
             long income = player.economy().income();
             require(handle(game, online, draft) == 1 && state.currentOffer().isEmpty(),
                     "A card with no settings must be granted by the first click, without a confirmation step.");
@@ -472,7 +466,7 @@ public final class AugmentControllerGameTest extends AugmentControllerFixture {
         } catch (AssertionError error) {
             context.fail(Component.literal(error.getMessage()));
         } finally {
-            displayed.forEach(kim.biryeong.semiontd.ui.augment.AugmentOfferGuiFixture::close);
+            online.connection = originalConnection;
             game.close();
         }
         context.succeed();

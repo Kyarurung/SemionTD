@@ -119,4 +119,28 @@ public abstract class AugmentControllerFixture {
     protected static void require(boolean condition, String message) {
         if (!condition) {throw new AssertionError(message);}
     }
+
+    protected static java.util.ArrayList<net.minecraft.network.protocol.Packet<?>> collectPackets(net.minecraft.server.level.ServerPlayer online) {
+        var packets = new java.util.ArrayList<net.minecraft.network.protocol.Packet<?>>();
+        online.connection = new net.minecraft.server.network.ServerGamePacketListenerImpl(online.level().getServer(),
+                new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND), online,
+                net.minecraft.server.network.CommonListenerCookie.createInitial(online.getGameProfile(), false)) {
+            @Override public void send(net.minecraft.network.protocol.Packet<?> packet) {
+                packets.add(packet);
+            }
+        };
+        eu.pb4.polymer.common.api.PolymerCommonUtils.setHasResourcePack(online,
+                eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils.getMainUuid(), true);
+        require(eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils.hasMainPack(online),
+                "The packet fixture represents a client that loaded the card resource pack.");
+        return packets;
+    }
+
+    protected static long clearPackets(java.util.List<net.minecraft.network.protocol.Packet<?>> packets) {
+        return packets.stream().filter(net.minecraft.network.protocol.common.ClientboundClearDialogPacket.class::isInstance).count();
+    }
+
+    protected static long showPackets(java.util.List<net.minecraft.network.protocol.Packet<?>> packets) {
+        return packets.stream().filter(net.minecraft.network.protocol.common.ClientboundShowDialogPacket.class::isInstance).count();
+    }
 }

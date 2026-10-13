@@ -24,8 +24,8 @@ The main package is `src/main/java/kim/biryeong/semiontd`.
 |---|---|---|
 | Builder contract | `job/SemionJob.java` | immutable identity, economy and permissions; common public event entrypoints |
 | Builder registration | `job/JobRegistry.java` | built-in singleton registration and lookup |
-| Match lifecycle | `game/SemionGame.java`, `job/JobBuilderLifecycle.java`, `job/JobLifecycle.java` | common event dispatch, family implementations and ordered shutdown |
-| Lane lifecycle | `job/JobLaneLifecycle.java` | existing boundaries around reset, wave callbacks and tower teardown |
+| Match lifecycle | `game/SemionGame.java`, `job/SemionJob.java`, `job/*TowerJob.java` | event hooks overridden per job and ordered shutdown |
+| Lane lifecycle | `game/PlayerLane.java` | existing boundaries around reset, wave callbacks and tower teardown |
 | Reward lifecycle | `game/EconomyService.java` | kill reward calculation and `onMonsterKilled` callback |
 | Tower definition | `tower/TowerType.java` | stable ID, display metadata, core stats, visual, upgrade options |
 | Family definition | `tower/<family>/*Towers.java` | tower constants, tiers/roles, description templates |
@@ -127,9 +127,9 @@ There is no deselection hook. Reconnect does not replay selection or match-start
 
 ### Event implementation and ordered cleanup
 
-`SemionJob` keeps the eight existing public event entrypoints. Each delegates through `JobBuilderLifecycle` to the job ID's `JobLifecycle` implementation. Built-in job classes keep metadata, permissions and economy modifiers; put event behavior in `Job<Builder>Lifecycle`, not job overrides. The registry explicitly includes every built-in job and Default: currently 23 family implementations and 11 `JobLifecycle.NONE` entries. Use the no-op entry for a job with no event behavior instead of making an empty class.
+`SemionJob` keeps the eight existing public event entrypoints as empty defaults. Built-in job classes keep metadata, permissions, economy modifiers and their event behavior together: a `*TowerJob` overrides only the hooks it needs. Currently 23 jobs override at least one hook and 11 (including Default) use the empty defaults.
 
-Register a new job in both `JobRegistry` and `JobBuilderLifecycle`. Lifecycle implementations are shared, so mutable player/match fields still belong in keyed family services. Family mechanics remain in their tower/services; the lifecycle implementation connects those operations at the right boundary. For example, `JobPlantLifecycle.onRoundEnded` pays surviving owned towers' income, `JobArmyLifecycle` completes service and discharge refunds, and `JobWarlockLifecycle.onMonsterKilled` records awakening progress once. End retains a no-op job lifecycle; its tower transfer lifecycle remains separate.
+Register a new job in `JobRegistry`. Jobs are shared, so mutable player/match fields still belong in keyed family services. Family mechanics remain in their tower/services; the job hook connects those operations at the right boundary. For example, `PlantTowerJob.onRoundEnded` pays surviving owned towers' income, `ArmyTowerJob.onRoundEnded` completes service and discharge refunds, and `WarlockTowerJob.onMonsterKilled` records awakening progress once. End overrides no job hook; its tower transfer lifecycle remains separate.
 
 | Hook | Current implementation boundary | Contract to preserve |
 |---|---|---|
@@ -142,19 +142,19 @@ Register a new job in both `JobRegistry` and `JobBuilderLifecycle`. Lifecycle im
 | `onSummonedMonster` | common dispatch to default empty behavior | preserve summon context and arguments |
 | `onMonsterKilled` | Ancient City, Warlock and Demon Lord implementations | territory, awakening and combat experience rules; no duplicate credit |
 
-`JobBuilderLifecycle.onPlayerEliminated(ServerPlayer)` owns the existing single Demon Lord cleanup for each online eliminated player, before spectator-team assignment and teleport. The subsequent loop invokes every team member's job `onEliminated`. Preserve these two scopes and their order; this helper does not introduce a new elimination action.
+`SemionGame` runs the existing single `DemonLordService.cleanupPlayer` for each online eliminated player, before spectator-team assignment and teleport. The subsequent loop invokes every team member's job `onEliminated`. Preserve these two scopes and their order.
 
-`JobLaneLifecycle` keeps six separate `PlayerLane` boundaries: `beforeRoundReset`, `afterTemporaryCopiesRemoved`, `prepareWave`, `beforeTowerWaveStarted`, `afterTowerWaveStarted` and `beforeTowersCleared`. Preserve work between these calls. In particular, tower wave callbacks and round-trait application run before the post-wave snapshots/reserves/Demon Lord combat transition. Preparation-phase `onRoundStarted` is not actual wave start.
+`PlayerLane` keeps six separate boundaries inline: before and after temporary-copy removal in `resetForRound`, the wave preparation, pre-tower and post-tower blocks in `markWaveStarted`, and the block at the top of `clearTowers`. Preserve work between these blocks. In particular, tower wave callbacks and round-trait application run before the post-wave snapshots/reserves/Demon Lord combat transition. Preparation-phase `onRoundStarted` is not actual wave start.
 
-The game-level `JobBuilderLifecycle.onWaveStarted` / `onWaveCleared` preserve Villager ADV's existing whole-game callbacks. `onPlayerDisconnected` keeps the existing Gamble reveal, Demon Lord and Frost cleanup order; it does not reset the full job or replay match initialization on reconnect.
+`SemionGame` calls `VillagerAdvStates.onWaveStarted` / `onWaveCleared` as Villager ADV's existing whole-game callbacks. The disconnect handler in `Events` keeps the existing Gamble reveal, Demon Lord and Frost cleanup order; it does not reset the full job or replay match initialization on reconnect.
 
-`SemionGame.closeRuntimeState()` orders participant `onMatchClosed`, `JobBuilderLifecycle.closePlayerRuntime(game)` for Demon Lord online/offline cleanup, `closeBeforeLanes`, team/lane/tower teardown, then `closeAfterLanes`. Both phase helpers process all participant UUIDs regardless of selected job. Before lanes: Villager ADV, Ancient City and Engineer. After lanes: complete the Atlantis state/pressure pass, then the Adversary/Mage/Future Agency/Queen/Hero/Army pass. Adversary installed-score reconciliation occurs during tower removal, so its cleanup cannot move before teardown. Do not duplicate these phase-owned cleanups inside a family implementation.
+`SemionGame.closeRuntimeState()` orders participant `onMatchClosed`, Demon Lord online/offline cleanup, the pre-lane cleanup, team/lane/tower teardown, then the post-lane cleanup. Both phases process all participant UUIDs regardless of selected job. Before lanes: Villager ADV, Ancient City and Engineer. After lanes: complete the Atlantis state/pressure pass, then the Adversary/Mage/Future Agency/Queen/Hero/Army pass. Adversary installed-score reconciliation occurs during tower removal, so its cleanup cannot move before teardown. Do not duplicate these phase-owned cleanups inside a job hook.
 
-`JobBuilderLifecycleTest` checks registration, common dispatch, state ownership, repeated cleanup and single kill credit. `JobBuilderLifecycleRuntimeTest` covers Ancient City death caps/round reset/cleanup and cross-family Adversary state cleanup after tower removal. Keep the remaining family GameTests. Only Illager and Thunder gain previously missing match-close cleanup in this migration; moving existing event bodies does not authorize changing their rules.
+`JobLifecycleTest` checks state ownership, repeated cleanup and single kill credit. `JobLifecycleRuntimeTest` covers Ancient City death caps/round reset/cleanup and cross-family Adversary state cleanup after tower removal. Keep the remaining family GameTests. Only Illager and Thunder gain previously missing match-close cleanup in this migration; moving existing event bodies does not authorize changing their rules.
 
 ### Registration
 
-Add one immutable built-in job instance to `JobRegistry.registerBuiltIns()` and its explicit `JobBuilderLifecycle` entry. Jobs and lifecycle implementations are shared objects. Never put mutable per-player, per-match, or per-round fields directly on either.
+Add one immutable built-in job instance to `JobRegistry.registerBuiltIns()`. Jobs are shared objects. Never put mutable per-player, per-match, or per-round fields directly on them.
 
 Use stable lowercase resource IDs. Changing a job or tower ID can break configs, persistence, web consumers, and recorded actions; treat ID changes as migrations.
 

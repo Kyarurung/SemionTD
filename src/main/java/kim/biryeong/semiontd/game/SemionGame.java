@@ -32,7 +32,6 @@ import kim.biryeong.semiontd.entity.monster.Monster;
 import kim.biryeong.semiontd.entity.monster.MonsterOrigin;
 import kim.biryeong.semiontd.entity.monster.MonsterSupportMetrics;
 import kim.biryeong.semiontd.job.JobContext;
-import kim.biryeong.semiontd.job.JobBuilderLifecycle;
 import kim.biryeong.semiontd.job.JobRegistry;
 import kim.biryeong.semiontd.job.SemionJob;
 import kim.biryeong.semiontd.map.GameArena;
@@ -51,9 +50,18 @@ import kim.biryeong.semiontd.tower.augment.AugmentTowerService;
 import kim.biryeong.semiontd.tower.income.IncomeTower;
 import kim.biryeong.semiontd.tower.income.IncomeTowerBalance;
 import kim.biryeong.semiontd.tower.income.IncomeTowerService;
+import kim.biryeong.semiontd.tower.adversary.AdversaryProgressStates;
+import kim.biryeong.semiontd.tower.adversary.AdversaryTeamEffects;
+import kim.biryeong.semiontd.tower.mage.MageStates;
+import kim.biryeong.semiontd.tower.hero.HeroPartyStates;
 import kim.biryeong.semiontd.tower.villager.VillagerAdvStates;
 import kim.biryeong.semiontd.tower.pirate.PirateStates;
+import kim.biryeong.semiontd.tower.ancientcity.AncientCityStates;
+import kim.biryeong.semiontd.tower.army.ArmyStates;
+import kim.biryeong.semiontd.tower.atlantis.AtlantisPressure;
+import kim.biryeong.semiontd.tower.atlantis.AtlantisStates;
 import kim.biryeong.semiontd.tower.demonlord.DemonLordService;
+import kim.biryeong.semiontd.tower.engineer.EngineerPressStates;
 import kim.biryeong.semiontd.trait.BuiltInTraits;
 import kim.biryeong.semiontd.trait.SemionTrait;
 import kim.biryeong.semiontd.trait.TraitContext;
@@ -1031,13 +1039,42 @@ public final class SemionGame {
             semionPlayer.job().ifPresent(job ->
                     job.onMatchClosed(new JobContext(this, semionPlayer)));
         }
-        JobBuilderLifecycle.closePlayerRuntime(this);
-        JobBuilderLifecycle.closeBeforeLanes(players.keySet());
+        for (SemionPlayer semionPlayer : players.values()) {
+            ServerPlayer online = arena.teamArena(semionPlayer.teamId())
+                    .map(TeamArena::world)
+                    .map(ServerLevel::getServer)
+                    .map(server -> server.getPlayerList().getPlayer(semionPlayer.uuid()))
+                    .orElse(null);
+            if (online == null) {
+                DemonLordService.clearPlayerState(semionPlayer.uuid());
+            } else {
+                DemonLordService.cleanupPlayer(online);
+            }
+        }
+        for (UUID playerId : players.keySet()) {
+            VillagerAdvStates.clear(playerId);
+            AncientCityStates.clear(playerId);
+            EngineerPressStates.clear(playerId);
+        }
         for (SemionTeam team : teams.values()) {
             team.laneGroup().lanes().forEach(PlayerLane::clearRoundMonsterMetrics);
             team.closeRuntime();
         }
-        JobBuilderLifecycle.closeAfterLanes(players.keySet());
+        for (UUID playerId : players.keySet()) {
+            AtlantisStates.clear(playerId);
+            AtlantisPressure.clearPlayer(playerId);
+        }
+        // Rival tower removal reconciles its installed-score ledger while lanes close,
+        // so clear Adversary state after every tower has been detached.
+        for (UUID playerId : players.keySet()) {
+            AdversaryProgressStates.clear(playerId);
+            AdversaryTeamEffects.unregisterPlayer(playerId);
+            MageStates.clear(playerId);
+            kim.biryeong.semiontd.tower.futureagency.FutureAgencyStates.clear(playerId);
+            kim.biryeong.semiontd.tower.queen.QueenStates.clear(playerId);
+            HeroPartyStates.clear(playerId);
+            ArmyStates.clear(playerId);
+        }
         players.values().forEach(AugmentEconomyService::close);
         players.clear();
         selectedJobs.clear();
@@ -1467,7 +1504,7 @@ public final class SemionGame {
             enqueueWave(team, roundWave);
         }
         dispatchIncomeTowers();
-        JobBuilderLifecycle.onWaveStarted(this, currentRound);
+        VillagerAdvStates.onWaveStarted(this, currentRound);
     }
 
     /**
@@ -1570,7 +1607,7 @@ public final class SemionGame {
         }
         recordBuilderRoundResults(currentRound);
         advancementService.onRoundCompleted(server, this, currentRound);
-        JobBuilderLifecycle.onWaveCleared(this, currentRound);
+        VillagerAdvStates.onWaveCleared(this, currentRound);
         notifyRoundEnded(currentRound);
         if (augmentsEnabled()) {
             for (SemionPlayer player : players.values()) {
@@ -2158,7 +2195,7 @@ public final class SemionGame {
             if (player == null) {
                 continue;
             }
-            JobBuilderLifecycle.onPlayerEliminated(player);
+            DemonLordService.cleanupPlayer(player);
             VanillaTeamBridge.assignSpectator(server, player);
             placeSpectatorPlayer(player, spectatorIndex(memberId), team.id());
             player.sendSystemMessage(SemionText.prefixedPlain("소속 팀이 탈락했습니다. 관전 모드로 전환됩니다."));

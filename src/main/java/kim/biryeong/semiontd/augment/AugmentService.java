@@ -54,9 +54,6 @@ public final class AugmentService {
     private final Map<UUID, Integer> warnedSeconds = new HashMap<>();
     private final Map<GuiKey, GuiProgress> guiProgress = new HashMap<>();
     private final Map<UUID, TargetPreview> targetPreviews = new HashMap<>();
-    private final Map<UUID, OfferPresentation> offerPresentations = new HashMap<>();
-
-    private record OfferPresentation(long revision, long startedNanos) { }
 
     private record TargetPreview(ServerPlayer viewer, List<SemionTowerEntity> entities, long expiresAt) { }
 
@@ -409,17 +406,7 @@ public final class AugmentService {
                 .anyMatch(AugmentCombat::isNormalPermanentType);
     }
 
-    @FunctionalInterface
-    interface OfferGuiFactory {
-        kim.biryeong.semiontd.ui.augment.AugmentOfferGui create(ServerPlayer player, Screen screen, long startedNanos,
-                java.util.function.BooleanSupplier valid, java.util.function.ToIntFunction<String> execute, boolean canReroll);
-    }
-
     private void showOffer(SemionGame game, ServerPlayer online, SemionPlayer player) {
-        showOffer(game, online, player, null);
-    }
-
-    void showOffer(SemionGame game, ServerPlayer online, SemionPlayer player, OfferGuiFactory guiFactory) {
         expireOffer(game, player, game.currentTick());
         var offer = player.augments().currentOffer().orElse(null);
         if (offer == null || game.phase() != RoundPhase.PREPARE_AND_SUMMON || offer.offeredRound() != game.currentRound()) {
@@ -431,20 +418,8 @@ public final class AugmentService {
             return;
         }
         Screen screen = offerScreen(game, player, offer, true);
-        boolean canReroll = screen.canReroll();
         clearTargetPreview(online.getUUID());
-        OfferPresentation presentation = offerPresentations.compute(online.getUUID(), (id, existing) ->
-                existing != null && existing.revision() == offer.revision() ? existing
-                        : new OfferPresentation(offer.revision(), System.nanoTime()));
-        boolean opened = guiFactory == null ? kim.biryeong.semiontd.ui.augment.AugmentCardDialog.show(online, screen)
-                : guiFactory.create(online, screen, presentation.startedNanos(),
-                () -> game.augmentsEnabled() && alive(game, game.players().get(online.getUUID()))
-                        && game.phase() == RoundPhase.PREPARE_AND_SUMMON
-                        && game.currentTick() < offer.deadlineTickExclusive()
-                        && player.augments().currentOffer().map(current -> current.revision() == offer.revision()
-                        && current.offeredRound() == game.currentRound()).orElse(false),
-                command -> handle(game, online, command.substring(COMMAND.length()), false), canReroll).openOffer();
-        if (!opened) {
+        if (!kim.biryeong.semiontd.ui.augment.AugmentCardDialog.show(online, screen)) {
             error(online, "증강 화면을 준비 중입니다. 잠시 후 /증강으로 다시 열어 주세요.");
             return;
         }

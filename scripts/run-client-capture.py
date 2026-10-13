@@ -39,10 +39,6 @@ if (server_run / "capture-world").exists():
 properties = (server_run / "server.properties").read_text(encoding="utf-8")
 if "server-ip=127.0.0.1" not in properties or "online-mode=false" not in properties:
     raise RuntimeError("Expected a loopback-only offline isolated server")
-if scope.is_file() and json.loads(scope.read_text(encoding="utf-8")).get("betterHudRuntime"):
-    autohost = json.loads((server_run / "config/polymer/auto-host.json").read_text(encoding="utf-8"))
-    if autohost.get("setup_early") is not False:
-        raise RuntimeError("BetterHud capture requires setup_early=false before server startup")
 port = int(next(line.split("=", 1)[1] for line in properties.splitlines() if line.startswith("server-port=")))
 with socket.socket() as probe:
     probe.bind(("127.0.0.1", port))
@@ -86,37 +82,6 @@ try:
             if time.monotonic() > deadline:
                 raise TimeoutError("The isolated server did not finish startup within 300 seconds")
             time.sleep(1)
-        if scope.is_file() and json.loads(scope.read_text(encoding="utf-8")).get("betterHudRuntime"):
-            pack = server_run / "polymer/resource_pack.zip"
-            deadline = time.monotonic() + 180
-            while True:
-                if server.poll() is not None:
-                    raise RuntimeError("The isolated server exited before BetterHud pack readiness")
-                latest_log = (root / "capture-server.log").read_text(encoding="utf-8", errors="replace")
-                if "Failed to write the zip file!" in latest_log:
-                    raise RuntimeError("Actual BetterHud resource pack generation failed; inspect capture-server.log")
-                try:
-                    with zipfile.ZipFile(pack) as archive:
-                        names = archive.namelist()
-                        shaders = {extension: archive.read("betterhud_26_3/assets/minecraft/shaders/core/text." + extension)
-                                   for extension in ("vsh", "fsh")}
-                        if not any("semion_augment" in name for name in names):
-                            raise ValueError("Semion augment assets missing")
-                        if not all(b"DANTA_BETTERHUD_TEXT_COMPAT" in data for data in shaders.values()):
-                            raise ValueError("Final BetterHud/danta shader merge marker missing")
-                        if not (server_run / "config/betterhud/huds/semion-augment.yml").is_file():
-                            raise ValueError("Semion augment HUD definition missing")
-                        evidence = {"pack": str(pack), "sha256": hashlib.sha256(pack.read_bytes()).hexdigest(),
-                                    "setupEarly": False, "mergedShaderSha256": {name: hashlib.sha256(data).hexdigest()
-                                                                               for name, data in shaders.items()},
-                                    "augmentEntries": [name for name in names if "semion_augment" in name]}
-                        (root / "hud-pack-readiness.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
-                        print("CAPTURE_BETTERHUD_PACK_READY=" + evidence["sha256"], flush=True)
-                        break
-                except (OSError, KeyError, ValueError, zipfile.BadZipFile) as error:
-                    if time.monotonic() > deadline:
-                        raise TimeoutError("Actual BetterHud pack not ready: " + str(error)) from error
-                    time.sleep(1)
         if "-Dsemiontd.capture.mode=dialog" in launches["runCaptureServer"]["args"]:
             pack = server_run / "polymer/resource_pack.zip"
             deadline = time.monotonic() + 180

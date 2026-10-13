@@ -1,6 +1,5 @@
 package kim.biryeong.semiontd.game;
 
-import kim.biryeong.semiontd.job.JobLaneLifecycle;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
@@ -363,9 +362,23 @@ public final class PlayerLane {
     }
 
     public void resetForRound() {
-        JobLaneLifecycle.beforeRoundReset(this);
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clear(ownerPlayer);
+        for (var monster : activeMonsters()) {
+            if (arenaWorld().getEntity(monster.minecraftEntityId()) instanceof SemionMonsterEntity entity) {
+                entity.schoolSpells().clearRound();
+            }
+        }
+        kim.biryeong.semiontd.tower.legion.LegionAugments.clear(this);
+        kim.biryeong.semiontd.tower.undead.UndeadAugments.resetRound(this);
+        kim.biryeong.semiontd.tower.villager.VillagerAdvAugments.resetWave(this);
+        kim.biryeong.semiontd.tower.frost.FrostAugments.endWave(this);
+        kim.biryeong.semiontd.tower.pirate.PirateAugments.endWave(this);
         for (Tower copy : towers.stream().filter(Tower::isTemporaryCopy).toList()) {removeTower(copy);}
-        JobLaneLifecycle.afterTemporaryCopiesRemoved(this);
+        FrostFullOperationService.endWave(this);
+        // markWaveStarted 의 짝: 여기서 전투를 풀지 않으면 준비 단계까지 스킬 핫바가 유지됩니다.
+        DemonLordService.endRound(ownerPlayer);
+        clearTranscendence();
+        SuccubusDreams.clearLane(this);
         clearedThisRound = false;
         leakedThisRound = false;
         leakedThreatThisRound = 0.0;
@@ -526,11 +539,16 @@ public final class PlayerLane {
     }
 
     public void markWaveStarted(int currentRound) {
-        JobLaneLifecycle.prepareWave(this, currentRound);
+        AugmentCombat.startWave(this, currentRound);
+        FrostFullOperationService.beginWave(this);
+        clearTranscendence();
         trackedRound = Math.max(1, currentRound);
         trackedRoundTick = 0;
         roundTowerTrackers.clear();
-        JobLaneLifecycle.beforeTowerWaveStarted(this);
+        kim.biryeong.semiontd.tower.legion.LegionAugments.onWaveStarted(this);
+        kim.biryeong.semiontd.tower.villager.VillagerAdvAugments.startWave(this);
+        IllagerRaidStates.onWaveStarted(this);
+        kim.biryeong.semiontd.tower.frost.FrostAugments.beginWave(this);
         for (Tower tower : List.copyOf(towers)) {
             tower.markWaveStarted(currentRound);
             roundTowerTrackers.add(tower.roundMetricsTracker());
@@ -539,7 +557,17 @@ public final class PlayerLane {
         }
         applyRoundTraitEffects();
         applyOpeningAttackSpeed();
-        TowerRoundMetricsTracker demonLordTracker = JobLaneLifecycle.afterTowerWaveStarted(this, currentRound);
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolDeathEaters.onWaveStarted(this, currentRound);
+        ResonanceService.captureWaveStart(this);
+        AugmentCombat.captureWaveStartHealth(this);
+        kim.biryeong.semiontd.tower.adversary.AdversaryAugments.captureWaveStart(this);
+        kim.biryeong.semiontd.tower.futureagency.FutureAgencyAgentTower.captureWaveStart(this);
+        kim.biryeong.semiontd.tower.pirate.PirateAugments.beginWave(this);
+        kim.biryeong.semiontd.tower.army.ArmyStates.spawnReserves(this, currentRound);
+        // 마왕은 여기서 전투 상태가 됩니다. 라운드 시작(준비 단계)에 걸면 상점을 열 수 없는
+        // 채로 준비 시간을 보내게 되고, 스스로 물러난 뒤 웨이브가 시작돼도 복귀하지 못합니다.
+        DemonLordService.beginWave(this, currentRound);
+        TowerRoundMetricsTracker demonLordTracker = DemonLordService.roundMetricsTracker(ownerPlayer);
         if (demonLordTracker != null) {
             roundTowerTrackers.add(demonLordTracker);
         }
@@ -641,7 +669,12 @@ public final class PlayerLane {
     }
 
     public void clearTowers() {
-        JobLaneLifecycle.beforeTowersCleared(this);
+        kim.biryeong.semiontd.tower.magicschool.MagicSchoolTransfiguration.clear(ownerPlayer);
+        kim.biryeong.semiontd.tower.legion.LegionAugments.clear(this);
+        kim.biryeong.semiontd.tower.undead.UndeadAugments.resetRound(this);
+        kim.biryeong.semiontd.tower.frost.FrostAugments.endWave(this);
+        kim.biryeong.semiontd.tower.pirate.PirateAugments.endWave(this);
+        kim.biryeong.semiontd.tower.insect.InsectAugments.clear(ownerPlayer);
         for (Tower tower : List.copyOf(towers)) {
             AugmentCombat.onTowerRemoved(this, tower);
             if (tower.roundMetricsTracker() != null) {

@@ -68,12 +68,6 @@ dependencies {
 
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    implementation('maven.modrinth:betterhud2:kPuLN1uu') {
-        transitive = false
-    }
-    implementation 'net.fabricmc:fabric-language-kotlin:1.14.1+kotlin.2.4.20'
-    compileOnly 'io.github.toxicity188:BetterHud-mod-api:2.0.0'
-
     // Polymer
     implementation("eu.pb4:polymer-core:${project.polymer_version}")
     implementation("eu.pb4:polymer-virtual-entity:${project.polymer_version}")
@@ -249,7 +243,6 @@ tasks.named('runGameTest') {
 
 def capturePort = providers.gradleProperty('capturePort').getOrElse('25643')
 def captureMode = providers.gradleProperty('captureMode').getOrElse('dialog')
-def captureBetterHud = providers.gradleProperty('captureBetterHud').getOrElse('false').toBoolean()
 def captureClientExcludedPrefixes = ['DialogUtils-', 'friends-and-foes-patch-']
 def isolatedCaptureClientDirectory = layout.buildDirectory.dir('run/capture-client-' + java.util.UUID.randomUUID())
 def isolatedCaptureServerDirectory = layout.buildDirectory.dir('run/capture-server-' + java.util.UUID.randomUUID())
@@ -271,11 +264,6 @@ def prepareCaptureServer = {
         File isolatedRun = isolatedCaptureServerDirectory.get().asFile
         if (isolatedRun.exists()) throw new GradleException('Refusing to reuse capture server directory: ' + isolatedRun)
         isolatedRun.mkdirs()
-        if (captureBetterHud) {
-            File polymerConfig = new File(isolatedRun, 'config/polymer')
-            polymerConfig.mkdirs()
-            new File(polymerConfig, 'auto-host.json').setText('{"setup_early":false}\n', 'UTF-8')
-        }
         new File(isolatedRun, 'eula.txt').setText('eula=true\n', 'UTF-8')
         new File(isolatedRun, 'server.properties').setText(
                 'server-ip=127.0.0.1\nserver-port=' + capturePort + '\nonline-mode=false\nmax-players=1\n' +
@@ -285,9 +273,6 @@ def prepareCaptureServer = {
         logger.lifecycle('Isolated capture server: ' + isolatedRun)
 }
 tasks.named('runCaptureServer') {
-    if (!captureBetterHud) {
-        classpath = files(classpath.files.findAll { !it.name.toLowerCase(java.util.Locale.ROOT).startsWith('betterhud') })
-    }
     doFirst(prepareCaptureServer)
 }
 tasks.named('runClientGameTest') {
@@ -295,9 +280,6 @@ tasks.named('runClientGameTest') {
     classpath = files(classpath.files.findAll { file ->
         !captureClientExcludedPrefixes.any { prefix -> file.name.startsWith(prefix) }
     })
-    if (!captureBetterHud) {
-        classpath = files(classpath.files.findAll { !it.name.toLowerCase(java.util.Locale.ROOT).startsWith('betterhud') })
-    }
     doFirst {
         layout.buildDirectory.file('26.3-capture-client-dir.txt').get().asFile.setText(
                 isolatedCaptureClientDirectory.get().asFile.absolutePath, 'UTF-8')
@@ -327,9 +309,9 @@ tasks.register('prepareCaptureLaunch') {
         def output = layout.buildDirectory.file('capture-launch.json').get().asFile
         output.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(launches)), 'UTF-8')
         layout.buildDirectory.file('capture-scope.json').get().asFile.setText(
-                groovy.json.JsonOutput.toJson([mode: captureMode, betterHudRuntime: captureBetterHud,
+                groovy.json.JsonOutput.toJson([mode: captureMode,
                         clientExcludedJarPrefixes: captureClientExcludedPrefixes]), 'UTF-8')
-        logger.lifecycle('Capture scope: mode=' + captureMode + ', BetterHud runtime=' + captureBetterHud)
+        logger.lifecycle('Capture scope: mode=' + captureMode)
         logger.lifecycle('Capture JVM launch descriptions: ' + output)
     }
 }

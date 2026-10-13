@@ -7,10 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.Arrays;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import kim.biryeong.semiontd.config.EconomyConfig;
 import kim.biryeong.semiontd.config.WaveConfig;
 import kim.biryeong.semiontd.game.PlayerEconomy;
@@ -27,23 +24,11 @@ import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-final class JobBuilderLifecycleTest {
+final class JobLifecycleTest {
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
-    }
-
-    @Test
-    void everyRegisteredBuilderExplicitlyUsesTheCommonLifecycle() {
-        assertEquals(JobRegistry.all().stream().map(SemionJob::id).collect(Collectors.toSet()),
-                JobBuilderLifecycle.registeredJobIds());
-        Set<String> events = Set.of("onSelected", "onMatchStarted", "onRoundStarted", "onRoundEnded",
-                "onEliminated", "onMatchClosed", "onSummonedMonster", "onMonsterKilled");
-        for (SemionJob job : JobRegistry.all()) {
-            assertTrue(Arrays.stream(job.getClass().getDeclaredMethods())
-                    .noneMatch(method -> events.contains(method.getName())), job.id().toString());
-        }
     }
 
     @Test

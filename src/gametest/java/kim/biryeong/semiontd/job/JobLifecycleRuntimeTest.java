@@ -20,7 +20,7 @@ import kim.biryeong.semiontd.tower.ancientcity.AncientCityTowers;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 
-public final class JobBuilderLifecycleRuntimeTest extends GameTestParticipantFixture {
+public final class JobLifecycleRuntimeTest extends GameTestParticipantFixture {
     @GameTest
     public void ancientCityDispatchPreservesDeathCapRoundResetAndCleanup(GameTestHelper context) {
         UUID owner = stableUuid("job-lifecycle-ancient-city");

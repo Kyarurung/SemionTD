@@ -23,7 +23,6 @@ import kim.biryeong.semiontd.config.TowerBalanceConfig;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.entity.monster.DamageType;
 import kim.biryeong.semiontd.gametest.RuntimeArenaFixture;
-import kim.biryeong.semiontd.job.JobBuilderLifecycle;
 import kim.biryeong.semiontd.job.JobRegistry;
 import kim.biryeong.semiontd.job.SemionJob;
 import kim.biryeong.semiontd.map.LaneRegionLayout;
@@ -280,10 +279,20 @@ public final class GameBuilderPerformanceTest implements RuntimeArenaFixture {
                         cell.put("gcMillisIncludingWarmup", gc(true) - gcMillis);
                         if (sweep == 1) cells.add(cell);
                     } finally {
-                        JobBuilderLifecycle.closeBeforeLanes(Set.of(owner));
+                        kim.biryeong.semiontd.tower.villager.VillagerAdvStates.clear(owner);
+                        kim.biryeong.semiontd.tower.ancientcity.AncientCityStates.clear(owner);
+                        kim.biryeong.semiontd.tower.engineer.EngineerPressStates.clear(owner);
                         lane.clearTowers();
                         AreaEffectLaneIndex.unregister(lane);
-                        JobBuilderLifecycle.closeAfterLanes(Set.of(owner));
+                        kim.biryeong.semiontd.tower.atlantis.AtlantisStates.clear(owner);
+                        kim.biryeong.semiontd.tower.atlantis.AtlantisPressure.clearPlayer(owner);
+                        kim.biryeong.semiontd.tower.adversary.AdversaryProgressStates.clear(owner);
+                        kim.biryeong.semiontd.tower.adversary.AdversaryTeamEffects.unregisterPlayer(owner);
+                        kim.biryeong.semiontd.tower.mage.MageStates.clear(owner);
+                        kim.biryeong.semiontd.tower.futureagency.FutureAgencyStates.clear(owner);
+                        kim.biryeong.semiontd.tower.queen.QueenStates.clear(owner);
+                        kim.biryeong.semiontd.tower.hero.HeroPartyStates.clear(owner);
+                        kim.biryeong.semiontd.tower.army.ArmyStates.clear(owner);
                         BlueprintStates.clear(owner);
                     }
                 }

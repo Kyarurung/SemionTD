@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 import kim.biryeong.semiontd.SemionTd;
 import kim.biryeong.semiontd.tower.TowerType;
+import kim.biryeong.semiontd.tower.mage.MageStates;
+import kim.biryeong.semiontd.tower.mage.MageTowerLifecycle;
 import kim.biryeong.semiontd.tower.mage.MageTowers;
 import kim.biryeong.semiontd.ui.SemionText;
 import kim.biryeong.semiontd.summon.SummonRegistry;
@@ -47,5 +49,21 @@ public final class MageTowerJob extends SemionJob {
     @Override
     public boolean includesTowerInCatalog(TowerType towerType) {
         return MageTowers.isMageTower(towerType);
+    }
+
+    @Override
+    public void onMatchStarted(JobContext context) {
+        MageStates.clear(context.player().uuid());
+    }
+
+    @Override
+    public void onRoundEnded(JobContext context, int round) {
+        UUID owner = context.player().uuid();
+        context.game().playerLane(owner).ifPresent(lane -> MageTowerLifecycle.finishRound(lane, owner));
+    }
+
+    @Override
+    public void onEliminated(JobContext context) {
+        MageStates.clear(context.player().uuid());
     }
 }

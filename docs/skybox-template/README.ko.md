@@ -41,7 +41,7 @@ Ryan Remer의 무료 네뷸라 자산으로 만든 4종의 출처와 등록 ID�
 
 각 면의 UV 끝점은 자신의 타일 안쪽으로 0.001만큼 들어갑니다. 이는 타일 경계 정점이 이웃의 빈 칸을 샘플링하는 것을 방지하며 원본 PNG 파일과 큐브 크기는 바꾸지 않습니다.
 
-격리 GPU 검증은 `prepareCaptureLaunch -PcaptureMode=sky -PcaptureBetterHud=false` 다음 `python scripts/run-client-capture.py --skybox-source <원본 PNG 디렉터리>`로 수행합니다. 하네스는 새 테스트 디렉터리에 원본을 복사하고 해시를 기록하며, 실제 카메라 거리 512·640·1024·2048과 여러 시점 및 전경 픽셀을 검사합니다. 이 실행은 BetterHud를 제외한 스카이 비교 범위이며, 전체 UI 호환성은 BetterHud를 포함한 별도 캡처로 확인해야 합니다.
+격리 GPU 검증은 `prepareCaptureLaunch -PcaptureMode=sky` 다음 `python scripts/run-client-capture.py --skybox-source <원본 PNG 디렉터리>`로 수행합니다. 하네스는 새 테스트 디렉터리에 원본을 복사하고 해시를 기록하며, 실제 카메라 거리 512·640·1024·2048과 여러 시점 및 전경 픽셀을 검사합니다. 이 실행은 BetterHud를 제외한 스카이 비교 범위이며, 전체 UI 호환성은 BetterHud를 포함한 별도 캡처로 확인해야 합니다.
 
 ## Alpha와 fog
 

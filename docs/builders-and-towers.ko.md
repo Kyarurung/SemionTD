@@ -8,7 +8,7 @@ Minecraft 26.3 / Java 25를 기준으로 구현과 테스트를 함께 작성합
 
 | 제작 책임 | 사용할 경로 | 유지되는 계약 |
 |---|---|---|
-| 직업과 경기 상태 | `SemionJob`, `JobBuilderLifecycle`, `JobLaneLifecycle`, 계열별 상태 서비스 | 직업 정의와 이벤트 실행을 분리합니다. 가변 상태는 플레이어/경기에 귀속되며 공통 dispatch와 레인 전후 정리 순서를 보존합니다. |
+| 직업과 경기 상태 | `SemionJob`과 각 `*TowerJob`, 계열별 상태 서비스 | 직업 정의와 경기 이벤트 훅을 같은 `*TowerJob`에 둡니다. 가변 상태는 플레이어/경기에 귀속되며 `PlayerLane`과 `SemionGame`의 레인 전후 정리 순서를 보존합니다. |
 | 타입과 등록 | `TowerType`, 가족별 `*Towers` / `*TowerCatalogs`, `ProductionTowerCatalogs` | ID·스타터·업그레이드 그래프와 제작 팩토리를 명시합니다. |
 | 배치와 업그레이드 | `ProductionTowerService`, `Tower.copyFrom` | 권한·비용·원래/현재 위치·투자금 복사 경로를 재사용합니다. |
 | 전투와 범위 효과 | `ProductionTower`, `onAttackResolved`, `SemionTdApi.areaEffects()`, `TowerAreaDamage` | 피해 유형·출처·통계·처치 전달과 대상 필터를 함께 유지합니다. |
@@ -296,7 +296,7 @@ JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest
     어그로를 끌면 지뢰가 사암 탱커보다 싼 고기방패가 됩니다 — 붉은 버섯은 30다이아에 체력 110으로
     죽은 덤불보다 다이아당 체력이 높습니다. 무적은 아니라서 광역 피해로는 깎이고, 깎이면 폭발도
     약해집니다.
-    식물의 라운드 종료 수입은 공통 dispatch가 호출하는 `JobPlantLifecycle.onRoundEnded`에서
+    식물의 라운드 종료 수입은 `PlantTowerJob.onRoundEnded`에서
     살아 있는 소유 타워의 `diamondPerWave`를 합산해 지급합니다. 지뢰 재장전과는 별도 책임입니다.
   - 사암: 전투 타워가 **스스로 공격하지 않습니다**(사거리 0). 대신 맞을 때마다
     `받은 피해 × thornReflectRatio + 자기 공격력`을 반사하고, 이 반사는 개화·취약 배율을 그대로 탑니다.
@@ -573,17 +573,15 @@ JUnit은 `src/test/java/kim/biryeong/semiontd`, Fabric GameTest는 `src/gametest
 
 리롤 상태는 해당 경기의 `SemionPlayer`가 소유한다. 서버는 세션·제안 리비전·요청 식별자를 확인해 중복·오래된 요청으로 추가 차감하지 않는다. 잔량 0 또는 유효한 새 세 장 부족 시 중앙 버튼을 비활성화한다. 현재 진행 중 경기의 디스크 저장·서버 재시작 복원은 지원하지 않으며 재접속 보존과 구분한다.
 
-선택용 독립 아이콘 아틀라스는 `src/main/resources/semiontd/ui/augment-icons.png`에서 읽는다. 사용자가 제공한 `semiontd_augment_atlas_original.png`의 원본 바이트이며 정사각형 3×3 배열에서 행은 실버·골드·프리즘, 열은 공격·방어·기타다. 기존 아틀라스는 비교용 렌더러에 보존하며, 현재 네이티브 Dialog는 생성 원본 13종을 축소한 금속 문양을 사용한다. 참고 이미지의 원본 아이콘을 추출하거나 복사하지 않는다. 아이콘은 등급색을 유지하며 위쪽은 밝고 아래쪽은 조금 어두운 세로 그라데이션을 사용한다. 카드는 108×171픽셀, 카드 간격은 10픽셀이다. 리롤은 실제 그림과 클릭 폭 모두 40픽셀, 보이는 높이 14픽셀을 사용하며, 카드 아래 좌우 34픽셀의 비활성 여백으로 중앙 정렬한다. 비트맵 글리프 뒤의 1픽셀 진행 여백은 별도 음수 오프셋으로 상쇄한다. 좌우 끝 픽셀도 실제 마우스 입력으로 검증한다. 9픽셀 텍스트 행 단위의 입력 영역에 맞춰 위아래 2픽셀 클릭 여백을 둔다. Polymer가 생성한 최종 리소스팩에 실제 카드·폰트 리소스가 포함되어야 한다. 기존 BetterHud 인벤토리 렌더러는 비교 검증용으로 남아 있으며 네이티브 Dialog의 클릭 입력에는 BetterHud가 필요하지 않다.
-
-BetterHud와 Polymer AutoHost를 함께 쓰는 새 격리 환경에서는 `config/polymer/auto-host.json`의 `setup_early`를 `false`로 설정한다. 초기 팩 생성이 BetterHud의 팩 훅 등록보다 먼저 실행되면 카드 리소스가 빠질 수 있다. 캡처 하네스는 이 설정과 최종 팩의 카드·셰이더 리소스를 확인한 뒤 클라이언트를 연결한다. 운영 환경의 설정 변경과 리소스팩 배포는 별도 적용 작업이다.
+선택용 독립 아이콘 아틀라스는 `src/main/resources/semiontd/ui/augment-icons.png`에서 읽는다. 사용자가 제공한 `semiontd_augment_atlas_original.png`의 원본 바이트이며 정사각형 3×3 배열에서 행은 실버·골드·프리즘, 열은 공격·방어·기타다. 현재 네이티브 Dialog는 생성 원본 13종을 축소한 금속 문양을 사용한다. 참고 이미지의 원본 아이콘을 추출하거나 복사하지 않는다. 아이콘은 등급색을 유지하며 위쪽은 밝고 아래쪽은 조금 어두운 세로 그라데이션을 사용한다. 카드는 108×171픽셀, 카드 간격은 10픽셀이다. 리롤은 실제 그림과 클릭 폭 모두 40픽셀, 보이는 높이 14픽셀을 사용하며, 카드 아래 좌우 34픽셀의 비활성 여백으로 중앙 정렬한다. 비트맵 글리프 뒤의 1픽셀 진행 여백은 별도 음수 오프셋으로 상쇄한다. 좌우 끝 픽셀도 실제 마우스 입력으로 검증한다. 9픽셀 텍스트 행 단위의 입력 영역에 맞춰 위아래 2픽셀 클릭 여백을 둔다. Polymer가 생성한 최종 리소스팩에 실제 카드·폰트 리소스가 포함되어야 한다.
 
 실제 화면 검증용 `prepareCaptureLaunch`는 새 격리 서버·클라이언트 디렉터리와 JVM 실행 정보를 `build/capture-launch.json`에 생성한다. 테스트 서버는 `127.0.0.1`과 `capturePort`(기본 25643)를 사용한다. 캡처 전용 `semiontd.capture` 설정과 `SemionCapture` 계정으로 실제 증강 서비스, Dialog 패킷 및 마우스 입력 경로를 실행한다. 캡처 검증은 서버 GameTest와 별개이며, 운영 서버나 기존 월드를 사용하지 않는다.
 
-UI 검증 실행 순서는 Java 25 환경에서 `./gradlew prepareCaptureLaunch -PcaptureMode=dialog -PcaptureBetterHud=false --console=plain --no-daemon`, 이어서 `python scripts/run-client-capture.py`다. 재실행 때도 먼저 새 실행 정보를 생성해야 한다. 캡처 이미지와 서버·클라이언트 로그는 `build/capture-evidence/`의 해당 실행 결과가 가리키는 경로에서 확인한다. 서버 전용 모드는 시험 클라이언트에서 제외하며 실제 제외 목록은 `capture-scope.json`에 남긴다. GUI 배율 3에서만 실제 화면을 캡처하며, 카드 배치·툴팁·선택·공용 리롤·잔량 0의 비활성 상태와 서버 처리 결과를 함께 확인해야 한다. 현재 네이티브 Dialog는 세 장을 동시에 표시하며 기존 인벤토리 렌더러의 순차 등장 효과는 이식하지 않았다.
+UI 검증 실행 순서는 Java 25 환경에서 `./gradlew prepareCaptureLaunch -PcaptureMode=dialog --console=plain --no-daemon`, 이어서 `python scripts/run-client-capture.py`다. 재실행 때도 먼저 새 실행 정보를 생성해야 한다. 캡처 이미지와 서버·클라이언트 로그는 `build/capture-evidence/`의 해당 실행 결과가 가리키는 경로에서 확인한다. 서버 전용 모드는 시험 클라이언트에서 제외하며 실제 제외 목록은 `capture-scope.json`에 남긴다. GUI 배율 3에서만 실제 화면을 캡처하며, 카드 배치·툴팁·선택·공용 리롤·잔량 0의 비활성 상태와 서버 처리 결과를 함께 확인해야 한다. 현재 네이티브 Dialog는 세 장을 동시에 표시한다.
 
-상자 없이 이미지 카드를 클릭하는 대안은 GameTest 소스의 `CardDialogPoc`에서 격리 검증한다. `./gradlew prepareCaptureLaunch -PcaptureMode=card-dialog -PcaptureBetterHud=false --console=plain --no-daemon` 뒤 같은 캡처 스크립트를 실행한다. 네이티브 Dialog 본문을 9픽셀 높이의 비트맵 글리프 행으로 나누고 카드별 custom click action을 연결한다. 서버는 캡처 전용 계정과 세션 토큰, 중복 선택, 새로고침 후 만료된 토큰을 검사한다. 시험 프레임은 원본 아이콘이 아니며 이 경로는 운영 증강 선택 화면을 대체하지 않는다.
+상자 없이 이미지 카드를 클릭하는 대안은 GameTest 소스의 `CardDialogPoc`에서 격리 검증한다. `./gradlew prepareCaptureLaunch -PcaptureMode=card-dialog --console=plain --no-daemon` 뒤 같은 캡처 스크립트를 실행한다. 네이티브 Dialog 본문을 9픽셀 높이의 비트맵 글리프 행으로 나누고 카드별 custom click action을 연결한다. 서버는 캡처 전용 계정과 세션 토큰, 중복 선택, 새로고침 후 만료된 토큰을 검사한다. 시험 프레임은 원본 아이콘이 아니며 이 경로는 운영 증강 선택 화면을 대체하지 않는다.
 
-Dialog의 클릭 입력은 클라이언트 모드 없이 처리할 수 있지만 월드의 회색 배경과 흐림은 남는다. 현재 Dialog 데이터에는 해당 배경만 끄는 설정이 없으며, BetterHud의 HUD 출력 자체에 자유 커서 클릭 입력이 추가되는 것도 아니다. 다른 GUI까지 영향을 주는 전역 투명 처리나 사용자 클라이언트 설정 변경으로 대체하지 않는다. 남은 배경 제약에 대한 사용자 결정과 실제 화면 검증 없이 UI 완료나 배포 가능 상태로 판단하지 않는다.
+Dialog의 클릭 입력은 클라이언트 모드 없이 처리할 수 있지만 월드의 회색 배경과 흐림은 남는다. 현재 Dialog 데이터에는 해당 배경만 끄는 설정이 없다. 다른 GUI까지 영향을 주는 전역 투명 처리나 사용자 클라이언트 설정 변경으로 대체하지 않는다. 남은 배경 제약에 대한 사용자 결정과 실제 화면 검증 없이 UI 완료나 배포 가능 상태로 판단하지 않는다.
 
 
 일반 카드 상단에는 라벨을 표시하지 않으며 직업 전용 카드에는 직업 이름 없이 `전용`만 표시한다. 등급 이름도 표시하지 않는다. 일반/전용은 `requiredJobId`로 구분하며 효과 분류와 별도로 유지한다. 등급별 게임 규칙과 테두리·아이콘 색은 유지한다. 테두리는 위쪽 하이라이트와 아래쪽 음영을 둔 금속 베벨 및 모서리 장식을 사용하며 설명문 영역과 카드 클릭 폭을 침범하지 않는다. 효과 아이콘 13종은 `art/augment-icons/originals/`의 생성 원본을 보존하며 `scripts/prepare-augment-icons.py`로 알파 128 이상 실루엣을 중앙 76%에 맞춘 256×256 RGBA 텍스처를 만든다(Python Pillow 필요). 실제 표시 크기는 49×49이며 미리 곱한 알파로 축소하고 원본 휘도를 보존해 등급색을 적용한다. 직업 전용 표시는 아이콘 분류와 별개의 텍스트다. 리롤 버튼은 아이콘과 공용 남은 횟수만 표시한다. 닫기는 제안·마감 시각·리롤 횟수를 소비하거나 초기화하지 않으며 `/증강`으로 같은 유효 제안을 다시 연다. 닫힌 상태에서도 기존 시간 만료·라운드 전환 규칙은 계속 적용한다.

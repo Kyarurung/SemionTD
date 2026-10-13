@@ -105,7 +105,9 @@ public final class MagicSchoolHealthDisplayTest implements RuntimeArenaFixture {
             active.setAccessible(true);
             active.set(manager, fixture.game);
             manager.handlePlayerDisconnect(fixture.viewer);
-            kim.biryeong.semiontd.job.JobBuilderLifecycle.onPlayerDisconnected(fixture.viewer);
+            kim.biryeong.semiontd.ui.GambleRevealService.clear(fixture.viewer.getUUID());
+            kim.biryeong.semiontd.tower.demonlord.DemonLordService.disconnectPlayer(fixture.viewer);
+            kim.biryeong.semiontd.tower.frost.FrostFullOperationService.cleanupPlayer(fixture.viewer);
             check(fixture.game.restorePlayerPlacement(context.getLevel().getServer(), fixture.viewer), "The participant must reconnect.");
             requireClose(health, wizard.health(), "Reconnect must preserve current health.");
             fixture.checkHover(wizard);
